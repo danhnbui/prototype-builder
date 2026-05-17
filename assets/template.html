@@ -1162,9 +1162,17 @@
     function closeHandoffDrawer() { state.handoffDrawerOpenFor = null; renderHandoff(); }
     function setHandoffDrawerSegment(s) { state.handoffDrawerSegment = s; renderHandoff(); }
 
-    /* Copy a slash command to clipboard + show a toast + flash the source button (v0.3.1).
-       `btn` is optional — pass the clicked button element for inline ✓ Copied feedback. */
-    function copyAndToast(command, label, btn) {
+    /* Copy a command to clipboard + show a toast + flash the source button.
+       `btn` is optional — pass the clicked button element for inline ✓ Copied feedback.
+       `dest` is optional — 'claude' | 'terminal' | 'auto' (default). Auto-detect by
+       command prefix: starts with '/' → Claude Code; else → Terminal. (v0.3.3) */
+    function copyAndToast(command, label, btn, dest) {
+      const destination = (function () {
+        const d = (dest || 'auto').toLowerCase();
+        if (d === 'claude') return 'Claude Code';
+        if (d === 'terminal') return 'Terminal';
+        return command.trim().startsWith('/') ? 'Claude Code' : 'Terminal';
+      })();
       const fallback = () => {
         const ta = document.createElement('textarea');
         ta.value = command;
@@ -1193,10 +1201,9 @@
         const t = document.createElement('div');
         t.className = 'sync-toast';
         t.textContent = ok
-          ? (label ? `${label} — paste in Claude Code (⌘V)` : `Command copied — paste in Claude Code (⌘V)`)
+          ? (label ? `${label} — paste in ${destination} (⌘V)` : `Command copied — paste in ${destination} (⌘V)`)
           : `Copy failed. Command: ${command}`;
         document.body.appendChild(t);
-        // setTimeout (not rAF) — rAF can be throttled in backgrounded/iframed contexts.
         setTimeout(() => t.classList.add('is-visible'), 10);
         setTimeout(() => {
           t.classList.remove('is-visible');
