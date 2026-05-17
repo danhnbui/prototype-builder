@@ -66,13 +66,13 @@ mkdir ~/Desktop/my-prototype && cd ~/Desktop/my-prototype
 specify init . --integration claude --force
 
 # Install Preset + Extension from this single repo
-gh repo clone danhnbui/spec-kit-extension-prototype-builder /tmp/pb -- --branch v0.3.1
+gh repo clone danhnbui/spec-kit-extension-prototype-builder /tmp/pb -- --branch v0.3.2
 specify preset add --dev /tmp/pb
 specify extension add --dev /tmp/pb
 
 # Or via public URL once the repo is public:
-# specify preset add --from https://github.com/danhnbui/spec-kit-extension-prototype-builder/archive/refs/tags/v0.3.1.zip
-# specify extension add --from https://github.com/danhnbui/spec-kit-extension-prototype-builder/archive/refs/tags/v0.3.1.zip
+# specify preset add --from https://github.com/danhnbui/spec-kit-extension-prototype-builder/archive/refs/tags/v0.3.2.zip
+# specify extension add --from https://github.com/danhnbui/spec-kit-extension-prototype-builder/archive/refs/tags/v0.3.2.zip
 
 # Then open Claude Code and run the workflow
 claude
@@ -125,6 +125,11 @@ Full architectural docs (SRS, architecture, data flow, orchestrator, execution p
 ---
 
 ## Version
+
+- **v0.3.2** — Empty states + user-flow guide. Three additions:
+  1. **Empty states for Tab 3 (User Flow), Tab 4-Screen (Design Handoff), Tab 5 (ERD)** — when the tab hasn't been synced yet, the placeholder demo is replaced with a clean empty state: heading + body copy + primary CTA button (clicking copies the relevant slash command + flashes ✓ + shows toast). For Tab 3, the empty state also includes a "Read the 18 flow rules →" link to the new guide.
+  2. **[`docs/USER-FLOW-GUIDE.md`](docs/USER-FLOW-GUIDE.md)** — compact cheat-sheet distilled from the `design-generate-userflow` skill: 6 standard shapes, 18 enforced rules, output format, validation checklist. The `/speckit-prototype-builder-sync-flow` command now references this guide and must conform to its rules.
+  3. **PB_DATA shape extension**: `PB_DATA.flow.populated` and `PB_DATA.erd.populated` flags (default `false`) gate the empty-state vs. populated render. Sync commands set them to `true` after writing real content. Backwards-compatible — pre-v0.3.2 hooks that don't set these flags just keep the tabs in empty state.
 
 - **v0.3.1** — Sync now button feedback. The Sync button now also (a) flashes its label to "✓ Copied" with a green background for 1.5s after click, (b) moves the toast from bottom-center to top-center (just below the meta-nav, in the user's eyeline), (c) extends toast duration from 2.2s → 3s, (d) adds a checkmark icon to the toast, and (e) switches the toast appearance from `requestAnimationFrame` to `setTimeout(10ms)` — fixes a bug where the toast could be invisibly stuck in backgrounded/iframed contexts. No PB_DATA contract changes.
 - **v0.3.0** — Template UX iteration (`assets/template.html`). No command body changes. Five additions to the 5-tab template:
