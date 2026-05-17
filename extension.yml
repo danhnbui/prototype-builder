@@ -1,0 +1,75 @@
+schema_version: "1.0"
+
+extension:
+  id: "prototype-builder"
+  name: "Prototype Builder"
+  version: "0.1.0"
+  description: "Custom commands for spec-driven HTML UX-test prototypes with inline drift detection."
+  author: "Danh N. Bui — PropertyGuru Vietnam"
+  repository: "https://github.com/danhnbui/spec-kit-extension-prototype-builder"
+  license: "MIT"
+  homepage: "https://github.com/danhnbui/spec-kit-extension-prototype-builder"
+
+requires:
+  speckit_version: ">=0.8.0"
+
+provides:
+  commands:
+    - name: "speckit.prototype-builder.scaffold"
+      file: "commands/scaffold.md"
+      description: "Init-time scaffold: clones agent-skill-set, copies template.html into ./prototype/, prompts for DS + stack, writes constitution.md locks."
+    - name: "speckit.prototype-builder.build"
+      file: "commands/build.md"
+      description: "Generate or update Tab 1 (Prototype) and Tab 4-Component from current spec + plan. Runs inline drift check before any trio write."
+    - name: "speckit.prototype-builder.sync-flow"
+      file: "commands/sync-flow.md"
+      description: "Generate or update Tab 3 (User Flow) as SVG + user stories. Decoupled — never auto-triggers."
+    - name: "speckit.prototype-builder.sync-erd"
+      file: "commands/sync-erd.md"
+      description: "Generate or update Tab 5 (ERD) as Mermaid erDiagram with 5 guardrails. Decoupled — never auto-triggers."
+    - name: "speckit.prototype-builder.handoff"
+      file: "commands/handoff.md"
+      description: "Generate or update Tab 4-Screen (the 7:3 split) with spec tokens + sizing only — no code. Runs inline drift check before any trio write."
+    - name: "speckit.prototype-builder.skills-refresh"
+      file: "commands/skills-refresh.md"
+      description: "Re-pull the pinned agent-skill-set repo, prompt for tag upgrade, update constitution.md on approval."
+    - name: "speckit.prototype-builder.check-drift"
+      file: "commands/check-drift.md"
+      description: "Manual drift audit across the trio (Tab 1 + Tab 2 + Tab 4-Component). Produces a report only — never writes to tabs."
+    - name: "speckit.prototype-builder.sync-tab2"
+      file: "commands/sync-tab2.md"
+      description: "Internal: re-render Tab 2 of template.html from constitution.md, spec.md, clarify.md. Invoked by after_constitution / after_specify / after_clarify hooks."
+
+# Hooks fire on core SpecKit lifecycle events.
+# Each hook references a registered command (above) and invokes it after the event.
+# Custom commands (/build, /handoff) do their own inline drift check — they don't appear here.
+hooks:
+  after_constitution:
+    command: "speckit.prototype-builder.sync-tab2"
+    optional: false
+    description: "Keep template.html Tab 2 Principles in sync with constitution.md."
+    condition: null
+  after_specify:
+    command: "speckit.prototype-builder.sync-tab2"
+    optional: false
+    description: "Keep template.html Tab 2 Overview > Objectives in sync with spec.md."
+    condition: null
+  after_clarify:
+    command: "speckit.prototype-builder.sync-tab2"
+    optional: false
+    description: "Keep template.html Tab 2 User Insights + UI Logic Trade-offs in sync with clarify.md."
+    condition: null
+  after_plan:
+    command: "speckit.prototype-builder.check-drift"
+    optional: true
+    prompt: "Plan updated. Run a drift audit before /build?"
+    description: "Optional drift audit after plan to catch contradictions before the next build."
+    condition: null
+
+tags:
+  - "prototype"
+  - "design"
+  - "html"
+  - "single-file"
+  - "ux-test"
+  - "design-system"

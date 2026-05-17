@@ -1,0 +1,1444 @@
+<!DOCTYPE html>
+<!--
+  ============================================================================
+  PROTOTYPE BUILDER — Single-file 5-tab UX-test prototype template
+  ============================================================================
+
+  HOW TO USE
+  ─────────────────────────────────────────────────────────────
+  1. Copy this file:           cp template.html my-prototype.html
+  2. Open in any browser       (double-click — no build, no server needed).
+  3. Edit in your editor       (TODO blocks below mark what to fill in).
+  4. Refresh browser to see changes.
+  5. Share by sending the file or hosting it (GitHub Pages / Vercel / Netlify).
+
+  THE 5 TABS
+  ─────────────────────────────────────────────────────────────
+  1. Prototype           ← the live testable app (you build this)
+  2. Project Summary     ← Objective · Principles · Key Rules
+  3. User Flow           ← states + transitions diagram (zoomable canvas)
+  4. Component Variants  ← custom organisms with live variant toggle
+  5. ERD                 ← data model for a future production version
+
+  Read `PROTOTYPE-BUILDER.md` (sibling file) for the full author guide.
+  Agents: load `.claude/skills/prototype-builder/SKILL.md` for the playbook.
+============================================================================
+-->
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Prototype Builder</title>
+
+  <!-- Fonts (swap these to your brand fonts) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@500;600;700&display=swap" rel="stylesheet">
+
+  <style>
+    /* ========================================================================
+       DESIGN TOKENS
+       Swap the brand color (--brand) and fonts to match your project.
+       ======================================================================== */
+    :root {
+      /* Brand */
+      --brand:                  #1c4ed8;   /* primary accent  — change me */
+      --brand-soft:             #eef2ff;   /* soft accent bg  — change me */
+      --brand-strong:           #1e3aa3;   /* hover / pressed — change me */
+
+      /* Neutrals (HIVE-derived) */
+      --pg-gray-0:              #ffffff;
+      --pg-gray-5:              #f8f9fb;
+      --pg-gray-10:             #eff1f5;
+      --pg-gray-20:             #c1c9d2;
+      --pg-gray-40:             #8a94a0;
+      --pg-gray-60:             #5e6873;
+      --pg-gray-80:             #2d343c;
+      --pg-gray-90:             #1c1f22;
+
+      /* Semantic */
+      --bg-soft:                var(--pg-gray-5);
+      --text-active-primary:    var(--pg-gray-90);
+      --text-active-secondary:  var(--pg-gray-60);
+      --text-tertiary:          var(--pg-gray-40);
+      --border:                 var(--pg-gray-10);
+      --border-strong:          var(--pg-gray-20);
+      --fill-active-primary:    var(--brand);
+      --fill-active-secondary:  var(--brand-soft);
+      --fill-hover-secondary:   var(--pg-gray-10);
+
+      /* Fonts */
+      --font-heading: 'Poppins', system-ui, -apple-system, sans-serif;
+      --font-body:    'Inter',   system-ui, -apple-system, sans-serif;
+
+      /* Radii + shadows */
+      --pg-radius-small:   8px;
+      --pg-radius-medium:  16px;
+      --pg-radius-large:   24px;
+      --pg-radius-full:    9999px;
+      --hive-shadow-soft-sm: 0 1px 3px rgba(28,31,34,0.08);
+      --hive-shadow-soft-md: 0 4px 12px rgba(28,31,34,0.08);
+    }
+
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; }
+    body {
+      font-family: var(--font-body);
+      color: var(--text-active-primary);
+      background: var(--bg-soft);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ========================================================================
+       META-NAV BAR — dark 44px strip with 5 doc tabs
+       ======================================================================== */
+    .meta-nav {
+      position: sticky; top: 0; z-index: 1100;
+      height: 44px;
+      background: var(--pg-gray-90);
+      display: flex; align-items: center;
+      padding: 0 24px; gap: 4px;
+    }
+    .meta-tab {
+      height: 28px; padding: 0 14px;
+      border-radius: var(--pg-radius-full);
+      background: transparent; border: 0;
+      font-family: var(--font-heading);
+      font-size: 13px; font-weight: 600;
+      color: var(--pg-gray-40);
+      cursor: pointer;
+      transition: background 0.12s, color 0.12s;
+    }
+    .meta-tab:hover { color: var(--pg-gray-0); }
+    .meta-tab.active {
+      background: var(--brand);
+      color: white;
+    }
+
+    /* ========================================================================
+       META-PANEL — typography + layout for the 4 documentation tabs
+       ======================================================================== */
+    .meta-panel {
+      min-height: calc(100vh - 44px);
+      background: var(--bg-soft);
+      padding: 48px 60px;
+      max-width: 960px;
+      margin: 0 auto;
+    }
+    .flow-panel { max-width: 1280px; }
+    .meta-tag {
+      display: inline-block;
+      background: var(--brand-soft);
+      color: var(--brand-strong);
+      padding: 4px 10px;
+      border-radius: var(--pg-radius-small);
+      font-family: var(--font-heading);
+      font-size: 11px; font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+      margin-bottom: 16px;
+    }
+    .meta-h1 {
+      font-family: var(--font-heading);
+      font-size: 32px; font-weight: 700;
+      color: var(--text-active-primary);
+      margin: 0 0 8px;
+      line-height: 1.15;
+    }
+    .meta-h3 {
+      font-family: var(--font-heading);
+      font-size: 18px; font-weight: 600;
+      color: var(--text-active-primary);
+      margin: 0 0 12px;
+    }
+    .meta-sub {
+      font-size: 15px;
+      color: var(--text-active-secondary);
+      margin: 0 0 32px;
+      line-height: 1.5;
+    }
+    .meta-divider {
+      border: 0; border-top: 1px solid var(--border);
+      margin: 24px 0 32px;
+    }
+    .meta-section { margin-bottom: 36px; }
+    .meta-card {
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: var(--pg-radius-medium);
+      padding: 24px;
+    }
+    .meta-p {
+      font-size: 14px;
+      color: var(--text-active-primary);
+      line-height: 1.6;
+      margin: 0 0 12px;
+    }
+    .meta-p:last-child { margin-bottom: 0; }
+    .meta-principle {
+      display: flex; gap: 14px;
+      padding: 14px 18px;
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: var(--pg-radius-medium);
+      margin-bottom: 8px;
+    }
+    .meta-principle-num {
+      flex-shrink: 0;
+      width: 26px; height: 26px;
+      background: var(--brand);
+      color: white;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-family: var(--font-heading);
+      font-size: 13px; font-weight: 700;
+    }
+    .meta-principle-text {
+      font-size: 14px; line-height: 1.55;
+      color: var(--text-active-primary);
+    }
+    .meta-table {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0;
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: var(--pg-radius-medium);
+      overflow: hidden;
+      font-size: 13px;
+    }
+    .meta-table th, .meta-table td {
+      padding: 12px 16px;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+    }
+    .meta-table tr:last-child td { border-bottom: 0; }
+    .meta-table th {
+      font-family: var(--font-heading);
+      font-weight: 600;
+      color: var(--text-active-secondary);
+      background: var(--bg-soft);
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+    }
+    .meta-table code {
+      font-family: 'SF Mono', Menlo, monospace;
+      font-size: 12px;
+      background: var(--pg-gray-10);
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+
+    /* ========================================================================
+       META-H2 — Tab 2 sub-section header (2.1 Overview, 2.2 User Insights, …)
+       ======================================================================== */
+    .meta-h2 {
+      font-family: var(--font-heading);
+      font-size: 22px; font-weight: 700;
+      color: var(--text-active-primary);
+      margin: 0 0 16px;
+      padding-bottom: 8px;
+      border-bottom: 2px solid var(--brand-soft);
+    }
+
+    /* ========================================================================
+       META-TAB STALENESS BADGE — appears on Tab 3, Tab 4-S, Tab 5 nav buttons
+       ======================================================================== */
+    .meta-tab-stale {
+      display: inline-flex;
+      align-items: center; justify-content: center;
+      min-width: 18px; height: 18px;
+      padding: 0 5px;
+      margin-left: 8px;
+      background: #b45309;            /* amber-700 */
+      color: white;
+      border-radius: 9px;
+      font-size: 10px; font-weight: 700;
+      font-family: var(--font-heading);
+      line-height: 1;
+      vertical-align: middle;
+    }
+    .meta-tab.active .meta-tab-stale {
+      background: white;
+      color: var(--brand);
+    }
+
+    /* ========================================================================
+       HANDOFF — Tab 4 dual-view (Component / Screen) toggle + 7:3 grid
+       ======================================================================== */
+    .handoff-toggle {
+      display: inline-flex;
+      gap: 4px;
+      padding: 4px;
+      background: var(--pg-gray-10);
+      border-radius: var(--pg-radius-full);
+      margin: 8px 0 24px;
+    }
+    .handoff-toggle-btn {
+      height: 32px; padding: 0 16px;
+      border: 0; background: transparent;
+      border-radius: var(--pg-radius-full);
+      font-family: var(--font-heading);
+      font-size: 13px; font-weight: 600;
+      color: var(--text-active-secondary);
+      cursor: pointer;
+      transition: background 0.12s, color 0.12s;
+    }
+    .handoff-toggle-btn:hover { color: var(--text-active-primary); }
+    .handoff-toggle-btn.active {
+      background: white;
+      color: var(--brand-strong);
+      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    }
+
+    .handoff-screen-pick {
+      display: flex; align-items: center; gap: 12px;
+      margin-bottom: 16px;
+    }
+    .handoff-screen-label {
+      font-family: var(--font-heading);
+      font-size: 13px; font-weight: 600;
+      color: var(--text-active-secondary);
+    }
+    .handoff-screen-select {
+      font-family: var(--font-heading);
+      font-size: 13px; font-weight: 500;
+      padding: 6px 12px;
+      border: 1px solid var(--border);
+      border-radius: var(--pg-radius-small);
+      background: white;
+      color: var(--text-active-primary);
+    }
+
+    .handoff-7-3 {
+      display: grid;
+      grid-template-columns: 7fr 3fr;
+      gap: 16px;
+      align-items: start;
+    }
+    .handoff-left, .handoff-right { min-width: 0; }
+    .handoff-screen-frame {
+      position: relative;
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: var(--pg-radius-medium);
+      padding: 24px;
+      min-height: 480px;
+    }
+    .handoff-element-overlay {
+      position: absolute; inset: 0;
+      pointer-events: none;
+    }
+    .handoff-element-hit {
+      position: absolute;
+      background: transparent;
+      border: 1.5px dashed transparent;
+      border-radius: 4px;
+      cursor: pointer;
+      pointer-events: auto;
+      transition: border-color 0.12s, background 0.12s;
+    }
+    .handoff-element-hit:hover {
+      border-color: var(--brand);
+      background: rgba(28, 78, 216, 0.05);
+    }
+    .handoff-element-hit.active {
+      border-color: var(--brand);
+      border-style: solid;
+      background: rgba(28, 78, 216, 0.08);
+    }
+    .handoff-logic-notes {
+      margin-top: 12px;
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: var(--pg-radius-medium);
+      padding: 16px;
+    }
+    .handoff-logic-notes ul {
+      margin: 0; padding-left: 18px;
+      font-size: 13px; line-height: 1.55;
+      color: var(--text-active-primary);
+    }
+
+    .handoff-spec-panel {
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: var(--pg-radius-medium);
+      padding: 20px;
+      position: sticky; top: 60px;
+      max-height: calc(100vh - 80px);
+      overflow-y: auto;
+    }
+    .handoff-spec-elname {
+      font-family: var(--font-heading);
+      font-size: 15px; font-weight: 700;
+      color: var(--text-active-primary);
+      margin-bottom: 12px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--border);
+    }
+    .handoff-spec-section { margin-bottom: 16px; }
+    .handoff-spec-section-title {
+      font-family: var(--font-heading);
+      font-size: 11px; font-weight: 700;
+      color: var(--text-active-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+      margin-bottom: 6px;
+    }
+    .handoff-spec-row {
+      display: flex; justify-content: space-between; gap: 8px;
+      padding: 4px 0;
+      font-size: 12px;
+      font-family: 'SF Mono', Menlo, monospace;
+    }
+    .handoff-spec-key {
+      color: var(--text-active-secondary);
+      flex-shrink: 0;
+    }
+    .handoff-spec-val {
+      color: var(--text-active-primary);
+      font-weight: 600;
+      text-align: right;
+      word-break: break-all;
+    }
+    .handoff-spec-empty {
+      font-size: 12px; font-style: italic;
+      color: var(--text-tertiary);
+      padding: 8px 0;
+    }
+    .handoff-spec-warning {
+      margin-top: 8px;
+      padding: 8px 12px;
+      background: #fef3c7;            /* amber-100 */
+      border-left: 3px solid #b45309; /* amber-700 */
+      border-radius: 4px;
+      font-size: 12px;
+      color: #78350f;                 /* amber-900 */
+    }
+    .handoff-spec-footer {
+      margin-top: 16px;
+      padding-top: 12px;
+      border-top: 1px dashed var(--border);
+      font-size: 11px; font-style: italic;
+      color: var(--text-tertiary);
+      line-height: 1.4;
+    }
+
+    /* ========================================================================
+       FLOW CANVAS — zoomable / pannable diagram surface
+       Used by User Flow + ERD tabs
+       ======================================================================== */
+    .flow-layout {
+      display: flex;
+      gap: 20px;
+      align-items: stretch;
+      margin-bottom: 16px;
+    }
+    .flow-canvas {
+      position: relative;
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: var(--pg-radius-medium);
+      flex: 1; min-width: 0;
+      height: 620px;
+      overflow: hidden;
+    }
+    .flow-viewport {
+      position: absolute; inset: 0;
+      overflow: hidden;
+      cursor: grab;
+      background:
+        radial-gradient(circle, #e5e7eb 1px, transparent 1px) 0 0 / 24px 24px,
+        #fafbfc;
+    }
+    .flow-viewport:active { cursor: grabbing; }
+    .flow-stage {
+      position: absolute;
+      top: 50%; left: 50%;
+      width: 1200px; height: 380px;
+      margin-top: -190px; margin-left: -600px;
+      transform-origin: center center;
+      transition: transform 0.18s ease-out;
+      pointer-events: none;
+      user-select: none;
+    }
+    .flow-stage svg { width: 100%; height: 100%; display: block; }
+    .flow-stage-erd {
+      /* width/height/margin set inline after Mermaid renders */
+      width: 0; height: 0; margin: 0;
+    }
+    .flow-stage-erd .mermaid { background: transparent; display: block; }
+    .flow-stage-erd svg { display: block; }
+    .flow-zoom-controls {
+      position: absolute; top: 16px; right: 16px; z-index: 10;
+      display: flex; flex-direction: column; gap: 2px;
+      background: white;
+      border: 1px solid var(--border-strong);
+      border-radius: var(--pg-radius-small);
+      box-shadow: var(--hive-shadow-soft-sm);
+      overflow: hidden;
+    }
+    .flow-zoom-btn {
+      width: 36px; height: 36px;
+      background: white; border: 0;
+      cursor: pointer;
+      font-family: var(--font-heading);
+      font-size: 18px; font-weight: 600;
+      color: var(--text-active-primary);
+      display: flex; align-items: center; justify-content: center;
+      transition: background 0.12s;
+    }
+    .flow-zoom-btn:hover { background: var(--fill-hover-secondary); }
+    .flow-zoom-btn:not(:last-child) { border-bottom: 1px solid var(--border); }
+    .flow-zoom-readout {
+      position: absolute; bottom: 16px; right: 16px; z-index: 10;
+      background: white;
+      border: 1px solid var(--border-strong);
+      border-radius: var(--pg-radius-full);
+      padding: 4px 12px;
+      font-family: var(--font-heading); font-size: 12px; font-weight: 600;
+      color: var(--text-active-secondary);
+      box-shadow: var(--hive-shadow-soft-sm);
+      pointer-events: none;
+    }
+    .flow-hint {
+      position: absolute; bottom: 16px; left: 16px; z-index: 10;
+      background: rgba(28,31,34,0.85);
+      color: white;
+      border-radius: var(--pg-radius-full);
+      padding: 5px 12px;
+      font-family: var(--font-body); font-size: 11px;
+      pointer-events: none;
+      opacity: 0; transition: opacity 0.2s;
+    }
+    .flow-canvas:hover .flow-hint { opacity: 1; }
+
+    /* Flow legend (used by both User Flow and ERD tabs) */
+    .flow-legend {
+      flex: 0 0 280px;
+      background: white;
+      border: 1.5px dashed var(--pg-gray-20);
+      border-radius: 18px;
+      padding: 38px 22px 22px;
+      position: relative;
+      display: flex; flex-direction: column; gap: 14px;
+      font-family: var(--font-body);
+    }
+    .flow-legend-tag {
+      position: absolute; top: 12px; left: 16px;
+      background: var(--pg-gray-10);
+      padding: 4px 10px;
+      border-radius: var(--pg-radius-small);
+      font-family: var(--font-heading);
+      font-size: 11px; font-weight: 600;
+      color: var(--text-active-secondary);
+    }
+    .flow-legend-title {
+      font-family: var(--font-heading);
+      font-size: 28px; font-weight: 700;
+      color: var(--text-active-primary);
+      margin: 8px 0 4px;
+      line-height: 1;
+    }
+    .flow-legend-shapes {
+      display: flex; gap: 12px;
+      align-items: center; justify-content: center;
+      padding: 8px 0 4px;
+    }
+    .flow-legend-circle, .flow-legend-diamond {
+      width: 96px; height: 96px;
+      display: flex; align-items: center; justify-content: center;
+      font-family: var(--font-heading);
+      font-size: 12px; font-weight: 600;
+      text-align: center; line-height: 1.25;
+      flex-shrink: 0;
+    }
+    .flow-legend-circle { background: #1c1f22; color: white; border-radius: 50%; }
+    .flow-legend-diamond {
+      background: #F6C000; color: #1c1f22;
+      clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
+    }
+    .flow-legend-pill {
+      border-radius: 14px;
+      padding: 12px 16px;
+      text-align: center;
+    }
+    .flow-legend-pill .en {
+      font-family: var(--font-heading);
+      font-size: 13px; font-weight: 600;
+      line-height: 1.3;
+    }
+    .flow-legend-pill .vn {
+      font-family: var(--font-body);
+      font-size: 12px; margin-top: 2px; opacity: 0.9;
+    }
+    .flow-legend-pill-blue { background: #4A90D9; color: white; }
+    .flow-legend-pill-gray { background: #E5E7EB; color: #1c1f22; }
+
+    /* ERD legend pieces */
+    .erd-legend-entity {
+      background: white;
+      border: 1.5px solid var(--pg-gray-20);
+      border-radius: 10px;
+      overflow: hidden;
+      font-family: var(--font-body);
+      font-size: 11px;
+    }
+    .erd-legend-entity-head {
+      background: #1c1f22; color: white;
+      padding: 6px 12px;
+      font-family: var(--font-heading); font-weight: 600;
+      letter-spacing: 0.4px; font-size: 11px;
+    }
+    .erd-legend-entity-row {
+      display: flex; justify-content: space-between;
+      padding: 6px 12px;
+      border-top: 1px solid var(--pg-gray-10);
+      color: var(--text-active-secondary);
+    }
+    .erd-legend-entity-row span:last-child {
+      color: var(--text-active-primary);
+      font-family: var(--font-heading); font-weight: 600;
+    }
+    .erd-legend-rels {
+      display: flex; flex-direction: column; gap: 10px;
+      background: white;
+      border-radius: 10px;
+      padding: 12px;
+    }
+    .erd-legend-rels-title {
+      font-family: var(--font-heading);
+      font-size: 11px; font-weight: 600;
+      text-transform: uppercase; letter-spacing: 0.32px;
+      color: var(--text-tertiary);
+      margin-bottom: 2px;
+    }
+    .erd-legend-rel {
+      display: grid;
+      grid-template-columns: 36px 60px 1fr;
+      align-items: center; gap: 10px;
+      font-size: 11px; font-family: var(--font-body);
+    }
+    .erd-legend-rel .lbl {
+      font-family: var(--font-heading); font-weight: 700;
+      color: var(--text-active-primary);
+    }
+    .erd-legend-rel svg { width: 60px; height: 14px; display: block; }
+    .erd-legend-rel .desc { color: var(--text-active-secondary); }
+
+    @media (max-width: 1080px) {
+      .flow-layout { flex-direction: column; }
+      .flow-legend { flex: 0 0 auto; }
+    }
+
+    /* ========================================================================
+       VARIANTS TAB — component playground
+       ======================================================================== */
+    .variant-section { margin-bottom: 52px; }
+    .variant-meta {
+      font-family: var(--font-body);
+      font-size: 13px;
+      color: var(--text-active-secondary);
+      margin: 4px 0 14px;
+    }
+    .variant-ctrls {
+      display: flex; gap: 8px; flex-wrap: wrap;
+      margin-bottom: 20px;
+    }
+    .variant-ctrl {
+      height: 32px; padding: 0 14px;
+      background: white;
+      border: 1px solid var(--border-strong);
+      border-radius: var(--pg-radius-full);
+      cursor: pointer;
+      font-family: var(--font-heading);
+      font-size: 12px; font-weight: 600;
+      color: var(--text-active-secondary);
+      transition: border-color 0.12s, background 0.12s, color 0.12s;
+    }
+    .variant-ctrl:hover {
+      border-color: var(--text-active-secondary);
+      color: var(--text-active-primary);
+    }
+    .variant-ctrl.active {
+      background: var(--pg-gray-90);
+      border-color: var(--pg-gray-90);
+      color: white;
+    }
+    .variant-preview {
+      border: 1px solid var(--border);
+      border-radius: var(--pg-radius-medium);
+      padding: 24px;
+      background: var(--bg-soft);
+      overflow: auto;
+    }
+
+    /* ========================================================================
+       PLACEHOLDER (used by empty Prototype tab)
+       ======================================================================== */
+    .placeholder-card {
+      max-width: 560px;
+      margin: 80px auto;
+      background: white;
+      border: 1px dashed var(--border-strong);
+      border-radius: var(--pg-radius-large);
+      padding: 40px;
+      text-align: center;
+    }
+    .placeholder-card h2 {
+      font-family: var(--font-heading);
+      font-size: 24px;
+      margin: 0 0 12px;
+    }
+    .placeholder-card p {
+      color: var(--text-active-secondary);
+      font-size: 14px;
+      line-height: 1.6;
+      margin: 0 0 8px;
+    }
+    .placeholder-card code {
+      font-family: 'SF Mono', Menlo, monospace;
+      font-size: 13px;
+      background: var(--pg-gray-10);
+      padding: 2px 8px;
+      border-radius: 4px;
+    }
+  </style>
+
+  <!-- Mermaid CDN — used by the ERD tab. Keep this even if you don't ship ERD;
+       it's a small script and lets agents toggle it on at any time. -->
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+</head>
+
+<body>
+  <div id="meta-nav"></div>
+  <div id="app"></div>
+
+  <script>
+    /* =========================================================================
+       PB_DATA — SpecKit-output data injected by /speckit.prototype-builder.build
+       and the after_* hooks.
+       This object is the single write target. Render functions read from it.
+       Leave the placeholders below — /build replaces this whole block.
+       ========================================================================= */
+    const PB_DATA = {
+      // Tab 2 — Project Summary (auto-syncs on after_constitution, after_specify, after_clarify)
+      overview: {
+        objectives: null,        // string — from spec.md Objective section
+        principles: [],          // [{ num, title, body }] — from constitution.md Principles
+      },
+      userInsights: {
+        quantitative: null,      // string or null — from clarify.md User Insights
+        researchSummary: null,
+        executiveSummary: null,
+      },
+      uiLogicTradeoffs: [],      // [{ title, question, options, decision, why, tabsAffected }]
+      others: null,              // freeform per-project content
+
+      // Tab 4 — Design Handoff (Component view auto-syncs on /build; Screen view on /handoff)
+      handoff: {
+        view: 'component',       // 'component' | 'screen'
+        organisms: [],           // [{ id, name, variants, renderFn }] for Component view
+        screens: [],             // [{ id, name, renderFn, elements: [{id, label, tokens, sizing, state}] }] for Screen view
+        selectedScreenId: null,
+        selectedElementId: null,
+      },
+
+      // Tab staleness — set by sync commands; rendered as a badge
+      staleness: {
+        flow: { lastSyncedPromptCount: 0, currentPromptCount: 0 },
+        handoffScreen: { lastSyncedPromptCount: 0, currentPromptCount: 0 },
+        erd: { lastSyncedPromptCount: 0, currentPromptCount: 0 },
+      },
+    };
+
+    /* =========================================================================
+       STATE — minimal app state
+       Add your prototype's state fields below the metaView line.
+       ========================================================================= */
+    const state = {
+      metaView: 'prototype',   // 'prototype' | 'summary' | 'flow' | 'handoff' | 'erd'
+      /* TODO: add your app state here, e.g.:
+         user: null,
+         currentScreen: 'home',
+         items: [],
+      */
+    };
+
+    const $  = (sel, root = document) => root.querySelector(sel);
+    const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
+
+    /* HIVE icon helper (optional) — wraps the PropertyGuru HIVE icon CDN.
+       If you don't use HIVE icons, replace these calls with inline SVG or emoji. */
+    const ICON_CDN = 'https://cdn.pgimgs.com/hive-ui-core/static/v1.6/icons/svgs/';
+    function safeIcon(name, size = 16) {
+      return `<img src="${ICON_CDN}${name}.svg" width="${size}" height="${size}" alt=""
+        style="display:inline-block;vertical-align:middle;flex-shrink:0">`;
+    }
+
+    /* =========================================================================
+       RENDER — top-level dispatcher
+       ========================================================================= */
+    function render() {
+      renderMetaNav();
+      if (state.metaView === 'prototype') renderPrototype();
+      else renderMetaPanel();
+    }
+
+    /* =========================================================================
+       META-NAV — 5-tab bar at the top
+       ========================================================================= */
+    function renderMetaNav() {
+      const tabs = [
+        ['prototype', 'Prototype'],
+        ['summary',   'Project Summary'],
+        ['flow',      'User Flow',    'flow'],
+        ['handoff',   'Design Handoff','handoffScreen'],
+        ['erd',       'ERD',          'erd'],
+      ];
+      const el = document.getElementById('meta-nav');
+      if (!el) return;
+      el.className = 'meta-nav';
+      el.innerHTML = tabs.map(([id, label, staleKey]) => {
+        const stale = staleKey && pbStalenessGap(staleKey);
+        const badge = stale > 0
+          ? `<span class="meta-tab-stale" title="Stale: ${stale} prompts since last sync">${stale}</span>`
+          : '';
+        return `<button class="meta-tab ${state.metaView === id ? 'active' : ''}"
+                 onclick="setMetaView('${id}')">${label}${badge}</button>`;
+      }).join('');
+    }
+
+    /* Returns the # of prompts elapsed since this tab's last sync, or 0 if fresh. */
+    function pbStalenessGap(key) {
+      const s = (PB_DATA && PB_DATA.staleness && PB_DATA.staleness[key]) || null;
+      if (!s) return 0;
+      const gap = (s.currentPromptCount || 0) - (s.lastSyncedPromptCount || 0);
+      return gap > 0 ? gap : 0;
+    }
+    function setMetaView(v) { state.metaView = v; render(); window.scrollTo({top: 0}); }
+
+    function renderMetaPanel() {
+      switch (state.metaView) {
+        case 'summary': return renderMetaSummary();
+        case 'flow':    return renderMetaFlow();
+        case 'handoff': return renderHandoff();
+        case 'erd':     return renderMetaERD();
+      }
+    }
+
+    /* =========================================================================
+       TAB 1 — PROTOTYPE
+       This is the live, interactive app users will test. Replace the
+       placeholder below with your prototype's UI.
+       ========================================================================= */
+    function renderPrototype() {
+      // TODO: replace with your actual prototype UI.
+      $('#app').innerHTML = `
+        <div class="placeholder-card">
+          <h2>Your prototype goes here</h2>
+          <p>Edit <code>renderPrototype()</code> in this file to build the live app
+             users will interact with during testing.</p>
+          <p>The other 4 tabs (Summary / Flow / Variants / ERD) are the documentation
+             layer around this prototype.</p>
+        </div>
+      `;
+    }
+
+    /* =========================================================================
+       TAB 2 — PROJECT SUMMARY
+       4 sub-sections (per 02-architecture.md §7 Addition C):
+         2.1 Overview              (Objectives + Principles, auto-syncs)
+         2.2 User Insights         (Quantitative + Research Summary + Executive Summary)
+         2.3 UI Logic Trade-offs   (decisions captured during /speckit.clarify)
+         2.4 Others                (reserved per-project)
+       Empty sub-sections render with empty-state copy.
+       ========================================================================= */
+    function renderMetaSummary() {
+      $('#app').innerHTML = `
+        <div class="meta-panel">
+          <span class="meta-tag">Project Summary</span>
+          <h1 class="meta-h1">What this prototype is testing</h1>
+          <p class="meta-sub">Auto-synced from <code>constitution.md</code>, <code>spec.md</code>, and <code>clarify.md</code>.</p>
+          <hr class="meta-divider">
+
+          ${pbRenderOverview()}
+          ${pbRenderUserInsights()}
+          ${pbRenderTradeoffs()}
+          ${pbRenderOthers()}
+        </div>
+      `;
+    }
+
+    function pbRenderOverview() {
+      const o = (PB_DATA && PB_DATA.overview) || {};
+      const objectiveBody = o.objectives
+        ? `<p class="meta-p">${pbEscape(o.objectives)}</p>`
+        : `<p class="meta-p" style="color:var(--text-tertiary);font-style:italic">
+             No objective recorded yet. Run <code>/speckit.specify</code> to capture one.
+           </p>`;
+      const principles = (o.principles && o.principles.length)
+        ? o.principles.map(p => `
+            <div class="meta-principle">
+              <span class="meta-principle-num">${p.num}</span>
+              <span class="meta-principle-text"><strong>${pbEscape(p.title)}</strong> — ${pbEscape(p.body)}</span>
+            </div>`).join('')
+        : `<p class="meta-p" style="color:var(--text-tertiary);font-style:italic">
+             No principles recorded yet. Run <code>/speckit.constitution</code> to capture them.
+           </p>`;
+      return `
+        <div class="meta-section">
+          <div class="meta-h2">2.1 Overview</div>
+
+          <div class="meta-h3">Objectives</div>
+          <div class="meta-card">${objectiveBody}</div>
+
+          <div class="meta-h3" style="margin-top:24px">Principles</div>
+          ${principles}
+        </div>
+      `;
+    }
+
+    function pbRenderUserInsights() {
+      const u = (PB_DATA && PB_DATA.userInsights) || {};
+      const sub = (title, body) => body
+        ? `<div class="meta-h3">${title}</div><div class="meta-card"><p class="meta-p">${pbEscape(body)}</p></div>`
+        : `<div class="meta-h3">${title}</div><div class="meta-card"><p class="meta-p" style="color:var(--text-tertiary);font-style:italic">No ${title.toLowerCase()} recorded yet.</p></div>`;
+      return `
+        <div class="meta-section">
+          <div class="meta-h2">2.2 User Insights</div>
+          ${sub('Quantitative Data', u.quantitative)}
+          ${sub('Research Summary Report', u.researchSummary)}
+          ${sub('Executive Summary', u.executiveSummary)}
+        </div>
+      `;
+    }
+
+    function pbRenderTradeoffs() {
+      const t = (PB_DATA && PB_DATA.uiLogicTradeoffs) || [];
+      if (!t.length) {
+        return `
+          <div class="meta-section">
+            <div class="meta-h2">2.3 UI Logic Trade-offs</div>
+            <p class="meta-p" style="color:var(--text-tertiary);font-style:italic">
+              No UI logic trade-offs recorded yet. Run <code>/speckit.clarify</code> to capture them.
+            </p>
+          </div>
+        `;
+      }
+      return `
+        <div class="meta-section">
+          <div class="meta-h2">2.3 UI Logic Trade-offs</div>
+          ${t.map((to, i) => `
+            <div class="meta-card" style="margin-bottom:12px">
+              <div class="meta-h3">Trade-off ${i+1} — ${pbEscape(to.title || '')}</div>
+              ${to.question ? `<p class="meta-p"><strong>Question:</strong> ${pbEscape(to.question)}</p>` : ''}
+              ${to.options && to.options.length ? `<p class="meta-p"><strong>Options considered:</strong></p><ul>${
+                to.options.map(opt => `<li>${pbEscape(opt)}</li>`).join('')
+              }</ul>` : ''}
+              ${to.decision ? `<p class="meta-p"><strong>Decision:</strong> ${pbEscape(to.decision)}</p>` : ''}
+              ${to.why ? `<p class="meta-p"><strong>Why:</strong> ${pbEscape(to.why)}</p>` : ''}
+              ${to.tabsAffected ? `<p class="meta-p" style="color:var(--text-tertiary);font-size:12px">Affects: ${pbEscape(to.tabsAffected)}</p>` : ''}
+            </div>
+          `).join('')}
+        </div>
+      `;
+    }
+
+    function pbRenderOthers() {
+      const o = PB_DATA && PB_DATA.others;
+      return `
+        <div class="meta-section">
+          <div class="meta-h2">2.4 Others</div>
+          <div class="meta-card">
+            ${o
+              ? `<div class="meta-p">${o}</div>`
+              : `<p class="meta-p" style="color:var(--text-tertiary);font-style:italic">Reserved per-project. Edit <code>PB_DATA.others</code> in the script to populate.</p>`
+            }
+          </div>
+        </div>
+      `;
+    }
+
+    function pbEscape(s) {
+      if (s == null) return '';
+      return String(s)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+    }
+
+    /* =========================================================================
+       TAB 3 — USER FLOW
+       Zoomable canvas with a custom SVG diagram. Edit `buildFlowSvg()` below
+       to add your prototype's screens, decisions, and transitions.
+       ========================================================================= */
+    function renderMetaFlow() {
+      $('#app').innerHTML = `
+        <div class="meta-panel flow-panel">
+          <span class="meta-tag">User Flow</span>
+          <h1 class="meta-h1">User Flow Diagram</h1>
+          <p class="meta-sub">All states and transitions a user can take through the prototype.</p>
+          <hr class="meta-divider">
+          <div class="flow-layout">
+            <div class="flow-canvas" id="flow-canvas">
+              <div class="flow-viewport" id="flow-viewport">
+                <div class="flow-stage" id="flow-stage">${buildFlowSvg()}</div>
+              </div>
+              <div class="flow-zoom-controls">
+                <button class="flow-zoom-btn" id="flow-zoom-in"  title="Zoom in">+</button>
+                <button class="flow-zoom-btn" id="flow-zoom-out" title="Zoom out">−</button>
+                <button class="flow-zoom-btn" id="flow-zoom-fit" title="Fit / reset">⊙</button>
+              </div>
+              <div class="flow-zoom-readout" id="flow-zoom-readout">100%</div>
+              <div class="flow-hint">Scroll to zoom · drag to pan</div>
+            </div>
+
+            <aside class="flow-legend">
+              <span class="flow-legend-tag">Legend</span>
+              <h2 class="flow-legend-title">Legend</h2>
+              <div class="flow-legend-shapes">
+                <div class="flow-legend-circle">Start/End<br>Flow</div>
+                <div class="flow-legend-diamond">Y/N<br>Question?</div>
+              </div>
+              <div class="flow-legend-pill flow-legend-pill-blue">
+                <div class="en">Screen / View</div>
+              </div>
+              <div class="flow-legend-pill flow-legend-pill-gray">
+                <div class="en">Action / Modal</div>
+              </div>
+            </aside>
+          </div>
+        </div>
+      `;
+      initCanvas('flow', 1200, 380);
+    }
+
+    /* Tiny example flow: START → SCREEN → DECISION → END.
+       Replace this with your prototype's actual flow. */
+    function buildFlowSvg() {
+      var W=1200, H=380, Y=190;
+      var xS=80, xScr=350, xD=620, xEndScr=900, xE=1140;
+      var RW=140, RH=50, DW=72, DH=46, CR=24;
+      var C_SCR='#4A90D9', C_DEC='#F6C000', C_TRM='#1c1f22', C_GRN='#00A651', C_LN='#9ca3af';
+
+      function R(x,y,w,h,fill,lbl) {
+        return '<rect x="'+(x-w/2)+'" y="'+(y-h/2)+'" width="'+w+'" height="'+h+'" rx="10" fill="'+fill+'"/>'
+          + '<text x="'+x+'" y="'+y+'" text-anchor="middle" dominant-baseline="middle"'
+          + ' font-family="Poppins,sans-serif" font-size="13" font-weight="600" fill="#fff">'+lbl+'</text>';
+      }
+      function D(x,y,lines) {
+        var pts = x+','+(y-DH)+' '+(x+DW)+','+y+' '+x+','+(y+DH)+' '+(x-DW)+','+y;
+        var s = '<polygon points="'+pts+'" fill="'+C_DEC+'"/>';
+        lines.forEach(function(l,i){
+          var ty = y + (i - (lines.length-1)/2) * 14;
+          s += '<text x="'+x+'" y="'+ty+'" text-anchor="middle" dominant-baseline="middle"'
+            + ' font-family="Poppins,sans-serif" font-size="11" font-weight="600" fill="'+C_TRM+'">'+l+'</text>';
+        });
+        return s;
+      }
+      function T(x,y,lbl) {
+        return '<circle cx="'+x+'" cy="'+y+'" r="'+CR+'" fill="'+C_TRM+'"/>'
+          + '<text x="'+x+'" y="'+y+'" text-anchor="middle" dominant-baseline="middle"'
+          + ' font-family="Poppins,sans-serif" font-size="10" font-weight="700" fill="#fff">'+lbl+'</text>';
+      }
+      function Ln(x1,y1,x2,y2,clr){
+        return '<line x1="'+x1+'" y1="'+y1+'" x2="'+x2+'" y2="'+y2+'" stroke="'+(clr||C_LN)+'" stroke-width="1.5" marker-end="url(#fm-ah)"/>';
+      }
+      function Bg(x,y,t,bg){
+        var tw = t.length*7+14;
+        return '<rect x="'+(x-tw/2)+'" y="'+(y-9)+'" width="'+tw+'" height="18" rx="9" fill="'+bg+'"/>'
+          + '<text x="'+x+'" y="'+y+'" text-anchor="middle" dominant-baseline="middle"'
+          + ' font-family="Poppins,sans-serif" font-size="10" font-weight="700" fill="#fff">'+t+'</text>';
+      }
+
+      var s = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 '+W+' '+H+'" style="width:100%;height:auto;display:block">';
+      s += '<defs>'
+        + '<marker id="fm-ah" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M0,1L9,5L0,9z" fill="'+C_LN+'"/></marker>'
+        + '<marker id="fm-gr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M0,1L9,5L0,9z" fill="'+C_GRN+'"/></marker>'
+        + '</defs>';
+      s += '<rect width="'+W+'" height="'+H+'" fill="#f8f9fb" rx="12"/>';
+
+      // Connections
+      s += Ln(xS+CR, Y, xScr-RW/2-3, Y);
+      s += Ln(xScr+RW/2+3, Y, xD-DW-3, Y);
+      s += '<line x1="'+(xD+DW+3)+'" y1="'+Y+'" x2="'+(xEndScr-RW/2-3)+'" y2="'+Y+'" stroke="'+C_GRN+'" stroke-width="1.5" marker-end="url(#fm-gr)"/>';
+      s += Bg((xD+DW+xEndScr-RW/2)/2, Y-14, 'Yes', C_GRN);
+      s += Ln(xEndScr+RW/2+3, Y, xE-CR-3, Y);
+
+      // Nodes
+      s += T(xS,  Y, 'START');
+      s += R(xScr, Y, RW, RH, C_SCR, 'Example Screen');
+      s += D(xD,   Y, ['Continue?']);
+      s += R(xEndScr, Y, RW, RH, C_SCR, 'Done Screen');
+      s += T(xE,   Y, 'END');
+
+      s += '</svg>';
+      return s;
+    }
+
+    /* =========================================================================
+       TAB 4 — DESIGN HANDOFF
+       Dual-view per 02-architecture.md §7 Addition B:
+         - Component view (default, auto-syncs on /speckit.prototype-builder.build)
+         - Screen view    (manual, /speckit.prototype-builder.handoff)
+                          uses 7:3 grid: 7fr render + 3fr spec panel
+       Right panel emits DS tokens + sizing ONLY — never code.
+       ========================================================================= */
+    const variantCtx = {
+      // legacy compatibility; safe to leave empty for /build to populate via PB_DATA
+      exampleCard: 'default',
+    };
+    function setVariant(group, value) { variantCtx[group] = value; renderHandoff(); }
+    function setHandoffView(v) {
+      PB_DATA.handoff.view = v;
+      renderHandoff();
+    }
+    function setHandoffScreen(id) {
+      PB_DATA.handoff.selectedScreenId = id;
+      PB_DATA.handoff.selectedElementId = null;
+      renderHandoff();
+    }
+    function setHandoffElement(id) {
+      PB_DATA.handoff.selectedElementId = id;
+      renderHandoff();
+    }
+
+    function renderHandoff() {
+      const h = PB_DATA.handoff;
+      const isScreen = h.view === 'screen';
+      $('#app').innerHTML = `
+        <div class="meta-panel">
+          <span class="meta-tag">Design Handoff</span>
+          <h1 class="meta-h1">Design Handoff</h1>
+          <p class="meta-sub">
+            <strong>Component</strong> view auto-syncs on <code>/speckit.prototype-builder.build</code>.
+            <strong>Screen</strong> view is manual via <code>/speckit.prototype-builder.handoff</code> (7:3 layout, spec tokens only — no code).
+          </p>
+
+          <div class="handoff-toggle">
+            <button class="handoff-toggle-btn ${!isScreen ? 'active' : ''}" onclick="setHandoffView('component')">Component</button>
+            <button class="handoff-toggle-btn ${isScreen  ? 'active' : ''}" onclick="setHandoffView('screen')">Screen</button>
+          </div>
+          <hr class="meta-divider">
+
+          ${isScreen ? pbRenderHandoffScreen() : pbRenderHandoffComponent()}
+        </div>
+      `;
+    }
+
+    function pbRenderHandoffComponent() {
+      const orgs = (PB_DATA.handoff.organisms || []);
+      if (!orgs.length) {
+        return `
+          <p class="meta-p" style="color:var(--text-tertiary);font-style:italic">
+            No custom organisms recorded yet. Run <code>/speckit.prototype-builder.build</code>
+            to populate this view from the current spec + plan.
+          </p>
+        `;
+      }
+      return orgs.map((org, i) => `
+        <div class="variant-section">
+          <div class="meta-h3">${i+1} · ${pbEscape(org.name)}</div>
+          ${org.meta ? `<div class="variant-meta">${pbEscape(org.meta)}</div>` : ''}
+          <div class="variant-ctrls">
+            ${(org.variants || []).map(v =>
+              `<button class="variant-ctrl ${variantCtx[org.id] === v.id ? 'active' : ''}"
+                       onclick="setVariant('${org.id}', '${v.id}')">${pbEscape(v.label)}</button>`
+            ).join('')}
+          </div>
+          <div class="variant-preview" id="pb-org-${org.id}">
+            ${typeof window[org.renderFn] === 'function'
+              ? window[org.renderFn](variantCtx[org.id] || (org.variants[0] && org.variants[0].id))
+              : `<div style="padding:24px;background:#fff8e1;border:1px dashed #c1c9d2;border-radius:12px">
+                   <em>Renderer <code>${pbEscape(org.renderFn)}</code> not defined yet.</em>
+                 </div>`}
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function pbRenderHandoffScreen() {
+      const screens = PB_DATA.handoff.screens || [];
+      if (!screens.length) {
+        return `
+          <p class="meta-p" style="color:var(--text-tertiary);font-style:italic">
+            No screens recorded yet. Run <code>/speckit.prototype-builder.handoff</code>
+            after a build to populate this view.
+          </p>
+        `;
+      }
+      const selectedId = PB_DATA.handoff.selectedScreenId || screens[0].id;
+      const selectedScreen = screens.find(s => s.id === selectedId) || screens[0];
+      const elements = selectedScreen.elements || [];
+      const selElId = PB_DATA.handoff.selectedElementId
+        || (elements[0] && elements[0].id);
+      const selEl = elements.find(e => e.id === selElId) || elements[0];
+
+      return `
+        <div class="handoff-screen-pick">
+          <label class="handoff-screen-label">Screen:</label>
+          <select class="handoff-screen-select" onchange="setHandoffScreen(this.value)">
+            ${screens.map(s => `<option value="${pbEscape(s.id)}" ${s.id === selectedScreen.id ? 'selected' : ''}>${pbEscape(s.name)}</option>`).join('')}
+          </select>
+        </div>
+
+        <div class="handoff-7-3">
+          <div class="handoff-left">
+            <div class="handoff-screen-frame">
+              ${typeof window[selectedScreen.renderFn] === 'function'
+                ? window[selectedScreen.renderFn]()
+                : `<div style="padding:32px;background:#fff8e1;border:1px dashed #c1c9d2;border-radius:12px">
+                     <em>Screen renderer <code>${pbEscape(selectedScreen.renderFn || '')}</code> not defined.</em>
+                   </div>`}
+              <div class="handoff-element-overlay">
+                ${elements.map(el => `
+                  <button class="handoff-element-hit ${el.id === (selEl && selEl.id) ? 'active' : ''}"
+                          onclick="setHandoffElement('${pbEscape(el.id)}')"
+                          style="${pbEscape(el.bounds || '')}"
+                          title="${pbEscape(el.label || el.id)}"></button>
+                `).join('')}
+              </div>
+            </div>
+            ${selectedScreen.logicNotes && selectedScreen.logicNotes.length ? `
+              <div class="handoff-logic-notes">
+                <div class="meta-h3" style="font-size:13px;margin-bottom:8px">Logic notes</div>
+                <ul>${selectedScreen.logicNotes.map(n => `<li>${pbEscape(n)}</li>`).join('')}</ul>
+              </div>
+            ` : ''}
+          </div>
+
+          <div class="handoff-right">
+            <div class="handoff-spec-panel">
+              ${selEl ? `
+                <div class="handoff-spec-elname">${pbEscape(selEl.label || selEl.id)}</div>
+                <div class="handoff-spec-section">
+                  <div class="handoff-spec-section-title">Tokens</div>
+                  ${(selEl.tokens && selEl.tokens.length) ? selEl.tokens.map(t => `
+                    <div class="handoff-spec-row">
+                      <span class="handoff-spec-key">${pbEscape(t.name)}</span>
+                      <span class="handoff-spec-val">${pbEscape(t.value)}</span>
+                    </div>
+                  `).join('') : '<div class="handoff-spec-empty">No tokens recorded.</div>'}
+                </div>
+                <div class="handoff-spec-section">
+                  <div class="handoff-spec-section-title">Sizing</div>
+                  ${selEl.sizing ? Object.entries(selEl.sizing).map(([k, v]) => `
+                    <div class="handoff-spec-row">
+                      <span class="handoff-spec-key">${pbEscape(k)}</span>
+                      <span class="handoff-spec-val">${pbEscape(v)}</span>
+                    </div>
+                  `).join('') : '<div class="handoff-spec-empty">No sizing recorded.</div>'}
+                </div>
+                ${selEl.state ? `
+                  <div class="handoff-spec-section">
+                    <div class="handoff-spec-section-title">State</div>
+                    <div class="handoff-spec-row"><span class="handoff-spec-val">${pbEscape(selEl.state)}</span></div>
+                  </div>
+                ` : ''}
+                ${selEl.dsOverride ? `<div class="handoff-spec-warning">⚠ DS override logged</div>` : ''}
+                <div class="handoff-spec-footer">
+                  Spec tokens + sizing only — never code. Code lives in Tab 1.
+                </div>
+              ` : `
+                <div class="handoff-spec-empty">Click an element on the left to see its spec.</div>
+              `}
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    /* =========================================================================
+       TAB 5 — ERD (Entity Relationship Diagram)
+       Mermaid `erDiagram` rendered inside the same zoomable canvas.
+       Edit the Mermaid source below to model your domain.
+       ========================================================================= */
+    function renderMetaERD() {
+      $('#app').innerHTML = `
+        <div class="meta-panel flow-panel">
+          <span class="meta-tag">ERD</span>
+          <h1 class="meta-h1">Entity Relationship Diagram</h1>
+          <p class="meta-sub">Data model for a future production implementation.</p>
+          <hr class="meta-divider">
+          <div class="flow-layout">
+            <div class="flow-canvas" id="erd-canvas">
+              <div class="flow-viewport" id="erd-viewport">
+                <div class="flow-stage flow-stage-erd" id="erd-stage">
+                  <div class="mermaid" id="erd-diagram">
+erDiagram
+  USER {
+    string id PK
+    string email
+    string name
+  }
+  ITEM {
+    string id PK
+    string userId FK
+    string title
+    string status
+  }
+  USER ||--o{ ITEM : "owns"
+                  </div>
+                </div>
+              </div>
+              <div class="flow-zoom-controls">
+                <button class="flow-zoom-btn" id="erd-zoom-in"  title="Zoom in">+</button>
+                <button class="flow-zoom-btn" id="erd-zoom-out" title="Zoom out">−</button>
+                <button class="flow-zoom-btn" id="erd-zoom-fit" title="Fit / reset">⊙</button>
+              </div>
+              <div class="flow-zoom-readout" id="erd-zoom-readout">100%</div>
+              <div class="flow-hint">Scroll to zoom · drag to pan</div>
+            </div>
+
+            <aside class="flow-legend">
+              <span class="flow-legend-tag">Legend</span>
+              <h2 class="flow-legend-title">Legend</h2>
+              <div class="erd-legend-entity">
+                <div class="erd-legend-entity-head">ENTITY</div>
+                <div class="erd-legend-entity-row"><span>string</span><span>id PK</span></div>
+                <div class="erd-legend-entity-row"><span>string</span><span>name</span></div>
+                <div class="erd-legend-entity-row"><span>string</span><span>parentId FK</span></div>
+              </div>
+              <div class="erd-legend-rels">
+                <div class="erd-legend-rels-title">Relationships</div>
+                <div class="erd-legend-rel">
+                  <span class="lbl">1 : 1</span>${erdRelSvg('one-one')}<span class="desc">One-to-One</span>
+                </div>
+                <div class="erd-legend-rel">
+                  <span class="lbl">1 : N</span>${erdRelSvg('one-many')}<span class="desc">One-to-Many</span>
+                </div>
+                <div class="erd-legend-rel">
+                  <span class="lbl">N : N</span>${erdRelSvg('many-many')}<span class="desc">Many-to-Many</span>
+                </div>
+              </div>
+            </aside>
+          </div>
+        </div>
+      `;
+      if (window.mermaid) {
+        mermaid.initialize({ startOnLoad: false, theme: 'neutral' });
+        mermaid.run({ querySelector: '#erd-diagram' }).then(function () {
+          var stage = document.getElementById('erd-stage');
+          if (!stage) return;
+          var svg = stage.querySelector('svg');
+          if (!svg) return;
+          svg.style.maxWidth = 'none';
+          svg.style.width = ''; svg.style.height = '';
+          var bbox = svg.getBoundingClientRect();
+          var W = Math.ceil(bbox.width)  || 800;
+          var H = Math.ceil(bbox.height) || 600;
+          stage.style.width = W + 'px';
+          stage.style.height = H + 'px';
+          stage.style.marginLeft = -(W/2) + 'px';
+          stage.style.marginTop  = -(H/2) + 'px';
+          initCanvas('erd', W, H);
+        }).catch(function(){ /* silent */ });
+      }
+    }
+
+    /* ERD legend cardinality symbols (Crow's-foot notation) */
+    function erdRelSvg(kind) {
+      var line = '<line x1="14" y1="7" x2="46" y2="7" stroke="#374151" stroke-width="1.5"/>';
+      function bars(x, dx) {
+        return '<line x1="'+x+'" y1="2" x2="'+x+'" y2="12" stroke="#374151" stroke-width="1.5"/>'
+             + '<line x1="'+(x+dx)+'" y1="2" x2="'+(x+dx)+'" y2="12" stroke="#374151" stroke-width="1.5"/>';
+      }
+      function foot(x, dir) {
+        var dx = 6 * dir;
+        return '<line x1="'+x+'" y1="7" x2="'+(x+dx)+'" y2="2"  stroke="#374151" stroke-width="1.5"/>'
+             + '<line x1="'+x+'" y1="7" x2="'+(x+dx)+'" y2="12" stroke="#374151" stroke-width="1.5"/>'
+             + '<line x1="'+x+'" y1="7" x2="'+(x+dx)+'" y2="7"  stroke="#374151" stroke-width="1.5"/>';
+      }
+      function circle(x) {
+        return '<circle cx="'+x+'" cy="7" r="2.5" fill="white" stroke="#374151" stroke-width="1.5"/>';
+      }
+      var lEnd = '', rEnd = '';
+      if (kind === 'one-one')      { lEnd = bars(8, 4);                       rEnd = bars(48, 4); }
+      else if (kind === 'one-many'){ lEnd = bars(8, 4);                       rEnd = circle(50) + foot(46, +1); }
+      else                          { lEnd = foot(14, -1) + circle(10);        rEnd = circle(50) + foot(46, +1); }
+      return '<svg viewBox="0 0 60 14" xmlns="http://www.w3.org/2000/svg">'
+        + line + lEnd + rEnd + '</svg>';
+    }
+
+    /* =========================================================================
+       SHARED CANVAS — generalised pan/zoom for the User Flow + ERD tabs
+       ========================================================================= */
+    function initCanvas(prefix, contentW, contentH) {
+      var viewport = document.getElementById(prefix + '-viewport');
+      var stage    = document.getElementById(prefix + '-stage');
+      var readout  = document.getElementById(prefix + '-zoom-readout');
+      if (!viewport || !stage) return;
+
+      var minS = 0.4, maxS = 3;
+      var scale = 1, tx = 0, ty = 0;
+      var dragging = false, lastX = 0, lastY = 0;
+
+      function apply() {
+        stage.style.transform = 'translate(' + tx + 'px,' + ty + 'px) scale(' + scale + ')';
+        if (readout) readout.textContent = Math.round(scale * 100) + '%';
+      }
+      function fitToViewport() {
+        var vw = viewport.clientWidth, vh = viewport.clientHeight;
+        var pad = 32;
+        var s = Math.min((vw - pad * 2) / contentW, (vh - pad * 2) / contentH);
+        if (s < minS) minS = Math.max(0.1, s * 0.9);
+        scale = Math.max(minS, Math.min(maxS, s));
+        tx = 0; ty = 0;
+        stage.style.transition = 'transform 0.25s ease-out';
+        apply();
+      }
+      function zoomBy(delta, cx, cy) {
+        var prev = scale;
+        var next = Math.max(minS, Math.min(maxS, scale * (1 + delta)));
+        if (next === prev) return;
+        if (cx !== undefined && cy !== undefined) {
+          var rect = viewport.getBoundingClientRect();
+          var px = cx - rect.left - rect.width / 2;
+          var py = cy - rect.top  - rect.height / 2;
+          tx = px - (px - tx) * (next / prev);
+          ty = py - (py - ty) * (next / prev);
+        }
+        scale = next;
+        stage.style.transition = 'none';
+        apply();
+      }
+
+      viewport.addEventListener('wheel', function (e) {
+        e.preventDefault();
+        zoomBy(-e.deltaY * 0.0015, e.clientX, e.clientY);
+      }, { passive: false });
+      viewport.addEventListener('mousedown', function (e) {
+        dragging = true;
+        lastX = e.clientX; lastY = e.clientY;
+        viewport.style.cursor = 'grabbing';
+        stage.style.transition = 'none';
+        e.preventDefault();
+      });
+      window.addEventListener('mousemove', function (e) {
+        if (!dragging) return;
+        tx += e.clientX - lastX;
+        ty += e.clientY - lastY;
+        lastX = e.clientX; lastY = e.clientY;
+        apply();
+      });
+      window.addEventListener('mouseup', function () {
+        if (!dragging) return;
+        dragging = false;
+        viewport.style.cursor = '';
+      });
+
+      document.getElementById(prefix + '-zoom-in').onclick  = function () { zoomBy(0.18); };
+      document.getElementById(prefix + '-zoom-out').onclick = function () { zoomBy(-0.18); };
+      document.getElementById(prefix + '-zoom-fit').onclick = function () { fitToViewport(); };
+
+      requestAnimationFrame(function () { requestAnimationFrame(fitToViewport); });
+    }
+
+    /* Boot */
+    render();
+  </script>
+</body>
+</html>
