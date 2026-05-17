@@ -113,37 +113,54 @@ cp "$EXT_PATH/assets/template.html" ./prototype/template.html
 
 Confirm to user: `"Tab 1–5 scaffold copied to ./prototype/template.html (~57KB, 1444 lines)."`
 
-### Step 4.5 — Register commands for Claude Code chat input (v0.3.6)
+### Step 4.5 — Register chat-input routing rule in CLAUDE.md (v0.3.7)
 
-By default, SpecKit-installed commands only work in the **Claude Code terminal** (the interactive `claude` CLI session). To also make them work in the **Claude Code chat input** (the "Type / for commands" field in the desktop app / IDE extension), copy each command body into `./.claude/commands/` with a flattened filename:
+SpecKit-installed slash commands only work in the **Claude Code terminal** (the interactive `claude` CLI session). The **chat input** (the "Type / for commands" field in the desktop app / IDE extension) won't recognize a slash-prefixed custom command — but it WILL follow plain-text instructions in the project's `CLAUDE.md`.
+
+This step appends a routing rule to `./CLAUDE.md` that tells Claude: when you see a `speckit-prototype-builder-<name>` keyword in chat, read the corresponding command body at `.specify/extensions/prototype-builder/commands/<name>.md` and execute it.
+
+The copy popover in `template.html` surfaces two formats per command — a slash form for the terminal AND a short natural-language prompt for the chat input. The chat-input prompt mentions the command name as a keyword that this routing rule catches.
 
 ```bash
-mkdir -p ./.claude/commands
-EXT_CMDS=./.specify/extensions/prototype-builder/commands
-for cmd in scaffold build sync-flow sync-erd handoff skills-refresh check-drift; do
-  src="${EXT_CMDS}/${cmd}.md"
-  dst="./.claude/commands/speckit-prototype-builder-${cmd}.md"
-  if [ -f "$src" ]; then
-    if [ -f "$dst" ]; then
-      echo "skip: $dst already exists (re-run /speckit-prototype-builder-skills-refresh to update)"
-    else
-      cp "$src" "$dst"
-    fi
+ROUTING_MARKER='<!-- speckit-prototype-builder:chat-routing -->'
+ROUTING_BLOCK=$(cat <<'EOF'
+<!-- speckit-prototype-builder:chat-routing -->
+## Prototype Builder commands (chat-input routing)
+
+When this conversation contains any `speckit-prototype-builder-<name>` keyword
+(e.g. `speckit-prototype-builder-sync-flow`), read the corresponding command body at
+`.specify/extensions/prototype-builder/commands/<name>.md` and execute the
+instructions inside, substituting `$ARGUMENTS` with whatever the user said
+alongside the keyword.
+
+Recognized keywords:
+- `speckit-prototype-builder-scaffold`
+- `speckit-prototype-builder-build`
+- `speckit-prototype-builder-sync-flow`
+- `speckit-prototype-builder-sync-erd`
+- `speckit-prototype-builder-handoff`
+- `speckit-prototype-builder-skills-refresh`
+- `speckit-prototype-builder-check-drift`
+
+`speckit-prototype-builder-sync-tab2` is internal — invoked by hooks, not by the user.
+<!-- /speckit-prototype-builder:chat-routing -->
+EOF
+)
+
+if [ -f ./CLAUDE.md ] && grep -q "$ROUTING_MARKER" ./CLAUDE.md; then
+  echo "skip: CLAUDE.md already has the chat-input routing block"
+else
+  if [ -f ./CLAUDE.md ]; then
+    printf '\n%s\n' "$ROUTING_BLOCK" >> ./CLAUDE.md
+  else
+    printf '# Project guidelines for Claude Code\n\n%s\n' "$ROUTING_BLOCK" > ./CLAUDE.md
   fi
-done
+fi
 ```
 
-`sync-tab2` is intentionally excluded — it's invoked by hooks, not the user.
+Idempotent — the HTML comment marker prevents duplicate appends across re-runs.
 
-Confirm to user: `"7 commands registered for Claude Code chat input at ./.claude/commands/speckit-prototype-builder-*.md. They can now be typed in either the chat ('Type / for commands' field) or the terminal."`
-
-**Failure handling**: If `./.specify/extensions/prototype-builder/commands/` doesn't exist, warn but don't fail — the user can still use the commands in the Claude Code terminal:
-
-```
-Warning: extension command bodies not found at the expected path.
-Chat-input registration skipped. The commands still work in the
-Claude Code terminal — just paste them at the `claude` prompt.
-```
+Confirm to user: `"Chat-input routing rule added to ./CLAUDE.md. The 7 user-facing commands can now be invoked from either the terminal (slash form) or the chat input (paste the natural-language prompt from the copy popover)."`
 
 ### Step 5 — Prompt for Design System (FR-6)
 

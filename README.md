@@ -66,13 +66,13 @@ mkdir ~/Desktop/my-prototype && cd ~/Desktop/my-prototype
 specify init . --integration claude --force
 
 # Install Preset + Extension from this single repo
-gh repo clone danhnbui/spec-kit-extension-prototype-builder /tmp/pb -- --branch v0.3.6
+gh repo clone danhnbui/spec-kit-extension-prototype-builder /tmp/pb -- --branch v0.3.7
 specify preset add --dev /tmp/pb
 specify extension add --dev /tmp/pb
 
 # Or via public URL once the repo is public:
-# specify preset add --from https://github.com/danhnbui/spec-kit-extension-prototype-builder/archive/refs/tags/v0.3.6.zip
-# specify extension add --from https://github.com/danhnbui/spec-kit-extension-prototype-builder/archive/refs/tags/v0.3.6.zip
+# specify preset add --from https://github.com/danhnbui/spec-kit-extension-prototype-builder/archive/refs/tags/v0.3.7.zip
+# specify extension add --from https://github.com/danhnbui/spec-kit-extension-prototype-builder/archive/refs/tags/v0.3.7.zip
 
 # Then open Claude Code and run the workflow
 claude
@@ -125,6 +125,8 @@ Full architectural docs (SRS, architecture, data flow, orchestrator, execution p
 ---
 
 ## Version
+
+- **v0.3.7** — Each slash command now ships as **two representations** in the copy popover, each with its own copy button: a `/slash` form for the **Claude Code terminal** AND a short natural-language prompt (e.g. `Run speckit-prototype-builder-sync-flow to generate Tab 3...`) for the **Claude Code chat input**. The chat-input prompt mentions the command name as a keyword that the scaffold-installed routing rule in `./CLAUDE.md` catches — Claude then reads `.specify/extensions/prototype-builder/commands/<name>.md` and executes it. Replaces the v0.3.6 approach of copying command files into `.claude/commands/`, which depended on session restarts and project-context discovery that often failed in practice. Shell commands (e.g. `gh repo clone`) remain single-format (Terminal only).
 
 - **v0.3.6** — Slash commands now work in **both** the Claude Code chat input ("Type / for commands" field in the desktop app / IDE extension) **and** the Claude Code terminal — not just the terminal. Two changes: (1) the scaffold now copies each user-facing command body (`build`, `sync-flow`, `sync-erd`, `handoff`, `skills-refresh`, `check-drift`, `scaffold` itself) into `./.claude/commands/speckit-prototype-builder-<name>.md`, which is the directory Claude Code reads to register chat-input commands. (2) The copy popover now shows BOTH destinations side-by-side under a "Paste in either:" heading — Claude Code chat input (with chat-bubble icon) OR Claude Code terminal (with terminal icon) — so users pick whichever surface they have open. Shell commands (e.g., `gh repo clone`) still show Terminal-only since they can't run in the chat input.
 

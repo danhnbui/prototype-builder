@@ -574,13 +574,17 @@
       background: var(--pg-gray-10);
       color: var(--text-active-primary);
     }
-    .copy-popover-label {
+    .copy-popover-cmd-block { margin: 0 0 14px; }
+    .copy-popover-cmd-block:last-of-type { margin-bottom: 0; }
+    .copy-popover-cmd-label {
       font: 600 11px/1 var(--font-body);
       text-transform: uppercase;
       letter-spacing: 0.07em;
       color: var(--text-tertiary);
-      margin: 0 0 10px;
+      margin: 0 0 6px;
+      display: flex; align-items: center; gap: 6px;
     }
+    .copy-popover-cmd-label svg { width: 12px; height: 12px; flex-shrink: 0; }
     .copy-popover-code-row {
       display: flex;
       align-items: stretch;
@@ -634,50 +638,6 @@
       0%   { transform: scale(1); }
       30%  { transform: scale(1.04); }
       100% { transform: scale(1); }
-    }
-    .copy-popover-divider {
-      height: 1px;
-      background: var(--border);
-      margin: 14px 0;
-    }
-    .copy-popover-multi-heading { font: 600 11px/1 var(--font-body); text-transform: uppercase; letter-spacing: 0.07em; color: var(--text-tertiary); margin: 0 0 10px; }
-    .copy-popover-multi { display: flex; flex-direction: column; gap: 12px; }
-    .copy-popover-dest { display: flex; gap: 12px; align-items: flex-start; }
-    .copy-popover-dest-icon {
-      width: 36px; height: 36px;
-      flex-shrink: 0;
-      background: var(--pg-gray-10);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      display: flex; align-items: center; justify-content: center;
-      color: var(--text-active-secondary);
-    }
-    .copy-popover-dest-icon svg { width: 18px; height: 18px; }
-    .copy-popover-dest-body { min-width: 0; flex: 1; }
-    .copy-popover-dest-where {
-      font: 500 13px/1.4 var(--font-body);
-      color: var(--text-active-primary);
-      margin-bottom: 3px;
-    }
-    .copy-popover-dest-where strong { font-weight: 600; }
-    .copy-popover-dest-how {
-      font: 400 12px/1.5 var(--font-body);
-      color: var(--text-active-secondary);
-    }
-    .copy-popover-dest-how kbd {
-      display: inline-block;
-      padding: 0 5px;
-      min-width: 16px;
-      height: 16px;
-      font: 600 10px/16px 'SF Mono', Menlo, monospace;
-      text-align: center;
-      background: white;
-      border: 1px solid var(--border-strong);
-      border-bottom-width: 2px;
-      border-radius: 4px;
-      color: var(--text-active-primary);
-      margin: 0 1px;
-      vertical-align: 1px;
     }
 
     /* ========================================================================
@@ -1387,6 +1347,25 @@
       close:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg>',
     };
 
+    /* v0.3.7 — One command, two representations.
+       Terminal gets the slash form. Chat input gets a short natural-language
+       prompt that mentions the command name as a keyword — Claude follows
+       the routing rule in CLAUDE.md to find and execute the actual body. */
+    const CHAT_PROMPTS = {
+      '/speckit-prototype-builder-scaffold':       'Run speckit-prototype-builder-scaffold to set up this prototype project — clones agent-skill-set, copies template.html, prompts for DS + stack, writes constitution locks.',
+      '/speckit-prototype-builder-build':          'Run speckit-prototype-builder-build to generate Tab 1 (Prototype) and Tab 4-Component from the current spec/plan/tasks (runs inline drift check first).',
+      '/speckit-prototype-builder-sync-flow':      'Run speckit-prototype-builder-sync-flow to generate Tab 3 (User Flow) from spec.md, following the 18 rules in docs/USER-FLOW-GUIDE.md.',
+      '/speckit-prototype-builder-sync-erd':       'Run speckit-prototype-builder-sync-erd to generate Tab 5 (ERD) as a Mermaid erDiagram with the 5 PK/FK/cardinality guardrails.',
+      '/speckit-prototype-builder-handoff':        'Run speckit-prototype-builder-handoff to generate Tab 4-Screen (Design Handoff) — 7:3 layout, DS tokens + sizing only, no code.',
+      '/speckit-prototype-builder-skills-refresh': 'Run speckit-prototype-builder-skills-refresh to re-pull the pinned agent-skill-set repo and optionally upgrade the tag.',
+      '/speckit-prototype-builder-check-drift':    'Run speckit-prototype-builder-check-drift to audit Tab 1, Tab 2, and Tab 4-Component for contradictions against the constitution (report-only, no writes).',
+    };
+    function chatPromptFor(slashCommand) {
+      if (CHAT_PROMPTS[slashCommand]) return CHAT_PROMPTS[slashCommand];
+      const bare = slashCommand.replace(/^\//, '');
+      return `Run ${bare} in this Claude Code session.`;
+    }
+
     function copyCommandToClipboard(command) {
       if (navigator.clipboard && window.isSecureContext) {
         return navigator.clipboard.writeText(command).catch(() => copyCommandFallback(command));
@@ -1423,50 +1402,27 @@
         if (d === 'terminal') return 'terminal';
         return command.trim().startsWith('/') ? 'claude' : 'terminal';
       })();
-      const destInfo = destKey === 'claude'
-        ? {
-            multi: true,
-            heading: 'Paste in either:',
-            options: [
-              {
-                icon: COPY_POPOVER_ICONS.claude,
-                where: '<strong>Claude Code chat input</strong>',
-                how:   'The bottom input that says "Type / for commands". Paste with <kbd>⌘</kbd><kbd>V</kbd> and press <kbd>↵</kbd>.',
-              },
-              {
-                icon: COPY_POPOVER_ICONS.terminal,
-                where: '<strong>Claude Code terminal</strong>',
-                how:   'The terminal where <kbd>claude</kbd> is running. Paste with <kbd>⌘</kbd><kbd>V</kbd> and press <kbd>↵</kbd>.',
-              },
-            ],
-          }
-        : {
-            multi: false,
-            icon: COPY_POPOVER_ICONS.terminal,
-            where: 'Paste in <strong>Terminal</strong>',
-            how:   'Open your terminal, paste with <kbd>⌘</kbd><kbd>V</kbd>, then press <kbd>↵</kbd>.',
-          };
-
-      const destBlock = destInfo.multi
-        ? `<div class="copy-popover-multi-heading">${destInfo.heading}</div>
-           <div class="copy-popover-multi">
-             ${destInfo.options.map(o => `
-               <div class="copy-popover-dest">
-                 <div class="copy-popover-dest-icon">${o.icon}</div>
-                 <div class="copy-popover-dest-body">
-                   <div class="copy-popover-dest-where">${o.where}</div>
-                   <div class="copy-popover-dest-how">${o.how}</div>
-                 </div>
-               </div>
-             `).join('')}
-           </div>`
-        : `<div class="copy-popover-dest">
-             <div class="copy-popover-dest-icon">${destInfo.icon}</div>
-             <div class="copy-popover-dest-body">
-               <div class="copy-popover-dest-where">${destInfo.where}</div>
-               <div class="copy-popover-dest-how">${destInfo.how}</div>
-             </div>
-           </div>`;
+      // For slash commands → two boxes (terminal slash + chat-input prompt).
+      // For shell commands → one box (Terminal only).
+      const blocks = destKey === 'claude'
+        ? [
+            { label: 'Run in Claude Code terminal',    icon: COPY_POPOVER_ICONS.terminal, cmd: command },
+            { label: 'Run in Claude Code chat input',  icon: COPY_POPOVER_ICONS.claude,   cmd: chatPromptFor(command) },
+          ]
+        : [
+            { label: 'Run in Terminal',                icon: COPY_POPOVER_ICONS.terminal, cmd: command },
+          ];
+      const blocksHtml = blocks.map(b => `
+        <div class="copy-popover-cmd-block">
+          <div class="copy-popover-cmd-label">${b.icon}<span>${b.label}</span></div>
+          <div class="copy-popover-code-row">
+            <code class="copy-popover-code">${escapeHtmlAttr(b.cmd)}</code>
+            <button class="copy-popover-copy-btn" type="button" aria-label="Copy command"
+                    data-cmd="${escapeHtmlAttr(b.cmd)}"
+                    onclick="recopyFromPopover(this)">${COPY_POPOVER_ICONS.copy}</button>
+          </div>
+        </div>
+      `).join('');
 
       const backdrop = document.createElement('div');
       backdrop.className = 'copy-popover-backdrop';
@@ -1479,14 +1435,8 @@
       pop.dataset.command = command;
       pop.innerHTML = `
         <button class="copy-popover-close" type="button" aria-label="Close" onclick="closeCopyPopover()">${COPY_POPOVER_ICONS.close}</button>
-        <div class="copy-popover-label">Run this command</div>
-        <div class="copy-popover-code-row">
-          <code class="copy-popover-code">${escapeHtmlAttr(command)}</code>
-          <button class="copy-popover-copy-btn" type="button" aria-label="Copy command" onclick="recopyFromPopover(this)">${COPY_POPOVER_ICONS.copy}</button>
-        </div>
+        ${blocksHtml}
         <div class="copy-popover-status" data-popover-status>Copied to clipboard</div>
-        <div class="copy-popover-divider"></div>
-        ${destBlock}
       `;
 
       document.body.appendChild(backdrop);
@@ -1552,11 +1502,11 @@
     function recopyFromPopover(btn) {
       const pop = btn.closest('.copy-popover');
       if (!pop) return;
-      const command = pop.dataset.command || '';
+      const command = btn.dataset.cmd || pop.dataset.command || '';
       copyCommandToClipboard(command);
       const status = pop.querySelector('[data-popover-status]');
       if (status) {
-        status.textContent = 'Copied again';
+        status.textContent = 'Copied to clipboard';
         status.classList.remove('is-flash');
         void status.offsetWidth;
         status.classList.add('is-flash');
