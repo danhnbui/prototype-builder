@@ -1,0 +1,51 @@
+schema_version: "1.0"
+
+preset:
+  id: "prototype-builder"
+  name: "Prototype Builder"
+  version: "0.2.0"
+  description: "Spec-driven workflow for single-file HTML UX-test prototypes with built-in 5-tab documentation. Now bundled with the matching Extension in one repo."
+  author: "Danh N. Bui — PropertyGuru Vietnam"
+  repository: "https://github.com/danhnbui/spec-kit-extension-prototype-builder"
+  license: "MIT"
+
+requires:
+  speckit_version: ">=0.8.0"
+
+provides:
+  templates:
+    - type: "template"
+      name: "constitution-template"
+      file: "templates/constitution-template.md"
+      description: "Prototype constitution with Principles + Stack Lock + DS Lock + Skill Pinning sections"
+      replaces: "constitution-template"
+    - type: "template"
+      name: "spec-template"
+      file: "templates/spec-template.md"
+      description: "Prototype-shaped spec template — drives Tab 2 (Project Summary) > Overview > Objectives"
+      replaces: "spec-template"
+    - type: "template"
+      name: "plan-template"
+      file: "templates/plan-template.md"
+      description: "Prototype-shaped plan with tab+skill citations — preps Tab 1 + Tab 4-Component"
+      replaces: "plan-template"
+    - type: "template"
+      name: "tasks-template"
+      file: "templates/tasks-template.md"
+      description: "Per-tab task list with sync rules baked in"
+      replaces: "tasks-template"
+
+  commands:
+    - name: "speckit.constitution"
+      file: "commands/speckit.constitution.md"
+      description: "Constitution shaped for prototypes — Principles + Stack Lock + DS Lock"
+    - name: "speckit.clarify"
+      file: "commands/speckit.clarify.md"
+      description: "Clarify shaped to capture User Insights + UI Logic Trade-offs for Tab 2"
+
+tags:
+  - "prototype"
+  - "design"
+  - "ux-test"
+  - "single-file-html"
+  - "design-system"
