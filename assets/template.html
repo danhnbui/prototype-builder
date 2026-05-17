@@ -427,6 +427,242 @@
     }
 
     /* ========================================================================
+       v0.3.0 — WIDE PANEL · SUB-TABS · SYNC BUTTON/TOAST · CARD LIST · DRAWER
+       ======================================================================== */
+    .wide-panel { max-width: none; padding: 32px 40px; }
+
+    .meta-subtabs {
+      display: inline-flex; gap: 4px;
+      padding: 4px;
+      background: var(--pg-gray-10);
+      border: 1px solid var(--border);
+      border-radius: var(--pg-radius-small);
+      margin: 0 0 28px;
+      flex-wrap: wrap;
+    }
+    .meta-subtab {
+      height: 32px; padding: 0 14px;
+      background: transparent;
+      border: 0; border-radius: 6px;
+      font-family: var(--font-body);
+      font-size: 13px; font-weight: 500;
+      color: var(--text-active-secondary);
+      cursor: pointer;
+      transition: background 0.12s, color 0.12s;
+    }
+    .meta-subtab:hover { color: var(--text-active-primary); }
+    .meta-subtab.active {
+      background: white;
+      color: var(--text-active-primary);
+      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    }
+
+    /* Legend on LEFT, canvas on RIGHT (only at wide viewports — narrow uses column from earlier media query). */
+    @media (min-width: 1081px) {
+      .flow-layout { flex-direction: row-reverse; }
+    }
+
+    .sync-bar {
+      display: flex; align-items: center; gap: 12px;
+      padding: 10px 12px 10px 14px;
+      background: #fffbeb;
+      border: 1px solid #fcd34d;
+      border-radius: var(--pg-radius-small);
+      margin-bottom: 16px;
+      font-size: 13px; font-family: var(--font-body); line-height: 1.5;
+      color: #854d0e;
+      flex-wrap: wrap;
+    }
+    .sync-bar-msg { flex: 1; min-width: 200px; }
+    .sync-bar-msg code {
+      font-family: 'SF Mono', Menlo, monospace;
+      background: rgba(133,77,14,0.1);
+      border-radius: 4px;
+      padding: 1px 5px;
+      font-size: 12px;
+    }
+    .sync-button {
+      height: 32px; padding: 0 14px;
+      background: var(--brand);
+      color: white;
+      border: 0; border-radius: 6px;
+      font: 500 13px/1 var(--font-body);
+      cursor: pointer;
+      display: inline-flex; align-items: center; gap: 6px;
+      transition: background 0.12s;
+      flex-shrink: 0;
+    }
+    .sync-button:hover { background: var(--brand-strong); }
+    .sync-toast {
+      position: fixed;
+      bottom: 24px; left: 50%;
+      transform: translate(-50%, 12px);
+      opacity: 0;
+      background: var(--pg-gray-90);
+      color: white;
+      padding: 10px 16px;
+      border-radius: var(--pg-radius-small);
+      font: 500 13px/1.3 var(--font-body);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+      z-index: 1200;
+      pointer-events: none;
+      transition: opacity 0.18s ease-out, transform 0.18s ease-out;
+      max-width: 90vw;
+    }
+    .sync-toast.is-visible { opacity: 1; transform: translate(-50%, 0); }
+
+    .handoff-card-list { display: flex; flex-direction: column; gap: 16px; }
+    .handoff-card {
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: var(--pg-radius-medium);
+      padding: 20px 24px;
+      cursor: pointer;
+      transition: border-color 0.12s, box-shadow 0.12s, transform 0.06s;
+    }
+    .handoff-card:hover { border-color: var(--border-strong); box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+    .handoff-card:active { transform: translateY(1px); }
+    .handoff-card-header {
+      display: flex; align-items: baseline; gap: 12px;
+      margin-bottom: 4px;
+    }
+    .handoff-card-title {
+      font-family: var(--font-heading);
+      font-size: 16px; font-weight: 600;
+      color: var(--text-active-primary);
+      letter-spacing: -0.01em;
+    }
+    .handoff-card-id {
+      font-family: 'SF Mono', Menlo, monospace;
+      font-size: 11px;
+      color: var(--text-tertiary);
+    }
+    .handoff-card-meta {
+      font-size: 13px;
+      color: var(--text-active-secondary);
+      margin: 0 0 14px;
+      line-height: 1.5;
+    }
+    .handoff-card-controls {
+      display: flex; gap: 6px; flex-wrap: wrap;
+      margin-bottom: 14px;
+    }
+    .handoff-card-preview {
+      border: 1px solid var(--border);
+      border-radius: var(--pg-radius-small);
+      padding: 16px;
+      background: var(--bg-soft);
+      min-height: 80px;
+      display: flex; align-items: center; justify-content: center;
+      pointer-events: none;
+    }
+    .handoff-card-hint {
+      margin-top: 12px;
+      font-size: 11px;
+      color: var(--text-tertiary);
+      display: flex; align-items: center; gap: 6px;
+    }
+
+    .handoff-drawer-backdrop {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.35);
+      z-index: 1300;
+      animation: fade-in 0.16s ease-out;
+    }
+    .handoff-drawer {
+      position: fixed; top: 0; right: 0; bottom: 0;
+      width: 440px; max-width: 92vw;
+      background: white;
+      border-left: 1px solid var(--border);
+      box-shadow: -8px 0 24px rgba(0,0,0,0.08);
+      z-index: 1310;
+      display: flex; flex-direction: column;
+      animation: slide-in-right 0.18s ease-out;
+    }
+    @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+    @keyframes slide-in-right {
+      from { transform: translateX(8px); opacity: 0; }
+      to   { transform: translateX(0);   opacity: 1; }
+    }
+    .handoff-drawer-header {
+      padding: 20px 24px 16px;
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: flex-start; gap: 12px;
+    }
+    .handoff-drawer-title-wrap { flex: 1; min-width: 0; }
+    .handoff-drawer-title {
+      font-family: var(--font-heading);
+      font-size: 18px; font-weight: 700;
+      color: var(--text-active-primary);
+      letter-spacing: -0.01em;
+      margin: 0;
+    }
+    .handoff-drawer-sub {
+      font-size: 12px;
+      color: var(--text-active-secondary);
+      margin: 2px 0 0;
+    }
+    .handoff-drawer-close {
+      width: 32px; height: 32px;
+      border: 1px solid var(--border-strong);
+      background: white;
+      border-radius: 6px;
+      cursor: pointer;
+      font: 600 16px/1 var(--font-body);
+      color: var(--text-active-secondary);
+      flex-shrink: 0;
+    }
+    .handoff-drawer-close:hover { color: var(--text-active-primary); }
+    .handoff-drawer-segments {
+      display: flex; gap: 4px;
+      padding: 8px 24px;
+      border-bottom: 1px solid var(--border);
+      overflow-x: auto;
+    }
+    .handoff-drawer-segment {
+      padding: 6px 12px;
+      background: transparent;
+      border: 0; border-radius: 6px;
+      font: 500 12px/1 var(--font-body);
+      color: var(--text-active-secondary);
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background 0.12s, color 0.12s;
+    }
+    .handoff-drawer-segment:hover { color: var(--text-active-primary); }
+    .handoff-drawer-segment.active {
+      background: var(--pg-gray-10);
+      color: var(--text-active-primary);
+    }
+    .handoff-drawer-content {
+      flex: 1; overflow-y: auto;
+      padding: 20px 24px;
+    }
+    .handoff-spec-group { margin-bottom: 20px; }
+    .handoff-spec-group:last-child { margin-bottom: 0; }
+    .handoff-spec-label {
+      font: 600 11px/1 var(--font-body);
+      color: var(--text-active-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin: 0 0 10px;
+    }
+    .handoff-spec-row.pb-drawer-row {
+      display: flex; justify-content: space-between; gap: 12px;
+      padding: 6px 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 13px;
+    }
+    .handoff-spec-row.pb-drawer-row:last-child { border-bottom: 0; }
+    .handoff-spec-note {
+      font-size: 13px;
+      color: var(--text-active-primary);
+      line-height: 1.55;
+      margin: 0 0 8px;
+    }
+    .handoff-spec-note:last-child { margin-bottom: 0; }
+
+    /* ========================================================================
        FLOW CANVAS — zoomable / pannable diagram surface
        Used by User Flow + ERD tabs
        ======================================================================== */
@@ -759,7 +995,10 @@
        Add your prototype's state fields below the metaView line.
        ========================================================================= */
     const state = {
-      metaView: 'prototype',   // 'prototype' | 'summary' | 'flow' | 'handoff' | 'erd'
+      metaView: 'prototype',          // 'prototype' | 'summary' | 'flow' | 'handoff' | 'erd'
+      summarySubTab: 'overview',      // 'overview' | 'insights' | 'tradeoffs' | 'others' (v0.3.0)
+      handoffDrawerOpenFor: null,     // null | <organism.id> — opens right-side drawer (v0.3.0)
+      handoffDrawerSegment: 'tokens', // 'tokens' | 'sizing' | 'states' | 'a11y' | 'usage' (v0.3.0)
       /* TODO: add your app state here, e.g.:
          user: null,
          currentScreen: 'home',
@@ -819,6 +1058,46 @@
       return gap > 0 ? gap : 0;
     }
     function setMetaView(v) { state.metaView = v; render(); window.scrollTo({top: 0}); }
+    function setSummarySubTab(v) { state.summarySubTab = v; renderMetaSummary(); }
+    function openHandoffDrawer(id) { state.handoffDrawerOpenFor = id; state.handoffDrawerSegment = 'tokens'; renderHandoff(); }
+    function closeHandoffDrawer() { state.handoffDrawerOpenFor = null; renderHandoff(); }
+    function setHandoffDrawerSegment(s) { state.handoffDrawerSegment = s; renderHandoff(); }
+
+    /* Copy a slash command to clipboard + show a transient toast (v0.3.0). */
+    function copyAndToast(command, label) {
+      const fallback = () => {
+        const ta = document.createElement('textarea');
+        ta.value = command;
+        ta.style.position = 'fixed'; ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        try { document.execCommand('copy'); } catch (e) { /* silent */ }
+        document.body.removeChild(ta);
+      };
+      const showToast = (ok) => {
+        const t = document.createElement('div');
+        t.className = 'sync-toast';
+        t.textContent = ok
+          ? (label ? `${label} — paste in Claude Code` : `Command copied — paste in Claude Code`)
+          : `Copy failed. Command: ${command}`;
+        document.body.appendChild(t);
+        requestAnimationFrame(() => t.classList.add('is-visible'));
+        setTimeout(() => {
+          t.classList.remove('is-visible');
+          setTimeout(() => t.remove(), 220);
+        }, 2200);
+      };
+      if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(command).then(() => showToast(true), () => { fallback(); showToast(true); });
+      } else {
+        fallback(); showToast(true);
+      }
+    }
+
+    /* Esc closes the handoff drawer. */
+    window.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && state.handoffDrawerOpenFor) closeHandoffDrawer();
+    });
 
     function renderMetaPanel() {
       switch (state.metaView) {
@@ -856,18 +1135,33 @@
          2.4 Others                (reserved per-project)
        Empty sub-sections render with empty-state copy.
        ========================================================================= */
+    /* v0.3.0 — Tab 2 sub-tab navigation. Only the active sub-section renders. */
+    const SUMMARY_SUBTABS = [
+      ['overview',  'Overview'],
+      ['insights',  'User Insights'],
+      ['tradeoffs', 'UI Logic Trade-offs'],
+      ['others',    'Others'],
+    ];
+
     function renderMetaSummary() {
+      const subTabs = SUMMARY_SUBTABS.map(([id, label]) =>
+        `<button class="meta-subtab ${state.summarySubTab === id ? 'active' : ''}"
+                 onclick="setSummarySubTab('${id}')">${label}</button>`
+      ).join('');
+      const body = {
+        overview:  pbRenderOverview,
+        insights:  pbRenderUserInsights,
+        tradeoffs: pbRenderTradeoffs,
+        others:    pbRenderOthers,
+      }[state.summarySubTab]();
+
       $('#app').innerHTML = `
         <div class="meta-panel">
           <span class="meta-tag">Project Summary</span>
           <h1 class="meta-h1">What this prototype is testing</h1>
-          <p class="meta-sub">Auto-synced from <code>constitution.md</code>, <code>spec.md</code>, and <code>clarify.md</code>.</p>
-          <hr class="meta-divider">
-
-          ${pbRenderOverview()}
-          ${pbRenderUserInsights()}
-          ${pbRenderTradeoffs()}
-          ${pbRenderOthers()}
+          <p class="meta-sub">Auto-synced from <code>constitution.md</code>, <code>spec.md</code>, and <code>clarify.md</code>. Switch sections via the tabs below.</p>
+          <div class="meta-subtabs">${subTabs}</div>
+          ${body}
         </div>
       `;
     }
@@ -977,11 +1271,17 @@
        ========================================================================= */
     function renderMetaFlow() {
       $('#app').innerHTML = `
-        <div class="meta-panel flow-panel">
+        <div class="meta-panel wide-panel">
           <span class="meta-tag">User Flow</span>
           <h1 class="meta-h1">User Flow Diagram</h1>
           <p class="meta-sub">All states and transitions a user can take through the prototype.</p>
           <hr class="meta-divider">
+          <div class="sync-bar">
+            <div class="sync-bar-msg">
+              ↻ This tab is decoupled from /build — re-render it from the spec by running <code>/speckit-prototype-builder-sync-flow</code>.
+            </div>
+            <button class="sync-button" onclick="copyAndToast('/speckit-prototype-builder-sync-flow', 'Sync flow command copied')">Sync now</button>
+          </div>
           <div class="flow-layout">
             <div class="flow-canvas" id="flow-canvas">
               <div class="flow-viewport" id="flow-viewport">
@@ -1110,12 +1410,12 @@
       const h = PB_DATA.handoff;
       const isScreen = h.view === 'screen';
       $('#app').innerHTML = `
-        <div class="meta-panel">
+        <div class="meta-panel wide-panel">
           <span class="meta-tag">Design Handoff</span>
           <h1 class="meta-h1">Design Handoff</h1>
           <p class="meta-sub">
-            <strong>Component</strong> view auto-syncs on <code>/speckit.prototype-builder.build</code>.
-            <strong>Screen</strong> view is manual via <code>/speckit.prototype-builder.handoff</code> (7:3 layout, spec tokens only — no code).
+            <strong>Component</strong> view auto-syncs on <code>/speckit-prototype-builder-build</code> — vertical card list, click a card for the spec drawer.
+            <strong>Screen</strong> view is manual via <code>/speckit-prototype-builder-handoff</code> (7:3 layout, spec tokens only — no code).
           </p>
 
           <div class="handoff-toggle">
@@ -1126,47 +1426,145 @@
 
           ${isScreen ? pbRenderHandoffScreen() : pbRenderHandoffComponent()}
         </div>
+        ${pbRenderHandoffDrawer()}
       `;
     }
 
+    /* v0.3.0 — Component view as vertical card list. Click card → spec drawer. */
     function pbRenderHandoffComponent() {
       const orgs = (PB_DATA.handoff.organisms || []);
       if (!orgs.length) {
         return `
           <p class="meta-p" style="color:var(--text-tertiary);font-style:italic">
-            No custom organisms recorded yet. Run <code>/speckit.prototype-builder.build</code>
+            No custom organisms recorded yet. Run <code>/speckit-prototype-builder-build</code>
             to populate this view from the current spec + plan.
           </p>
         `;
       }
-      return orgs.map((org, i) => `
-        <div class="variant-section">
-          <div class="meta-h3">${i+1} · ${pbEscape(org.name)}</div>
-          ${org.meta ? `<div class="variant-meta">${pbEscape(org.meta)}</div>` : ''}
-          <div class="variant-ctrls">
-            ${(org.variants || []).map(v =>
-              `<button class="variant-ctrl ${variantCtx[org.id] === v.id ? 'active' : ''}"
-                       onclick="setVariant('${org.id}', '${v.id}')">${pbEscape(v.label)}</button>`
+      return `
+        <div class="handoff-card-list">
+          ${orgs.map((org, i) => {
+            const active = variantCtx[org.id] || (org.variants && org.variants[0] && org.variants[0].id);
+            const preview = typeof window[org.renderFn] === 'function'
+              ? window[org.renderFn](active)
+              : `<div style="padding:14px;color:var(--text-tertiary);font-style:italic;font-size:12px">
+                   Renderer <code>${pbEscape(org.renderFn || '(none)')}</code> not defined.
+                 </div>`;
+            const hasSpecs = !!org.specs;
+            return `
+              <div class="handoff-card" ${hasSpecs ? `onclick="openHandoffDrawer('${pbEscape(org.id)}')"` : ''}>
+                <div class="handoff-card-header">
+                  <span class="handoff-card-title">${i+1} · ${pbEscape(org.name)}</span>
+                  <span class="handoff-card-id">${pbEscape(org.id)}</span>
+                </div>
+                ${org.meta ? `<p class="handoff-card-meta">${pbEscape(org.meta)}</p>` : ''}
+                <div class="handoff-card-controls" onclick="event.stopPropagation()">
+                  ${(org.variants || []).map(v =>
+                    `<button class="variant-ctrl ${active === v.id ? 'active' : ''}"
+                             onclick="event.stopPropagation(); setVariant('${pbEscape(org.id)}', '${pbEscape(v.id)}')">${pbEscape(v.label)}</button>`
+                  ).join('')}
+                </div>
+                <div class="handoff-card-preview" data-component-preview="${pbEscape(org.id)}">${preview}</div>
+                <div class="handoff-card-hint">
+                  ${hasSpecs
+                    ? '→ Click card for full spec (tokens · sizing · states · a11y · usage)'
+                    : 'No spec data yet — /speckit-prototype-builder-build can populate organism.specs to enable the drawer.'}
+                </div>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      `;
+    }
+
+    /* v0.3.0 — Right-side drawer with 5 spec segments. Reads PB_DATA.handoff.organisms[N].specs. */
+    function pbRenderHandoffDrawer() {
+      const id = state.handoffDrawerOpenFor;
+      if (!id) return '';
+      const org = (PB_DATA.handoff.organisms || []).find(x => x.id === id);
+      if (!org || !org.specs) return '';
+      const segments = [
+        ['tokens', 'Tokens'],
+        ['sizing', 'Sizing'],
+        ['states', 'States'],
+        ['a11y',   'A11y'],
+        ['usage',  'Usage'],
+      ];
+      return `
+        <div class="handoff-drawer-backdrop" onclick="closeHandoffDrawer()"></div>
+        <aside class="handoff-drawer" role="dialog" aria-modal="true" aria-label="${pbEscape(org.name)} spec">
+          <div class="handoff-drawer-header">
+            <div class="handoff-drawer-title-wrap">
+              <h2 class="handoff-drawer-title">${pbEscape(org.name)}</h2>
+              ${org.meta ? `<p class="handoff-drawer-sub">${pbEscape(org.meta)}</p>` : ''}
+            </div>
+            <button class="handoff-drawer-close" onclick="closeHandoffDrawer()" aria-label="Close drawer">×</button>
+          </div>
+          <div class="handoff-drawer-segments">
+            ${segments.map(([sid, label]) =>
+              `<button class="handoff-drawer-segment ${state.handoffDrawerSegment === sid ? 'active' : ''}"
+                       onclick="setHandoffDrawerSegment('${sid}')">${label}</button>`
             ).join('')}
           </div>
-          <div class="variant-preview" id="pb-org-${org.id}">
-            ${typeof window[org.renderFn] === 'function'
-              ? window[org.renderFn](variantCtx[org.id] || (org.variants[0] && org.variants[0].id))
-              : `<div style="padding:24px;background:#fff8e1;border:1px dashed #c1c9d2;border-radius:12px">
-                   <em>Renderer <code>${pbEscape(org.renderFn)}</code> not defined yet.</em>
-                 </div>`}
+          <div class="handoff-drawer-content">
+            ${pbRenderHandoffDrawerSegment(org, state.handoffDrawerSegment)}
           </div>
+        </aside>
+      `;
+    }
+
+    function pbRenderHandoffDrawerSegment(org, segment) {
+      const data = org.specs && org.specs[segment];
+      if (!data || (Array.isArray(data) && !data.length)) {
+        return '<p class="handoff-spec-note">No data for this segment.</p>';
+      }
+      if (segment === 'tokens' || segment === 'sizing') {
+        return `
+          <div class="handoff-spec-group">
+            ${data.map(row => {
+              const [k, v] = Array.isArray(row) ? row : [row.name || '', row.value || ''];
+              return `<div class="handoff-spec-row pb-drawer-row"><span class="handoff-spec-key">${pbEscape(k)}</span><span class="handoff-spec-val">${pbEscape(v)}</span></div>`;
+            }).join('')}
+          </div>
+        `;
+      }
+      if (segment === 'states') {
+        return `
+          <div class="handoff-spec-group">
+            ${data.map(row => {
+              const [label, desc] = Array.isArray(row) ? row : [row.name || '', row.description || ''];
+              return `
+                <div class="handoff-spec-group" style="border-bottom:1px solid var(--border);padding-bottom:12px;margin-bottom:12px">
+                  <p class="handoff-spec-label">${pbEscape(label)}</p>
+                  <p class="handoff-spec-note">${pbEscape(desc)}</p>
+                </div>
+              `;
+            }).join('')}
+          </div>
+        `;
+      }
+      // a11y, usage — flat list of notes
+      return `
+        <div class="handoff-spec-group">
+          ${data.map(note => `<p class="handoff-spec-note">• ${pbEscape(note)}</p>`).join('')}
         </div>
-      `).join('');
+      `;
     }
 
     function pbRenderHandoffScreen() {
       const screens = PB_DATA.handoff.screens || [];
+      const syncBar = `
+        <div class="sync-bar">
+          <div class="sync-bar-msg">
+            ↻ Screen view is manual — re-render this tab from the spec by running <code>/speckit-prototype-builder-handoff</code>.
+          </div>
+          <button class="sync-button" onclick="copyAndToast('/speckit-prototype-builder-handoff', 'Handoff command copied')">Sync now</button>
+        </div>
+      `;
       if (!screens.length) {
-        return `
+        return syncBar + `
           <p class="meta-p" style="color:var(--text-tertiary);font-style:italic">
-            No screens recorded yet. Run <code>/speckit.prototype-builder.handoff</code>
-            after a build to populate this view.
+            No screens recorded yet. Click <strong>Sync now</strong> above (or run <code>/speckit-prototype-builder-handoff</code>) to populate this view.
           </p>
         `;
       }
@@ -1177,7 +1575,7 @@
         || (elements[0] && elements[0].id);
       const selEl = elements.find(e => e.id === selElId) || elements[0];
 
-      return `
+      return syncBar + `
         <div class="handoff-screen-pick">
           <label class="handoff-screen-label">Screen:</label>
           <select class="handoff-screen-select" onchange="setHandoffScreen(this.value)">
@@ -1258,11 +1656,17 @@
        ========================================================================= */
     function renderMetaERD() {
       $('#app').innerHTML = `
-        <div class="meta-panel flow-panel">
+        <div class="meta-panel wide-panel">
           <span class="meta-tag">ERD</span>
           <h1 class="meta-h1">Entity Relationship Diagram</h1>
           <p class="meta-sub">Data model for a future production implementation.</p>
           <hr class="meta-divider">
+          <div class="sync-bar">
+            <div class="sync-bar-msg">
+              ↻ This tab is decoupled from /build — re-render it from the spec by running <code>/speckit-prototype-builder-sync-erd</code>.
+            </div>
+            <button class="sync-button" onclick="copyAndToast('/speckit-prototype-builder-sync-erd', 'Sync ERD command copied')">Sync now</button>
+          </div>
           <div class="flow-layout">
             <div class="flow-canvas" id="erd-canvas">
               <div class="flow-viewport" id="erd-viewport">

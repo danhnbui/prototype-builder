@@ -66,13 +66,13 @@ mkdir ~/Desktop/my-prototype && cd ~/Desktop/my-prototype
 specify init . --integration claude --force
 
 # Install Preset + Extension from this single repo
-gh repo clone danhnbui/spec-kit-extension-prototype-builder /tmp/pb -- --branch v0.2.0
+gh repo clone danhnbui/spec-kit-extension-prototype-builder /tmp/pb -- --branch v0.3.0
 specify preset add --dev /tmp/pb
 specify extension add --dev /tmp/pb
 
 # Or via public URL once the repo is public:
-# specify preset add --from https://github.com/danhnbui/spec-kit-extension-prototype-builder/archive/refs/tags/v0.2.0.zip
-# specify extension add --from https://github.com/danhnbui/spec-kit-extension-prototype-builder/archive/refs/tags/v0.2.0.zip
+# specify preset add --from https://github.com/danhnbui/spec-kit-extension-prototype-builder/archive/refs/tags/v0.3.0.zip
+# specify extension add --from https://github.com/danhnbui/spec-kit-extension-prototype-builder/archive/refs/tags/v0.3.0.zip
 
 # Then open Claude Code and run the workflow
 claude
@@ -125,6 +125,15 @@ Full architectural docs (SRS, architecture, data flow, orchestrator, execution p
 ---
 
 ## Version
+
+- **v0.3.0** — Template UX iteration (`assets/template.html`). No command body changes. Five additions to the 5-tab template:
+  1. **Tab 2 sub-tabs**: Overview / User Insights / UI Logic Trade-offs / Others render as sub-tabs instead of one long scroll
+  2. **Full-width** Tab 3 / Tab 4 / Tab 5 panels (Tab 2 stays narrow for readability)
+  3. **Legend on LEFT, canvas on RIGHT** for User Flow + ERD (CSS `flex-direction: row-reverse` at viewport ≥1081px)
+  4. **Tab 4-Component**: vertical card list with inline variant previews. Click a card → right-side drawer with 5 spec segments (Tokens · Sizing · States · A11y · Usage). Esc / backdrop closes
+  5. **"Sync now" buttons** on Tab 3 / Tab 4-Screen / Tab 5 — copies the relevant slash command to clipboard + 2-second toast (replaces the static sync-badge hint)
+
+  **PB_DATA shape extension**: `organisms[N].specs = { tokens, sizing, states, a11y, usage }` is now read by the drawer. Existing v0.2.0 hooks that don't write `specs` still work — the card just shows a "no spec data yet" hint instead of being clickable.
 
 - **v0.2.0** — Folded the Preset into this repo (was previously the separate [`spec-kit-preset-prototype-builder`](https://github.com/danhnbui/spec-kit-preset-prototype-builder) repo). One URL, one source of truth, still two install commands per SpecKit convention.
 - **v0.1.1** — Skill repo pin bumped to `agent-skill-set@v0.2.0` (the 3 design/orchestration skills landed). No command behavior changes.
