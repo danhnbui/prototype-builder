@@ -18,7 +18,7 @@ The user input may pre-supply: design-system URL, language, framework. If empty,
 
 Bring a freshly-`specify init`ed directory into the state required by all other Prototype Builder commands:
 
-1. `./.claude/skills/` populated by cloning `https://github.com/danhnbui/agent-skill-set` at pinned tag `v0.1.0`
+1. `./.claude/skills/` populated by cloning `https://github.com/danhnbui/agent-skill-set` at pinned tag `v0.2.0`
 2. `./prototype/template.html` copied from this extension's `assets/template.html`
 3. `./design-system/` populated from the user-chosen source
 4. `.specify/memory/constitution.md` updated with **Stack Lock** + **DS Lock** + **Skill Pinning** sections (Principles section deferred to `/speckit.constitution`)
@@ -37,10 +37,10 @@ The default repo is **private**, so we use `gh repo clone` (relies on `gh auth` 
 
 ```bash
 # Primary path — private repo via gh auth
-gh repo clone danhnbui/agent-skill-set ./.claude/skills -- --depth 1 --branch v0.1.0
+gh repo clone danhnbui/agent-skill-set ./.claude/skills -- --depth 1 --branch v0.2.0
 
 # Or, if the repo has been made public, plain git is fine:
-# git clone --depth 1 --branch v0.1.0 https://github.com/danhnbui/agent-skill-set.git ./.claude/skills
+# git clone --depth 1 --branch v0.2.0 https://github.com/danhnbui/agent-skill-set.git ./.claude/skills
 ```
 
 If the user passed `--local-skills=<path>` in `$ARGUMENTS` (or `--local-skills` alone), skip the network clone entirely and copy from the local path (defaulting to `~/.claude/skills/`):
@@ -154,7 +154,7 @@ Update `.specify/memory/constitution.md` with:
 
 ## Skill Pinning
 - **Source**: https://github.com/danhnbui/agent-skill-set
-- **Pinned tag**: v0.1.0
+- **Pinned tag**: v0.2.0
 - **Local path**: ./.claude/skills/
 ```
 

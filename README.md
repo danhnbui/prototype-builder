@@ -77,4 +77,5 @@ See [`docs/04-orchestrator.md`](docs/04-orchestrator.md) §3 for the full algori
 
 ## Version
 
-`v0.1.0` — initial private release for PropertyGuru Vietnam prototype work.
+- **v0.1.1** — Skill repo pin bumped to `v0.2.0` (includes the 3 design/orchestration skills). No command behavior changes.
+- **v0.1.0** — Initial private release for PropertyGuru Vietnam prototype work.
