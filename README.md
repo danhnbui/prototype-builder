@@ -66,13 +66,13 @@ mkdir ~/Desktop/my-prototype && cd ~/Desktop/my-prototype
 specify init . --integration claude --force
 
 # Install Preset + Extension from this single repo
-gh repo clone danhnbui/spec-kit-extension-prototype-builder /tmp/pb -- --branch v0.3.3
+gh repo clone danhnbui/spec-kit-extension-prototype-builder /tmp/pb -- --branch v0.3.4
 specify preset add --dev /tmp/pb
 specify extension add --dev /tmp/pb
 
 # Or via public URL once the repo is public:
-# specify preset add --from https://github.com/danhnbui/spec-kit-extension-prototype-builder/archive/refs/tags/v0.3.3.zip
-# specify extension add --from https://github.com/danhnbui/spec-kit-extension-prototype-builder/archive/refs/tags/v0.3.3.zip
+# specify preset add --from https://github.com/danhnbui/spec-kit-extension-prototype-builder/archive/refs/tags/v0.3.4.zip
+# specify extension add --from https://github.com/danhnbui/spec-kit-extension-prototype-builder/archive/refs/tags/v0.3.4.zip
 
 # Then open Claude Code and run the workflow
 claude
@@ -125,6 +125,8 @@ Full architectural docs (SRS, architecture, data flow, orchestrator, execution p
 ---
 
 ## Version
+
+- **v0.3.4** — Removed the "Read the 18 flow rules →" external link from the User Flow empty state. Cleaner CTA-only layout. The guide is still available at [`docs/USER-FLOW-GUIDE.md`](docs/USER-FLOW-GUIDE.md) for anyone who needs it.
 
 - **v0.3.3** — Toast auto-detects destination. `copyAndToast(command, label, btn, dest)` now picks "Claude Code" or "Terminal" automatically: commands starting with `/` are slash commands (Claude Code), everything else is a shell command (Terminal). Override the auto-detection by passing `dest: 'claude'` or `dest: 'terminal'` as the 4th arg. Avoids the confusion of telling users to "paste in Claude Code" when the command is actually `gh repo clone ...` (Terminal).
 
