@@ -66,13 +66,13 @@ mkdir ~/Desktop/my-prototype && cd ~/Desktop/my-prototype
 specify init . --integration claude --force
 
 # Install Preset + Extension from this single repo
-gh repo clone danhnbui/spec-kit-extension-prototype-builder /tmp/pb -- --branch v0.3.0
+gh repo clone danhnbui/spec-kit-extension-prototype-builder /tmp/pb -- --branch v0.3.1
 specify preset add --dev /tmp/pb
 specify extension add --dev /tmp/pb
 
 # Or via public URL once the repo is public:
-# specify preset add --from https://github.com/danhnbui/spec-kit-extension-prototype-builder/archive/refs/tags/v0.3.0.zip
-# specify extension add --from https://github.com/danhnbui/spec-kit-extension-prototype-builder/archive/refs/tags/v0.3.0.zip
+# specify preset add --from https://github.com/danhnbui/spec-kit-extension-prototype-builder/archive/refs/tags/v0.3.1.zip
+# specify extension add --from https://github.com/danhnbui/spec-kit-extension-prototype-builder/archive/refs/tags/v0.3.1.zip
 
 # Then open Claude Code and run the workflow
 claude
@@ -126,6 +126,7 @@ Full architectural docs (SRS, architecture, data flow, orchestrator, execution p
 
 ## Version
 
+- **v0.3.1** — Sync now button feedback. The Sync button now also (a) flashes its label to "✓ Copied" with a green background for 1.5s after click, (b) moves the toast from bottom-center to top-center (just below the meta-nav, in the user's eyeline), (c) extends toast duration from 2.2s → 3s, (d) adds a checkmark icon to the toast, and (e) switches the toast appearance from `requestAnimationFrame` to `setTimeout(10ms)` — fixes a bug where the toast could be invisibly stuck in backgrounded/iframed contexts. No PB_DATA contract changes.
 - **v0.3.0** — Template UX iteration (`assets/template.html`). No command body changes. Five additions to the 5-tab template:
   1. **Tab 2 sub-tabs**: Overview / User Insights / UI Logic Trade-offs / Others render as sub-tabs instead of one long scroll
   2. **Full-width** Tab 3 / Tab 4 / Tab 5 panels (Tab 2 stays narrow for readability)

@@ -489,25 +489,44 @@
       font: 500 13px/1 var(--font-body);
       cursor: pointer;
       display: inline-flex; align-items: center; gap: 6px;
-      transition: background 0.12s;
+      transition: background 0.18s, color 0.18s;
       flex-shrink: 0;
     }
     .sync-button:hover { background: var(--brand-strong); }
+    .sync-button.is-copied {
+      background: #10b981;            /* emerald-500 — success confirmation */
+      color: white;
+      cursor: default;
+    }
+    .sync-button.is-copied:hover { background: #10b981; }
     .sync-toast {
       position: fixed;
-      bottom: 24px; left: 50%;
-      transform: translate(-50%, 12px);
+      top: 60px;                       /* just below the 44px meta-nav + 16px gap */
+      left: 50%;
+      transform: translate(-50%, -12px);
       opacity: 0;
       background: var(--pg-gray-90);
       color: white;
-      padding: 10px 16px;
+      padding: 12px 18px;
       border-radius: var(--pg-radius-small);
-      font: 500 13px/1.3 var(--font-body);
+      font: 500 14px/1.3 var(--font-body);
       box-shadow: 0 4px 12px rgba(0,0,0,0.08);
       z-index: 1200;
       pointer-events: none;
       transition: opacity 0.18s ease-out, transform 0.18s ease-out;
       max-width: 90vw;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .sync-toast::before {
+      content: '\2713';                /* checkmark */
+      display: inline-flex;
+      width: 18px; height: 18px;
+      align-items: center; justify-content: center;
+      background: #10b981;
+      color: white;
+      border-radius: 50%;
+      font-size: 11px; font-weight: 700;
+      flex-shrink: 0;
     }
     .sync-toast.is-visible { opacity: 1; transform: translate(-50%, 0); }
 
@@ -1063,8 +1082,9 @@
     function closeHandoffDrawer() { state.handoffDrawerOpenFor = null; renderHandoff(); }
     function setHandoffDrawerSegment(s) { state.handoffDrawerSegment = s; renderHandoff(); }
 
-    /* Copy a slash command to clipboard + show a transient toast (v0.3.0). */
-    function copyAndToast(command, label) {
+    /* Copy a slash command to clipboard + show a toast + flash the source button (v0.3.1).
+       `btn` is optional — pass the clicked button element for inline ✓ Copied feedback. */
+    function copyAndToast(command, label, btn) {
       const fallback = () => {
         const ta = document.createElement('textarea');
         ta.value = command;
@@ -1074,19 +1094,36 @@
         try { document.execCommand('copy'); } catch (e) { /* silent */ }
         document.body.removeChild(ta);
       };
+      const flashBtn = () => {
+        if (!btn || btn._syncFlashing) return;
+        btn._syncFlashing = true;
+        const original = btn.innerHTML;
+        btn.innerHTML = '✓ Copied';
+        btn.classList.add('is-copied');
+        btn.disabled = true;
+        setTimeout(() => {
+          btn.innerHTML = original;
+          btn.classList.remove('is-copied');
+          btn.disabled = false;
+          btn._syncFlashing = false;
+        }, 1500);
+      };
       const showToast = (ok) => {
+        document.querySelectorAll('.sync-toast').forEach(prev => prev.remove());
         const t = document.createElement('div');
         t.className = 'sync-toast';
         t.textContent = ok
-          ? (label ? `${label} — paste in Claude Code` : `Command copied — paste in Claude Code`)
+          ? (label ? `${label} — paste in Claude Code (⌘V)` : `Command copied — paste in Claude Code (⌘V)`)
           : `Copy failed. Command: ${command}`;
         document.body.appendChild(t);
-        requestAnimationFrame(() => t.classList.add('is-visible'));
+        // setTimeout (not rAF) — rAF can be throttled in backgrounded/iframed contexts.
+        setTimeout(() => t.classList.add('is-visible'), 10);
         setTimeout(() => {
           t.classList.remove('is-visible');
           setTimeout(() => t.remove(), 220);
-        }, 2200);
+        }, 3000);
       };
+      flashBtn();
       if (navigator.clipboard && window.isSecureContext) {
         navigator.clipboard.writeText(command).then(() => showToast(true), () => { fallback(); showToast(true); });
       } else {
@@ -1280,7 +1317,7 @@
             <div class="sync-bar-msg">
               ↻ This tab is decoupled from /build — re-render it from the spec by running <code>/speckit-prototype-builder-sync-flow</code>.
             </div>
-            <button class="sync-button" onclick="copyAndToast('/speckit-prototype-builder-sync-flow', 'Sync flow command copied')">Sync now</button>
+            <button class="sync-button" onclick="copyAndToast('/speckit-prototype-builder-sync-flow', 'Sync flow command copied', this)">Sync now</button>
           </div>
           <div class="flow-layout">
             <div class="flow-canvas" id="flow-canvas">
@@ -1558,7 +1595,7 @@
           <div class="sync-bar-msg">
             ↻ Screen view is manual — re-render this tab from the spec by running <code>/speckit-prototype-builder-handoff</code>.
           </div>
-          <button class="sync-button" onclick="copyAndToast('/speckit-prototype-builder-handoff', 'Handoff command copied')">Sync now</button>
+          <button class="sync-button" onclick="copyAndToast('/speckit-prototype-builder-handoff', 'Handoff command copied', this)">Sync now</button>
         </div>
       `;
       if (!screens.length) {
@@ -1665,7 +1702,7 @@
             <div class="sync-bar-msg">
               ↻ This tab is decoupled from /build — re-render it from the spec by running <code>/speckit-prototype-builder-sync-erd</code>.
             </div>
-            <button class="sync-button" onclick="copyAndToast('/speckit-prototype-builder-sync-erd', 'Sync ERD command copied')">Sync now</button>
+            <button class="sync-button" onclick="copyAndToast('/speckit-prototype-builder-sync-erd', 'Sync ERD command copied', this)">Sync now</button>
           </div>
           <div class="flow-layout">
             <div class="flow-canvas" id="erd-canvas">
