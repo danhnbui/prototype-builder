@@ -66,13 +66,13 @@ mkdir ~/Desktop/my-prototype && cd ~/Desktop/my-prototype
 specify init . --integration claude --force
 
 # Install Preset + Extension from this single repo
-gh repo clone danhnbui/spec-kit-extension-prototype-builder /tmp/pb -- --branch v0.3.4
+gh repo clone danhnbui/spec-kit-extension-prototype-builder /tmp/pb -- --branch v0.3.5
 specify preset add --dev /tmp/pb
 specify extension add --dev /tmp/pb
 
 # Or via public URL once the repo is public:
-# specify preset add --from https://github.com/danhnbui/spec-kit-extension-prototype-builder/archive/refs/tags/v0.3.4.zip
-# specify extension add --from https://github.com/danhnbui/spec-kit-extension-prototype-builder/archive/refs/tags/v0.3.4.zip
+# specify preset add --from https://github.com/danhnbui/spec-kit-extension-prototype-builder/archive/refs/tags/v0.3.5.zip
+# specify extension add --from https://github.com/danhnbui/spec-kit-extension-prototype-builder/archive/refs/tags/v0.3.5.zip
 
 # Then open Claude Code and run the workflow
 claude
@@ -125,6 +125,8 @@ Full architectural docs (SRS, architecture, data flow, orchestrator, execution p
 ---
 
 ## Version
+
+- **v0.3.5** — Sync / Generate CTAs now open a **copy popover** instead of fire-and-forget toasts. The popover shows the command in a code block with a copy-icon button, a "✓ Copied to clipboard" status line, and explicit destination guidance: all slash commands → "Paste in **Terminal** (Claude Code CLI)" with setup instructions ("Open Terminal → type `claude` if not running → paste → ↵"). Auto-copies on open; persists until ×, backdrop click, or Esc. Also removed the redundant meta-footer text that used to sit below each empty-state CTA (the popover covers the same information).
 
 - **v0.3.4** — Removed the "Read the 18 flow rules →" external link from the User Flow empty state. Cleaner CTA-only layout. The guide is still available at [`docs/USER-FLOW-GUIDE.md`](docs/USER-FLOW-GUIDE.md) for anyone who needs it.
 

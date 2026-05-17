@@ -531,6 +531,154 @@
     .sync-toast.is-visible { opacity: 1; transform: translate(-50%, 0); }
 
     /* ========================================================================
+       v0.3.5 — COPY POPOVER — opens on CTA click, shows command + copy icon
+       + destination guidance (Claude Code conversation vs Terminal).
+       Auto-copies on open. Replaces the prior fire-and-forget toast.
+       ======================================================================== */
+    .copy-popover-backdrop {
+      position: fixed; inset: 0;
+      background: transparent;
+      z-index: 1380;
+    }
+    .copy-popover {
+      position: fixed;
+      width: 360px; max-width: 92vw;
+      background: white;
+      border: 1px solid var(--border-strong);
+      border-radius: 10px;
+      box-shadow: 0 12px 32px rgba(0,0,0,0.14), 0 2px 6px rgba(0,0,0,0.06);
+      z-index: 1390;
+      padding: 18px 18px 16px;
+      opacity: 0;
+      transform: translateY(-4px) scale(0.98);
+      transform-origin: top center;
+      transition: opacity 0.16s ease-out, transform 0.16s ease-out;
+    }
+    .copy-popover.is-visible {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+    .copy-popover-close {
+      position: absolute;
+      top: 8px; right: 8px;
+      width: 26px; height: 26px;
+      background: transparent;
+      border: 0; border-radius: 5px;
+      font-size: 18px; line-height: 1;
+      color: var(--text-tertiary);
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: background 0.14s, color 0.14s;
+    }
+    .copy-popover-close:hover {
+      background: var(--pg-gray-10);
+      color: var(--text-active-primary);
+    }
+    .copy-popover-label {
+      font: 600 11px/1 var(--font-body);
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: var(--text-tertiary);
+      margin: 0 0 10px;
+    }
+    .copy-popover-code-row {
+      display: flex;
+      align-items: stretch;
+      background: var(--pg-gray-10);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      overflow: hidden;
+    }
+    .copy-popover-code {
+      flex: 1; min-width: 0;
+      padding: 10px 12px;
+      font: 500 13px/1.4 'SF Mono', Menlo, monospace;
+      color: var(--text-active-primary);
+      background: transparent;
+      word-break: break-all;
+      display: flex; align-items: center;
+    }
+    .copy-popover-copy-btn {
+      width: 40px;
+      background: white;
+      border: 0;
+      border-left: 1px solid var(--border);
+      color: var(--text-active-secondary);
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: background 0.14s, color 0.14s;
+    }
+    .copy-popover-copy-btn:hover {
+      background: var(--pg-gray-10);
+      color: var(--text-active-primary);
+    }
+    .copy-popover-copy-btn svg { width: 16px; height: 16px; }
+    .copy-popover-status {
+      margin: 10px 0 0;
+      font: 500 12px/1.4 var(--font-body);
+      color: #059669;
+      display: flex; align-items: center; gap: 6px;
+    }
+    .copy-popover-status::before {
+      content: '\2713';
+      display: inline-flex;
+      width: 14px; height: 14px;
+      align-items: center; justify-content: center;
+      background: #10b981;
+      color: white;
+      border-radius: 50%;
+      font-size: 8px; font-weight: 700;
+    }
+    .copy-popover-status.is-flash { animation: status-flash 0.5s ease-out; }
+    @keyframes status-flash {
+      0%   { transform: scale(1); }
+      30%  { transform: scale(1.04); }
+      100% { transform: scale(1); }
+    }
+    .copy-popover-divider {
+      height: 1px;
+      background: var(--border);
+      margin: 14px 0;
+    }
+    .copy-popover-dest { display: flex; gap: 12px; align-items: flex-start; }
+    .copy-popover-dest-icon {
+      width: 36px; height: 36px;
+      flex-shrink: 0;
+      background: var(--pg-gray-10);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--text-active-secondary);
+    }
+    .copy-popover-dest-icon svg { width: 18px; height: 18px; }
+    .copy-popover-dest-body { min-width: 0; flex: 1; }
+    .copy-popover-dest-where {
+      font: 500 13px/1.4 var(--font-body);
+      color: var(--text-active-primary);
+      margin-bottom: 3px;
+    }
+    .copy-popover-dest-where strong { font-weight: 600; }
+    .copy-popover-dest-how {
+      font: 400 12px/1.5 var(--font-body);
+      color: var(--text-active-secondary);
+    }
+    .copy-popover-dest-how kbd {
+      display: inline-block;
+      padding: 0 5px;
+      min-width: 16px;
+      height: 16px;
+      font: 600 10px/16px 'SF Mono', Menlo, monospace;
+      text-align: center;
+      background: white;
+      border: 1px solid var(--border-strong);
+      border-bottom-width: 2px;
+      border-radius: 4px;
+      color: var(--text-active-primary);
+      margin: 0 1px;
+      vertical-align: 1px;
+    }
+
+    /* ========================================================================
        v0.3.2 — EMPTY STATE — shown when a tab has no synced content yet
        ======================================================================== */
     .empty-state {
@@ -1223,6 +1371,169 @@
       if (e.key === 'Escape' && state.handoffDrawerOpenFor) closeHandoffDrawer();
     });
 
+    /* ===========================================================================
+       v0.3.5 — Copy popover. Replaces the old fire-and-forget toast for sync /
+       generate CTAs. Opens an anchored card with the command, a copy icon,
+       a "✓ Copied" status line, and clear destination guidance (Claude Code
+       conversation vs Terminal). Auto-copies on open; users can re-copy via
+       the icon button. Close: × / click outside / Esc.
+       =========================================================================== */
+    const COPY_POPOVER_ICONS = {
+      copy:     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>',
+      claude:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>',
+      terminal: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><polyline points="6 9 9 12 6 15"/><line x1="12" y1="15" x2="16" y2="15"/></svg>',
+      close:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg>',
+    };
+
+    function copyCommandToClipboard(command) {
+      if (navigator.clipboard && window.isSecureContext) {
+        return navigator.clipboard.writeText(command).catch(() => copyCommandFallback(command));
+      }
+      copyCommandFallback(command);
+      return Promise.resolve();
+    }
+    function copyCommandFallback(command) {
+      const ta = document.createElement('textarea');
+      ta.value = command;
+      ta.style.position = 'fixed'; ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      try { document.execCommand('copy'); } catch (e) { /* silent */ }
+      document.body.removeChild(ta);
+    }
+    function escapeHtmlAttr(s) {
+      return String(s)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function openCopyPopover(command, anchorBtn, dest) {
+      document.querySelectorAll('.copy-popover, .copy-popover-backdrop').forEach(el => el.remove());
+      window.removeEventListener('keydown', copyPopoverKeyHandler);
+      window.removeEventListener('resize', repositionCopyPopover);
+
+      const destKey = (function () {
+        const d = (dest || 'auto').toLowerCase();
+        if (d === 'claude') return 'claude';
+        if (d === 'terminal') return 'terminal';
+        return command.trim().startsWith('/') ? 'claude' : 'terminal';
+      })();
+      const destInfo = destKey === 'claude'
+        ? {
+            icon: COPY_POPOVER_ICONS.terminal,
+            where: 'Paste in <strong>Terminal</strong> (Claude Code CLI)',
+            how:   'Open Terminal. If Claude Code isn't running, type <kbd>claude</kbd> and press <kbd>↵</kbd> first. Then paste with <kbd>⌘</kbd><kbd>V</kbd> and press <kbd>↵</kbd>.',
+          }
+        : {
+            icon: COPY_POPOVER_ICONS.terminal,
+            where: 'Paste in <strong>Terminal</strong>',
+            how:   'Open your terminal, paste with <kbd>⌘</kbd><kbd>V</kbd>, then press <kbd>↵</kbd>.',
+          };
+
+      const backdrop = document.createElement('div');
+      backdrop.className = 'copy-popover-backdrop';
+      backdrop.addEventListener('click', closeCopyPopover);
+
+      const pop = document.createElement('div');
+      pop.className = 'copy-popover';
+      pop.setAttribute('role', 'dialog');
+      pop.setAttribute('aria-label', 'Copy command');
+      pop.dataset.command = command;
+      pop.innerHTML = `
+        <button class="copy-popover-close" type="button" aria-label="Close" onclick="closeCopyPopover()">${COPY_POPOVER_ICONS.close}</button>
+        <div class="copy-popover-label">Run this command</div>
+        <div class="copy-popover-code-row">
+          <code class="copy-popover-code">${escapeHtmlAttr(command)}</code>
+          <button class="copy-popover-copy-btn" type="button" aria-label="Copy command" onclick="recopyFromPopover(this)">${COPY_POPOVER_ICONS.copy}</button>
+        </div>
+        <div class="copy-popover-status" data-popover-status>Copied to clipboard</div>
+        <div class="copy-popover-divider"></div>
+        <div class="copy-popover-dest">
+          <div class="copy-popover-dest-icon">${destInfo.icon}</div>
+          <div class="copy-popover-dest-body">
+            <div class="copy-popover-dest-where">${destInfo.where}</div>
+            <div class="copy-popover-dest-how">${destInfo.how}</div>
+          </div>
+        </div>
+      `;
+
+      document.body.appendChild(backdrop);
+      document.body.appendChild(pop);
+
+      positionCopyPopover(pop, anchorBtn);
+      copyCommandToClipboard(command);
+
+      setTimeout(() => {
+        pop.classList.add('is-visible');
+        positionCopyPopover(pop, anchorBtn);
+      }, 10);
+
+      window.addEventListener('keydown', copyPopoverKeyHandler);
+      window.addEventListener('resize', repositionCopyPopover);
+    }
+
+    function closeCopyPopover() {
+      const pop = document.querySelector('.copy-popover');
+      const bd  = document.querySelector('.copy-popover-backdrop');
+      if (pop) {
+        pop.classList.remove('is-visible');
+        setTimeout(() => { if (pop.parentNode) pop.parentNode.removeChild(pop); }, 180);
+      }
+      if (bd && bd.parentNode) bd.parentNode.removeChild(bd);
+      window.removeEventListener('keydown', copyPopoverKeyHandler);
+      window.removeEventListener('resize', repositionCopyPopover);
+      copyPopoverAnchor = null;
+    }
+    function copyPopoverKeyHandler(e) {
+      if (e.key === 'Escape') closeCopyPopover();
+    }
+
+    let copyPopoverAnchor = null;
+    function positionCopyPopover(pop, anchorBtn) {
+      copyPopoverAnchor = anchorBtn;
+      if (!anchorBtn) {
+        pop.style.top  = '90px';
+        pop.style.left = (window.innerWidth / 2 - pop.offsetWidth / 2) + 'px';
+        return;
+      }
+      const aRect = anchorBtn.getBoundingClientRect();
+      const pW = pop.offsetWidth  || 360;
+      const pH = pop.offsetHeight || 220;
+      const gap = 10;
+      const margin = 12;
+
+      let top  = aRect.bottom + gap;
+      if (top + pH > window.innerHeight - margin) {
+        top = Math.max(margin, aRect.top - pH - gap);
+      }
+      let left = aRect.left + aRect.width / 2 - pW / 2;
+      left = Math.max(margin, Math.min(left, window.innerWidth - pW - margin));
+
+      pop.style.top  = top + 'px';
+      pop.style.left = left + 'px';
+    }
+    function repositionCopyPopover() {
+      const pop = document.querySelector('.copy-popover');
+      if (pop && copyPopoverAnchor) positionCopyPopover(pop, copyPopoverAnchor);
+    }
+
+    function recopyFromPopover(btn) {
+      const pop = btn.closest('.copy-popover');
+      if (!pop) return;
+      const command = pop.dataset.command || '';
+      copyCommandToClipboard(command);
+      const status = pop.querySelector('[data-popover-status]');
+      if (status) {
+        status.textContent = 'Copied again';
+        status.classList.remove('is-flash');
+        void status.offsetWidth;
+        status.classList.add('is-flash');
+      }
+    }
+
     /* v0.3.2 — empty-state helper for tabs that haven't been synced yet. */
     function renderEmptyState({ icon, title, body, ctaLabel, command, label, learnHref, learnLabel, meta }) {
       return `
@@ -1231,7 +1542,7 @@
           <h3 class="empty-state-title">${title}</h3>
           <p class="empty-state-body">${body}</p>
           <div class="empty-state-actions">
-            <button class="empty-state-cta" onclick="copyAndToast('${command}', '${label}', this)">${ctaLabel}</button>
+            <button class="empty-state-cta" onclick="openCopyPopover('${command}', this)">${ctaLabel}</button>
             ${learnHref ? `<a class="empty-state-link" href="${learnHref}" target="_blank" rel="noopener">${learnLabel || 'Learn more'} →</a>` : ''}
           </div>
           ${meta ? `<div class="empty-state-meta">${meta}</div>` : ''}
@@ -1424,7 +1735,6 @@
         ctaLabel: 'Generate user flow',
         command: '/speckit-prototype-builder-sync-flow',
         label: 'Sync flow command copied',
-        meta: 'The CTA copies <code>/speckit-prototype-builder-sync-flow</code> to your clipboard. Paste in Claude Code to populate this tab from <code>spec.md</code>.',
       });
       $('#app').innerHTML = `
         <div class="meta-panel wide-panel">
@@ -1444,7 +1754,7 @@
           <div class="sync-bar-msg">
             ↻ This tab is decoupled from /build — re-render it from the spec by running <code>/speckit-prototype-builder-sync-flow</code>.
           </div>
-          <button class="sync-button" onclick="copyAndToast('/speckit-prototype-builder-sync-flow', 'Sync flow command copied', this)">Sync now</button>
+          <button class="sync-button" onclick="openCopyPopover('/speckit-prototype-builder-sync-flow', this)">Sync now</button>
         </div>
         <div class="flow-layout">
           <div class="flow-canvas" id="flow-canvas">
@@ -1723,7 +2033,6 @@
           ctaLabel: 'Generate screen handoff',
           command: '/speckit-prototype-builder-handoff',
           label: 'Handoff command copied',
-          meta: 'The CTA copies <code>/speckit-prototype-builder-handoff</code> to your clipboard. Paste in Claude Code to populate this view with screens from Tab 1.',
         });
       }
       const syncBar = `
@@ -1731,7 +2040,7 @@
           <div class="sync-bar-msg">
             ↻ Screens populated. Re-render from the latest spec by running <code>/speckit-prototype-builder-handoff</code>.
           </div>
-          <button class="sync-button" onclick="copyAndToast('/speckit-prototype-builder-handoff', 'Handoff command copied', this)">Sync now</button>
+          <button class="sync-button" onclick="openCopyPopover('/speckit-prototype-builder-handoff', this)">Sync now</button>
         </div>
       `;
       const selectedId = PB_DATA.handoff.selectedScreenId || screens[0].id;
@@ -1829,7 +2138,6 @@
         ctaLabel: 'Generate ERD',
         command: '/speckit-prototype-builder-sync-erd',
         label: 'Sync ERD command copied',
-        meta: 'The CTA copies <code>/speckit-prototype-builder-sync-erd</code> to your clipboard. Paste in Claude Code to populate this tab from <code>spec.md</code>.',
       });
       $('#app').innerHTML = `
         <div class="meta-panel wide-panel">
@@ -1867,7 +2175,7 @@
           <div class="sync-bar-msg">
             ↻ This tab is decoupled from /build — re-render it from the spec by running <code>/speckit-prototype-builder-sync-erd</code>.
           </div>
-          <button class="sync-button" onclick="copyAndToast('/speckit-prototype-builder-sync-erd', 'Sync ERD command copied', this)">Sync now</button>
+          <button class="sync-button" onclick="openCopyPopover('/speckit-prototype-builder-sync-erd', this)">Sync now</button>
         </div>
         <div class="flow-layout">
           <div class="flow-canvas" id="erd-canvas">
