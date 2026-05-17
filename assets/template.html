@@ -640,6 +640,8 @@
       background: var(--border);
       margin: 14px 0;
     }
+    .copy-popover-multi-heading { font: 600 11px/1 var(--font-body); text-transform: uppercase; letter-spacing: 0.07em; color: var(--text-tertiary); margin: 0 0 10px; }
+    .copy-popover-multi { display: flex; flex-direction: column; gap: 12px; }
     .copy-popover-dest { display: flex; gap: 12px; align-items: flex-start; }
     .copy-popover-dest-icon {
       width: 36px; height: 36px;
@@ -1423,15 +1425,48 @@
       })();
       const destInfo = destKey === 'claude'
         ? {
-            icon: COPY_POPOVER_ICONS.terminal,
-            where: 'Paste in <strong>Terminal</strong> (Claude Code CLI)',
-            how:   'Open Terminal. If Claude Code isn't running, type <kbd>claude</kbd> and press <kbd>↵</kbd> first. Then paste with <kbd>⌘</kbd><kbd>V</kbd> and press <kbd>↵</kbd>.',
+            multi: true,
+            heading: 'Paste in either:',
+            options: [
+              {
+                icon: COPY_POPOVER_ICONS.claude,
+                where: '<strong>Claude Code chat input</strong>',
+                how:   'The bottom input that says "Type / for commands". Paste with <kbd>⌘</kbd><kbd>V</kbd> and press <kbd>↵</kbd>.',
+              },
+              {
+                icon: COPY_POPOVER_ICONS.terminal,
+                where: '<strong>Claude Code terminal</strong>',
+                how:   'The terminal where <kbd>claude</kbd> is running. Paste with <kbd>⌘</kbd><kbd>V</kbd> and press <kbd>↵</kbd>.',
+              },
+            ],
           }
         : {
+            multi: false,
             icon: COPY_POPOVER_ICONS.terminal,
             where: 'Paste in <strong>Terminal</strong>',
             how:   'Open your terminal, paste with <kbd>⌘</kbd><kbd>V</kbd>, then press <kbd>↵</kbd>.',
           };
+
+      const destBlock = destInfo.multi
+        ? `<div class="copy-popover-multi-heading">${destInfo.heading}</div>
+           <div class="copy-popover-multi">
+             ${destInfo.options.map(o => `
+               <div class="copy-popover-dest">
+                 <div class="copy-popover-dest-icon">${o.icon}</div>
+                 <div class="copy-popover-dest-body">
+                   <div class="copy-popover-dest-where">${o.where}</div>
+                   <div class="copy-popover-dest-how">${o.how}</div>
+                 </div>
+               </div>
+             `).join('')}
+           </div>`
+        : `<div class="copy-popover-dest">
+             <div class="copy-popover-dest-icon">${destInfo.icon}</div>
+             <div class="copy-popover-dest-body">
+               <div class="copy-popover-dest-where">${destInfo.where}</div>
+               <div class="copy-popover-dest-how">${destInfo.how}</div>
+             </div>
+           </div>`;
 
       const backdrop = document.createElement('div');
       backdrop.className = 'copy-popover-backdrop';
@@ -1451,13 +1486,7 @@
         </div>
         <div class="copy-popover-status" data-popover-status>Copied to clipboard</div>
         <div class="copy-popover-divider"></div>
-        <div class="copy-popover-dest">
-          <div class="copy-popover-dest-icon">${destInfo.icon}</div>
-          <div class="copy-popover-dest-body">
-            <div class="copy-popover-dest-where">${destInfo.where}</div>
-            <div class="copy-popover-dest-how">${destInfo.how}</div>
-          </div>
-        </div>
+        ${destBlock}
       `;
 
       document.body.appendChild(backdrop);

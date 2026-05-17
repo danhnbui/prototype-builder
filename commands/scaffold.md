@@ -113,6 +113,38 @@ cp "$EXT_PATH/assets/template.html" ./prototype/template.html
 
 Confirm to user: `"Tab 1–5 scaffold copied to ./prototype/template.html (~57KB, 1444 lines)."`
 
+### Step 4.5 — Register commands for Claude Code chat input (v0.3.6)
+
+By default, SpecKit-installed commands only work in the **Claude Code terminal** (the interactive `claude` CLI session). To also make them work in the **Claude Code chat input** (the "Type / for commands" field in the desktop app / IDE extension), copy each command body into `./.claude/commands/` with a flattened filename:
+
+```bash
+mkdir -p ./.claude/commands
+EXT_CMDS=./.specify/extensions/prototype-builder/commands
+for cmd in scaffold build sync-flow sync-erd handoff skills-refresh check-drift; do
+  src="${EXT_CMDS}/${cmd}.md"
+  dst="./.claude/commands/speckit-prototype-builder-${cmd}.md"
+  if [ -f "$src" ]; then
+    if [ -f "$dst" ]; then
+      echo "skip: $dst already exists (re-run /speckit-prototype-builder-skills-refresh to update)"
+    else
+      cp "$src" "$dst"
+    fi
+  fi
+done
+```
+
+`sync-tab2` is intentionally excluded — it's invoked by hooks, not the user.
+
+Confirm to user: `"7 commands registered for Claude Code chat input at ./.claude/commands/speckit-prototype-builder-*.md. They can now be typed in either the chat ('Type / for commands' field) or the terminal."`
+
+**Failure handling**: If `./.specify/extensions/prototype-builder/commands/` doesn't exist, warn but don't fail — the user can still use the commands in the Claude Code terminal:
+
+```
+Warning: extension command bodies not found at the expected path.
+Chat-input registration skipped. The commands still work in the
+Claude Code terminal — just paste them at the `claude` prompt.
+```
+
 ### Step 5 — Prompt for Design System (FR-6)
 
 Ask the user:

@@ -66,13 +66,13 @@ mkdir ~/Desktop/my-prototype && cd ~/Desktop/my-prototype
 specify init . --integration claude --force
 
 # Install Preset + Extension from this single repo
-gh repo clone danhnbui/spec-kit-extension-prototype-builder /tmp/pb -- --branch v0.3.5
+gh repo clone danhnbui/spec-kit-extension-prototype-builder /tmp/pb -- --branch v0.3.6
 specify preset add --dev /tmp/pb
 specify extension add --dev /tmp/pb
 
 # Or via public URL once the repo is public:
-# specify preset add --from https://github.com/danhnbui/spec-kit-extension-prototype-builder/archive/refs/tags/v0.3.5.zip
-# specify extension add --from https://github.com/danhnbui/spec-kit-extension-prototype-builder/archive/refs/tags/v0.3.5.zip
+# specify preset add --from https://github.com/danhnbui/spec-kit-extension-prototype-builder/archive/refs/tags/v0.3.6.zip
+# specify extension add --from https://github.com/danhnbui/spec-kit-extension-prototype-builder/archive/refs/tags/v0.3.6.zip
 
 # Then open Claude Code and run the workflow
 claude
@@ -125,6 +125,8 @@ Full architectural docs (SRS, architecture, data flow, orchestrator, execution p
 ---
 
 ## Version
+
+- **v0.3.6** — Slash commands now work in **both** the Claude Code chat input ("Type / for commands" field in the desktop app / IDE extension) **and** the Claude Code terminal — not just the terminal. Two changes: (1) the scaffold now copies each user-facing command body (`build`, `sync-flow`, `sync-erd`, `handoff`, `skills-refresh`, `check-drift`, `scaffold` itself) into `./.claude/commands/speckit-prototype-builder-<name>.md`, which is the directory Claude Code reads to register chat-input commands. (2) The copy popover now shows BOTH destinations side-by-side under a "Paste in either:" heading — Claude Code chat input (with chat-bubble icon) OR Claude Code terminal (with terminal icon) — so users pick whichever surface they have open. Shell commands (e.g., `gh repo clone`) still show Terminal-only since they can't run in the chat input.
 
 - **v0.3.5** — Sync / Generate CTAs now open a **copy popover** instead of fire-and-forget toasts. The popover shows the command in a code block with a copy-icon button, a "✓ Copied to clipboard" status line, and explicit destination guidance: all slash commands → "Paste in **Terminal** (Claude Code CLI)" with setup instructions ("Open Terminal → type `claude` if not running → paste → ↵"). Auto-copies on open; persists until ×, backdrop click, or Esc. Also removed the redundant meta-footer text that used to sit below each empty-state CTA (the popover covers the same information).
 
