@@ -5,6 +5,8 @@
 **Status**: Approved for execution after Phase 0 confirmation
 **Version**: v1.0 (locked from outline v0.3)
 
+> 📦 **As of `spec-kit-extension-prototype-builder@v0.2.0` (2026-05-17)**: the Preset and Extension are unified into **one repo** — [spec-kit-extension-prototype-builder](https://github.com/danhnbui/spec-kit-extension-prototype-builder). The standalone Preset repo is deprecated (its v0.1.0 still works). The docs below still describe them as two units (which they are conceptually inside SpecKit), but installation and source control are now single-repo. See [QUICKSTART-LOCAL.md](QUICKSTART-LOCAL.md) for the current install commands.
+
 ---
 
 ## What this is

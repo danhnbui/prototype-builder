@@ -110,6 +110,28 @@ The new `/speckit.prototype-builder.scaffold` command handles the init-time work
 
 ---
 
+## Delta 9 — Preset and Extension unified into one repo (v0.2.0)
+
+**Docs assume**: Preset and Extension are two separate repos ([01-srs.md FR-1, FR-2](01-srs.md), [02-architecture.md §1, §2, §4, §5](02-architecture.md)).
+
+**Reality** (as of `spec-kit-extension-prototype-builder@v0.2.0`, 2026-05-17): the Preset's files (`preset.yml`, `templates/`, `commands/speckit.constitution.md`, `commands/speckit.clarify.md`) now live in **this** repo alongside the Extension's files. Reasons:
+
+- SpecKit allows a single folder to contain both a `preset.yml` and an `extension.yml` — the `specify preset add` and `specify extension add` commands each look for their respective manifest file.
+- One source of truth, one URL to remember, one place to bump versions.
+- The standalone [`spec-kit-preset-prototype-builder`](https://github.com/danhnbui/spec-kit-preset-prototype-builder) repo is **deprecated** but kept read-only for v0.1.0 reference.
+
+**Install flow now**:
+
+```bash
+gh repo clone danhnbui/spec-kit-extension-prototype-builder /tmp/pb -- --branch v0.2.0
+specify preset add --dev /tmp/pb         # one repo, two install commands
+specify extension add --dev /tmp/pb
+```
+
+SpecKit still treats Preset and Extension as separate concepts internally (separate manifests, separate priority in template resolution, separate `specify preset|extension` subcommands). Collapsing further would require forking SpecKit, which is forbidden by Hard Rule #6.
+
+---
+
 ## Delta 8 — Multi-prototype workspace — still out of scope, but mechanism easier
 
 **Docs assume**: Multi-prototype workspace is a future migration that involves moving `.specify/templates/` and `.specify/extensions/` to a shared location ([02-architecture.md §9](02-architecture.md)).
