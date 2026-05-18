@@ -15,13 +15,15 @@ These 7 rules govern how `/speckit-prototype-builder-sync-flow` populates Tab 3.
 3. **Full-width container.** The flow-doc grid spans the entire Tab 3 panel width (no `max-width` clamp) — title and canvas align.
 4. **One combined flow by default, multiple only when truly necessary.** Express the WHOLE prototype as a single Mermaid flowchart that covers every user story (including edge cases) — push the per-story detail into `[[Subprocess]]` nodes. The combined flow goes into one `<div class="flow-doc-section">` inside `#flow-stage`; the test checklist on the left maps each story to a path. Only stack multiple sections when the flows are truly independent (different actors AND different goals) or when a single combined flow would exceed 9 nodes even after subprocess extraction. **ASK the user** when unsure. The `.flow-canvas` / `.flow-viewport` / `.flow-stage` trio still gives pan + zoom + fit-to-view (`+` / `−` / `⊙` controls in the top-right) for any flow count.
 5. **`LR` direction.** Use `flowchart LR` always. Start sits on the left, End(s) on the right.
-6. **Color-coded shapes (v0.3.9 palette).** Apply this `classDef` palette so users can scan node types at a glance:
+6. **Color-coded shapes (v0.3.9 palette) + 24px corners on rectangles (v0.3.12).** Apply this `classDef` palette so users can scan node types at a glance:
    - Start → `fill:#0f172a,stroke:#000000,color:#ffffff` (zinc-900 pill)
    - End → `fill:#0f172a,stroke:#000000,color:#ffffff` (zinc-900 pill — same as Start, distinguished by position)
-   - Action → `fill:#F3E8FF,stroke:#C084FC,color:#581c87` (lavender)
+   - Action → `fill:#F3E8FF,stroke:#C084FC,color:#581c87` (lavender) **+ rx=24**
    - Decision → `fill:#DBEAFE,stroke:#60A5FA,color:#1e3a8a` (sky)
    - Input / Output → `fill:#FCE7F3,stroke:#EC4899,color:#831843` (pink)
-   - Subprocess → `fill:#EDE9FE,stroke:#7C3AED,color:#4c1d95` (purple, stroke-width 2)
+   - Subprocess → `fill:#EDE9FE,stroke:#7C3AED,color:#4c1d95,stroke-width:2px` (purple) **+ rx=24**
+
+   **Subprocess syntax**: use `R(Subprocess label)` (rounded-rect shape), not `R[[Subprocess label]]` (stadium-bordered polygon) — only the rect form accepts the 24px corner radius. Post-render JS in the host template sets `rx="24"` on each `.node.cAction > rect` and `.node.cSubprocess > rect` because Mermaid's `classDef rx/ry` isn't honored on rectangles in the current renderer.
 7. **Orthogonal connectors (horizontal/vertical only).** Initialize Mermaid with `flowchart: { curve: 'step', useMaxWidth: false }` so every edge segment is either purely horizontal or purely vertical with right-angle bends. No diagonals, no smooth curves — reads cleanest on a stacked canvas and matches the whiteboard-flowchart convention.
 
 ---

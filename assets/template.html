@@ -1944,6 +1944,14 @@
             svg.style.width = '';
             svg.style.height = '';
           });
+          // v0.3.12 — apply 24px corner radius to rectangle shapes (Action, Subprocess).
+          // Mermaid's classDef rx/ry isn't honored on rectangles in current versions —
+          // set the SVG attribute directly post-render. Stadiums (Start/End) keep
+          // their fully-rounded ends; polygons (Decision/Input) can't be rounded.
+          stage.querySelectorAll('.node.cAction > rect, .node.cSubprocess > rect').forEach(function(rect){
+            rect.setAttribute('rx', '24');
+            rect.setAttribute('ry', '24');
+          });
           stage.style.width = 'auto';
           stage.style.height = 'auto';
           stage.style.marginLeft = '0';

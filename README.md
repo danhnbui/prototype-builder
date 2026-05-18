@@ -66,13 +66,13 @@ mkdir ~/Desktop/my-prototype && cd ~/Desktop/my-prototype
 specify init . --integration claude --force
 
 # Install Preset + Extension from this single repo
-gh repo clone danhnbui/spec-kit-extension-prototype-builder /tmp/pb -- --branch v0.3.11
+gh repo clone danhnbui/spec-kit-extension-prototype-builder /tmp/pb -- --branch v0.3.12
 specify preset add --dev /tmp/pb
 specify extension add --dev /tmp/pb
 
 # Or via public URL once the repo is public:
-# specify preset add --from https://github.com/danhnbui/spec-kit-extension-prototype-builder/archive/refs/tags/v0.3.11.zip
-# specify extension add --from https://github.com/danhnbui/spec-kit-extension-prototype-builder/archive/refs/tags/v0.3.11.zip
+# specify preset add --from https://github.com/danhnbui/spec-kit-extension-prototype-builder/archive/refs/tags/v0.3.12.zip
+# specify extension add --from https://github.com/danhnbui/spec-kit-extension-prototype-builder/archive/refs/tags/v0.3.12.zip
 
 # Then open Claude Code and run the workflow
 claude
@@ -125,6 +125,8 @@ Full architectural docs (SRS, architecture, data flow, orchestrator, execution p
 ---
 
 ## Version
+
+- **v0.3.12** — 24px corner radius on rectangle-shaped nodes (Action + Subprocess). Two changes: (1) subprocess syntax in the canonical Mermaid template switches from `R[[Subprocess]]` (renders as stadium-bordered polygon, can't be rounded) to `R(Subprocess)` (renders as rect, accepts `rx/ry`). (2) Post-render JS in the host template's `renderMetaFlow()` sets `rx="24" ry="24"` on every `.node.cAction > rect` and `.node.cSubprocess > rect` because Mermaid's `classDef rx/ry` isn't honored on rectangles in the current renderer. Stadiums (Start/End) keep their fully-rounded pill ends; polygons (Decision/Input) can't be rounded.
 
 - **v0.3.11** — Updates platform rule §0.7: connectors are now **orthogonal (horizontal/vertical only)** with right-angle bends — switches Mermaid from `flowchart: { curve: 'basis' }` (smooth curves) to `flowchart: { curve: 'step' }`. No diagonals, no smooth curves; matches the whiteboard-flowchart convention and reads cleaner on a stacked canvas. Pure config tweak — no other behavior changes.
 

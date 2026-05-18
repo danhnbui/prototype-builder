@@ -55,7 +55,7 @@ flowchart LR
   Start([Entry point]):::cStart --> A[First action]:::cAction
   A --> D{Decision question?}:::cDecision
   D -- Yes --> B[/User input/]:::cInput
-  D -- No --> C[[Subprocess]]:::cSubprocess
+  D -- No --> C(Subprocess):::cSubprocess
   B --> End([Success state]):::cEnd
   C --> End
 
@@ -66,6 +66,8 @@ flowchart LR
   classDef cInput       fill:#FCE7F3,stroke:#EC4899,color:#831843,stroke-width:1.5px
   classDef cSubprocess  fill:#EDE9FE,stroke:#7C3AED,color:#4c1d95,stroke-width:2px
 ```
+
+**Important**: use `C(Subprocess)` (rounded-rect syntax), NOT `C[[Subprocess]]` — only the rect form accepts the 24px corner radius from the post-render step in §7.
 ````
 
 Each flow goes into its own `<div class="flow-doc-section">` block (heading + actor/goal sub + Mermaid). All sections live inside `#flow-stage` so the user pans + zooms over every flow at once.
@@ -123,6 +125,10 @@ The Tab 3 layout is the v0.3.10+ **3:7 grid with a zoomable canvas**: test check
        svg.style.maxWidth = 'none';
        svg.removeAttribute('width');
        svg.removeAttribute('height');
+     });
+     // v0.3.12 — apply 24px corners to Action + Subprocess rectangles
+     stage.querySelectorAll('.node.cAction > rect, .node.cSubprocess > rect').forEach(function(rect){
+       rect.setAttribute('rx', '24'); rect.setAttribute('ry', '24');
      });
      stage.style.width = 'auto'; stage.style.height = 'auto';
      stage.style.marginLeft = '0'; stage.style.marginTop = '0';
