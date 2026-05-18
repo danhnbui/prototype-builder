@@ -19,7 +19,7 @@ If user input names a specific story or flow, scope to that. Otherwise, generate
 ### Step 2 — Read the user-flow guide (required)
 The full set of rules + shape standard + validation checklist lives in [`docs/USER-FLOW-GUIDE.md`](../../docs/USER-FLOW-GUIDE.md) — load it. **Every output MUST conform.** Violating a rule is a defect, not a stylistic choice.
 
-**Platform rules (v0.3.10+, §0 of the guide) — non-negotiable:**
+**Platform rules (v0.3.14+, §0 of the guide) — non-negotiable:**
 - **3:7 canvas layout** — test checklist on the LEFT (3 cols), flowchart canvas on the RIGHT (7 cols)
 - **Legend with `?` popover** — pill-shaped legend in the top-right of the canvas, click opens a popover explaining every shape
 - **Full-width container** — flow-doc grid spans the entire Tab 3 panel width
@@ -27,6 +27,7 @@ The full set of rules + shape standard + validation checklist lives in [`docs/US
 - **`LR` direction always** — Start on the left, End(s) on the right
 - **Color-coded shapes** via `classDef` (zinc-900 / lavender / sky / pink / purple — see guide §0.6 for the v0.3.9 palette)
 - **Orthogonal connectors (horizontal/vertical only)** — init Mermaid with `flowchart: { curve: 'step', useMaxWidth: false }`
+- **Wireflow nodes (v0.3.14+)** — every screen-shaped node label MUST match a `PB_DATA.handoff.screens[N].name` from Tab 4. Populate `WIREFLOW_SCREENS` (Mermaid node id → screen renderer + label) and `WIREFLOW_NOTES` (note number → node id) so the template wires up click-to-preview + numbered amber badges. Render the `Flow notes` panel as `<ol class="flow-doc-notes">` in the sidebar above the existing test checklist
 
 **Craft constraints (the 18 rules, §3 of the guide):**
 - Use ONLY the 6 standard shapes: stadium `([…])`, rectangle `[…]`, diamond `{…?}`, parallelogram `[/…/]`, subprocess `[[…]]`, cylinder `[(…)]`

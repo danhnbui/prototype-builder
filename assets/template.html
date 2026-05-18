@@ -1045,6 +1045,17 @@
     /* v0.3.9+ Multi-flow stage: SVGs render at natural size (not stretched). */
     .flow-stage-flow { padding: 28px 24px; }
     .flow-stage-flow svg { width: auto !important; height: auto !important; max-width: 100%; display: block; margin: 0 auto; }
+    /* v0.3.14 — Wireflow: clickable screen-name nodes + numbered note badges. */
+    .flow-stage-flow .node[data-wireflow-screen] { cursor: pointer; }
+    .flow-stage-flow .node[data-wireflow-screen]:hover > rect,
+    .flow-stage-flow .node[data-wireflow-screen]:hover > polygon { filter: brightness(0.96); }
+    .wireflow-preview-frame { background: #f4f4f5; border: 1px solid var(--border); border-radius: 8px; padding: 16px; max-height: 60vh; overflow-y: auto; }
+    .wireflow-preview-footer { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border); font: 400 11px/1.5 var(--font-body); color: var(--text-tertiary); }
+    .flow-doc-notes { list-style: none; padding: 0; margin: 0; }
+    .flow-doc-notes > li { display: grid; grid-template-columns: 22px 1fr; gap: 10px; align-items: start; padding: 8px 0; border-bottom: 1px dashed var(--border); font: 400 12px/1.5 var(--font-body); color: var(--text-active-secondary); }
+    .flow-doc-notes > li:last-child { border-bottom: 0; }
+    .flow-doc-notes > li > div strong { color: var(--text-active-primary); font-weight: 600; }
+    .flow-doc-note-num { display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; background: #fde68a; color: #78350f; border-radius: 50%; font: 700 11px/1 var(--font-body); flex-shrink: 0; margin-top: 1px; }
     .flow-zoom-controls {
       position: absolute; top: 16px; right: 16px; z-index: 10;
       display: flex; flex-direction: column; gap: 2px;
@@ -1952,6 +1963,8 @@
             rect.setAttribute('rx', '24');
             rect.setAttribute('ry', '24');
           });
+          // v0.3.14 — Wireflow decorations: click-to-preview + numbered note badges.
+          if (typeof decorateWireflowNodes === 'function') decorateWireflowNodes();
           stage.style.width = 'auto';
           stage.style.height = 'auto';
           stage.style.marginLeft = '0';
@@ -2157,6 +2170,92 @@
         requestAnimationFrame(recomputeHandoffBounds);
       }
     });
+
+    /* =========================================================================
+       v0.3.14 — Wireflow extensions for Tab 3.
+       /speckit-prototype-builder-sync-flow populates these registries with
+       the screen renderers and flow notes for the current spec. The
+       decorate helper makes screen-name nodes clickable (preview popover)
+       and renders amber-circle note numbers on annotated nodes.
+       ========================================================================= */
+    /* Sync-flow OVERWRITES this with { <mermaidNodeId>: { fn: 'renderXScreen', label: 'X Page' } } */
+    const WIREFLOW_SCREENS = {};
+    /* Sync-flow OVERWRITES this with { <noteNumber>: '<mermaidNodeId>' } — note numbers
+       must match the numbered list rendered in .flow-doc-notes inside the sidebar. */
+    const WIREFLOW_NOTES   = {};
+
+    function openScreenPreviewPopover(nodeId, anchorEl) {
+      const entry = WIREFLOW_SCREENS[nodeId];
+      if (!entry || typeof window[entry.fn] !== 'function') return;
+      document.querySelectorAll('.copy-popover, .copy-popover-backdrop').forEach(el => el.remove());
+      window.removeEventListener('keydown', copyPopoverKeyHandler);
+      window.removeEventListener('resize', repositionCopyPopover);
+
+      const backdrop = document.createElement('div');
+      backdrop.className = 'copy-popover-backdrop';
+      backdrop.addEventListener('click', closeCopyPopover);
+
+      const pop = document.createElement('div');
+      pop.className = 'copy-popover';
+      pop.setAttribute('role', 'dialog');
+      pop.setAttribute('aria-label', 'Screen preview: ' + entry.label);
+      pop.style.width = '420px';
+      pop.style.maxHeight = '78vh';
+      pop.style.overflowY = 'auto';
+      pop.innerHTML =
+        '<button class="copy-popover-close" type="button" aria-label="Close" onclick="closeCopyPopover()">' + COPY_POPOVER_ICONS.close + '</button>' +
+        '<div class="copy-popover-cmd-label" style="margin-bottom:14px"><span>' + entry.label + '</span></div>' +
+        '<div class="wireflow-preview-frame">' + window[entry.fn]() + '</div>' +
+        '<div class="wireflow-preview-footer">Full spec (tokens · sizing · states) lives in <strong>Tab 4 → Design Handoff → Screen</strong>.</div>';
+
+      document.body.appendChild(backdrop);
+      document.body.appendChild(pop);
+      positionCopyPopover(pop, anchorEl);
+      setTimeout(() => { pop.classList.add('is-visible'); positionCopyPopover(pop, anchorEl); }, 10);
+      window.addEventListener('keydown', copyPopoverKeyHandler);
+      window.addEventListener('resize', repositionCopyPopover);
+    }
+
+    function decorateWireflowNodes() {
+      const stage = document.getElementById('flow-stage');
+      if (!stage) return;
+      const notesByNode = {};
+      Object.entries(WIREFLOW_NOTES).forEach(([num, nodeId]) => {
+        (notesByNode[nodeId] = notesByNode[nodeId] || []).push(num);
+      });
+      stage.querySelectorAll('.node').forEach(n => {
+        const m = (n.id || '').match(/^flowchart-([A-Za-z]+)/);
+        if (!m) return;
+        const nodeId = m[1];
+        if (WIREFLOW_SCREENS[nodeId]) {
+          n.style.cursor = 'pointer';
+          n.setAttribute('data-wireflow-screen', nodeId);
+          if (!n._wireflowClickWired) {
+            n.addEventListener('click', function (e) {
+              e.stopPropagation();
+              openScreenPreviewPopover(nodeId, n);
+            });
+            n._wireflowClickWired = true;
+          }
+        }
+        if (notesByNode[nodeId] && !n.querySelector('.wireflow-note-badge')) {
+          const rect = n.querySelector('rect, polygon, ellipse');
+          if (!rect) return;
+          const bb = rect.getBBox();
+          notesByNode[nodeId].forEach((num, idx) => {
+            const cx = bb.x + bb.width - 6 + (idx * 18);
+            const cy = bb.y - 6;
+            const g  = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+            g.setAttribute('class', 'wireflow-note-badge');
+            g.innerHTML =
+              '<circle cx="' + cx + '" cy="' + cy + '" r="10" fill="#fde68a" stroke="#f59e0b" stroke-width="1.5"></circle>' +
+              '<text x="' + cx + '" y="' + (cy + 1) + '" text-anchor="middle" dominant-baseline="middle" ' +
+              'font-family="Inter, system-ui" font-size="11" font-weight="700" fill="#78350f">' + num + '</text>';
+            n.appendChild(g);
+          });
+        }
+      });
+    }
 
     /* v0.3.0 — Component view as vertical card list. Click card → spec drawer. */
     function pbRenderHandoffComponent() {

@@ -6,7 +6,7 @@ Output format: **Mermaid `flowchart`** in a fenced markdown block + a 2-3 senten
 
 ---
 
-## 0 · Platform rules (v0.3.10+) — non-negotiable
+## 0 · Platform rules (v0.3.14+) — non-negotiable
 
 These 7 rules govern how `/speckit-prototype-builder-sync-flow` populates Tab 3. They sit on top of the 18 craft rules in §3 and override anything that conflicts.
 
@@ -25,6 +25,17 @@ These 7 rules govern how `/speckit-prototype-builder-sync-flow` populates Tab 3.
 
    **Subprocess syntax**: use `R(Subprocess label)` (rounded-rect shape), not `R[[Subprocess label]]` (stadium-bordered polygon) — only the rect form accepts the 24px corner radius. Post-render JS in the host template sets `rx="24"` on each `.node.cAction > rect` and `.node.cSubprocess > rect` because Mermaid's `classDef rx/ry` isn't honored on rectangles in the current renderer.
 7. **Orthogonal connectors (horizontal/vertical only).** Initialize Mermaid with `flowchart: { curve: 'step', useMaxWidth: false }` so every edge segment is either purely horizontal or purely vertical with right-angle bends. No diagonals, no smooth curves — reads cleanest on a stacked canvas and matches the whiteboard-flowchart convention.
+
+8. **Wireflow nodes (v0.3.14+).** Every screen-shaped node in the flow MUST be labeled with the **exact same screen name** used in `PB_DATA.handoff.screens[N].name` (Tab 4). This binds the flow to the handoff so reviewers can request edits by screen name without ambiguity. Populate two registries so the template wires up click-to-preview + numbered note badges:
+   ```js
+   const WIREFLOW_SCREENS = {
+     S: { fn: 'renderSignInScreen',         label: 'Sign in Page' },
+     R: { fn: 'renderRegisterScreen',       label: 'Register Page' },
+     // … one entry per screen-mapped Mermaid node id
+   };
+   const WIREFLOW_NOTES = { 1: 'F', 2: 'O', 3: 'O', /* note# → node id */ };
+   ```
+   The sidebar gets a "Flow notes" section (`<ol class="flow-doc-notes">`) where each `<li>` opens with `<span class="flow-doc-note-num">N</span>` matching the badge `N` on the corresponding node. Notes carry business-logic detail that doesn't fit in an edge label (rate limits, expiry windows, lockout copy, etc.).
 
 ---
 

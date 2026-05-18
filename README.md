@@ -66,13 +66,13 @@ mkdir ~/Desktop/my-prototype && cd ~/Desktop/my-prototype
 specify init . --integration claude --force
 
 # Install Preset + Extension from this single repo
-gh repo clone danhnbui/spec-kit-extension-prototype-builder /tmp/pb -- --branch v0.3.13
+gh repo clone danhnbui/spec-kit-extension-prototype-builder /tmp/pb -- --branch v0.3.14
 specify preset add --dev /tmp/pb
 specify extension add --dev /tmp/pb
 
 # Or via public URL once the repo is public:
-# specify preset add --from https://github.com/danhnbui/spec-kit-extension-prototype-builder/archive/refs/tags/v0.3.13.zip
-# specify extension add --from https://github.com/danhnbui/spec-kit-extension-prototype-builder/archive/refs/tags/v0.3.13.zip
+# specify preset add --from https://github.com/danhnbui/spec-kit-extension-prototype-builder/archive/refs/tags/v0.3.14.zip
+# specify extension add --from https://github.com/danhnbui/spec-kit-extension-prototype-builder/archive/refs/tags/v0.3.14.zip
 
 # Then open Claude Code and run the workflow
 claude
@@ -125,6 +125,8 @@ Full architectural docs (SRS, architecture, data flow, orchestrator, execution p
 ---
 
 ## Version
+
+- **v0.3.14** — Tab 3 becomes a true **wireflow**: each screen-shaped node is labeled with the exact screen name from Tab 4 (Sign in Page, Register Page, Reset Password Page, OTP Verify Page, Home, Contact Support) so reviewers can request edits unambiguously by name. Three new pieces glue it together: (1) `WIREFLOW_SCREENS` registry maps Mermaid node ids to screen renderer functions so **clicking a screen-name node opens a popover preview** of the actual mockup from Tab 4 — no need to tab-switch. (2) `WIREFLOW_NOTES` registry binds **numbered amber badges** on nodes to a "Flow notes" `<ol class="flow-doc-notes">` in the sidebar — for business-logic detail that doesn't fit in an edge label (rate limits, OTP expiry, lockout copy, no-enumeration policy, etc.). (3) New §0.8 platform rule, new docs in `commands/sync-flow.md`, plus CSS + helpers (`openScreenPreviewPopover`, `decorateWireflowNodes`) shipped in `assets/template.html` so a fresh scaffold gets the wireflow surface out-of-the-box once sync-flow populates the registries.
 
 - **v0.3.13** — Auto-positioned hit overlays for Tab 4-Screen Design Handoff. Hand-coded `bounds: 'top:…px;left:…px;…'` strings were brittle (mis-aligned when screen widths changed). New approach: render functions tag each interactive element with `data-handoff-el="<id>"` matching the element's `id` in `PB_DATA.handoff.screens[N].elements`; a new `recomputeHandoffBounds()` helper runs after every `renderHandoff()` and sizes each click-overlay hit to the rendered element's actual bounding rect. Also fires on window resize. Hand-coded `bounds` still work as a fallback. Updated `assets/template.html` (helper + patched `renderHandoff`) and `commands/handoff.md` (Step 3 documents the new convention).
 
