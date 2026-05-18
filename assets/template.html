@@ -2126,7 +2126,37 @@
         </div>
         ${pbRenderHandoffDrawer()}
       `;
+      // v0.3.13 — if the screen render functions tagged interactive elements with
+      // data-handoff-el="<id>", auto-position the click-overlay hits to the actual
+      // rendered rectangles. Falls back to whatever bounds are set inline otherwise.
+      if (isScreen) requestAnimationFrame(recomputeHandoffBounds);
     }
+
+    /* v0.3.13 — Auto-position handoff hit overlays from rendered elements. */
+    function recomputeHandoffBounds() {
+      const frame = document.querySelector('.handoff-screen-frame');
+      if (!frame) return;
+      const overlay = frame.querySelector('.handoff-element-overlay');
+      if (!overlay) return;
+      const frameRect = frame.getBoundingClientRect();
+      frame.querySelectorAll('[data-handoff-el]').forEach(target => {
+        const id = target.getAttribute('data-handoff-el');
+        const hit = overlay.querySelector(`.handoff-element-hit[onclick*="'${id}'"]`);
+        if (!hit) return;
+        const r = target.getBoundingClientRect();
+        hit.style.top    = (r.top    - frameRect.top)  + 'px';
+        hit.style.left   = (r.left   - frameRect.left) + 'px';
+        hit.style.width  = r.width  + 'px';
+        hit.style.height = r.height + 'px';
+        hit.style.right  = 'auto';
+        hit.style.bottom = 'auto';
+      });
+    }
+    window.addEventListener('resize', function(){
+      if (state && state.metaView === 'handoff' && PB_DATA.handoff.view === 'screen') {
+        requestAnimationFrame(recomputeHandoffBounds);
+      }
+    });
 
     /* v0.3.0 — Component view as vertical card list. Click card → spec drawer. */
     function pbRenderHandoffComponent() {

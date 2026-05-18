@@ -60,6 +60,25 @@ Use CSS grid `grid-template-columns: 7fr 3fr`:
 
 Clicking an element in the left panel updates the right panel via a data attribute lookup (handled by the template's existing JS).
 
+**v0.3.13+ overlay positioning**: tag each interactive element in your screen render function with `data-handoff-el="<element-id>"` where `<element-id>` matches the `id` you put on the same element inside `PB_DATA.handoff.screens[N].elements`. The template's `recomputeHandoffBounds()` runs after every `renderHandoff()` and auto-sizes each click-overlay hit to the actual rendered element's bounding rect — no need to hand-code `bounds: 'top:…px;…'` strings. Example:
+
+```js
+function renderSignInScreen() {
+  return `
+    <h2 data-handoff-el="title" style="…">Sign in</h2>
+    <div data-handoff-el="emailFld" style="…">…</div>
+    <button data-handoff-el="cta" style="…">Sign in</button>
+  `;
+}
+
+// In PB_DATA.handoff.screens[0].elements (the id is the binding):
+{ id: 'title',    label: 'Title',          tokens: [...], sizing: {...}, state: 'default' },
+{ id: 'emailFld', label: 'Email input',    tokens: [...], sizing: {...}, state: 'default · focus · error' },
+{ id: 'cta',      label: 'Primary button', tokens: [...], sizing: {...}, state: 'default · hover' },
+```
+
+Hand-coded `bounds` strings still work as a fallback if you omit the `data-handoff-el` attribute.
+
 ### Step 4 — Invoke design-critics skill
 Run a critique pass: does the screen handoff convey the design intent without ambiguity? Flag any element whose spec is incomplete.
 

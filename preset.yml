@@ -3,7 +3,7 @@ schema_version: "1.0"
 preset:
   id: "prototype-builder"
   name: "Prototype Builder"
-  version: "0.3.12"
+  version: "0.3.13"
   description: "Spec-driven workflow for single-file HTML UX-test prototypes with built-in 5-tab documentation. Now bundled with the matching Extension in one repo."
   author: "Danh N. Bui — PropertyGuru Vietnam"
   repository: "https://github.com/danhnbui/spec-kit-extension-prototype-builder"
