@@ -6,23 +6,23 @@ Output format: **Mermaid `flowchart`** in a fenced markdown block + a 2-3 senten
 
 ---
 
-## 0 · Platform rules (v0.3.8+) — non-negotiable
+## 0 · Platform rules (v0.3.9+) — non-negotiable
 
 These 7 rules govern how `/speckit-prototype-builder-sync-flow` populates Tab 3. They sit on top of the 18 craft rules in §3 and override anything that conflicts.
 
 1. **3:7 canvas layout.** Render the test checklist on the LEFT (3 columns) and the flowchart canvas on the RIGHT (7 columns). Stack on viewports <980 px.
 2. **Legend with `?` popover.** Show a pill-shaped legend in the top-right of the canvas (shape swatches + the word "Legend" + a `?` icon). Clicking it opens an anchored popover that explains every shape and connector style.
 3. **Full-width container.** The flow-doc grid spans the entire Tab 3 panel width (no `max-width` clamp) — title and canvas align.
-4. **One flow per prototype.** Express the WHOLE prototype as a single Mermaid flowchart. If the flow would exceed 9 nodes even after extracting `[[Subprocess]]`es, **ASK the user** how to scope (which path to expand, which to compress) before drawing.
+4. **Cover ALL flows for the prototype, in a zoomable canvas.** Stack one `<div class="flow-doc-section">` per flow inside `#flow-stage` (each section has a heading + Mermaid block). The `.flow-canvas` / `.flow-viewport` / `.flow-stage` trio gives the user pan + zoom + fit-to-view (`+` / `−` / `⊙` controls in the top-right of the canvas) over every flow at once. Each individual flow still observes the 5–9 node limit (§3.10) — if any single flow would exceed it after `[[Subprocess]]` extraction, **ASK the user** how to scope before drawing that flow.
 5. **`LR` direction.** Use `flowchart LR` always. Start sits on the left, End(s) on the right.
-6. **Color-coded shapes.** Apply this `classDef` palette so users can scan node types at a glance:
-   - Start → `fill:#10b981,stroke:#059669,color:#fff` (emerald)
-   - End → `fill:#1f2937,stroke:#0f172a,color:#fff` (zinc)
-   - Decision → `fill:#fbbf24,stroke:#d97706,color:#1f2937` (amber)
-   - Action → `fill:#dbeafe,stroke:#3b82f6,color:#1e3a8a` (blue)
-   - Input / Output → `fill:#fce7f3,stroke:#db2777,color:#831843` (pink)
-   - Subprocess → `fill:#ede9fe,stroke:#7c3aed,color:#4c1d95` (purple)
-7. **Straight-line connectors.** Initialize Mermaid with `flowchart: { curve: 'linear' }` so edges are straight, not curved.
+6. **Color-coded shapes (v0.3.9 palette).** Apply this `classDef` palette so users can scan node types at a glance:
+   - Start → `fill:#0f172a,stroke:#000000,color:#ffffff` (zinc-900 pill)
+   - End → `fill:#0f172a,stroke:#000000,color:#ffffff` (zinc-900 pill — same as Start, distinguished by position)
+   - Action → `fill:#F3E8FF,stroke:#C084FC,color:#581c87` (lavender)
+   - Decision → `fill:#DBEAFE,stroke:#60A5FA,color:#1e3a8a` (sky)
+   - Input / Output → `fill:#FCE7F3,stroke:#EC4899,color:#831843` (pink)
+   - Subprocess → `fill:#EDE9FE,stroke:#7C3AED,color:#4c1d95` (purple, stroke-width 2)
+7. **Curved connectors.** Initialize Mermaid with `flowchart: { curve: 'basis', useMaxWidth: false }` so edges render as smooth curves at natural SVG size — matches the FigJam-style aesthetic and reads better than straight lines on a stacked canvas.
 
 ---
 
@@ -71,8 +71,8 @@ If any is missing AND cannot be reasonably inferred → ask the user before draw
 9. **No bidirectional arrows.** Loops use two separate arrows with labels.
 
 ### Complexity
-10. **7±2 rule.** Aim for 5–9 nodes per flow. Excess → extract a `[[Subprocess]]`. If you still exceed 9 after extraction, **ASK the user** before drawing (per platform rule §0.4 — one flow per prototype).
-11. **One flow per prototype** (per platform rule §0.4). The legacy "one purpose per flow" rule is superseded: don't split into multiple flows on the canvas — compress with subprocesses or ask the user.
+10. **7±2 rule.** Aim for 5–9 nodes per **individual flow**. Excess → extract a `[[Subprocess]]`. If you still exceed 9 after extraction, **ASK the user** how to scope that flow before drawing.
+11. **One purpose per flow.** If a flow's title needs "and", split it into two flows — both still ship inside the zoomable canvas per platform rule §0.4.
 
 ### Semantics
 12. **Verbs in actions.** "Validate input" not "Input validation".

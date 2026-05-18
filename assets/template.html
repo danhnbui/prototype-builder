@@ -894,17 +894,49 @@
     .flow-doc-main-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 12px; }
     .flow-doc-main-title { font-family: var(--font-heading); font-size: 18px; font-weight: 600; letter-spacing: -0.01em; color: var(--text-active-primary); margin: 6px 0 4px; line-height: 1.3; }
     .flow-doc-main-sub { font-size: 12px; color: var(--text-active-secondary); margin: 0; line-height: 1.5; }
-    .flow-doc-canvas {
+    /* v0.3.9+ The zoomable canvas wraps multiple flow-doc-sections (one per flow).
+       Reuses the .flow-canvas / .flow-viewport / .flow-stage trio shared with ERD,
+       handled by initCanvas('flow', W, H). */
+    .flow-doc-main .flow-canvas { flex: 1; min-height: 480px; border-radius: 10px; }
+    .flow-doc-section {
+      width: 980px;
+      max-width: 980px;
       background: white;
       border: 1px solid var(--border);
       border-radius: 10px;
-      padding: 20px;
-      flex: 1;
-      min-height: 360px;
-      overflow: auto;
+      padding: 22px 26px;
+      margin: 0 auto 28px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.04);
     }
-    .flow-doc-canvas .mermaid { background: transparent; min-height: 320px; display: flex; align-items: center; justify-content: center; }
-    .flow-doc-canvas .mermaid svg { max-width: 100%; height: auto; }
+    .flow-doc-section:last-child { margin-bottom: 0; }
+    .flow-doc-section-h3 {
+      font-family: var(--font-heading);
+      font-size: 16px; font-weight: 600;
+      letter-spacing: -0.01em;
+      color: var(--text-active-primary);
+      margin: 0 0 4px;
+      display: flex; align-items: center; gap: 10px;
+    }
+    .flow-doc-section-num {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 24px; height: 24px;
+      background: var(--pg-gray-10);
+      color: var(--text-active-secondary);
+      border-radius: 50%;
+      font: 700 11px/1 var(--font-body);
+      flex-shrink: 0;
+    }
+    .flow-doc-section-p {
+      font-size: 12px; color: var(--text-active-secondary);
+      margin: 0 0 14px 34px;
+      line-height: 1.5;
+    }
+    .flow-doc-section .mermaid {
+      display: flex; justify-content: center; align-items: center;
+      min-height: 200px;
+      background: transparent;
+    }
+    .flow-doc-section .mermaid svg { display: block; }
     .flow-doc-summary { font-size: 13px; color: var(--text-active-secondary); margin: 14px 0 0; line-height: 1.6; padding: 12px 16px; background: white; border: 1px solid var(--border); border-left: 3px solid #3b82f6; border-radius: 0 6px 6px 0; }
     .flow-doc-stories { padding-left: 22px; margin: 0; }
     .flow-doc-stories > li { margin-bottom: 18px; line-height: 1.55; }
@@ -931,12 +963,12 @@
     }
     .flow-doc-legend-btn:hover { background: var(--pg-gray-10); border-color: var(--text-tertiary); color: var(--text-active-primary); }
     .flow-doc-legend-swatch { width: 12px; height: 12px; border-radius: 3px; display: inline-block; flex-shrink: 0; border: 1px solid rgba(0,0,0,0.06); }
-    .flow-doc-swatch-start      { background: #10b981; }
-    .flow-doc-swatch-end        { background: #1f2937; }
-    .flow-doc-swatch-decision   { background: #fbbf24; transform: rotate(45deg); border-radius: 1px; }
-    .flow-doc-swatch-action     { background: #dbeafe; border-color: #3b82f6; }
-    .flow-doc-swatch-input      { background: #fce7f3; border-color: #db2777; transform: skewX(-18deg); }
-    .flow-doc-swatch-subprocess { background: #ede9fe; border-color: #7c3aed; border-width: 2px; }
+    .flow-doc-swatch-start      { background: #0f172a; border-color: #000000; }
+    .flow-doc-swatch-end        { background: #0f172a; border-color: #000000; }
+    .flow-doc-swatch-decision   { background: #DBEAFE; border-color: #60A5FA; transform: rotate(45deg); border-radius: 1px; }
+    .flow-doc-swatch-action     { background: #F3E8FF; border-color: #C084FC; }
+    .flow-doc-swatch-input      { background: #FCE7F3; border-color: #EC4899; transform: skewX(-18deg); }
+    .flow-doc-swatch-subprocess { background: #EDE9FE; border-color: #7C3AED; border-width: 2px; }
     .flow-doc-legend-label { margin: 0 2px 0 4px; font-weight: 600; color: var(--text-active-primary); }
     .flow-doc-legend-q {
       display: inline-flex; align-items: center; justify-content: center;
@@ -950,12 +982,11 @@
     .legend-popover-row { display: grid; grid-template-columns: 34px 1fr; gap: 12px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border); }
     .legend-popover-row:last-of-type { border-bottom: 0; }
     .legend-popover-shape { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 22px; font-family: 'SF Mono', Menlo, monospace; font-size: 11px; font-weight: 600; color: #1f2937; }
-    .legend-popover-shape.shape-start, .legend-popover-shape.shape-end { background: #10b981; color: white; border-radius: 11px; }
-    .legend-popover-shape.shape-end { background: #1f2937; }
-    .legend-popover-shape.shape-action { background: #dbeafe; color: #1e3a8a; border: 1px solid #3b82f6; border-radius: 3px; }
-    .legend-popover-shape.shape-decision { background: #fbbf24; color: #1f2937; transform: rotate(45deg) scale(0.78); border-radius: 2px; }
-    .legend-popover-shape.shape-input { background: #fce7f3; color: #831843; border: 1px solid #db2777; transform: skewX(-14deg); border-radius: 2px; }
-    .legend-popover-shape.shape-subprocess { background: #ede9fe; color: #4c1d95; border: 2px solid #7c3aed; border-radius: 4px; }
+    .legend-popover-shape.shape-start, .legend-popover-shape.shape-end { background: #0f172a; color: white; border-radius: 11px; }
+    .legend-popover-shape.shape-action { background: #F3E8FF; color: #581c87; border: 1px solid #C084FC; border-radius: 4px; }
+    .legend-popover-shape.shape-decision { background: #DBEAFE; color: #1e3a8a; border: 1px solid #60A5FA; transform: rotate(45deg) scale(0.78); border-radius: 2px; }
+    .legend-popover-shape.shape-input { background: #FCE7F3; color: #831843; border: 1px solid #EC4899; transform: skewX(-14deg); border-radius: 2px; }
+    .legend-popover-shape.shape-subprocess { background: #EDE9FE; color: #4c1d95; border: 2px solid #7C3AED; border-radius: 4px; }
     .legend-popover-shape.shape-cylinder { background: #fff7ed; color: #7c2d12; border: 1px solid #ea580c; border-radius: 11px 11px 4px 4px; }
     .legend-popover-text { font-size: 12px; line-height: 1.4; color: var(--text-active-primary); }
     .legend-popover-text .legend-popover-name { font-weight: 600; }
@@ -1011,6 +1042,9 @@
     }
     .flow-stage-erd .mermaid { background: transparent; display: block; }
     .flow-stage-erd svg { display: block; }
+    /* v0.3.9+ Multi-flow stage: SVGs render at natural size (not stretched). */
+    .flow-stage-flow { padding: 28px 24px; }
+    .flow-stage-flow svg { width: auto !important; height: auto !important; max-width: 100%; display: block; margin: 0 auto; }
     .flow-zoom-controls {
       position: absolute; top: 16px; right: 16px; z-index: 10;
       display: flex; flex-direction: column; gap: 2px;
@@ -1865,7 +1899,7 @@
       const body = populated ? renderFlowPopulated() : renderEmptyState({
         icon: EMPTY_STATE_ICONS.flow,
         title: 'No user flow yet',
-        body: 'Build your user flow from the project spec. Claude generates a single left-to-right Mermaid flowchart with color-coded shapes (6 standard types), straight-line connectors, and a 3:7 canvas-and-checklist layout. Follows 18 craft rules + 7 platform rules — if your spec is too complex for one flow, Claude asks before drawing.',
+        body: 'Build your user flows from the project spec. Claude generates one left-to-right Mermaid flowchart per user story, stacked inside a zoomable canvas (pan + scroll-to-zoom + fit-to-view). Color-coded shapes, curved connectors, 3:7 canvas-and-checklist layout. Follows 18 craft rules + 7 platform rules — if any single flow exceeds 9 nodes after subprocess extraction, Claude asks before drawing that flow.',
         ctaLabel: 'Generate user flow',
         command: '/speckit-prototype-builder-sync-flow',
         label: 'Sync flow command copied',
@@ -1879,25 +1913,54 @@
           ${body}
         </div>
       `;
-      // v0.3.8 — once /speckit-prototype-builder-sync-flow rewrites renderFlowPopulated
-      // to use the .flow-doc-grid layout, this init renders the Mermaid diagram inside
-      // .flow-doc-canvas. The legacy initCanvas() call below is preserved for any
-      // template that still uses the SVG-based buildFlowSvg() output (pre-v0.3.8).
-      if (populated && window.mermaid && document.querySelector('.flow-doc-canvas .mermaid')) {
+      // v0.3.9 — once /speckit-prototype-builder-sync-flow rewrites renderFlowPopulated
+      // to stack multiple Mermaid flows inside #flow-stage, this init renders them all,
+      // strips intrinsic widths, measures the natural content size of the stage, and
+      // hands off to initCanvas('flow', W, H) so the user gets pan + zoom over every
+      // flow at once. Falls back to the legacy buildFlowSvg() init for pre-v0.3.9 templates.
+      if (populated && window.mermaid && document.querySelector('#flow-stage .mermaid')) {
         mermaid.initialize({
           startOnLoad: false,
           theme: 'base',
-          flowchart: { curve: 'linear', htmlLabels: true, padding: 16, useMaxWidth: true },
+          flowchart: { curve: 'basis', htmlLabels: true, padding: 18, useMaxWidth: false, nodeSpacing: 50, rankSpacing: 60 },
           themeVariables: {
             fontFamily: 'var(--font-body, system-ui, sans-serif)',
-            primaryColor: '#dbeafe',
-            primaryTextColor: '#1e3a8a',
-            primaryBorderColor: '#3b82f6',
-            lineColor: '#52525b',
-            tertiaryColor: '#f4f4f5',
+            fontSize: '14px',
+            primaryColor: '#F3E8FF',
+            primaryTextColor: '#1f2937',
+            primaryBorderColor: '#C084FC',
+            lineColor: '#1f2937',
+            tertiaryColor: '#ffffff',
           },
         });
-        mermaid.run({ querySelector: '.flow-doc-canvas .mermaid' }).catch(function(){ /* silent */ });
+        mermaid.run({ querySelector: '#flow-stage .mermaid' }).then(function () {
+          var stage = document.getElementById('flow-stage');
+          if (!stage) return;
+          stage.classList.add('flow-stage-flow');
+          Array.from(stage.querySelectorAll('svg')).forEach(function(svg){
+            svg.style.maxWidth = 'none';
+            svg.removeAttribute('width');
+            svg.removeAttribute('height');
+            svg.style.width = '';
+            svg.style.height = '';
+          });
+          stage.style.width = 'auto';
+          stage.style.height = 'auto';
+          stage.style.marginLeft = '0';
+          stage.style.marginTop = '0';
+          requestAnimationFrame(function () {
+            requestAnimationFrame(function () {
+              var bbox = stage.getBoundingClientRect();
+              var W = Math.max(1024, Math.ceil(bbox.width));
+              var H = Math.max(720,  Math.ceil(bbox.height));
+              stage.style.width = W + 'px';
+              stage.style.height = H + 'px';
+              stage.style.marginLeft = -(W/2) + 'px';
+              stage.style.marginTop  = -(H/2) + 'px';
+              initCanvas('flow', W, H);
+            });
+          });
+        }).catch(function(){ /* silent */ });
       } else if (populated && document.getElementById('flow-canvas')) {
         initCanvas('flow', 1200, 380);
       }

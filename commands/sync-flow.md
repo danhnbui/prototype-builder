@@ -19,14 +19,14 @@ If user input names a specific story or flow, scope to that. Otherwise, generate
 ### Step 2 — Read the user-flow guide (required)
 The full set of rules + shape standard + validation checklist lives in [`docs/USER-FLOW-GUIDE.md`](../../docs/USER-FLOW-GUIDE.md) — load it. **Every output MUST conform.** Violating a rule is a defect, not a stylistic choice.
 
-**Platform rules (v0.3.8+, §0 of the guide) — non-negotiable:**
+**Platform rules (v0.3.9+, §0 of the guide) — non-negotiable:**
 - **3:7 canvas layout** — test checklist on the LEFT (3 cols), flowchart canvas on the RIGHT (7 cols)
 - **Legend with `?` popover** — pill-shaped legend in the top-right of the canvas, click opens a popover explaining every shape
 - **Full-width container** — flow-doc grid spans the entire Tab 3 panel width
-- **One flow per prototype** — express the WHOLE prototype as a single Mermaid flowchart. If exceeding 9 nodes even after subprocess extraction, **ASK the user** how to scope before drawing
+- **ALL flows in a zoomable canvas** — stack one `<div class="flow-doc-section">` per flow inside `#flow-stage`. The `.flow-canvas` / `.flow-viewport` / `.flow-stage` trio gives pan + zoom + fit-to-view. Each individual flow still observes the 5–9 node limit — if any single flow would exceed 9 even after `[[Subprocess]]` extraction, **ASK the user** how to scope that flow before drawing
 - **`LR` direction always** — Start on the left, End(s) on the right
-- **Color-coded shapes** via `classDef` (emerald / zinc / amber / blue / pink / purple — see guide §0.6 for the exact palette)
-- **Straight-line connectors** — init Mermaid with `flowchart: { curve: 'linear' }`
+- **Color-coded shapes** via `classDef` (zinc-900 / lavender / sky / pink / purple — see guide §0.6 for the v0.3.9 palette)
+- **Curved connectors** — init Mermaid with `flowchart: { curve: 'basis', useMaxWidth: false }`
 
 **Craft constraints (the 18 rules, §3 of the guide):**
 - Use ONLY the 6 standard shapes: stadium `([…])`, rectangle `[…]`, diamond `{…?}`, parallelogram `[/…/]`, subprocess `[[…]]`, cylinder `[(…)]`
@@ -42,10 +42,11 @@ The full set of rules + shape standard + validation checklist lives in [`docs/US
 
 ### Step 4 — Generate the Mermaid flowchart
 
-Produce a fenced Mermaid block following the standard v0.3.8+ output format with the color-coded `classDef` block:
+Produce ONE Mermaid block per flow (one per user story or feature surface). Each block uses the standard v0.3.9+ output format with the color-coded `classDef` palette below:
 
 ````markdown
-**User flow: [actor] → [goal]**
+**Flow N — <title>**
+**Actor:** [actor] · **Goal:** [goal]
 
 ```mermaid
 flowchart LR
@@ -56,22 +57,20 @@ flowchart LR
   B --> End([Success state]):::cEnd
   C --> End
 
-  classDef cStart       fill:#10b981,stroke:#059669,color:#ffffff,stroke-width:1.5px
-  classDef cEnd         fill:#1f2937,stroke:#0f172a,color:#ffffff,stroke-width:1.5px
-  classDef cDecision    fill:#fbbf24,stroke:#d97706,color:#1f2937,stroke-width:1.5px
-  classDef cAction      fill:#dbeafe,stroke:#3b82f6,color:#1e3a8a,stroke-width:1.5px
-  classDef cInput       fill:#fce7f3,stroke:#db2777,color:#831843,stroke-width:1.5px
-  classDef cSubprocess  fill:#ede9fe,stroke:#7c3aed,color:#4c1d95,stroke-width:1.5px
+  classDef cStart       fill:#0f172a,stroke:#000000,color:#ffffff,stroke-width:1.5px
+  classDef cEnd         fill:#0f172a,stroke:#000000,color:#ffffff,stroke-width:1.5px
+  classDef cDecision    fill:#DBEAFE,stroke:#60A5FA,color:#1e3a8a,stroke-width:1.5px
+  classDef cAction      fill:#F3E8FF,stroke:#C084FC,color:#581c87,stroke-width:1.5px
+  classDef cInput       fill:#FCE7F3,stroke:#EC4899,color:#831843,stroke-width:1.5px
+  classDef cSubprocess  fill:#EDE9FE,stroke:#7C3AED,color:#4c1d95,stroke-width:2px
 ```
-
-**Summary:** [2-3 sentences: who the flow serves, main happy path, key decision points.]
-
-**Assumptions:** [List assumptions if input was incomplete. Skip if none.]
 ````
 
-The host template must initialize Mermaid with `{ flowchart: { curve: 'linear' } }` so connectors render as straight lines per platform rule §0.7.
+Each flow goes into its own `<div class="flow-doc-section">` block (heading + actor/goal sub + Mermaid). All sections live inside `#flow-stage` so the user pans + zooms over every flow at once.
 
-For multi-actor flows, use `subgraph` swimlanes (max 3 lanes; if more, decompose). Even with swimlanes, the deliverable remains a single Mermaid block (platform rule §0.4).
+The host template must initialize Mermaid with `{ flowchart: { curve: 'basis', useMaxWidth: false } }` and then measure + size the stage so `initCanvas('flow', W, H)` wires up pan/zoom. See `assets/template.html`'s `renderMetaFlow()` for the reference init pattern.
+
+For multi-actor flows, use `subgraph` swimlanes (max 3 lanes; if more, decompose into separate flows).
 
 ### Step 5 — Validate against the 18 rules
 
@@ -102,24 +101,44 @@ The checklist doubles as the **future testing checklist** (per Tab 3 guardrail #
 
 ### Step 7 — Write to Tab 3 of `template.html`
 
-The Tab 3 layout is the v0.3.8+ **3:7 grid**: test checklist on the LEFT, flowchart canvas on the RIGHT. Update all four pieces:
+The Tab 3 layout is the v0.3.9+ **3:7 grid with a zoomable canvas**: test checklist on the LEFT, multi-flow canvas on the RIGHT. Update all four pieces:
 
 1. **Set `PB_DATA.flow.populated = true`** to flip Tab 3 from empty state to populated view.
 2. **Replace the body of `renderFlowPopulated()`** with the new `.flow-doc-grid` structure containing:
    - `<aside class="flow-doc-side">` — wrapping the test checklist (`.flow-doc-stories > li` per user story, with `.flow-doc-story-title` / `.flow-doc-story-path` / `.flow-doc-story-check`)
-   - `<section class="flow-doc-main">` — header with title + actor/entry/goal sub + the legend pill button (`onclick="openLegendPopover(this)"`), `<div class="flow-doc-canvas">` containing the single `<div class="mermaid">…</div>`, then the summary + validation paragraphs
-3. **Initialize Mermaid** in `renderMetaFlow()` with the linear-curve config:
+   - `<section class="flow-doc-main">` — header with title + actor/entry/goal sub + the legend pill button (`onclick="openLegendPopover(this)"`), then `<div class="flow-canvas" id="flow-canvas">` containing `<div class="flow-viewport" id="flow-viewport"><div class="flow-stage" id="flow-stage">…</div></div>` plus the `flow-zoom-controls` (+ / − / ⊙), `flow-zoom-readout`, and `flow-hint`. Inside `#flow-stage`, stack one `<div class="flow-doc-section">` per flow (heading + actor/goal sub + `<div class="mermaid">…</div>`). Below the canvas: summary + validation paragraphs
+3. **Initialize Mermaid + canvas** in `renderMetaFlow()`:
    ```js
    mermaid.initialize({
      startOnLoad: false,
      theme: 'base',
-     flowchart: { curve: 'linear', htmlLabels: true, padding: 16, useMaxWidth: true },
+     flowchart: { curve: 'basis', htmlLabels: true, padding: 18, useMaxWidth: false, nodeSpacing: 50, rankSpacing: 60 },
    });
-   mermaid.run({ querySelector: '.flow-doc-canvas .mermaid' });
+   mermaid.run({ querySelector: '#flow-stage .mermaid' }).then(function () {
+     var stage = document.getElementById('flow-stage');
+     stage.classList.add('flow-stage-flow');
+     Array.from(stage.querySelectorAll('svg')).forEach(function(svg){
+       svg.style.maxWidth = 'none';
+       svg.removeAttribute('width');
+       svg.removeAttribute('height');
+     });
+     stage.style.width = 'auto'; stage.style.height = 'auto';
+     stage.style.marginLeft = '0'; stage.style.marginTop = '0';
+     requestAnimationFrame(function () {
+       requestAnimationFrame(function () {
+         var bbox = stage.getBoundingClientRect();
+         var W = Math.max(1024, Math.ceil(bbox.width));
+         var H = Math.max(720,  Math.ceil(bbox.height));
+         stage.style.width = W + 'px'; stage.style.height = H + 'px';
+         stage.style.marginLeft = -(W/2) + 'px'; stage.style.marginTop = -(H/2) + 'px';
+         initCanvas('flow', W, H);
+       });
+     });
+   });
    ```
 4. **Preserve all other tabs.** Tab 1 / 2 / 4 / 5 must remain untouched.
 
-If `openLegendPopover` isn't yet defined in the template (pre-v0.3.8 install), inline the helper next to `recopyFromPopover`. See `assets/template.html` in the extension repo for the reference implementation.
+If `openLegendPopover` or `.flow-stage-flow` isn't yet defined in the template (pre-v0.3.9 install), inline the helper next to `recopyFromPopover` and add the CSS modifier next to `.flow-stage-erd`. See `assets/template.html` in the extension repo for the reference implementation.
 
 ## Confirm to user
 

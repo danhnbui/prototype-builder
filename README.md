@@ -66,13 +66,13 @@ mkdir ~/Desktop/my-prototype && cd ~/Desktop/my-prototype
 specify init . --integration claude --force
 
 # Install Preset + Extension from this single repo
-gh repo clone danhnbui/spec-kit-extension-prototype-builder /tmp/pb -- --branch v0.3.8
+gh repo clone danhnbui/spec-kit-extension-prototype-builder /tmp/pb -- --branch v0.3.9
 specify preset add --dev /tmp/pb
 specify extension add --dev /tmp/pb
 
 # Or via public URL once the repo is public:
-# specify preset add --from https://github.com/danhnbui/spec-kit-extension-prototype-builder/archive/refs/tags/v0.3.8.zip
-# specify extension add --from https://github.com/danhnbui/spec-kit-extension-prototype-builder/archive/refs/tags/v0.3.8.zip
+# specify preset add --from https://github.com/danhnbui/spec-kit-extension-prototype-builder/archive/refs/tags/v0.3.9.zip
+# specify extension add --from https://github.com/danhnbui/spec-kit-extension-prototype-builder/archive/refs/tags/v0.3.9.zip
 
 # Then open Claude Code and run the workflow
 claude
@@ -125,6 +125,8 @@ Full architectural docs (SRS, architecture, data flow, orchestrator, execution p
 ---
 
 ## Version
+
+- **v0.3.9** — Reverses two v0.3.8 rules after user feedback: User Flow now covers **ALL flows** for the prototype (not just one) inside a **zoomable canvas** (pan + scroll-to-zoom + fit-to-view, via the existing `.flow-canvas` / `.flow-viewport` / `.flow-stage` trio shared with ERD). Connectors switch from straight lines to **curved** (`flowchart: { curve: 'basis' }`) for the FigJam-style aesthetic. Color palette refreshed: Start/End are **zinc-900 pills** (was emerald/zinc), Action is **lavender** (was blue), Decision is **sky** (was amber) — matches the visual reference. Each flow gets its own `<div class="flow-doc-section">` inside `#flow-stage`; sync-flow stacks them vertically and hands off to `initCanvas('flow', W, H)` after measuring natural content size. Platform rule 4 now reads "cover ALL flows in a zoomable canvas, each individual flow still observes the 5–9 node limit"; rule 6 has the new palette; rule 7 says curved connectors.
 
 - **v0.3.8** — User Flow tab gets a real authoring surface: **7 new platform rules** that override the legacy multi-flow default. Layout is now a **3:7 grid** — test checklist on the LEFT, Mermaid flowchart canvas on the RIGHT, full panel width. Every prototype produces **one flow** (LR direction, color-coded shapes via `classDef`, straight-line connectors via `flowchart: { curve: 'linear' }`); if the spec is too complex even after extracting `[[Subprocess]]`es, sync-flow ASKS the user how to scope before drawing. Canvas top-right has a **pill-shaped legend** with shape swatches + a `?` button that opens an anchored popover explaining every shape (Start / End / Action / Decision / Input / Subprocess / External system) and connector style. Updated `docs/USER-FLOW-GUIDE.md` (new §0 "Platform rules") and `commands/sync-flow.md` to enforce these, plus `assets/template.html` ships the `.flow-doc-*` CSS, the `openLegendPopover` helper, and the linear-curve Mermaid init.
 
