@@ -6,14 +6,14 @@ Output format: **Mermaid `flowchart`** in a fenced markdown block + a 2-3 senten
 
 ---
 
-## 0 · Platform rules (v0.3.9+) — non-negotiable
+## 0 · Platform rules (v0.3.10+) — non-negotiable
 
 These 7 rules govern how `/speckit-prototype-builder-sync-flow` populates Tab 3. They sit on top of the 18 craft rules in §3 and override anything that conflicts.
 
 1. **3:7 canvas layout.** Render the test checklist on the LEFT (3 columns) and the flowchart canvas on the RIGHT (7 columns). Stack on viewports <980 px.
 2. **Legend with `?` popover.** Show a pill-shaped legend in the top-right of the canvas (shape swatches + the word "Legend" + a `?` icon). Clicking it opens an anchored popover that explains every shape and connector style.
 3. **Full-width container.** The flow-doc grid spans the entire Tab 3 panel width (no `max-width` clamp) — title and canvas align.
-4. **Cover ALL flows for the prototype, in a zoomable canvas.** Stack one `<div class="flow-doc-section">` per flow inside `#flow-stage` (each section has a heading + Mermaid block). The `.flow-canvas` / `.flow-viewport` / `.flow-stage` trio gives the user pan + zoom + fit-to-view (`+` / `−` / `⊙` controls in the top-right of the canvas) over every flow at once. Each individual flow still observes the 5–9 node limit (§3.10) — if any single flow would exceed it after `[[Subprocess]]` extraction, **ASK the user** how to scope before drawing that flow.
+4. **One combined flow by default, multiple only when truly necessary.** Express the WHOLE prototype as a single Mermaid flowchart that covers every user story (including edge cases) — push the per-story detail into `[[Subprocess]]` nodes. The combined flow goes into one `<div class="flow-doc-section">` inside `#flow-stage`; the test checklist on the left maps each story to a path. Only stack multiple sections when the flows are truly independent (different actors AND different goals) or when a single combined flow would exceed 9 nodes even after subprocess extraction. **ASK the user** when unsure. The `.flow-canvas` / `.flow-viewport` / `.flow-stage` trio still gives pan + zoom + fit-to-view (`+` / `−` / `⊙` controls in the top-right) for any flow count.
 5. **`LR` direction.** Use `flowchart LR` always. Start sits on the left, End(s) on the right.
 6. **Color-coded shapes (v0.3.9 palette).** Apply this `classDef` palette so users can scan node types at a glance:
    - Start → `fill:#0f172a,stroke:#000000,color:#ffffff` (zinc-900 pill)

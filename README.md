@@ -66,13 +66,13 @@ mkdir ~/Desktop/my-prototype && cd ~/Desktop/my-prototype
 specify init . --integration claude --force
 
 # Install Preset + Extension from this single repo
-gh repo clone danhnbui/spec-kit-extension-prototype-builder /tmp/pb -- --branch v0.3.9
+gh repo clone danhnbui/spec-kit-extension-prototype-builder /tmp/pb -- --branch v0.3.10
 specify preset add --dev /tmp/pb
 specify extension add --dev /tmp/pb
 
 # Or via public URL once the repo is public:
-# specify preset add --from https://github.com/danhnbui/spec-kit-extension-prototype-builder/archive/refs/tags/v0.3.9.zip
-# specify extension add --from https://github.com/danhnbui/spec-kit-extension-prototype-builder/archive/refs/tags/v0.3.9.zip
+# specify preset add --from https://github.com/danhnbui/spec-kit-extension-prototype-builder/archive/refs/tags/v0.3.10.zip
+# specify extension add --from https://github.com/danhnbui/spec-kit-extension-prototype-builder/archive/refs/tags/v0.3.10.zip
 
 # Then open Claude Code and run the workflow
 claude
@@ -125,6 +125,8 @@ Full architectural docs (SRS, architecture, data flow, orchestrator, execution p
 ---
 
 ## Version
+
+- **v0.3.10** — Refines platform rule §0.4 after user feedback: prefer **one combined flow** that covers the whole prototype (including edge cases), with per-story detail pushed into `[[Subprocess]]` nodes and the test checklist on the left mapping each story to a path. Only stack multiple flow sections when the flows are truly independent OR when a single combined flow would exceed 9 nodes after subprocess extraction. Claude ASKS when unsure. The v0.3.9 zoomable canvas, curved connectors, and color palette remain — this is purely a defaulting change. The reference test project (`test-pb-signin`) now ships a single 8-node combined flow that traces all 5 user stories (sign in / register / forgot password happy / forgot password throttled / sign-in lockout).
 
 - **v0.3.9** — Reverses two v0.3.8 rules after user feedback: User Flow now covers **ALL flows** for the prototype (not just one) inside a **zoomable canvas** (pan + scroll-to-zoom + fit-to-view, via the existing `.flow-canvas` / `.flow-viewport` / `.flow-stage` trio shared with ERD). Connectors switch from straight lines to **curved** (`flowchart: { curve: 'basis' }`) for the FigJam-style aesthetic. Color palette refreshed: Start/End are **zinc-900 pills** (was emerald/zinc), Action is **lavender** (was blue), Decision is **sky** (was amber) — matches the visual reference. Each flow gets its own `<div class="flow-doc-section">` inside `#flow-stage`; sync-flow stacks them vertically and hands off to `initCanvas('flow', W, H)` after measuring natural content size. Platform rule 4 now reads "cover ALL flows in a zoomable canvas, each individual flow still observes the 5–9 node limit"; rule 6 has the new palette; rule 7 says curved connectors.
 

@@ -1899,7 +1899,7 @@
       const body = populated ? renderFlowPopulated() : renderEmptyState({
         icon: EMPTY_STATE_ICONS.flow,
         title: 'No user flow yet',
-        body: 'Build your user flows from the project spec. Claude generates one left-to-right Mermaid flowchart per user story, stacked inside a zoomable canvas (pan + scroll-to-zoom + fit-to-view). Color-coded shapes, curved connectors, 3:7 canvas-and-checklist layout. Follows 18 craft rules + 7 platform rules — if any single flow exceeds 9 nodes after subprocess extraction, Claude asks before drawing that flow.',
+        body: 'Build your user flow from the project spec. Claude generates one combined left-to-right Mermaid flowchart that covers every story (including edge cases) — per-story detail lives in subprocesses, and the test checklist on the left side maps each story to a path. Zoomable canvas (pan + scroll-to-zoom + fit-to-view), color-coded shapes, curved connectors, 3:7 canvas-and-checklist layout. Follows 18 craft rules + 7 platform rules — Claude asks if the combined flow would exceed 9 nodes after subprocess extraction.',
         ctaLabel: 'Generate user flow',
         command: '/speckit-prototype-builder-sync-flow',
         label: 'Sync flow command copied',

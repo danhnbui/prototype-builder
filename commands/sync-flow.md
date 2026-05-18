@@ -19,11 +19,11 @@ If user input names a specific story or flow, scope to that. Otherwise, generate
 ### Step 2 — Read the user-flow guide (required)
 The full set of rules + shape standard + validation checklist lives in [`docs/USER-FLOW-GUIDE.md`](../../docs/USER-FLOW-GUIDE.md) — load it. **Every output MUST conform.** Violating a rule is a defect, not a stylistic choice.
 
-**Platform rules (v0.3.9+, §0 of the guide) — non-negotiable:**
+**Platform rules (v0.3.10+, §0 of the guide) — non-negotiable:**
 - **3:7 canvas layout** — test checklist on the LEFT (3 cols), flowchart canvas on the RIGHT (7 cols)
 - **Legend with `?` popover** — pill-shaped legend in the top-right of the canvas, click opens a popover explaining every shape
 - **Full-width container** — flow-doc grid spans the entire Tab 3 panel width
-- **ALL flows in a zoomable canvas** — stack one `<div class="flow-doc-section">` per flow inside `#flow-stage`. The `.flow-canvas` / `.flow-viewport` / `.flow-stage` trio gives pan + zoom + fit-to-view. Each individual flow still observes the 5–9 node limit — if any single flow would exceed 9 even after `[[Subprocess]]` extraction, **ASK the user** how to scope that flow before drawing
+- **One combined flow by default** — express the WHOLE prototype as a single Mermaid flowchart that covers every user story (including edge cases). Push per-story detail into `[[Subprocess]]` nodes; the test checklist on the left maps each story to a path through the combined flow. Only stack multiple `<div class="flow-doc-section">` sections inside `#flow-stage` when flows are truly independent (different actors AND different goals) OR when a single combined flow exceeds 9 nodes even after subprocess extraction. **ASK the user** when unsure. The `.flow-canvas` / `.flow-viewport` / `.flow-stage` trio still gives pan + zoom + fit-to-view for any flow count
 - **`LR` direction always** — Start on the left, End(s) on the right
 - **Color-coded shapes** via `classDef` (zinc-900 / lavender / sky / pink / purple — see guide §0.6 for the v0.3.9 palette)
 - **Curved connectors** — init Mermaid with `flowchart: { curve: 'basis', useMaxWidth: false }`
@@ -42,7 +42,9 @@ The full set of rules + shape standard + validation checklist lives in [`docs/US
 
 ### Step 4 — Generate the Mermaid flowchart
 
-Produce ONE Mermaid block per flow (one per user story or feature surface). Each block uses the standard v0.3.9+ output format with the color-coded `classDef` palette below:
+Produce ONE Mermaid block that covers the whole prototype (combined flow). Push per-story detail into `[[Subprocess]]` nodes; the test checklist on the left side of the canvas maps each story to a path. Only emit multiple Mermaid blocks if the combined flow can't fit in 9 nodes after subprocess extraction (and ask the user first).
+
+Each block uses the standard v0.3.10+ output format with the color-coded `classDef` palette below:
 
 ````markdown
 **Flow N — <title>**
@@ -101,12 +103,12 @@ The checklist doubles as the **future testing checklist** (per Tab 3 guardrail #
 
 ### Step 7 — Write to Tab 3 of `template.html`
 
-The Tab 3 layout is the v0.3.9+ **3:7 grid with a zoomable canvas**: test checklist on the LEFT, multi-flow canvas on the RIGHT. Update all four pieces:
+The Tab 3 layout is the v0.3.10+ **3:7 grid with a zoomable canvas**: test checklist on the LEFT, combined-flow canvas on the RIGHT. Update all four pieces:
 
 1. **Set `PB_DATA.flow.populated = true`** to flip Tab 3 from empty state to populated view.
 2. **Replace the body of `renderFlowPopulated()`** with the new `.flow-doc-grid` structure containing:
    - `<aside class="flow-doc-side">` — wrapping the test checklist (`.flow-doc-stories > li` per user story, with `.flow-doc-story-title` / `.flow-doc-story-path` / `.flow-doc-story-check`)
-   - `<section class="flow-doc-main">` — header with title + actor/entry/goal sub + the legend pill button (`onclick="openLegendPopover(this)"`), then `<div class="flow-canvas" id="flow-canvas">` containing `<div class="flow-viewport" id="flow-viewport"><div class="flow-stage" id="flow-stage">…</div></div>` plus the `flow-zoom-controls` (+ / − / ⊙), `flow-zoom-readout`, and `flow-hint`. Inside `#flow-stage`, stack one `<div class="flow-doc-section">` per flow (heading + actor/goal sub + `<div class="mermaid">…</div>`). Below the canvas: summary + validation paragraphs
+   - `<section class="flow-doc-main">` — header with title + actor/entry/goal sub + the legend pill button (`onclick="openLegendPopover(this)"`), then `<div class="flow-canvas" id="flow-canvas">` containing `<div class="flow-viewport" id="flow-viewport"><div class="flow-stage" id="flow-stage">…</div></div>` plus the `flow-zoom-controls` (+ / − / ⊙), `flow-zoom-readout`, and `flow-hint`. Inside `#flow-stage`, place **one `<div class="flow-doc-section">`** with the combined flow (heading + intent + `<div class="mermaid">…</div>`). Only add more sections when truly necessary per platform rule §0.4. Below the canvas: summary + validation paragraphs
 3. **Initialize Mermaid + canvas** in `renderMetaFlow()`:
    ```js
    mermaid.initialize({
