@@ -66,13 +66,13 @@ mkdir ~/Desktop/my-prototype && cd ~/Desktop/my-prototype
 specify init . --integration claude --force
 
 # Install Preset + Extension from this single repo
-gh repo clone danhnbui/spec-kit-extension-prototype-builder /tmp/pb -- --branch v0.3.7
+gh repo clone danhnbui/spec-kit-extension-prototype-builder /tmp/pb -- --branch v0.3.8
 specify preset add --dev /tmp/pb
 specify extension add --dev /tmp/pb
 
 # Or via public URL once the repo is public:
-# specify preset add --from https://github.com/danhnbui/spec-kit-extension-prototype-builder/archive/refs/tags/v0.3.7.zip
-# specify extension add --from https://github.com/danhnbui/spec-kit-extension-prototype-builder/archive/refs/tags/v0.3.7.zip
+# specify preset add --from https://github.com/danhnbui/spec-kit-extension-prototype-builder/archive/refs/tags/v0.3.8.zip
+# specify extension add --from https://github.com/danhnbui/spec-kit-extension-prototype-builder/archive/refs/tags/v0.3.8.zip
 
 # Then open Claude Code and run the workflow
 claude
@@ -125,6 +125,8 @@ Full architectural docs (SRS, architecture, data flow, orchestrator, execution p
 ---
 
 ## Version
+
+- **v0.3.8** — User Flow tab gets a real authoring surface: **7 new platform rules** that override the legacy multi-flow default. Layout is now a **3:7 grid** — test checklist on the LEFT, Mermaid flowchart canvas on the RIGHT, full panel width. Every prototype produces **one flow** (LR direction, color-coded shapes via `classDef`, straight-line connectors via `flowchart: { curve: 'linear' }`); if the spec is too complex even after extracting `[[Subprocess]]`es, sync-flow ASKS the user how to scope before drawing. Canvas top-right has a **pill-shaped legend** with shape swatches + a `?` button that opens an anchored popover explaining every shape (Start / End / Action / Decision / Input / Subprocess / External system) and connector style. Updated `docs/USER-FLOW-GUIDE.md` (new §0 "Platform rules") and `commands/sync-flow.md` to enforce these, plus `assets/template.html` ships the `.flow-doc-*` CSS, the `openLegendPopover` helper, and the linear-curve Mermaid init.
 
 - **v0.3.7** — Each slash command now ships as **two representations** in the copy popover, each with its own copy button: a `/slash` form for the **Claude Code terminal** AND a short natural-language prompt (e.g. `Run speckit-prototype-builder-sync-flow to generate Tab 3...`) for the **Claude Code chat input**. The chat-input prompt mentions the command name as a keyword that the scaffold-installed routing rule in `./CLAUDE.md` catches — Claude then reads `.specify/extensions/prototype-builder/commands/<name>.md` and executes it. Replaces the v0.3.6 approach of copying command files into `.claude/commands/`, which depended on session restarts and project-context discovery that often failed in practice. Shell commands (e.g. `gh repo clone`) remain single-format (Terminal only).
 
