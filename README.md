@@ -66,13 +66,13 @@ mkdir ~/Desktop/my-prototype && cd ~/Desktop/my-prototype
 specify init . --integration claude --force
 
 # Install Preset + Extension from this single repo
-gh repo clone danhnbui/spec-kit-extension-prototype-builder /tmp/pb -- --branch v0.3.14
+gh repo clone danhnbui/spec-kit-extension-prototype-builder /tmp/pb -- --branch v0.3.15
 specify preset add --dev /tmp/pb
 specify extension add --dev /tmp/pb
 
 # Or via public URL once the repo is public:
-# specify preset add --from https://github.com/danhnbui/spec-kit-extension-prototype-builder/archive/refs/tags/v0.3.14.zip
-# specify extension add --from https://github.com/danhnbui/spec-kit-extension-prototype-builder/archive/refs/tags/v0.3.14.zip
+# specify preset add --from https://github.com/danhnbui/spec-kit-extension-prototype-builder/archive/refs/tags/v0.3.15.zip
+# specify extension add --from https://github.com/danhnbui/spec-kit-extension-prototype-builder/archive/refs/tags/v0.3.15.zip
 
 # Then open Claude Code and run the workflow
 claude
@@ -125,6 +125,8 @@ Full architectural docs (SRS, architecture, data flow, orchestrator, execution p
 ---
 
 ## Version
+
+- **v0.3.15** — Wireflow nodes upgraded from bare colored rectangles to **real card UI** that matches FigJam-style wireflow references: white card · header bar with screen name · color-coded status badge (`DONE` / `IN PROGRESS` / `NEW` / `ATTENTION` / `ASAP` / `REVIEW` / `PAUSE`) · stylized mini-mockup of the screen inside the body (form-1/2/3 input stacks + CTA, OTP 6-cell row, success checkmark, block exclamation). `WIREFLOW_SCREENS` entries now carry `status` + `preview` fields. New helpers `wfMiniPreview()` + `wfCardHtml()` build the inline HTML; `buildWireflowMermaid()` assembles the Mermaid source so labels render the cards via Mermaid's `htmlLabels` (foreign objects). Width/height set inline on the outer div so Mermaid measures the foreignObject correctly before the stylesheet applies. All other v0.3.14 wiring (click-to-preview, numbered amber note badges, sidebar Flow notes panel) keeps working unchanged.
 
 - **v0.3.14** — Tab 3 becomes a true **wireflow**: each screen-shaped node is labeled with the exact screen name from Tab 4 (Sign in Page, Register Page, Reset Password Page, OTP Verify Page, Home, Contact Support) so reviewers can request edits unambiguously by name. Three new pieces glue it together: (1) `WIREFLOW_SCREENS` registry maps Mermaid node ids to screen renderer functions so **clicking a screen-name node opens a popover preview** of the actual mockup from Tab 4 — no need to tab-switch. (2) `WIREFLOW_NOTES` registry binds **numbered amber badges** on nodes to a "Flow notes" `<ol class="flow-doc-notes">` in the sidebar — for business-logic detail that doesn't fit in an edge label (rate limits, OTP expiry, lockout copy, no-enumeration policy, etc.). (3) New §0.8 platform rule, new docs in `commands/sync-flow.md`, plus CSS + helpers (`openScreenPreviewPopover`, `decorateWireflowNodes`) shipped in `assets/template.html` so a fresh scaffold gets the wireflow surface out-of-the-box once sync-flow populates the registries.
 

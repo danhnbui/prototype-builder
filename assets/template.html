@@ -1049,6 +1049,30 @@
     .flow-stage-flow .node[data-wireflow-screen] { cursor: pointer; }
     .flow-stage-flow .node[data-wireflow-screen]:hover > rect,
     .flow-stage-flow .node[data-wireflow-screen]:hover > polygon { filter: brightness(0.96); }
+    /* v0.3.15 — Wireflow CARD nodes (Mermaid HTML labels). */
+    .flow-stage-flow .wf-card { width: 180px; padding: 12px 14px; background: #ffffff; font-family: Inter, ui-sans-serif, system-ui; text-align: left; box-sizing: border-box; }
+    .flow-stage-flow .wf-card-head { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; padding-bottom: 10px; border-bottom: 1px solid #f4f4f5; }
+    .flow-stage-flow .wf-card-title { font: 600 13px/1.25 Inter; color: #0f172a; letter-spacing: -0.005em; }
+    .flow-stage-flow .wf-badge { display: inline-block; font: 700 9px/1 Inter; letter-spacing: 0.06em; padding: 3px 6px; border-radius: 3px; text-transform: uppercase; align-self: flex-start; }
+    .flow-stage-flow .wf-badge-done        { background: #d1fae5; color: #065f46; }
+    .flow-stage-flow .wf-badge-in-progress { background: #dbeafe; color: #1e40af; }
+    .flow-stage-flow .wf-badge-new         { background: #fef3c7; color: #92400e; }
+    .flow-stage-flow .wf-badge-attention   { background: #fed7aa; color: #c2410c; }
+    .flow-stage-flow .wf-badge-asap        { background: #fee2e2; color: #991b1b; }
+    .flow-stage-flow .wf-badge-review      { background: #e9d5ff; color: #6b21a8; }
+    .flow-stage-flow .wf-badge-pause       { background: #e5e7eb; color: #4b5563; }
+    .flow-stage-flow .wf-card-body { padding: 2px 0 0; }
+    .flow-stage-flow .wf-mini { display: flex; flex-direction: column; gap: 6px; }
+    .flow-stage-flow .wf-input { height: 10px; background: #f4f4f5; border: 1px solid #e4e4e7; border-radius: 3px; }
+    .flow-stage-flow .wf-cta { height: 14px; background: #0f172a; border-radius: 3px; margin-top: 4px; }
+    .flow-stage-flow .wf-otp-row { display: flex; gap: 4px; }
+    .flow-stage-flow .wf-otp-row > span { flex: 1; height: 14px; background: #ffffff; border: 1px solid #e4e4e7; border-radius: 3px; }
+    .flow-stage-flow .wf-mini-state { align-items: center; padding: 6px 0; }
+    .flow-stage-flow .wf-state-success { color: #065f46; }
+    .flow-stage-flow .wf-state-block   { color: #991b1b; }
+    .flow-stage-flow .wf-state-mark { width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font: 700 18px/1 Inter; color: #fff; margin: 4px 0; }
+    .flow-stage-flow .wf-state-success .wf-state-mark { background: #10b981; }
+    .flow-stage-flow .wf-state-block   .wf-state-mark { background: #dc2626; }
     .wireflow-preview-frame { background: #f4f4f5; border: 1px solid var(--border); border-radius: 8px; padding: 16px; max-height: 60vh; overflow-y: auto; }
     .wireflow-preview-footer { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border); font: 400 11px/1.5 var(--font-body); color: var(--text-tertiary); }
     .flow-doc-notes { list-style: none; padding: 0; margin: 0; }
@@ -2178,11 +2202,39 @@
        decorate helper makes screen-name nodes clickable (preview popover)
        and renders amber-circle note numbers on annotated nodes.
        ========================================================================= */
-    /* Sync-flow OVERWRITES this with { <mermaidNodeId>: { fn: 'renderXScreen', label: 'X Page' } } */
+    /* Sync-flow OVERWRITES this with one entry per screen-mapped Mermaid node, e.g.:
+       { S: { fn: 'renderSignInScreen', label: 'Sign in Page', status: 'DONE', preview: 'form-2' } }
+       Statuses: NEW · IN PROGRESS · DONE · ATTENTION · ASAP · REVIEW · PAUSE
+       Preview kinds: form-1 · form-2 · form-3 · otp · success · block */
     const WIREFLOW_SCREENS = {};
     /* Sync-flow OVERWRITES this with { <noteNumber>: '<mermaidNodeId>' } — note numbers
        must match the numbered list rendered in .flow-doc-notes inside the sidebar. */
     const WIREFLOW_NOTES   = {};
+
+    /* v0.3.15 — Mini wireframe sketch HTML, embedded inside each Mermaid card label. */
+    function wfMiniPreview(type) {
+      switch (type) {
+        case 'form-1': return "<div class='wf-mini'><div class='wf-input'></div><div class='wf-cta'></div></div>";
+        case 'form-2': return "<div class='wf-mini'><div class='wf-input'></div><div class='wf-input'></div><div class='wf-cta'></div></div>";
+        case 'form-3': return "<div class='wf-mini'><div class='wf-input'></div><div class='wf-input'></div><div class='wf-input'></div><div class='wf-cta'></div></div>";
+        case 'otp':    return "<div class='wf-mini'><div class='wf-otp-row'><span></span><span></span><span></span><span></span><span></span><span></span></div><div class='wf-cta'></div></div>";
+        case 'success':return "<div class='wf-mini wf-mini-state wf-state-success'><div class='wf-state-mark'>&#10003;</div></div>";
+        case 'block':  return "<div class='wf-mini wf-mini-state wf-state-block'><div class='wf-state-mark'>!</div></div>";
+        default:       return "<div class='wf-mini'></div>";
+      }
+    }
+    function wfCardHtml(entry) {
+      const status = entry.status || 'NEW';
+      const statusCls = 'wf-badge-' + status.toLowerCase().replace(/\s+/g, '-');
+      /* Inline width+height so Mermaid measures the foreignObject correctly. */
+      return "<div class='wf-card' style='width:190px;height:148px'>" +
+        "<div class='wf-card-head'>" +
+          "<span class='wf-card-title'>" + entry.label + "</span>" +
+          "<span class='wf-badge " + statusCls + "'>" + status + "</span>" +
+        "</div>" +
+        "<div class='wf-card-body'>" + wfMiniPreview(entry.preview) + "</div>" +
+      "</div>";
+    }
 
     function openScreenPreviewPopover(nodeId, anchorEl) {
       const entry = WIREFLOW_SCREENS[nodeId];
