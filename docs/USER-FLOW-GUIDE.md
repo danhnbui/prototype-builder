@@ -22,7 +22,7 @@ These 7 rules govern how `/speckit-prototype-builder-sync-flow` populates Tab 3.
    - Decision → `fill:#DBEAFE,stroke:#60A5FA,color:#1e3a8a` (sky)
    - Input / Output → `fill:#FCE7F3,stroke:#EC4899,color:#831843` (pink)
    - Subprocess → `fill:#EDE9FE,stroke:#7C3AED,color:#4c1d95` (purple, stroke-width 2)
-7. **Curved connectors.** Initialize Mermaid with `flowchart: { curve: 'basis', useMaxWidth: false }` so edges render as smooth curves at natural SVG size — matches the FigJam-style aesthetic and reads better than straight lines on a stacked canvas.
+7. **Orthogonal connectors (horizontal/vertical only).** Initialize Mermaid with `flowchart: { curve: 'step', useMaxWidth: false }` so every edge segment is either purely horizontal or purely vertical with right-angle bends. No diagonals, no smooth curves — reads cleanest on a stacked canvas and matches the whiteboard-flowchart convention.
 
 ---
 

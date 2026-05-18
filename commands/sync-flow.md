@@ -26,7 +26,7 @@ The full set of rules + shape standard + validation checklist lives in [`docs/US
 - **One combined flow by default** — express the WHOLE prototype as a single Mermaid flowchart that covers every user story (including edge cases). Push per-story detail into `[[Subprocess]]` nodes; the test checklist on the left maps each story to a path through the combined flow. Only stack multiple `<div class="flow-doc-section">` sections inside `#flow-stage` when flows are truly independent (different actors AND different goals) OR when a single combined flow exceeds 9 nodes even after subprocess extraction. **ASK the user** when unsure. The `.flow-canvas` / `.flow-viewport` / `.flow-stage` trio still gives pan + zoom + fit-to-view for any flow count
 - **`LR` direction always** — Start on the left, End(s) on the right
 - **Color-coded shapes** via `classDef` (zinc-900 / lavender / sky / pink / purple — see guide §0.6 for the v0.3.9 palette)
-- **Curved connectors** — init Mermaid with `flowchart: { curve: 'basis', useMaxWidth: false }`
+- **Orthogonal connectors (horizontal/vertical only)** — init Mermaid with `flowchart: { curve: 'step', useMaxWidth: false }`
 
 **Craft constraints (the 18 rules, §3 of the guide):**
 - Use ONLY the 6 standard shapes: stadium `([…])`, rectangle `[…]`, diamond `{…?}`, parallelogram `[/…/]`, subprocess `[[…]]`, cylinder `[(…)]`
@@ -70,7 +70,7 @@ flowchart LR
 
 Each flow goes into its own `<div class="flow-doc-section">` block (heading + actor/goal sub + Mermaid). All sections live inside `#flow-stage` so the user pans + zooms over every flow at once.
 
-The host template must initialize Mermaid with `{ flowchart: { curve: 'basis', useMaxWidth: false } }` and then measure + size the stage so `initCanvas('flow', W, H)` wires up pan/zoom. See `assets/template.html`'s `renderMetaFlow()` for the reference init pattern.
+The host template must initialize Mermaid with `{ flowchart: { curve: 'step', useMaxWidth: false } }` and then measure + size the stage so `initCanvas('flow', W, H)` wires up pan/zoom. See `assets/template.html`'s `renderMetaFlow()` for the reference init pattern.
 
 For multi-actor flows, use `subgraph` swimlanes (max 3 lanes; if more, decompose into separate flows).
 
@@ -114,7 +114,7 @@ The Tab 3 layout is the v0.3.10+ **3:7 grid with a zoomable canvas**: test check
    mermaid.initialize({
      startOnLoad: false,
      theme: 'base',
-     flowchart: { curve: 'basis', htmlLabels: true, padding: 18, useMaxWidth: false, nodeSpacing: 50, rankSpacing: 60 },
+     flowchart: { curve: 'step', htmlLabels: true, padding: 18, useMaxWidth: false, nodeSpacing: 50, rankSpacing: 60 },
    });
    mermaid.run({ querySelector: '#flow-stage .mermaid' }).then(function () {
      var stage = document.getElementById('flow-stage');

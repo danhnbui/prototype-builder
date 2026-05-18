@@ -66,13 +66,13 @@ mkdir ~/Desktop/my-prototype && cd ~/Desktop/my-prototype
 specify init . --integration claude --force
 
 # Install Preset + Extension from this single repo
-gh repo clone danhnbui/spec-kit-extension-prototype-builder /tmp/pb -- --branch v0.3.10
+gh repo clone danhnbui/spec-kit-extension-prototype-builder /tmp/pb -- --branch v0.3.11
 specify preset add --dev /tmp/pb
 specify extension add --dev /tmp/pb
 
 # Or via public URL once the repo is public:
-# specify preset add --from https://github.com/danhnbui/spec-kit-extension-prototype-builder/archive/refs/tags/v0.3.10.zip
-# specify extension add --from https://github.com/danhnbui/spec-kit-extension-prototype-builder/archive/refs/tags/v0.3.10.zip
+# specify preset add --from https://github.com/danhnbui/spec-kit-extension-prototype-builder/archive/refs/tags/v0.3.11.zip
+# specify extension add --from https://github.com/danhnbui/spec-kit-extension-prototype-builder/archive/refs/tags/v0.3.11.zip
 
 # Then open Claude Code and run the workflow
 claude
@@ -125,6 +125,8 @@ Full architectural docs (SRS, architecture, data flow, orchestrator, execution p
 ---
 
 ## Version
+
+- **v0.3.11** — Updates platform rule §0.7: connectors are now **orthogonal (horizontal/vertical only)** with right-angle bends — switches Mermaid from `flowchart: { curve: 'basis' }` (smooth curves) to `flowchart: { curve: 'step' }`. No diagonals, no smooth curves; matches the whiteboard-flowchart convention and reads cleaner on a stacked canvas. Pure config tweak — no other behavior changes.
 
 - **v0.3.10** — Refines platform rule §0.4 after user feedback: prefer **one combined flow** that covers the whole prototype (including edge cases), with per-story detail pushed into `[[Subprocess]]` nodes and the test checklist on the left mapping each story to a path. Only stack multiple flow sections when the flows are truly independent OR when a single combined flow would exceed 9 nodes after subprocess extraction. Claude ASKS when unsure. The v0.3.9 zoomable canvas, curved connectors, and color palette remain — this is purely a defaulting change. The reference test project (`test-pb-signin`) now ships a single 8-node combined flow that traces all 5 user stories (sign in / register / forgot password happy / forgot password throttled / sign-in lockout).
 

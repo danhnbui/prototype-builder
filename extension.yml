@@ -3,7 +3,7 @@ schema_version: "1.0"
 extension:
   id: "prototype-builder"
   name: "Prototype Builder"
-  version: "0.3.10"
+  version: "0.3.11"
   description: "Custom commands for spec-driven HTML UX-test prototypes with inline drift detection."
   author: "Danh N. Bui — PropertyGuru Vietnam"
   repository: "https://github.com/danhnbui/spec-kit-extension-prototype-builder"
