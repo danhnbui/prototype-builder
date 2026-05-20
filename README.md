@@ -1,4 +1,4 @@
-# Spec Kit Prototype Builder — Preset + Extension (unified)
+# Spec Kit Prototype Builder — Extension
 
 A spec-driven workflow for single-file HTML UX-test prototypes with built-in 5-tab documentation and inline drift detection.
 
@@ -9,7 +9,7 @@ A spec-driven workflow for single-file HTML UX-test prototypes with built-in 5-t
 
 You still install them as two SpecKit calls (SpecKit treats Preset and Extension as separate concepts), but there's only **one URL** to remember and one source tree to maintain.
 
-> 📦 The standalone [`spec-kit-preset-prototype-builder`](https://github.com/danhnbui/spec-kit-preset-prototype-builder) repo is now **deprecated** — its contents live here. Existing v0.1.0 installs continue working but new installs should point here.
+> 📦 The standalone [`spec-kit-preset-prototype-builder`](https://github.com/danhnbui/spec-kit-preset-prototype-builder) repo is now **deprecated** — its contents live here. Existing v0.1.0 installs continue working, but new installs should point here.
 
 ---
 
