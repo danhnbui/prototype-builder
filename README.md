@@ -66,13 +66,13 @@ mkdir ~/Desktop/my-prototype && cd ~/Desktop/my-prototype
 specify init . --integration claude --force
 
 # Install Preset + Extension from this single repo
-gh repo clone danhnbui/spec-kit-extension-prototype-builder /tmp/pb -- --branch v0.3.15
+gh repo clone danhnbui/spec-kit-extension-prototype-builder /tmp/pb -- --branch v0.3.16
 specify preset add --dev /tmp/pb
 specify extension add --dev /tmp/pb
 
 # Or via public URL once the repo is public:
-# specify preset add --from https://github.com/danhnbui/spec-kit-extension-prototype-builder/archive/refs/tags/v0.3.15.zip
-# specify extension add --from https://github.com/danhnbui/spec-kit-extension-prototype-builder/archive/refs/tags/v0.3.15.zip
+# specify preset add --from https://github.com/danhnbui/spec-kit-extension-prototype-builder/archive/refs/tags/v0.3.16.zip
+# specify extension add --from https://github.com/danhnbui/spec-kit-extension-prototype-builder/archive/refs/tags/v0.3.16.zip
 
 # Then open Claude Code and run the workflow
 claude
@@ -125,6 +125,8 @@ Full architectural docs (SRS, architecture, data flow, orchestrator, execution p
 ---
 
 ## Version
+
+- **v0.3.16** — Fixed the Tab 2 + Tab 4-Component **automation**. Both auto-syncs silently produced empty tabs because the command bodies were design docs, not executable specs: (1) `commands/build.md` §"Tab 4-Component" only built *custom* organisms and told the agent to "list but not rebuild" standard components — so a spec with only standard components (input / button / alert) got an empty Component view by design; it also never named `PB_DATA.handoff.organisms` as the write target. (2) `commands/sync-tab2.md` Step 3 said "find the PB_DATA block (around line 530), replace the keys" — a stale line number, no Edit anchors, no verification. Both are now rewritten as concrete recipes: build.md covers **every** component (standard + custom) with the full `{id,name,renderFn,meta,variants,specs}` organism shape; sync-tab2.md gives an exact Edit-tool recipe with inline target shapes + a Step 3.5 verification pass. The `after_*` hook wiring was already correct — the bug was downstream in the commands they invoke.
 
 - **v0.3.15** — Wireflow nodes upgraded from bare colored rectangles to **real card UI** that matches FigJam-style wireflow references: white card · header bar with screen name · color-coded status badge (`DONE` / `IN PROGRESS` / `NEW` / `ATTENTION` / `ASAP` / `REVIEW` / `PAUSE`) · stylized mini-mockup of the screen inside the body (form-1/2/3 input stacks + CTA, OTP 6-cell row, success checkmark, block exclamation). `WIREFLOW_SCREENS` entries now carry `status` + `preview` fields. New helpers `wfMiniPreview()` + `wfCardHtml()` build the inline HTML; `buildWireflowMermaid()` assembles the Mermaid source so labels render the cards via Mermaid's `htmlLabels` (foreign objects). Width/height set inline on the outer div so Mermaid measures the foreignObject correctly before the stylesheet applies. All other v0.3.14 wiring (click-to-preview, numbered amber note badges, sidebar Flow notes panel) keeps working unchanged.
 
