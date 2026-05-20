@@ -116,11 +116,39 @@ Once all gates pass:
 - Use only DS tokens for colors, spacing, fonts. Use the locked language + framework.
 
 ### Tab 4-Component
-- For each custom organism listed in `spec.md` "UI / Component Requirements" → "Custom Organisms":
-  - Build the organism with all listed variants
-  - Invoke skill: `design-component-build`
-  - Add to Tab 4-C with variant chips + live preview
-- For existing DS components used as-is: list them but do not rebuild
+
+Tab 4-Component is the **component library** behind the prototype. It must cover **every reusable component the prototype uses** — both standard components (text input, button, alert, etc.) AND any custom organisms from `spec.md`. Do NOT skip standard components: a spec whose components are all standard still needs a populated Component view.
+
+**Write target — `PB_DATA.handoff.organisms`.** This is a JS array, one object per component:
+
+```js
+{
+  id:       'text-input',                // kebab-case, unique
+  name:     'Text input',                // display name
+  renderFn: 'renderCmpTextInput',        // global function name (see below)
+  meta:     'Email + password fields across Sign in, Register…',  // 1-line usage note
+  variants: [ { id:'default', label:'Default' }, { id:'error', label:'Error' }, … ],
+  specs: {
+    tokens: [ { name:'--bg-input', value:'#ffffff' }, … ],   // or [name, value] pairs
+    sizing: [ { name:'height', value:'40px' }, … ],
+    states: [ { name:'Default', description:'…' }, … ],      // or [label, desc] pairs
+    a11y:   [ 'note', 'note', … ],                           // flat string list
+    usage:  [ 'note', 'note', … ],                           // flat string list
+  },
+}
+```
+
+**Steps per component:**
+1. Identify every reusable component the prototype's screens use (inputs, buttons, alerts, banners, links, custom organisms — invoke `design-component-build` for custom ones).
+2. Write a global `renderCmp<Name>(variant)` function in `./prototype/template.html` that returns a **live-preview HTML string** for the given variant id.
+3. Add one entry to the `PB_DATA.handoff.organisms` array with `id` / `name` / `renderFn` (the function's name as a string) / `meta` / `variants` / `specs`.
+4. Wrap the array assignment in a `(function populateHandoffComponents(){ PB_DATA.handoff.organisms = [ … ]; })();` IIFE near the other handoff population code.
+
+**Contract** — the template already ships the consumers; produce data in exactly their shape:
+- `pbRenderHandoffComponent()` renders the array as a vertical card list with variant chips + live preview.
+- `pbRenderHandoffDrawer()` / `pbRenderHandoffDrawerSegment()` render the click-through spec drawer; `specs` MUST have all 5 segments (`tokens`, `sizing`, `states`, `a11y`, `usage`) or the drawer shows "No data for this segment."
+
+Standard DS components used as-is still get a card — record their DS token references in `specs.tokens` rather than rebuilding the component from scratch.
 
 ## Auto-sync Tab 2 (if new content surfaced)
 

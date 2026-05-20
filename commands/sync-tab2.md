@@ -38,11 +38,52 @@ For each source not skipped by `--source=`:
 - Parse the `### Quantitative Data`, `### Research Summary Report`, `### Executive Summary` sub-headers under `## User Insights` → populate `PB_DATA.userInsights.{quantitative, researchSummary, executiveSummary}`.
 - Parse the `### Trade-off N — ...` blocks under `## UI Logic Trade-offs` → populate `PB_DATA.uiLogicTradeoffs` as an array of `{ title, question, options, decision, why, tabsAffected }`.
 
-### Step 3 — Update template.html
+### Step 3 — Update template.html *(executable recipe)*
 
-In `./prototype/template.html`, find the `const PB_DATA = { ... };` block (around line 530). Replace only the relevant nested keys (preserve `handoff`, `staleness`, and any other top-level keys you didn't touch).
+Locate the `const PB_DATA = {` declaration in `./prototype/template.html` (grep for `const PB_DATA = {` — do not rely on a line number). It contains these top-level keys: `overview`, `userInsights`, `uiLogicTradeoffs`, `others`, `handoff`, `staleness`, `flow`, `erd`.
 
-Use a safe JSON-style serialization. Escape strings properly so the JS stays parseable.
+Use the **Edit tool** to replace **only** the value of each key you parsed in Step 2. Match the existing key + its current value as the `old_string`, swap in the new value as `new_string`. Touch nothing else.
+
+Target shapes:
+
+```js
+// overview — replace the whole `overview: { … }` value
+overview: {
+  objectives: 'string from spec.md ## Objective, or null',
+  principles: [ { num: 1, title: 'Name', body: 'description' }, … ],   // [] if none
+},
+
+// userInsights — replace the whole `userInsights: { … }` value
+userInsights: {
+  quantitative:     'string or null',
+  researchSummary:  'string or null',
+  executiveSummary: 'string or null',
+},
+
+// uiLogicTradeoffs — replace the whole `uiLogicTradeoffs: [ … ]` value
+// NOTE: `title` is the topic only — the renderer prepends "Trade-off N — " itself.
+// NOTE: `options` is an ARRAY of strings — the renderer maps it to <li> items.
+uiLogicTradeoffs: [
+  {
+    title: 'Topic only, no "Trade-off N" prefix',
+    question: '…',
+    options: [ 'Option A', 'Option B' ],
+    decision: '…', why: '…', tabsAffected: '…',
+  },
+  …
+],   // [] if none
+```
+
+Escape every string for a JS single-or-double-quoted literal: backslash-escape the quote char you use, escape `\n` as needed, and never leave a raw `</script>` inside a string. If a source is malformed, skip that key (leave its existing value) and warn — never abort the whole sync.
+
+### Step 3.5 — Verify the write
+
+After editing:
+1. Re-read the `const PB_DATA = {` block. Confirm it is still syntactically valid JS — balanced braces/brackets, every string closed, no stray commas.
+2. If a browser preview is available, reload it and check the console for errors (a broken `PB_DATA` literal throws on load and blanks the whole prototype).
+3. Switch to Tab 2 and confirm Overview / User Insights / UI Logic Trade-offs render the new content.
+
+If verification fails, restore the previous value and report the parse error — do not leave a broken template.
 
 ### Step 4 — Confirm to user
 
