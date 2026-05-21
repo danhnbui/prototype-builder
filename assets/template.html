@@ -425,6 +425,28 @@
       color: var(--text-tertiary);
       line-height: 1.4;
     }
+    .screen-demo-stage {
+      background: var(--pg-gray-5);
+      border-radius: var(--pg-radius-small);
+      padding: 24px 16px;
+      display: flex; align-items: center; justify-content: center;
+      min-height: 100px;
+      margin-bottom: 16px;
+      border: 1px solid var(--border);
+    }
+    .screen-comp-link-btn {
+      display: flex; align-items: center; justify-content: center; gap: 6px;
+      width: 100%;
+      padding: 9px 14px;
+      border: 1px solid var(--border-strong);
+      border-radius: var(--pg-radius-small);
+      background: var(--pg-gray-0);
+      font-size: 12px; font-weight: 500; font-family: var(--font-heading);
+      color: var(--brand);
+      cursor: pointer;
+      transition: background 0.12s;
+    }
+    .screen-comp-link-btn:hover { background: var(--fill-active-secondary); }
 
     /* ========================================================================
        v0.3.0 — WIDE PANEL · SUB-TABS · SYNC BUTTON/TOAST · CARD LIST · DRAWER
@@ -1564,6 +1586,8 @@
       summarySubTab: 'overview',      // 'overview' | 'insights' | 'tradeoffs' | 'others' (v0.3.0)
       handoffDrawerOpenFor: null,     // null | <organism.id> — opens right-side drawer (v0.3.0)
       handoffDrawerSegment: 'anatomy', // 'anatomy' | 'spec' | 'uiLogic' | 'usage' (v0.3.17)
+      screenDrawerOpenFor: null,      // null | element.id — screen-view element drawer (v0.3.18)
+      screenDrawerSegment: 'spec',    // 'spec' | 'uiLogic' | 'demo' (v0.3.18)
       /* TODO: add your app state here, e.g.:
          user: null,
          currentScreen: 'home',
@@ -1627,6 +1651,10 @@
     function openHandoffDrawer(id) { state.handoffDrawerOpenFor = id; state.handoffDrawerSegment = 'anatomy'; renderHandoff(); }
     function closeHandoffDrawer() { state.handoffDrawerOpenFor = null; renderHandoff(); }
     function setHandoffDrawerSegment(s) { state.handoffDrawerSegment = s; renderHandoff(); }
+    function openScreenDrawer(id) { state.screenDrawerOpenFor = id; state.screenDrawerSegment = 'spec'; renderHandoff(); }
+    function closeScreenDrawer() { state.screenDrawerOpenFor = null; renderHandoff(); }
+    function setScreenDrawerSegment(s) { state.screenDrawerSegment = s; renderHandoff(); }
+    function openComponentTab(orgId) { state.screenDrawerOpenFor = null; setHandoffView('component'); setTimeout(function(){ openHandoffDrawer(orgId); }, 60); }
 
     /* Copy a command to clipboard + show a toast + flash the source button.
        `btn` is optional — pass the clicked button element for inline ✓ Copied feedback.
@@ -1686,7 +1714,10 @@
 
     /* Esc closes the handoff drawer. */
     window.addEventListener('keydown', function (e) {
-      if (e.key === 'Escape' && state.handoffDrawerOpenFor) closeHandoffDrawer();
+      if (e.key === 'Escape') {
+        if (state.handoffDrawerOpenFor) closeHandoffDrawer();
+        else if (state.screenDrawerOpenFor) closeScreenDrawer();
+      }
     });
 
     /* ===========================================================================
@@ -2336,10 +2367,16 @@
     function renderHandoff() {
       const isScreen = PB_DATA.handoff.view === 'screen';
       if (isScreen) {
+        const sDrawerOpen = !!state.screenDrawerOpenFor;
         $('#app').innerHTML = `
-          <div class="meta-panel wide-panel">
-            ${pbRenderHandoffHeader(true)}
-            ${pbRenderHandoffScreen()}
+          <div class="handoff-shell ${sDrawerOpen ? 'is-drawer-open' : ''}">
+            <div class="meta-panel wide-panel handoff-main-col">
+              ${pbRenderHandoffHeader(true)}
+              ${pbRenderHandoffScreen()}
+            </div>
+            <aside class="handoff-drawer-panel" aria-hidden="${sDrawerOpen ? 'false' : 'true'}">
+              ${sDrawerOpen ? pbRenderScreenDrawer() : ''}
+            </aside>
           </div>`;
         return;
       }
@@ -2882,9 +2919,6 @@
       const selectedId = PB_DATA.handoff.selectedScreenId || screens[0].id;
       const selectedScreen = screens.find(s => s.id === selectedId) || screens[0];
       const elements = selectedScreen.elements || [];
-      const selElId = PB_DATA.handoff.selectedElementId
-        || (elements[0] && elements[0].id);
-      const selEl = elements.find(e => e.id === selElId) || elements[0];
 
       return syncBar + `
         <div class="handoff-screen-pick">
@@ -2894,70 +2928,133 @@
           </select>
         </div>
 
-        <div class="handoff-7-3">
-          <div class="handoff-left">
-            <div class="handoff-screen-frame">
-              ${typeof window[selectedScreen.renderFn] === 'function'
-                ? window[selectedScreen.renderFn]()
-                : `<div style="padding:32px;background:#fff8e1;border:1px dashed #c1c9d2;border-radius:12px">
-                     <em>Screen renderer <code>${pbEscape(selectedScreen.renderFn || '')}</code> not defined.</em>
-                   </div>`}
-              <div class="handoff-element-overlay">
-                ${elements.map(el => `
-                  <button class="handoff-element-hit ${el.id === (selEl && selEl.id) ? 'active' : ''}"
-                          onclick="setHandoffElement('${pbEscape(el.id)}')"
-                          style="${pbEscape(el.bounds || '')}"
-                          title="${pbEscape(el.label || el.id)}"></button>
-                `).join('')}
-              </div>
-            </div>
-            ${selectedScreen.logicNotes && selectedScreen.logicNotes.length ? `
-              <div class="handoff-logic-notes">
-                <div class="meta-h3" style="font-size:13px;margin-bottom:8px">Logic notes</div>
-                <ul>${selectedScreen.logicNotes.map(n => `<li>${pbEscape(n)}</li>`).join('')}</ul>
-              </div>
-            ` : ''}
-          </div>
-
-          <div class="handoff-right">
-            <div class="handoff-spec-panel">
-              ${selEl ? `
-                <div class="handoff-spec-elname">${pbEscape(selEl.label || selEl.id)}</div>
-                <div class="handoff-spec-section">
-                  <div class="handoff-spec-section-title">Tokens</div>
-                  ${(selEl.tokens && selEl.tokens.length) ? selEl.tokens.map(t => `
-                    <div class="handoff-spec-row">
-                      <span class="handoff-spec-key">${pbEscape(t.name)}</span>
-                      <span class="handoff-spec-val">${pbEscape(t.value)}</span>
-                    </div>
-                  `).join('') : '<div class="handoff-spec-empty">No tokens recorded.</div>'}
-                </div>
-                <div class="handoff-spec-section">
-                  <div class="handoff-spec-section-title">Sizing</div>
-                  ${selEl.sizing ? Object.entries(selEl.sizing).map(([k, v]) => `
-                    <div class="handoff-spec-row">
-                      <span class="handoff-spec-key">${pbEscape(k)}</span>
-                      <span class="handoff-spec-val">${pbEscape(v)}</span>
-                    </div>
-                  `).join('') : '<div class="handoff-spec-empty">No sizing recorded.</div>'}
-                </div>
-                ${selEl.state ? `
-                  <div class="handoff-spec-section">
-                    <div class="handoff-spec-section-title">State</div>
-                    <div class="handoff-spec-row"><span class="handoff-spec-val">${pbEscape(selEl.state)}</span></div>
-                  </div>
-                ` : ''}
-                ${selEl.dsOverride ? `<div class="handoff-spec-warning">⚠ DS override logged</div>` : ''}
-                <div class="handoff-spec-footer">
-                  Spec tokens + sizing only — never code. Code lives in Tab 1.
-                </div>
-              ` : `
-                <div class="handoff-spec-empty">Click an element on the left to see its spec.</div>
-              `}
-            </div>
+        <div class="handoff-screen-frame">
+          ${typeof window[selectedScreen.renderFn] === 'function'
+            ? window[selectedScreen.renderFn]()
+            : `<div style="padding:32px;background:#fff8e1;border:1px dashed #c1c9d2;border-radius:12px">
+                 <em>Screen renderer <code>${pbEscape(selectedScreen.renderFn || '')}</code> not defined.</em>
+               </div>`}
+          <div class="handoff-element-overlay">
+            ${elements.map(el => `
+              <button class="handoff-element-hit ${el.id === state.screenDrawerOpenFor ? 'active' : ''}"
+                      onclick="openScreenDrawer('${pbEscape(el.id)}')"
+                      style="${pbEscape(el.bounds || '')}"
+                      title="${pbEscape(el.label || el.id)}"></button>
+            `).join('')}
           </div>
         </div>
+        ${selectedScreen.logicNotes && selectedScreen.logicNotes.length ? `
+          <div class="handoff-logic-notes" style="margin-top:12px">
+            <div class="meta-h3" style="font-size:13px;margin-bottom:8px">Logic notes</div>
+            <ul>${selectedScreen.logicNotes.map(n => `<li>${pbEscape(n)}</li>`).join('')}</ul>
+          </div>
+        ` : ''}
       `;
+    }
+
+    function pbRenderScreenDrawer() {
+      const id = state.screenDrawerOpenFor;
+      const screens = PB_DATA.handoff.screens || [];
+      const selScreenId = PB_DATA.handoff.selectedScreenId || (screens[0] && screens[0].id);
+      const screen = screens.find(s => s.id === selScreenId) || screens[0];
+      const elements = (screen && screen.elements) || [];
+      const el = elements.find(e => e.id === id);
+      if (!el) return '';
+      const org = el.orgId ? (PB_DATA.handoff.organisms || []).find(o => o.id === el.orgId) : null;
+      const tab = state.screenDrawerSegment || 'spec';
+      return `
+        <div class="handoff-drawer-header">
+          <div class="handoff-drawer-title">${pbEscape(el.label || el.id)}</div>
+          <button class="handoff-drawer-close" onclick="closeScreenDrawer()" aria-label="Close">×</button>
+        </div>
+        <div class="handoff-drawer-tabs">
+          ${[['spec','Specification'],['uiLogic','UI Logic'],['demo','Demo']].map(([tid,tlabel]) => `
+            <button class="handoff-drawer-tab ${tab === tid ? 'active' : ''}"
+                    onclick="setScreenDrawerSegment('${tid}')">${tlabel}</button>
+          `).join('')}
+        </div>
+        <div class="handoff-drawer-body">
+          ${tab === 'spec'    ? pbRenderScreenSpec(el) : ''}
+          ${tab === 'uiLogic' ? pbRenderScreenUiLogic(el, org) : ''}
+          ${tab === 'demo'    ? pbRenderScreenDemo(el, org) : ''}
+        </div>`;
+    }
+
+    function pbRenderScreenSpec(el) {
+      return `
+        ${el.dsOverride ? `<div class="handoff-spec-warning">⚠ DS override logged</div>` : ''}
+        <div class="handoff-spec-section">
+          <div class="handoff-spec-section-title">Tokens</div>
+          ${(el.tokens && el.tokens.length)
+            ? el.tokens.map(t => `
+                <div class="handoff-spec-row">
+                  <span class="handoff-spec-key">${pbEscape(t.name)}</span>
+                  <span class="handoff-spec-val">${pbEscape(t.value)}</span>
+                </div>
+              `).join('')
+            : '<div class="handoff-spec-empty">No tokens recorded.</div>'}
+        </div>
+        <div class="handoff-spec-section">
+          <div class="handoff-spec-section-title">Sizing</div>
+          ${el.sizing
+            ? Object.entries(el.sizing).map(([k, v]) => `
+                <div class="handoff-spec-row">
+                  <span class="handoff-spec-key">${pbEscape(k)}</span>
+                  <span class="handoff-spec-val">${pbEscape(v)}</span>
+                </div>
+              `).join('')
+            : '<div class="handoff-spec-empty">No sizing recorded.</div>'}
+        </div>
+        ${el.state ? `
+          <div class="handoff-spec-section">
+            <div class="handoff-spec-section-title">State</div>
+            <div class="handoff-spec-row"><span class="handoff-spec-val">${pbEscape(el.state)}</span></div>
+          </div>
+        ` : ''}
+        <div class="handoff-spec-footer">Screen context — tokens + sizing from the spec snapshot. For the full annotated redline, open the Component tab.</div>`;
+    }
+
+    function pbRenderScreenUiLogic(el, org) {
+      const notes = el.uiLogic || (org && org.uiLogic) || null;
+      if (!notes || (Array.isArray(notes) && !notes.length)) {
+        return '<div class="handoff-spec-empty" style="padding:20px 0">No UI logic notes for this element yet.</div>';
+      }
+      if (typeof notes === 'string') {
+        return `<div class="uilogic-section"><p style="font-size:13px;line-height:1.6;margin:0">${pbEscape(notes)}</p></div>`;
+      }
+      return `<div class="uilogic-section"><ul style="margin:0;padding-left:20px;font-size:13px;line-height:1.65">${
+        notes.map(n => `<li>${pbEscape(typeof n === 'string' ? n : (n.rule || JSON.stringify(n)))}</li>`).join('')
+      }</ul></div>`;
+    }
+
+    function pbRenderScreenDemo(el, org) {
+      if (!org) {
+        return `<div class="handoff-spec-empty" style="padding:20px 0">No component linked — add <code>orgId</code> to this screen element to enable the live demo.</div>`;
+      }
+      const activeProps = pbActiveProps(org);
+      const propControls = (org.properties || []).map(p => `
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+          <label style="font-size:11px;font-weight:600;color:var(--text-active-secondary);min-width:72px;flex-shrink:0">${pbEscape(p.label || p.id)}</label>
+          <select style="font-size:12px;padding:4px 8px;border:1px solid var(--border);border-radius:6px;flex:1;background:white"
+                  onchange="setHandoffProp('${pbEscape(org.id)}', '${pbEscape(p.id)}', this.value)">
+            ${(p.options || []).map(opt => {
+              const v = typeof opt === 'string' ? opt : (opt.value || opt.label || opt);
+              const l = typeof opt === 'string' ? opt : (opt.label || opt.value || opt);
+              return `<option value="${pbEscape(v)}" ${activeProps[p.id] === v ? 'selected' : ''}>${pbEscape(l)}</option>`;
+            }).join('')}
+          </select>
+        </div>
+      `).join('');
+      const preview = typeof window[org.renderFn] === 'function'
+        ? window[org.renderFn](activeProps)
+        : `<em style="font-size:12px;color:var(--text-tertiary)">${pbEscape(org.renderFn || 'renderFn not defined')}</em>`;
+      return `
+        ${propControls ? `<div class="handoff-spec-section"><div class="handoff-spec-section-title">Variant Controls</div>${propControls}</div>` : ''}
+        <div class="screen-demo-stage">${preview}</div>
+        <button class="screen-comp-link-btn" onclick="openComponentTab('${pbEscape(org.id)}')">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17l10-10M17 17V7H7"/></svg>
+          Open in Component tab
+        </button>`;
     }
 
     /* =========================================================================
