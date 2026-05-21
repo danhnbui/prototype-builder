@@ -767,21 +767,31 @@
       display: flex; align-items: center; gap: 6px;
     }
 
-    .handoff-drawer-backdrop {
-      position: fixed; inset: 0;
-      background: rgba(0,0,0,0.35);
-      z-index: 1300;
-      animation: fade-in 0.16s ease-out;
+    /* v0.3.17 — Component view: push-content drawer (no overlay/backdrop).
+       The shell is a flex pair; opening the drawer shrinks the main column
+       and animates the drawer panel from 0 → 480px. */
+    .handoff-shell {
+      display: flex; align-items: stretch;
+      height: calc(100vh - 44px);   /* fixed frame below the 44px meta-nav */
+      overflow: hidden;             /* the shell never scrolls — its two panes do */
     }
+    .handoff-main-col {
+      flex: 1 1 auto; min-width: 0;
+      margin: 0; min-height: 0; height: 100%;
+      overflow-y: auto;             /* left card list — its own scroll context */
+    }
+    .handoff-drawer-panel {
+      flex: 0 0 0px; width: 0; height: 100%; overflow: hidden;
+      transition: flex-basis 0.22s ease, width 0.22s ease;
+    }
+    .handoff-shell.is-drawer-open .handoff-drawer-panel { flex: 0 0 480px; width: 480px; }
     .handoff-drawer {
-      position: fixed; top: 0; right: 0; bottom: 0;
-      width: 440px; max-width: 92vw;
+      width: 480px;                 /* fixed inner width so badge measurement is valid mid-animation */
+      height: 100%;
       background: white;
       border-left: 1px solid var(--border);
-      box-shadow: -8px 0 24px rgba(0,0,0,0.08);
-      z-index: 1310;
+      box-shadow: -8px 0 24px rgba(0,0,0,0.04);
       display: flex; flex-direction: column;
-      animation: slide-in-right 0.18s ease-out;
     }
     @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
     @keyframes slide-in-right {
@@ -865,6 +875,184 @@
       margin: 0 0 8px;
     }
     .handoff-spec-note:last-child { margin-bottom: 0; }
+
+    /* ---- v0.3.17 component-view: property dropdowns ---- */
+    .prop-field { display: inline-flex; flex-direction: column; gap: 4px; }
+    .prop-label {
+      font: 600 10px/1 var(--font-body); text-transform: uppercase;
+      letter-spacing: 0.05em; color: var(--text-tertiary);
+    }
+    .prop-select {
+      height: 30px; padding: 0 26px 0 8px;
+      border: 1px solid var(--border-strong); border-radius: 6px;
+      font: 500 12px/1 var(--font-body);
+      background: #fff; color: var(--text-active-primary); cursor: pointer;
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%2371717a' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+      background-repeat: no-repeat; background-position: right 9px center;
+    }
+
+    /* ---- v0.3.17 component-view: preview + code panel ---- */
+    .handoff-card-body { display: flex; gap: 16px; margin-bottom: 14px; }
+    .handoff-card-body--stacked { flex-direction: column; }
+    .handoff-card-body--side-by-side { flex-direction: row; align-items: stretch; }
+    .handoff-card-body .handoff-card-preview { flex: 1 1 50%; min-width: 0; margin: 0; }
+    .handoff-card-body--stacked .handoff-card-preview { flex: 1 1 auto; }
+    .handoff-code {
+      flex: 1 1 50%; min-width: 0;
+      border: 1px solid var(--border); border-radius: var(--pg-radius-small);
+      background: #0f172a; overflow: hidden; display: flex; flex-direction: column;
+    }
+    .handoff-card-body--stacked .handoff-code { flex: 1 1 auto; }
+    .handoff-code-bar {
+      padding: 6px 10px; border-bottom: 1px solid rgba(255,255,255,0.08);
+      flex-shrink: 0;
+    }
+    .handoff-code-lang {
+      font: 600 10px/1 var(--font-body); text-transform: uppercase;
+      letter-spacing: 0.06em; color: #a1a1aa;
+    }
+    .handoff-code-pre {
+      margin: 0; padding: 12px 14px; overflow: auto;
+      font: 400 12px/1.6 'SF Mono', Menlo, monospace; color: #e4e4e7;
+    }
+    .handoff-code--empty {
+      padding: 14px; font: 400 12px/1.5 var(--font-body);
+      color: var(--text-tertiary); font-style: italic;
+      background: var(--bg-soft); border-color: var(--border);
+    }
+
+    /* ---- v0.3.17 drawer: Anatomy tab ---- */
+    .anatomy-stage {
+      position: relative;
+      border: 1px solid var(--border); border-radius: var(--pg-radius-small);
+      background: var(--bg-soft); padding: 34px 30px 34px 64px;
+      margin-bottom: 18px;
+    }
+    .anatomy-badge {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 20px; height: 20px; border-radius: 50%;
+      background: #0f172a; color: #fff;
+      font: 700 11px/1 var(--font-body);
+    }
+    .anatomy-badge--pin { position: absolute; z-index: 3; box-shadow: 0 0 0 2px var(--bg-soft); }
+    /* leader line: from a gutter badge to the element it labels */
+    .anatomy-leader {
+      position: absolute; z-index: 2; height: 0;
+      border-top: 1.5px dashed #94a3b8;
+      pointer-events: none;
+    }
+    .anatomy-leader::after {
+      content: ''; position: absolute; right: -3px; top: -3px;
+      width: 5px; height: 5px; border-radius: 50%; background: #475569;
+    }
+    .anatomy-table { width: 100%; border-collapse: collapse; }
+    .anatomy-table th {
+      text-align: left; font: 600 10px/1 var(--font-body);
+      text-transform: uppercase; letter-spacing: 0.05em;
+      color: var(--text-tertiary); padding: 0 8px 8px; border-bottom: 1px solid var(--border);
+    }
+    .anatomy-table td {
+      padding: 9px 8px; border-bottom: 1px solid var(--border);
+      font: 400 12px/1.4 var(--font-body); color: var(--text-active-primary);
+      vertical-align: middle;
+    }
+    .anatomy-table tr:last-child td { border-bottom: 0; }
+    .anatomy-table tr.is-highlit td { background: #fef9c3; }
+    .anatomy-badge--pin.is-highlit { box-shadow: 0 0 0 2px #fff, 0 0 0 4px #facc15; }
+    .req-pill {
+      font: 600 10px/1 var(--font-body); padding: 3px 7px; border-radius: 999px;
+      text-transform: uppercase; letter-spacing: 0.04em;
+    }
+    .req-pill--req { background: #ede9fe; color: #5b21b6; }
+    .req-pill--opt { background: var(--pg-gray-10); color: var(--text-tertiary); }
+    .token-cell { display: inline-flex; align-items: center; gap: 6px; }
+    .token-demo { display: inline-block; width: 14px; height: 14px; flex-shrink: 0; border: 1px solid rgba(0,0,0,0.08); }
+    .token-demo--color { border-radius: 3px; }
+    .token-demo--radius { background: #cbd5e1; }
+    .token-demo--space, .token-demo--size { height: 8px; background: #cbd5e1; border-radius: 2px; }
+    .token-demo--type { width: auto; height: auto; border: 0; font: 700 12px/1 var(--font-heading); color: var(--text-active-primary); }
+    .token-name { font: 500 11px/1 'SF Mono', Menlo, monospace; color: var(--text-active-primary); }
+    .token-val  { font: 400 11px/1 'SF Mono', Menlo, monospace; color: var(--text-tertiary); }
+    .token-cell--none { color: var(--text-tertiary); }
+
+    /* ---- v0.3.17 drawer: Specification tab — redline ---- */
+    .spec-legend { display: flex; flex-wrap: wrap; gap: 14px; margin-bottom: 14px; }
+    .spec-legend-item { display: inline-flex; align-items: center; gap: 6px; font: 500 12px/1 var(--font-body); color: var(--text-active-secondary); }
+    .spec-swatch { width: 11px; height: 11px; border-radius: 3px; display: inline-block; }
+    .spec-stage {
+      position: relative;
+      border: 1px solid var(--border); border-radius: var(--pg-radius-small);
+      background: var(--bg-soft); padding: 40px 76px 26px;
+      margin-bottom: 10px; overflow: hidden;
+    }
+    .spec-render { display: flex; justify-content: center; position: relative; z-index: 1; }
+    .spec-anno { position: absolute; }
+    .spec-band { z-index: 0; pointer-events: none; box-sizing: border-box; }
+    .spec-band--gap    { background: rgba(37,99,235,0.13); border-top: 1px dotted #2563eb; border-bottom: 1px dotted #2563eb; }
+    .spec-band--margin { background: rgba(236,72,153,0.13); border-left: 1px dotted #db2777; border-right: 1px dotted #db2777; }
+    .spec-mark--dimension { color: #f97316; }
+    .spec-mark--gap       { color: #2563eb; }
+    .spec-mark--margin    { color: #db2777; }
+    .spec-dline   { z-index: 2; pointer-events: none; background: currentColor; border-radius: 1px; }
+    .spec-cap     { z-index: 2; pointer-events: none; background: currentColor; border-radius: 1px; }
+    .spec-witness { height: 0; z-index: 1; pointer-events: none; border-top: 1px dotted rgba(24,24,27,0.22); }
+    .spec-chip {
+      z-index: 3; width: 30px; height: 18px; padding: 0 4px; box-sizing: border-box;
+      border-radius: 5px; display: flex; align-items: center; justify-content: center;
+      font: 700 10px/1 var(--font-body); color: #fff;
+      box-shadow: 0 1px 2px rgba(24,24,27,0.18);
+    }
+    .spec-chip--dimension { background: #f97316; }
+    .spec-chip--gap       { background: #2563eb; }
+    .spec-chip--margin    { background: #db2777; }
+    .spec-hint { font: 400 11px/1.55 var(--font-body); color: var(--text-tertiary); margin: 0; }
+
+    /* ---- v0.3.17 drawer: UI Logic + Usage tabs ---- */
+    .uilogic-row { display: flex; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+    .uilogic-row:last-child { border-bottom: 0; }
+    .uilogic-target {
+      flex: 0 0 116px;
+      font: 600 12px/1.4 var(--font-body); color: var(--text-active-primary);
+    }
+    .uilogic-rule { flex: 1; font: 400 12px/1.5 var(--font-body); color: var(--text-active-secondary); }
+    .usage-demo {
+      border: 1px solid var(--border); border-radius: var(--pg-radius-small);
+      background: var(--bg-soft); padding: 22px 20px 18px; margin-bottom: 16px;
+      position: relative;
+    }
+    .usage-demo-tag {
+      position: absolute; top: 8px; left: 10px;
+      font: 600 9px/1 var(--font-body); text-transform: uppercase;
+      letter-spacing: 0.06em; color: var(--text-tertiary);
+    }
+    .usage-demo-render { display: flex; justify-content: center; }
+    .usage-topics { display: flex; flex-direction: column; gap: 10px; }
+    .usage-topic {
+      border: 1px solid var(--border); border-radius: var(--pg-radius-small);
+      padding: 12px 14px;
+    }
+    .usage-topic-name {
+      font: 600 12px/1 var(--font-body); color: var(--text-active-primary);
+      margin-bottom: 9px;
+    }
+    .usage-line {
+      display: flex; gap: 8px; align-items: flex-start;
+      font: 400 12px/1.5 var(--font-body); color: var(--text-active-secondary);
+      padding: 3px 0;
+    }
+    .usage-mark {
+      flex-shrink: 0; width: 16px; height: 16px; border-radius: 50%;
+      display: inline-flex; align-items: center; justify-content: center;
+      font: 700 9px/1 var(--font-body); color: #fff; margin-top: 1px;
+    }
+    .usage-mark--do   { background: #16a34a; }
+    .usage-mark--dont { background: #dc2626; }
+    .usage-placement {
+      margin-top: 14px; padding: 10px 12px; background: var(--bg-soft);
+      border: 1px solid var(--border); border-radius: var(--pg-radius-small);
+      font: 400 12px/1.5 var(--font-body); color: var(--text-active-secondary);
+    }
 
     /* ========================================================================
        FLOW DOC — Mermaid canvas + test-checklist sidebar (v0.3.8+)
@@ -1349,7 +1537,7 @@
       // Tab 4 — Design Handoff (Component view auto-syncs on /build; Screen view on /handoff)
       handoff: {
         view: 'component',       // 'component' | 'screen'
-        organisms: [],           // [{ id, name, variants, renderFn }] for Component view
+        organisms: [],           // [{ id, name, renderFn, meta, properties, codeLayout, code, anatomy, spec, uiLogic, usage }] — /build populates
         screens: [],             // [{ id, name, renderFn, elements: [{id, label, tokens, sizing, state}] }] for Screen view
         selectedScreenId: null,
         selectedElementId: null,
@@ -1376,7 +1564,7 @@
       metaView: 'prototype',          // 'prototype' | 'summary' | 'flow' | 'handoff' | 'erd'
       summarySubTab: 'overview',      // 'overview' | 'insights' | 'tradeoffs' | 'others' (v0.3.0)
       handoffDrawerOpenFor: null,     // null | <organism.id> — opens right-side drawer (v0.3.0)
-      handoffDrawerSegment: 'tokens', // 'tokens' | 'sizing' | 'states' | 'a11y' | 'usage' (v0.3.0)
+      handoffDrawerSegment: 'anatomy', // 'anatomy' | 'spec' | 'uiLogic' | 'usage' (v0.3.17)
       /* TODO: add your app state here, e.g.:
          user: null,
          currentScreen: 'home',
@@ -1437,7 +1625,7 @@
     }
     function setMetaView(v) { state.metaView = v; render(); window.scrollTo({top: 0}); }
     function setSummarySubTab(v) { state.summarySubTab = v; renderMetaSummary(); }
-    function openHandoffDrawer(id) { state.handoffDrawerOpenFor = id; state.handoffDrawerSegment = 'tokens'; renderHandoff(); }
+    function openHandoffDrawer(id) { state.handoffDrawerOpenFor = id; state.handoffDrawerSegment = 'anatomy'; renderHandoff(); }
     function closeHandoffDrawer() { state.handoffDrawerOpenFor = null; renderHandoff(); }
     function setHandoffDrawerSegment(s) { state.handoffDrawerSegment = s; renderHandoff(); }
 
@@ -2122,11 +2310,15 @@
                           uses 7:3 grid: 7fr render + 3fr spec panel
        Right panel emits DS tokens + sizing ONLY — never code.
        ========================================================================= */
-    const variantCtx = {
-      // legacy compatibility; safe to leave empty for /build to populate via PB_DATA
-      exampleCard: 'default',
-    };
-    function setVariant(group, value) { variantCtx[group] = value; renderHandoff(); }
+    /* v0.3.17 — per-organism active property combo, keyed by org id.
+       Lazy-seeded from each organism's property defaults by pbActiveProps(). */
+    const handoffProps = {};
+    function setHandoffProp(orgId, propId, value) {
+      const org = (PB_DATA.handoff.organisms || []).find(x => x.id === orgId);
+      if (!org) return;
+      pbActiveProps(org)[propId] = value;
+      renderHandoff();
+    }
     function setHandoffView(v) {
       PB_DATA.handoff.view = v;
       renderHandoff();
@@ -2141,32 +2333,53 @@
       renderHandoff();
     }
 
+    /* v0.3.17 — Component view: push-content drawer + property dropdowns + code panel. */
     function renderHandoff() {
-      const h = PB_DATA.handoff;
-      const isScreen = h.view === 'screen';
+      const isScreen = PB_DATA.handoff.view === 'screen';
+      if (isScreen) {
+        $('#app').innerHTML = `
+          <div class="meta-panel wide-panel">
+            ${pbRenderHandoffHeader(true)}
+            ${pbRenderHandoffScreen()}
+          </div>`;
+        return;
+      }
+      const drawerOpen = !!state.handoffDrawerOpenFor;
       $('#app').innerHTML = `
-        <div class="meta-panel wide-panel">
-          <span class="meta-tag">Design Handoff</span>
-          <h1 class="meta-h1">Design Handoff</h1>
-          <p class="meta-sub">
-            <strong>Component</strong> view auto-syncs on <code>/speckit-prototype-builder-build</code> — vertical card list, click a card for the spec drawer.
-            <strong>Screen</strong> view is manual via <code>/speckit-prototype-builder-handoff</code> (7:3 layout, spec tokens only — no code).
-          </p>
-
-          <div class="handoff-toggle">
-            <button class="handoff-toggle-btn ${!isScreen ? 'active' : ''}" onclick="setHandoffView('component')">Component</button>
-            <button class="handoff-toggle-btn ${isScreen  ? 'active' : ''}" onclick="setHandoffView('screen')">Screen</button>
+        <div class="handoff-shell ${drawerOpen ? 'is-drawer-open' : ''}">
+          <div class="meta-panel wide-panel handoff-main-col">
+            ${pbRenderHandoffHeader(false)}
+            ${pbRenderHandoffComponent()}
           </div>
-          <hr class="meta-divider">
+          <aside class="handoff-drawer-panel" aria-hidden="${drawerOpen ? 'false' : 'true'}">
+            ${drawerOpen ? pbRenderHandoffDrawer() : ''}
+          </aside>
+        </div>`;
+    }
 
-          ${isScreen ? pbRenderHandoffScreen() : pbRenderHandoffComponent()}
+    function pbRenderHandoffHeader(isScreen) {
+      return `
+        <span class="meta-tag">Design Handoff</span>
+        <h1 class="meta-h1">Design Handoff</h1>
+        <p class="meta-sub">
+          <strong>Component</strong> view — every reusable component with property controls, a code panel, and a 4-tab spec drawer (Anatomy · Specification · UI Logic · Usage).
+          <strong>Screen</strong> view — the 7:3 annotated screen layout.
+        </p>
+        <div class="handoff-toggle">
+          <button class="handoff-toggle-btn ${!isScreen ? 'active' : ''}" onclick="setHandoffView('component')">Component</button>
+          <button class="handoff-toggle-btn ${isScreen  ? 'active' : ''}" onclick="setHandoffView('screen')">Screen</button>
         </div>
-        ${pbRenderHandoffDrawer()}
-      `;
-      // v0.3.13 — if the screen render functions tagged interactive elements with
-      // data-handoff-el="<id>", auto-position the click-overlay hits to the actual
-      // rendered rectangles. Falls back to whatever bounds are set inline otherwise.
-      if (isScreen) requestAnimationFrame(recomputeHandoffBounds);
+        <hr class="meta-divider">`;
+    }
+
+    /* Resolve the active property combo for an organism (lazy-seeded from defaults). */
+    function pbActiveProps(org) {
+      if (!handoffProps[org.id]) {
+        const seed = {};
+        (org.properties || []).forEach(p => { seed[p.id] = p.default; });
+        handoffProps[org.id] = seed;
+      }
+      return handoffProps[org.id];
     }
 
     /* v0.3.13 — Auto-position handoff hit overlays from rendered elements. */
@@ -2313,65 +2526,67 @@
     function pbRenderHandoffComponent() {
       const orgs = (PB_DATA.handoff.organisms || []);
       if (!orgs.length) {
-        return `
-          <p class="meta-p" style="color:var(--text-tertiary);font-style:italic">
-            No custom organisms recorded yet. Run <code>/speckit-prototype-builder-build</code>
-            to populate this view from the current spec + plan.
-          </p>
-        `;
+        return `<p class="meta-p" style="color:var(--text-tertiary);font-style:italic">
+          No components recorded yet. Run <code>/speckit-prototype-builder-build</code> to populate this view.
+        </p>`;
       }
       return `
         <div class="handoff-card-list">
           ${orgs.map((org, i) => {
-            const active = variantCtx[org.id] || (org.variants && org.variants[0] && org.variants[0].id);
+            const props = pbActiveProps(org);
             const preview = typeof window[org.renderFn] === 'function'
-              ? window[org.renderFn](active)
-              : `<div style="padding:14px;color:var(--text-tertiary);font-style:italic;font-size:12px">
-                   Renderer <code>${pbEscape(org.renderFn || '(none)')}</code> not defined.
-                 </div>`;
-            const hasSpecs = !!org.specs;
+              ? window[org.renderFn](props)
+              : `<div style="padding:14px;color:var(--text-tertiary);font-style:italic;font-size:12px">Renderer <code>${pbEscape(org.renderFn || '(none)')}</code> not defined.</div>`;
+            const layout = org.codeLayout === 'side-by-side' ? 'side-by-side' : 'stacked';
             return `
-              <div class="handoff-card" ${hasSpecs ? `onclick="openHandoffDrawer('${pbEscape(org.id)}')"` : ''}>
+              <div class="handoff-card" onclick="openHandoffDrawer('${pbEscape(org.id)}')">
                 <div class="handoff-card-header">
                   <span class="handoff-card-title">${i+1} · ${pbEscape(org.name)}</span>
                   <span class="handoff-card-id">${pbEscape(org.id)}</span>
                 </div>
                 ${org.meta ? `<p class="handoff-card-meta">${pbEscape(org.meta)}</p>` : ''}
                 <div class="handoff-card-controls" onclick="event.stopPropagation()">
-                  ${(org.variants || []).map(v =>
-                    `<button class="variant-ctrl ${active === v.id ? 'active' : ''}"
-                             onclick="event.stopPropagation(); setVariant('${pbEscape(org.id)}', '${pbEscape(v.id)}')">${pbEscape(v.label)}</button>`
-                  ).join('')}
+                  ${(org.properties || []).map(prop => `
+                    <label class="prop-field">
+                      <span class="prop-label">${pbEscape(prop.label)}</span>
+                      <select class="prop-select" onchange="setHandoffProp('${pbEscape(org.id)}','${pbEscape(prop.id)}',this.value)">
+                        ${prop.options.map(o => `<option value="${pbEscape(o.value)}" ${props[prop.id]===o.value?'selected':''}>${pbEscape(o.label)}</option>`).join('')}
+                      </select>
+                    </label>`).join('')}
                 </div>
-                <div class="handoff-card-preview" data-component-preview="${pbEscape(org.id)}">${preview}</div>
-                <div class="handoff-card-hint">
-                  ${hasSpecs
-                    ? '→ Click card for full spec (tokens · sizing · states · a11y · usage)'
-                    : 'No spec data yet — /speckit-prototype-builder-build can populate organism.specs to enable the drawer.'}
+                <div class="handoff-card-body handoff-card-body--${layout}">
+                  <div class="handoff-card-preview" data-component-preview="${pbEscape(org.id)}">${preview}</div>
+                  ${pbRenderHandoffCode(org)}
                 </div>
-              </div>
-            `;
+                <div class="handoff-card-hint">→ Click the card for the full spec (Anatomy · Specification · UI Logic · Usage)</div>
+              </div>`;
           }).join('')}
-        </div>
-      `;
+        </div>`;
     }
 
-    /* v0.3.0 — Right-side drawer with 5 spec segments. Reads PB_DATA.handoff.organisms[N].specs. */
+    function pbRenderHandoffCode(org) {
+      if (!org.code || !org.code.snippet)
+        return `<div class="handoff-code handoff-code--empty">No code recorded.</div>`;
+      return `
+        <div class="handoff-code">
+          <div class="handoff-code-bar"><span class="handoff-code-lang">${pbEscape(org.code.lang || 'html')}</span></div>
+          <pre class="handoff-code-pre"><code>${pbEscape(org.code.snippet)}</code></pre>
+        </div>`;
+    }
+
+    /* ---- Drawer: push-content, 4 tabs ---- */
+    const HANDOFF_TABS = [
+      ['anatomy', 'Anatomy'], ['spec', 'Specification'],
+      ['uiLogic', 'UI Logic'], ['usage', 'Usage'],
+    ];
     function pbRenderHandoffDrawer() {
       const id = state.handoffDrawerOpenFor;
       if (!id) return '';
       const org = (PB_DATA.handoff.organisms || []).find(x => x.id === id);
-      if (!org || !org.specs) return '';
-      const segments = [
-        ['tokens', 'Tokens'],
-        ['sizing', 'Sizing'],
-        ['states', 'States'],
-        ['a11y',   'A11y'],
-        ['usage',  'Usage'],
-      ];
+      if (!org) return '';
+      const tab = state.handoffDrawerSegment || 'anatomy';
       return `
-        <div class="handoff-drawer-backdrop" onclick="closeHandoffDrawer()"></div>
-        <aside class="handoff-drawer" role="dialog" aria-modal="true" aria-label="${pbEscape(org.name)} spec">
+        <div class="handoff-drawer" role="dialog" aria-label="${pbEscape(org.name)} spec">
           <div class="handoff-drawer-header">
             <div class="handoff-drawer-title-wrap">
               <h2 class="handoff-drawer-title">${pbEscape(org.name)}</h2>
@@ -2380,55 +2595,271 @@
             <button class="handoff-drawer-close" onclick="closeHandoffDrawer()" aria-label="Close drawer">×</button>
           </div>
           <div class="handoff-drawer-segments">
-            ${segments.map(([sid, label]) =>
-              `<button class="handoff-drawer-segment ${state.handoffDrawerSegment === sid ? 'active' : ''}"
-                       onclick="setHandoffDrawerSegment('${sid}')">${label}</button>`
+            ${HANDOFF_TABS.map(([tid, label]) =>
+              `<button class="handoff-drawer-segment ${tab === tid ? 'active' : ''}" onclick="setHandoffDrawerSegment('${tid}')">${label}</button>`
             ).join('')}
           </div>
-          <div class="handoff-drawer-content">
-            ${pbRenderHandoffDrawerSegment(org, state.handoffDrawerSegment)}
-          </div>
-        </aside>
-      `;
+          <div class="handoff-drawer-content">${pbRenderHandoffDrawerTab(org, tab)}</div>
+        </div>`;
+    }
+    function pbRenderHandoffDrawerTab(org, tab) {
+      if (tab === 'spec')    return pbRenderHandoffSpec(org);
+      if (tab === 'uiLogic') return pbRenderHandoffUiLogic(org);
+      if (tab === 'usage')   return pbRenderHandoffUsage(org);
+      return pbRenderHandoffAnatomy(org);
     }
 
-    function pbRenderHandoffDrawerSegment(org, segment) {
-      const data = org.specs && org.specs[segment];
-      if (!data || (Array.isArray(data) && !data.length)) {
-        return '<p class="handoff-spec-note">No data for this segment.</p>';
-      }
-      if (segment === 'tokens' || segment === 'sizing') {
-        return `
-          <div class="handoff-spec-group">
-            ${data.map(row => {
-              const [k, v] = Array.isArray(row) ? row : [row.name || '', row.value || ''];
-              return `<div class="handoff-spec-row pb-drawer-row"><span class="handoff-spec-key">${pbEscape(k)}</span><span class="handoff-spec-val">${pbEscape(v)}</span></div>`;
-            }).join('')}
-          </div>
-        `;
-      }
-      if (segment === 'states') {
-        return `
-          <div class="handoff-spec-group">
-            ${data.map(row => {
-              const [label, desc] = Array.isArray(row) ? row : [row.name || '', row.description || ''];
-              return `
-                <div class="handoff-spec-group" style="border-bottom:1px solid var(--border);padding-bottom:12px;margin-bottom:12px">
-                  <p class="handoff-spec-label">${pbEscape(label)}</p>
-                  <p class="handoff-spec-note">${pbEscape(desc)}</p>
-                </div>
-              `;
-            }).join('')}
-          </div>
-        `;
-      }
-      // a11y, usage — flat list of notes
-      return `
-        <div class="handoff-spec-group">
-          ${data.map(note => `<p class="handoff-spec-note">• ${pbEscape(note)}</p>`).join('')}
-        </div>
-      `;
+    function pbRenderTokenCell(t) {
+      if (!t) return '<span class="token-cell token-cell--none">—</span>';
+      let demo = '';
+      if (t.kind === 'color')       demo = `<span class="token-demo token-demo--color" style="background:${pbEscape(t.value)}"></span>`;
+      else if (t.kind === 'radius') demo = `<span class="token-demo token-demo--radius" style="border-radius:${pbEscape(t.value)}"></span>`;
+      else if (t.kind === 'space' || t.kind === 'size') demo = `<span class="token-demo token-demo--space" style="width:${pbEscape(t.value)}"></span>`;
+      else if (t.kind === 'type')   demo = `<span class="token-demo token-demo--type">Aa</span>`;
+      return `<span class="token-cell">${demo}<code class="token-name">${pbEscape(t.name)}</code><span class="token-val">${pbEscape(t.value)}</span></span>`;
     }
+
+    function pbRenderHandoffAnatomy(org) {
+      const a = org.anatomy;
+      if (!a || !a.parts || !a.parts.length)
+        return '<p class="handoff-spec-note">Anatomy not authored for this component yet.</p>';
+      const preview = typeof window[org.renderFn] === 'function'
+        ? window[org.renderFn](a.renderProps || {}) : '';
+      return `
+        <div class="anatomy-stage" data-anatomy-for="${pbEscape(org.id)}">
+          <div class="anatomy-render">${preview}</div>
+        </div>
+        <table class="anatomy-table">
+          <thead><tr><th>#</th><th>Element</th><th>Req.</th><th>Token</th></tr></thead>
+          <tbody>
+            ${a.parts.map(p => `
+              <tr data-anatomy-row="${p.n}">
+                <td><span class="anatomy-badge">${p.n}</span></td>
+                <td>${pbEscape(p.name)}</td>
+                <td><span class="req-pill ${p.required ? 'req-pill--req' : 'req-pill--opt'}">${p.required ? 'Required' : 'Optional'}</span></td>
+                <td>${pbRenderTokenCell(p.token)}</td>
+              </tr>`).join('')}
+          </tbody>
+        </table>`;
+    }
+
+    function pbRenderHandoffSpec(org) {
+      const s = org.spec;
+      if (!s || !s.stack || !s.stack.length)
+        return '<p class="handoff-spec-note">Specification not authored for this component yet.</p>';
+      const preview = typeof window[org.renderFn] === 'function'
+        ? window[org.renderFn](s.renderProps || {}) : '';
+      const legend = `<div class="spec-legend">${(s.legend || []).map(a =>
+        `<span class="spec-legend-item"><span class="spec-swatch" style="background:${pbEscape(a.color)}"></span>${pbEscape(a.label)}</span>`).join('')}</div>`;
+      /* The redline annotations (bands · lines · chips) are injected post-render
+         by pbPlaceSpecAnnotations(), which measures the live component. */
+      return `${legend}
+        <div class="spec-stage" data-spec-for="${pbEscape(org.id)}">
+          <div class="spec-render">${preview}</div>
+        </div>
+        <p class="spec-hint">Measured live from the component — <b style="color:#f97316">orange = dimension</b>, <b style="color:#2563eb">blue = gap / padding</b>, <b style="color:#db2777">pink = margin</b>.</p>`;
+    }
+
+    function pbRenderHandoffUiLogic(org) {
+      const list = org.uiLogic || [];
+      if (!list.length) return '<p class="handoff-spec-note">UI logic not authored for this component yet.</p>';
+      return list.map(r => `
+        <div class="uilogic-row">
+          <div class="uilogic-target">${pbEscape(r.target)}</div>
+          <div class="uilogic-rule">${pbEscape(r.rule)}</div>
+        </div>`).join('');
+    }
+
+    function pbRenderHandoffUsage(org) {
+      const u = org.usage;
+      if (!u || !u.topics || !u.topics.length)
+        return '<p class="handoff-spec-note">Usage not authored for this component yet.</p>';
+      const demo = (u.demoProps && typeof window[org.renderFn] === 'function')
+        ? `<div class="usage-demo"><span class="usage-demo-tag">Demo</span><div class="usage-demo-render">${window[org.renderFn](u.demoProps)}</div></div>`
+        : '';
+      const topics = u.topics.map(t => `
+        <div class="usage-topic">
+          <div class="usage-topic-name">${pbEscape(t.topic)}</div>
+          ${t.do   ? `<div class="usage-line"><span class="usage-mark usage-mark--do">✓</span><span>${pbEscape(t.do)}</span></div>` : ''}
+          ${t.dont ? `<div class="usage-line"><span class="usage-mark usage-mark--dont">✗</span><span>${pbEscape(t.dont)}</span></div>` : ''}
+        </div>`).join('');
+      return `${demo}<div class="usage-topics">${topics}</div>
+        ${u.placement ? `<div class="usage-placement"><strong>Placement:</strong> ${pbEscape(u.placement)}</div>` : ''}`;
+    }
+
+    /* v0.3.17 — Anatomy: gutter badges + dashed leader lines, measured post-render. */
+    function pbPlaceAnatomyBadges() {
+      const stage = document.querySelector('.anatomy-stage');
+      if (!stage) return;
+      stage.querySelectorAll('.anatomy-badge--pin, .anatomy-leader').forEach(b => b.remove());
+      const org = (PB_DATA.handoff.organisms || []).find(x => x.id === stage.getAttribute('data-anatomy-for'));
+      if (!org || !org.anatomy) return;
+      const stageRect = stage.getBoundingClientRect();
+      const gutterX = 22;   /* badge centre-x, inside the stage's left gutter */
+      (org.anatomy.parts || []).forEach(p => {
+        const target = stage.querySelector(p.anchor);
+        if (!target) return;
+        const r = target.getBoundingClientRect();
+        const cy = r.top - stageRect.top + r.height / 2;          /* element vertical centre */
+        const elLeft = r.left - stageRect.left;
+        /* dashed leader line from the gutter badge across to the element edge */
+        const line = document.createElement('div');
+        line.className = 'anatomy-leader';
+        line.dataset.anatomyPin = p.n;
+        line.style.top   = cy + 'px';
+        line.style.left  = (gutterX + 10) + 'px';
+        line.style.width = Math.max(0, elLeft - gutterX - 10) + 'px';
+        stage.appendChild(line);
+        /* numbered badge parked in the gutter, aligned to the element */
+        const badge = document.createElement('span');
+        badge.className = 'anatomy-badge anatomy-badge--pin';
+        badge.textContent = p.n;
+        badge.dataset.anatomyPin = p.n;
+        badge.style.top  = (cy - 10) + 'px';
+        badge.style.left = (gutterX - 10) + 'px';
+        stage.appendChild(badge);
+      });
+    }
+    /* v0.3.17 — Specification redline: measure the live component and inject
+       dimension lines (line + end-cap ticks), the value chip placed directly
+       beside the line — no leader lines. Element heights run down the LEFT of
+       the component (orange); inter-element gaps run down the RIGHT (blue);
+       the declared margin sits in dotted bands flanking the component (pink). */
+    function pbPlaceSpecAnnotations() {
+      const stage = document.querySelector('.spec-stage');
+      if (!stage) return;
+      stage.querySelectorAll('.spec-anno').forEach(e => e.remove());
+      stage.style.minHeight = '';
+      const org = (PB_DATA.handoff.organisms || []).find(x => x.id === stage.getAttribute('data-spec-for'));
+      if (!org || !org.spec || !org.spec.stack) return;
+      const s = org.spec;
+      const sr = stage.getBoundingClientRect();
+      const els = s.stack.map(it => {
+        const t = stage.querySelector(it.anchor);
+        return t ? { name: it.name, r: t.getBoundingClientRect() } : null;
+      }).filter(Boolean);
+      if (!els.length) return;
+
+      const mk = (cls, css, txt) => {
+        const d = document.createElement('div');
+        d.className = 'spec-anno ' + cls;
+        d.style.cssText = css;
+        if (txt != null) d.textContent = txt;
+        stage.appendChild(d);
+        return d;
+      };
+      /* a measurement line carrying an end-cap tick at each end. axis 'v' | 'h' */
+      const dimLine = (kind, axis, x, y, len) => {
+        const m = ' spec-mark--' + kind;
+        if (axis === 'v') {
+          mk('spec-dline' + m, `left:${x - 1}px;top:${y}px;width:2px;height:${len}px`);
+          mk('spec-cap' + m,   `left:${x - 5}px;top:${y - 1}px;width:10px;height:2px`);
+          mk('spec-cap' + m,   `left:${x - 5}px;top:${y + len - 1}px;width:10px;height:2px`);
+        } else {
+          mk('spec-dline' + m, `left:${x}px;top:${y - 1}px;width:${len}px;height:2px`);
+          mk('spec-cap' + m,   `left:${x - 1}px;top:${y - 5}px;width:2px;height:10px`);
+          mk('spec-cap' + m,   `left:${x + len - 1}px;top:${y - 5}px;width:2px;height:10px`);
+        }
+      };
+
+      let minL = Infinity, maxR = 0, maxW = 0;
+      els.forEach(e => { minL = Math.min(minL, e.r.left); maxR = Math.max(maxR, e.r.right); maxW = Math.max(maxW, e.r.width); });
+      const compL = minL - sr.left, compR = maxR - sr.left;
+      const compTop = els[0].r.top - sr.top, compBot = els[els.length - 1].r.bottom - sr.top;
+      const chipH = 18, chipW = 30;
+
+      /* element heights (run down the LEFT) + inter-element gaps (run down the RIGHT) */
+      const heights = [], gaps = [];
+      els.forEach((e, i) => {
+        const top = e.r.top - sr.top, bot = e.r.bottom - sr.top;
+        heights.push({ value: Math.round(bot - top), top: top, bot: bot });
+        if (i < els.length - 1) {
+          const gBot = els[i + 1].r.top - sr.top;
+          if (gBot - bot > 0.5) gaps.push({ value: Math.round(gBot - bot), top: bot, bot: gBot });
+        }
+      });
+
+      /* gap region bands on the component — dotted top + bottom edges */
+      gaps.forEach(g => mk('spec-band spec-band--gap',
+        `left:${compL}px;top:${g.top}px;width:${compR - compL}px;height:${g.bot - g.top}px`));
+
+      /* LEFT — one orange dimension line per element height, chip beside it */
+      const xL = Math.max(compL - 26, chipW + 10);
+      heights.forEach(h => {
+        mk('spec-witness', `left:${xL}px;top:${h.top}px;width:${compL - xL}px`);
+        mk('spec-witness', `left:${xL}px;top:${h.bot}px;width:${compL - xL}px`);
+        dimLine('dimension', 'v', xL, h.top, h.bot - h.top);
+        mk('spec-chip spec-chip--dimension',
+          `left:${xL - 7 - chipW}px;top:${(h.top + h.bot) / 2 - chipH / 2}px;height:${chipH}px`, h.value);
+      });
+
+      /* RIGHT — one blue dimension line per gap, chip beside it */
+      const xR = Math.min(compR + 26, sr.width - chipW - 14);
+      gaps.forEach(g => {
+        mk('spec-witness', `left:${compR}px;top:${g.top}px;width:${xR - compR}px`);
+        mk('spec-witness', `left:${compR}px;top:${g.bot}px;width:${xR - compR}px`);
+        dimLine('gap', 'v', xR, g.top, g.bot - g.top);
+        mk('spec-chip spec-chip--gap',
+          `left:${xR + 7}px;top:${(g.top + g.bot) / 2 - chipH / 2}px;height:${chipH}px`, g.value);
+      });
+
+      /* overall content width — horizontal dimension line above the component */
+      const wY = compTop - 15;
+      dimLine('dimension', 'h', compL, wY, compR - compL);
+      mk('spec-chip spec-chip--dimension',
+        `left:${(compL + compR) / 2 - chipW / 2}px;top:${wY - chipH - 3}px;height:${chipH}px`, Math.round(maxW));
+
+      /* declared horizontal margin — dotted-edge bands flanking the component;
+         one labelled dimension line below the left band (margin is symmetric) */
+      const m = s.marginX || 0;
+      let bottomY = compBot;
+      if (m > 0) {
+        const bH = compBot - compTop;
+        mk('spec-band spec-band--margin', `left:${compL - m}px;top:${compTop}px;width:${m}px;height:${bH}px`);
+        mk('spec-band spec-band--margin', `left:${compR}px;top:${compTop}px;width:${m}px;height:${bH}px`);
+        const mY = compBot + 17;
+        dimLine('margin', 'h', compL - m, mY, m);
+        mk('spec-chip spec-chip--margin',
+          `left:${compL - m / 2 - chipW / 2}px;top:${mY + 6}px;height:${chipH}px`, m);
+        bottomY = mY + 6 + chipH;
+      }
+
+      /* grow the stage so nothing in the bottom margin row is clipped */
+      stage.style.minHeight = Math.ceil(bottomY + 16) + 'px';
+    }
+
+    /* Badge ↔ table-row hover sync (one delegated pair of listeners). */
+    function pbAnatomyHoverToggle(e, on) {
+      const hit = e.target.closest('[data-anatomy-row], [data-anatomy-pin]');
+      if (!hit) return;
+      const n = hit.getAttribute('data-anatomy-row') || hit.getAttribute('data-anatomy-pin');
+      ['[data-anatomy-row="' + n + '"]', '[data-anatomy-pin="' + n + '"]'].forEach(sel => {
+        const el = document.querySelector(sel);
+        if (el) el.classList.toggle('is-highlit', on);
+      });
+    }
+
+    /* Patch renderHandoff so bounds + anatomy badges + spec redline recompute every draw. */
+    (function patchRenderHandoff(){
+      const orig = window.renderHandoff;
+      const after = function(){ recomputeHandoffBounds(); pbPlaceAnatomyBadges(); pbPlaceSpecAnnotations(); };
+      window.renderHandoff = function() {
+        /* Preserve the left card-list scroll across re-renders so opening a
+           component / switching a dropdown doesn't jump it back to the top.
+           The drawer body is a fresh element each render, so it naturally
+           loads at its starting point — which is the intended behavior. */
+        const prevScroll = (document.querySelector('.handoff-main-col') || {}).scrollTop || 0;
+        orig.apply(this, arguments);
+        const col = document.querySelector('.handoff-main-col');
+        if (col) col.scrollTop = prevScroll;
+        requestAnimationFrame(after);
+      };
+      window.addEventListener('resize', function(){
+        if (state && state.metaView === 'handoff') requestAnimationFrame(after);
+      });
+      document.addEventListener('mouseover', function(e){ pbAnatomyHoverToggle(e, true); });
+      document.addEventListener('mouseout',  function(e){ pbAnatomyHoverToggle(e, false); });
+    })();
 
     function pbRenderHandoffScreen() {
       const screens = PB_DATA.handoff.screens || [];

@@ -66,13 +66,13 @@ mkdir ~/Desktop/my-prototype && cd ~/Desktop/my-prototype
 specify init . --integration claude --force
 
 # Install Preset + Extension from this single repo
-gh repo clone danhnbui/spec-kit-extension-prototype-builder /tmp/pb -- --branch v0.3.16
+gh repo clone danhnbui/spec-kit-extension-prototype-builder /tmp/pb -- --branch v0.3.17
 specify preset add --dev /tmp/pb
 specify extension add --dev /tmp/pb
 
 # Or via public URL once the repo is public:
-# specify preset add --from https://github.com/danhnbui/spec-kit-extension-prototype-builder/archive/refs/tags/v0.3.16.zip
-# specify extension add --from https://github.com/danhnbui/spec-kit-extension-prototype-builder/archive/refs/tags/v0.3.16.zip
+# specify preset add --from https://github.com/danhnbui/spec-kit-extension-prototype-builder/archive/refs/tags/v0.3.17.zip
+# specify extension add --from https://github.com/danhnbui/spec-kit-extension-prototype-builder/archive/refs/tags/v0.3.17.zip
 
 # Then open Claude Code and run the workflow
 claude
@@ -125,6 +125,8 @@ Full architectural docs (SRS, architecture, data flow, orchestrator, execution p
 ---
 
 ## Version
+
+- **v0.3.17** — Tab 4 **Component view redesigned** into a Storybook-grade component reference. The card list now carries property `<select>` dropdowns (interactive variant play) + a code panel — stacked or side-by-side per the component's `codeLayout`. Clicking a card slides in a **push-content drawer** (no dimming overlay — the card list shrinks and the drawer shares the width) with **4 tabs**: **Anatomy** (numbered gutter badges + dashed leader lines over the live component, plus a synced token table), **Specification** (a live-measured **redline** — element heights run down the left in orange, inter-element gaps down the right in blue, declared margin in dotted pink bands; every measurement is a dimension line with end-cap ticks and a value chip beside it), **UI Logic** (show/hide rules), and **Usage** (a demo + grouped do/don't topic cards + placement). The `PB_DATA.handoff.organisms` shape changes to match: `variants` + `specs.{tokens,sizing,states,a11y,usage}` are replaced by `properties` / `code` / `codeLayout` / `anatomy` / `spec` / `uiLogic` / `usage`. `assets/template.html` ships the new CSS + render functions (`pbRenderHandoffComponent`, `pbRenderHandoffDrawer` + the 4 tab renderers, `pbPlaceAnatomyBadges`, `pbPlaceSpecAnnotations`); `commands/build.md` §"Tab 4-Component" is rewritten to emit the new organism shape. Tab 4-Screen view is unchanged.
 
 - **v0.3.16** — Fixed the Tab 2 + Tab 4-Component **automation**. Both auto-syncs silently produced empty tabs because the command bodies were design docs, not executable specs: (1) `commands/build.md` §"Tab 4-Component" only built *custom* organisms and told the agent to "list but not rebuild" standard components — so a spec with only standard components (input / button / alert) got an empty Component view by design; it also never named `PB_DATA.handoff.organisms` as the write target. (2) `commands/sync-tab2.md` Step 3 said "find the PB_DATA block (around line 530), replace the keys" — a stale line number, no Edit anchors, no verification. Both are now rewritten as concrete recipes: build.md covers **every** component (standard + custom) with the full `{id,name,renderFn,meta,variants,specs}` organism shape; sync-tab2.md gives an exact Edit-tool recipe with inline target shapes + a Step 3.5 verification pass. The `after_*` hook wiring was already correct — the bug was downstream in the commands they invoke.
 

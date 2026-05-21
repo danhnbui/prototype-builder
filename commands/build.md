@@ -117,38 +117,61 @@ Once all gates pass:
 
 ### Tab 4-Component
 
-Tab 4-Component is the **component library** behind the prototype. It must cover **every reusable component the prototype uses** — both standard components (text input, button, alert, etc.) AND any custom organisms from `spec.md`. Do NOT skip standard components: a spec whose components are all standard still needs a populated Component view.
+Tab 4-Component is the **component library** behind the prototype — a Storybook-grade reference. It must cover **every reusable component the prototype uses** — both standard components (text input, button, alert, etc.) AND any custom organisms from `spec.md`. Do NOT skip standard components: a spec whose components are all standard still needs a populated Component view.
 
-**Write target — `PB_DATA.handoff.organisms`.** This is a JS array, one object per component:
+**Write target — `PB_DATA.handoff.organisms`.** A JS array, one object per component, in this exact shape:
 
 ```js
 {
-  id:       'text-input',                // kebab-case, unique
-  name:     'Text input',                // display name
-  renderFn: 'renderCmpTextInput',        // global function name (see below)
+  id:       'text-input',                 // kebab-case, unique
+  name:     'Text input',                 // display name
+  renderFn: 'renderCmpTextInput',         // global render function name (see below)
   meta:     'Email + password fields across Sign in, Register…',  // 1-line usage note
-  variants: [ { id:'default', label:'Default' }, { id:'error', label:'Error' }, … ],
-  specs: {
-    tokens: [ { name:'--bg-input', value:'#ffffff' }, … ],   // or [name, value] pairs
-    sizing: [ { name:'height', value:'40px' }, … ],
-    states: [ { name:'Default', description:'…' }, … ],      // or [label, desc] pairs
-    a11y:   [ 'note', 'note', … ],                           // flat string list
-    usage:  [ 'note', 'note', … ],                           // flat string list
+  codeLayout: 'stacked',                  // 'stacked' (wide component) | 'side-by-side' (narrow/tall)
+  properties: [                           // each property → a <select> on the card
+    { id:'state', label:'State', default:'default',
+      options:[ { value:'default', label:'Default' }, { value:'error', label:'Error' } ] },
+  ],
+  code: { lang:'html', snippet:'<label class="field">…</label>' },   // canonical markup
+  anatomy: {
+    renderProps: { state:'error' },       // FROZEN prop combo → deterministic badge placement
+    parts: [
+      { n:1, name:'Label', anchor:'.field__label', required:true,
+        token:{ name:'--text-secondary', value:'#52525b', kind:'color' } },
+    ],
+  },
+  spec: {
+    legend: [ { kind:'dimension', label:'Dimension', color:'#f97316' },
+              { kind:'gap', label:'Gap / padding', color:'#2563eb' },
+              { kind:'margin', label:'Margin', color:'#db2777' } ],
+    renderProps: { state:'error' },       // frozen combo the redline measures
+    marginX: 16,                          // declared horizontal margin in px (0 if none)
+    stack: [ { anchor:'.field__label', name:'Label' },
+             { anchor:'.field__input', name:'Input box' } ],   // top→bottom stacked elements
+  },
+  uiLogic: [ { target:'Error text', rule:'Show only after blur or submit.' } ],
+  usage: {
+    demoProps: { state:'default' },       // prop combo for the Usage-tab demo (optional)
+    topics: [ { topic:'Label clarity', do:'Use a noun.', dont:'Avoid a full sentence.' } ],
+    placement: 'One field per row inside the auth card.',
   },
 }
 ```
 
+`token.kind` ∈ `color | radius | space | size | type` — drives the swatch in the Anatomy table.
+
 **Steps per component:**
 1. Identify every reusable component the prototype's screens use (inputs, buttons, alerts, banners, links, custom organisms — invoke `design-component-build` for custom ones).
-2. Write a global `renderCmp<Name>(variant)` function in `./prototype/template.html` that returns a **live-preview HTML string** for the given variant id.
-3. Add one entry to the `PB_DATA.handoff.organisms` array with `id` / `name` / `renderFn` (the function's name as a string) / `meta` / `variants` / `specs`.
+2. Write a global `renderCmp<Name>(props)` function in `./prototype/template.html` that takes a **props object** (e.g. `{ state:'error' }`) and returns a **live-preview HTML string**. Destructure with defaults: `const { state='default' } = props || {};`. Put a stable `anchor` class name (`.field__label`, `.field__input`, …) on every inner element referenced by an `anatomy.parts` or `spec.stack` entry.
+3. Add one entry to `PB_DATA.handoff.organisms` with the full shape above.
 4. Wrap the array assignment in a `(function populateHandoffComponents(){ PB_DATA.handoff.organisms = [ … ]; })();` IIFE near the other handoff population code.
 
 **Contract** — the template already ships the consumers; produce data in exactly their shape:
-- `pbRenderHandoffComponent()` renders the array as a vertical card list with variant chips + live preview.
-- `pbRenderHandoffDrawer()` / `pbRenderHandoffDrawerSegment()` render the click-through spec drawer; `specs` MUST have all 5 segments (`tokens`, `sizing`, `states`, `a11y`, `usage`) or the drawer shows "No data for this segment."
+- `pbRenderHandoffComponent()` renders the array as a card list — property `<select>`s + live preview + a code panel (`codeLayout` picks stacked vs side-by-side).
+- `pbRenderHandoffDrawer()` renders the click-through 4-tab spec drawer: **Anatomy** (numbered badges + token table), **Specification** (live-measured redline — dimension/gap/margin lines), **UI Logic** (`{target, rule}` rows), **Usage** (demo + `{topic, do, dont}` cards + placement).
+- Each drawer tab renders an empty-state line if its key is absent — author every key for a complete card, or omit a key to scaffold it.
 
-Standard DS components used as-is still get a card — record their DS token references in `specs.tokens` rather than rebuilding the component from scratch.
+Standard DS components used as-is still get a card — record their DS token references in `anatomy.parts[].token` rather than rebuilding the component from scratch.
 
 ## Auto-sync Tab 2 (if new content surfaced)
 
