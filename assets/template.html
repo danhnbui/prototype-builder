@@ -2396,7 +2396,10 @@
     function pbRenderHandoffHeader(isScreen) {
       return `
         <span class="meta-tag">Design Handoff</span>
-        <h1 class="meta-h1">Design Handoff</h1>
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 0 8px;width:100%">
+          <h1 class="meta-h1" style="margin:0">Design Handoff</h1>
+          <button class="sync-button" onclick="openCopyPopover('/speckit-prototype-builder-figma-push --scope=both', this)">Push to Figma →</button>
+        </div>
         <p class="meta-sub">
           <strong>Component</strong> view — every reusable component with property controls, a code panel, and a 4-tab spec drawer (Anatomy · Specification · UI Logic · Usage).
           <strong>Screen</strong> view — the 7:3 annotated screen layout.
