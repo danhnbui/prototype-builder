@@ -1,0 +1,25 @@
+{
+  "schemaVersion": "1.0",
+  "_comment": "Code token name → Figma variable ID mapping. Seeded empty at scaffold. Populated incrementally as the user accepts proposed matches at Gate G-FP3.",
+
+  "collections": {
+    "_example_HIVE-Colors": "VariableCollectionId:1:2",
+    "_example_HIVE-Spacing": "VariableCollectionId:1:3",
+    "_example_Prototype-tokens": "VariableCollectionId:1:99"
+  },
+
+  "tokens": {
+    "_example_--brand":           "VariableID:5:34",
+    "_example_--text-secondary":  "VariableID:5:35",
+    "_example_--space-md":        "VariableID:5:40"
+  },
+
+  "unresolved": [
+    "_example_--custom-orange"
+  ],
+
+  "decisions": {
+    "defaultCollectionForLocalCreates": "Prototype tokens",
+    "matchStrategy": "name-first-then-prompt"
+  }
+}

@@ -224,9 +224,23 @@ Next steps:
   5. /speckit.tasks         — break down by tab
   6. /speckit.prototype-builder.build    — write Tab 1 + Tab 4-Component
   7. /speckit.prototype-builder.sync-flow / handoff / sync-erd  — populate decoupled tabs
+  8. /speckit-prototype-builder-figma-push  — push to Figma (when ready for handoff)
 
 Open ./prototype/template.html in a browser to see the empty 5-tab scaffold.
 ```
+
+### Step 9 — Seed Figma push contracts
+
+Copy the templates from the extension's `assets/` folder into the project root:
+
+```bash
+cp ./.specify/extensions/prototype-builder/assets/figma-transfer.template.json ./figma-transfer.json
+cp ./.specify/extensions/prototype-builder/assets/figma-tokens.template.json   ./figma-tokens.json
+```
+
+These files start empty. The first run of `/speckit-prototype-builder-figma-push` will prompt for the target Figma file URL and populate them.
+
+If the user opts out (no Figma push planned for this project), they can `rm` both files — `/speckit-prototype-builder-figma-push` will re-seed them on demand.
 
 ## Important rules
 

@@ -1558,8 +1558,8 @@
       // Tab 4 — Design Handoff (Component view auto-syncs on /build; Screen view on /handoff)
       handoff: {
         view: 'component',       // 'component' | 'screen'
-        organisms: [],           // [{ id, name, renderFn, meta, properties, codeLayout, code, anatomy, spec, uiLogic, usage }] — /build populates
-        screens: [],             // [{ id, name, renderFn, elements: [{id, label, tokens, sizing, state}] }] for Screen view
+        organisms: [],           // [{ id, name, renderFn, meta, properties, codeLayout, code, anatomy, spec, uiLogic, usage, figmaId, figmaComponentSetId, dsMatch }] — /build populates first 11; /figma-push populates last 3
+        screens: [],             // [{ id, name, renderFn, elements: [...], figmaFrameId }] — /figma-push populates figmaFrameId
         selectedScreenId: null,
         selectedElementId: null,
       },
@@ -2567,6 +2567,9 @@
         </p>`;
       }
       return `
+        <div style="margin-bottom: 16px;">
+          <button class="sync-button" onclick="openCopyPopover('/speckit-prototype-builder-figma-push --scope=components', this)">Push components to Figma →</button>
+        </div>
         <div class="handoff-card-list">
           ${orgs.map((org, i) => {
             const props = pbActiveProps(org);
@@ -2914,6 +2917,7 @@
             ↻ Screens populated. Re-render from the latest spec by running <code>/speckit-prototype-builder-handoff</code>.
           </div>
           <button class="sync-button" onclick="openCopyPopover('/speckit-prototype-builder-handoff', this)">Sync now</button>
+          <button class="sync-button" onclick="openCopyPopover('/speckit-prototype-builder-figma-push --scope=screens', this)">Push screens to Figma →</button>
         </div>
       `;
       const selectedId = PB_DATA.handoff.selectedScreenId || screens[0].id;

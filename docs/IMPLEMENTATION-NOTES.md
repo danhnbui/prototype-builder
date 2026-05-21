@@ -209,3 +209,27 @@ SpecKit still treats Preset and Extension as separate concepts internally (separ
 └── (skill repo staging)
     /tmp/skill-staging/agent-skill-set/   ← 7 user-authored skills + README staged; awaiting your push
 ```
+
+---
+
+## Delta 10 — Figma push added (v0.4.0)
+
+**Docs assume**: No code-to-Figma transfer mechanism in v1; handoff is a documentation-only artifact (Tab 4-Screen renders tokens + sizing but doesn't push to Figma).
+
+**Reality** (as of 2026-05-21): `/speckit-prototype-builder-figma-push` provides one-way PB_DATA → Figma transfer with HIVE component matching. The command runs a 5-gate clarify pass (scope, integrity, identity, token mapping, DS match, push confirmation) before any irreversible write.
+
+**What was added**:
+- `commands/figma-push.md` — the command body (5 gates + execution + contract updates)
+- `assets/figma-transfer.template.json` — persistent ID map + decisions, seeded at scaffold
+- `assets/figma-tokens.template.json` — code-token → Figma-variable mapping, seeded at scaffold
+- 4 new PB_DATA keys: `organisms[N].figmaId`, `organisms[N].figmaComponentSetId`, `organisms[N].dsMatch`, `screens[N].figmaFrameId` (all nullable, backwards-compatible)
+- 2 new CTAs in `template.html` Tab 4 (component-push and screen-push)
+- New Step 9 in `commands/scaffold.md` that seeds the contract files
+
+**v1 constraints (documented in `commands/figma-push.md`)**:
+- One-way only (code → Figma); Figma → code reverse is deferred to v0.5.0+
+- No library publishing (designer action in Figma UI)
+- No multi-breakpoint frames per push (rerun with different `--screen=`)
+- No bi-directional sync (deferred to v0.6.0+ — requires 3-way merge)
+
+**Open path**: see `docs/06-execution-plan-figma-push.md` "Bi-di path (deferred)" section for the v0.5.0 → v0.7.0 progression.
