@@ -1006,7 +1006,6 @@
     .spec-chip--dimension { background: #f97316; }
     .spec-chip--gap       { background: #2563eb; }
     .spec-chip--margin    { background: #db2777; }
-    .spec-hint { font: 400 11px/1.55 var(--font-body); color: var(--text-tertiary); margin: 0; }
 
     /* ---- v0.3.17 drawer: UI Logic + Usage tabs ---- */
     .uilogic-row { display: flex; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--border); }
@@ -2656,8 +2655,7 @@
       return `${legend}
         <div class="spec-stage" data-spec-for="${pbEscape(org.id)}">
           <div class="spec-render">${preview}</div>
-        </div>
-        <p class="spec-hint">Measured live from the component — <b style="color:#f97316">orange = dimension</b>, <b style="color:#2563eb">blue = gap / padding</b>, <b style="color:#db2777">pink = margin</b>.</p>`;
+        </div>`;
     }
 
     function pbRenderHandoffUiLogic(org) {
