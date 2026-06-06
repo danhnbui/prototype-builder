@@ -4,6 +4,13 @@ All notable changes to Product Builder. Format follows [Keep a Changelog](https:
 
 ## [Unreleased]
 
+### Added
+- **One preview per project** (`pb/tools/preview_register.py`, `/pb:preview`): each project has a single
+  preview source of truth — the live `/pb:preview` server over its `registry.json`; `prototype.html` is a
+  derived hand-off snapshot, not a parallel preview. When an in-app preview pane is used, the new helper
+  keeps exactly **one** canonical `.claude/launch.json` entry per project (`pb-preview · <folder>`):
+  upsert in place, dedupe entries for that project, never touch entries it doesn't own. Stdlib-only.
+
 ## [1.2.0] — 2026-06-06
 
 ### Added

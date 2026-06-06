@@ -37,6 +37,14 @@ the playbook, [prototype-builder.md](prototype-builder.md) (authored in Phase 2)
 3. **Gate-skip on non-trio tweaks.** The drift / Stack / DS gate runs only when a change touches
    the **trio** — a screen, a component, or logic. Pure cosmetic tweaks skip it.
 
+## One preview per project
+
+Each project has **one** preview source of truth: the live `/pb:preview` server reading that project's
+`registry.json`. `prototype.html` is a derived hand-off snapshot — **never** a second preview, never
+hand-edited. When an in-app preview pane is used, `/pb:preview` keeps **one** canonical
+`.claude/launch.json` entry per project (`pb-preview · <folder>`) via `pb/tools/preview_register.py` —
+upserted, never duplicated; entries it doesn't own are left alone.
+
 ## Memory layout (per project)
 
 - `registry.json` — the database: `tokens`, `components` (global refs + `local`), `screens`, `meta`, `staleness`, `flow`/`erd`.
