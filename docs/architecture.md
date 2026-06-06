@@ -1,4 +1,4 @@
-# Architecture — Product Builder v1.1.1
+# Architecture — Product Builder v1.2.0
 
 The standalone, CLAUDE.md-native architecture. Read the [router](../CLAUDE.md) first; the
 data contract lives in the [playbook](../prototype-builder.md). This doc covers the plugin
@@ -23,7 +23,7 @@ prototype-builder v.2/
 │  └─ marketplace.json          # marketplace "product-builder" → plugin pb (source ./pb)
 ├─ pb/                          # the plugin
 │  ├─ .claude-plugin/
-│  │  └─ plugin.json            # name "pb", version 1.1.1
+│  │  └─ plugin.json            # name "pb", version 1.2.0
 │  ├─ commands/                 # the 12 /pb:* command bodies (*.md)
 │  ├─ tools/
 │  │  └─ render.py              # deterministic registry.json → prototype.html generator

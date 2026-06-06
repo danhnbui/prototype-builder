@@ -1,5 +1,5 @@
 {
-  "_about": "Product Builder v1.1.1 registry — the single source of truth the build loop edits. prototype.html renders from this file (a thin adapter maps it onto the in-memory PB_DATA shape the render machinery reads). DATA ONLY — render-function bodies are generated from components[]/screens[] at /pb:build --render. Schema is documented in prototype-builder.md.",
+  "_about": "Product Builder v1.2.0 registry — the single source of truth the build loop edits. prototype.html renders from this file (a thin adapter maps it onto the in-memory PB_DATA shape the render machinery reads). DATA ONLY — render-function bodies are generated from components[]/screens[] at /pb:build --render. Schema is documented in prototype-builder.md.",
   "meta": {
     "name": "",
     "overview": { "objectives": null, "principles": [] },

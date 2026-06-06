@@ -4,6 +4,8 @@ All notable changes to Product Builder. Format follows [Keep a Changelog](https:
 
 ## [Unreleased]
 
+## [1.2.0] — 2026-06-06
+
 ### Added
 - **Preview dev server** (`pb/tools/serve.py`, `/pb:preview`): watches `registry.json` (+ the shell
   template + `render.py`) and live-reloads the browser on every change over Server-Sent Events. Renders
