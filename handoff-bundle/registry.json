@@ -1,0 +1,85 @@
+{
+  "_about": "Product Builder v1.1.1 registry — the single source of truth the build loop edits. prototype.html renders from this file (a thin adapter maps it onto the in-memory PB_DATA shape the render machinery reads). DATA ONLY — render-function bodies are generated from components[]/screens[] at /pb:build --render. Schema is documented in prototype-builder.md.",
+  "meta": {
+    "name": "Property Auth",
+    "overview": {
+      "objectives": "Let returning seekers sign in and new sellers register with minimal friction; verify email via a 6-digit code.",
+      "principles": [
+        {
+          "num": 1,
+          "title": "Error = border + text",
+          "body": "Error states show BOTH a danger border AND error text."
+        },
+        {
+          "num": 2,
+          "title": "One primary",
+          "body": "One primary action per screen."
+        },
+        {
+          "num": 3,
+          "title": "Visible focus",
+          "body": "Every interactive element has a visible focus state."
+        },
+        {
+          "num": 4,
+          "title": "Tokens only",
+          "body": "All color/space/radius/shadow come from tokens."
+        }
+      ]
+    },
+    "userInsights": {
+      "quantitative": "Auth drop-off 11% on mobile (n=4,200).",
+      "researchSummary": "Users abandon at the password step; ask for social + OTP.",
+      "executiveSummary": "Cut auth friction: add OTP and keep the email on error."
+    },
+    "tradeoffs": [
+      {
+        "title": "OTP vs magic link",
+        "question": "How to verify a new email?",
+        "options": [
+          "6-digit OTP",
+          "Magic link"
+        ],
+        "decision": "6-digit OTP",
+        "why": "Stays in-app on mobile; lower abandon than leaving for an email client.",
+        "tabsAffected": [
+          "Prototype",
+          "UX Design"
+        ]
+      }
+    ],
+    "others": null
+  },
+  "tokens": {},
+  "components": [],
+  "screens": [],
+  "staleness": {
+    "flow": {
+      "lastSyncedPromptCount": 0,
+      "currentPromptCount": 0
+    },
+    "handoffScreen": {
+      "lastSyncedPromptCount": 0,
+      "currentPromptCount": 0
+    },
+    "erd": {
+      "lastSyncedPromptCount": 0,
+      "currentPromptCount": 0
+    }
+  },
+  "flow": {
+    "populated": false
+  },
+  "erd": {
+    "populated": false
+  },
+  "config": {
+    "viewOnly": true,
+    "cover": {
+      "title": "Property Auth — prototype",
+      "summary": "Let returning seekers sign in and new sellers register with minimal friction; verify email via a 6-digit code.",
+      "by": "Danh",
+      "date": "2026-06-05"
+    }
+  }
+}

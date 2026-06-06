@@ -1,0 +1,149 @@
+{
+  "_note": "spike/registry.json — the v1.1.1 registry representation of the SAME Sign-in content as spike/monolith.html. Component render-function BODIES are NOT stored here; the render generator owns them (lever 1). Only data lives here. measure.py slices sub-objects out of this file as the registry READ context per tweak.",
+  "meta": {
+    "name": "Sign in",
+    "overview": { "objectives": "Let a returning user authenticate.", "principles": [] },
+    "userInsights": { "quantitative": null, "researchSummary": null, "executiveSummary": null },
+    "tradeoffs": [],
+    "others": null
+  },
+  "tokens": {
+    "brand":                 { "value": "#1c4ed8", "kind": "color" },
+    "brand-soft":            { "value": "#eef2ff", "kind": "color" },
+    "brand-strong":          { "value": "#1e3aa3", "kind": "color" },
+    "pg-gray-0":             { "value": "#ffffff", "kind": "color" },
+    "pg-gray-5":             { "value": "#f8f9fb", "kind": "color" },
+    "pg-gray-10":            { "value": "#eff1f5", "kind": "color" },
+    "pg-gray-20":            { "value": "#c1c9d2", "kind": "color" },
+    "pg-gray-40":            { "value": "#8a94a0", "kind": "color" },
+    "pg-gray-60":            { "value": "#5e6873", "kind": "color" },
+    "pg-gray-80":            { "value": "#2d343c", "kind": "color" },
+    "pg-gray-90":            { "value": "#1c1f22", "kind": "color" },
+    "text-active-primary":   { "value": "var(--pg-gray-90)", "kind": "alias" },
+    "text-active-secondary": { "value": "var(--pg-gray-60)", "kind": "alias" },
+    "border-strong":         { "value": "var(--pg-gray-20)", "kind": "alias" },
+    "pg-radius-small":       { "value": "8px", "kind": "radius" },
+    "pg-radius-medium":      { "value": "16px", "kind": "radius" },
+    "hive-shadow-soft-md":   { "value": "0 4px 12px rgba(28,31,34,0.08)", "kind": "shadow" }
+  },
+  "components": [
+    {
+      "id": "text-input", "name": "Text input", "renderFn": "renderCmpTextInput",
+      "meta": "Email + password fields across Sign in, Register.",
+      "codeLayout": "stacked",
+      "properties": [
+        { "id": "state", "label": "State", "default": "default",
+          "options": [ { "value": "default", "label": "Default" }, { "value": "error", "label": "Error" } ] }
+      ],
+      "anatomy": { "renderProps": { "state": "error" }, "parts": [
+        { "n": 1, "name": "Label", "anchor": ".field__label", "required": true,
+          "token": { "name": "--text-active-secondary", "value": "#5e6873", "kind": "color" } },
+        { "n": 2, "name": "Input box", "anchor": ".field__input", "required": true,
+          "token": { "name": "--pg-radius-small", "value": "8px", "kind": "radius" } },
+        { "n": 3, "name": "Error text", "anchor": ".field__error", "required": false,
+          "token": { "name": "danger", "value": "#d92d20", "kind": "color" } } ] },
+      "spec": { "renderProps": { "state": "error" }, "marginX": 0,
+        "stack": [ { "anchor": ".field__label", "name": "Label" }, { "anchor": ".field__input", "name": "Input box" } ] },
+      "uiLogic": [ { "target": "Error text", "rule": "Show only after blur or submit." } ],
+      "usage": { "demoProps": { "state": "default" },
+        "topics": [ { "topic": "Label clarity", "do": "Use a noun.", "dont": "Avoid a full sentence." } ],
+        "placement": "One field per row inside the auth card." }
+    },
+    {
+      "id": "primary-button", "name": "Button", "renderFn": "renderCmpButton",
+      "meta": "Primary CTA on Sign in and Register.",
+      "codeLayout": "side-by-side",
+      "properties": [
+        { "id": "size", "label": "Size", "default": "md",
+          "options": [ { "value": "sm", "label": "Small" }, { "value": "md", "label": "Medium" }, { "value": "lg", "label": "Large" } ] },
+        { "id": "variant", "label": "Variant", "default": "primary",
+          "options": [ { "value": "primary", "label": "Primary" }, { "value": "secondary", "label": "Secondary" } ] }
+      ],
+      "anatomy": { "renderProps": { "variant": "primary" }, "parts": [
+        { "n": 1, "name": "Container", "anchor": ".btn", "required": true,
+          "token": { "name": "--fill-active-primary", "value": "#1c4ed8", "kind": "color" } },
+        { "n": 2, "name": "Label", "anchor": ".btn__label", "required": true,
+          "token": { "name": "--pg-gray-0", "value": "#ffffff", "kind": "color" } } ] },
+      "spec": { "renderProps": { "variant": "primary", "size": "md" }, "marginX": 0,
+        "stack": [ { "anchor": ".btn", "name": "Container" } ] },
+      "uiLogic": [ { "target": "Button", "rule": "Disable while the form is submitting." } ],
+      "usage": { "demoProps": { "variant": "primary" },
+        "topics": [ { "topic": "One primary", "do": "One primary CTA per screen.", "dont": "Avoid two primaries." } ],
+        "placement": "Full-width at the foot of the auth card." }
+    },
+    {
+      "id": "otp-input", "name": "OTP input", "renderFn": "renderCmpOtpInput",
+      "meta": "6-digit code entry on Verify email.",
+      "codeLayout": "stacked",
+      "properties": [
+        { "id": "state", "label": "State", "default": "default",
+          "options": [ { "value": "default", "label": "Default" }, { "value": "error", "label": "Error" } ] }
+      ],
+      "anatomy": { "renderProps": { "state": "default" }, "parts": [
+        { "n": 1, "name": "Code box", "anchor": ".otp__box", "required": true,
+          "token": { "name": "--pg-radius-small", "value": "8px", "kind": "radius" } } ] },
+      "spec": { "renderProps": { "state": "default" }, "marginX": 0,
+        "stack": [ { "anchor": ".otp__box", "name": "Code box" } ] },
+      "uiLogic": [ { "target": "Boxes", "rule": "Auto-advance on input; submit on last digit." } ],
+      "usage": { "demoProps": { "state": "default" },
+        "topics": [ { "topic": "Paste", "do": "Accept a pasted 6-digit code.", "dont": "Block paste." } ],
+        "placement": "Centered under the Verify email title." }
+    }
+  ],
+  "screens": [
+    {
+      "id": "sign-in", "name": "Sign in", "renderFn": "renderScreenSignIn",
+      "layout": { "type": "stack", "gap": 16, "maxWidth": 380, "padding": 32 },
+      "elements": [
+        { "id": "title", "label": "Sign in", "orgId": null, "tokens": ["--font-heading"],
+          "sizing": { "font": "24px", "weight": 700 }, "state": "default", "uiLogic": "" },
+        { "id": "subtitle", "label": "Welcome back. Enter your details to continue.", "orgId": null,
+          "tokens": ["--text-active-secondary"], "sizing": { "font": "14px" }, "state": "default", "uiLogic": "" },
+        { "id": "email", "label": "Email", "orgId": "text-input", "tokens": ["--pg-radius-small", "--border-strong"],
+          "sizing": { "height": "44px" }, "state": "default", "uiLogic": "Required. Validate format on blur." },
+        { "id": "password", "label": "Password", "orgId": "text-input", "tokens": ["--pg-radius-small", "--border-strong"],
+          "sizing": { "height": "44px" }, "state": "default", "uiLogic": "Required. Min 8 chars." },
+        { "id": "submit", "label": "Sign in", "orgId": "primary-button", "tokens": ["--fill-active-primary"],
+          "sizing": { "height": "40px", "width": "100%" }, "state": "default", "uiLogic": "Disabled until both fields valid." }
+      ],
+      "logicNotes": [ "On submit: POST /auth/sign-in.", "On 401: show form-level error, keep email." ]
+    },
+    {
+      "id": "register", "name": "Create account", "renderFn": "renderScreenRegister",
+      "layout": { "type": "stack", "gap": 16, "maxWidth": 380, "padding": 32 },
+      "elements": [
+        { "id": "title", "label": "Create account", "orgId": null, "tokens": ["--font-heading"],
+          "sizing": { "font": "24px", "weight": 700 }, "state": "default", "uiLogic": "" },
+        { "id": "subtitle", "label": "A few details and you're in.", "orgId": null,
+          "tokens": ["--text-active-secondary"], "sizing": { "font": "14px" }, "state": "default", "uiLogic": "" },
+        { "id": "name", "label": "Full name", "orgId": "text-input", "tokens": ["--pg-radius-small", "--border-strong"],
+          "sizing": { "height": "44px" }, "state": "default", "uiLogic": "Required." },
+        { "id": "email", "label": "Email", "orgId": "text-input", "tokens": ["--pg-radius-small", "--border-strong"],
+          "sizing": { "height": "44px" }, "state": "default", "uiLogic": "Required. Validate format on blur." },
+        { "id": "password", "label": "Password", "orgId": "text-input", "tokens": ["--pg-radius-small", "--border-strong"],
+          "sizing": { "height": "44px" }, "state": "default", "uiLogic": "Required. Min 8 chars." },
+        { "id": "submit", "label": "Create account", "orgId": "primary-button", "tokens": ["--fill-active-primary"],
+          "sizing": { "height": "40px", "width": "100%" }, "state": "default", "uiLogic": "Disabled until valid." }
+      ],
+      "logicNotes": [ "On submit: POST /auth/register.", "On 409: email taken, inline error." ]
+    },
+    {
+      "id": "otp-verify", "name": "Verify email", "renderFn": "renderScreenOtp",
+      "layout": { "type": "stack", "gap": 16, "maxWidth": 380, "padding": 32 },
+      "elements": [
+        { "id": "title", "label": "Verify your email", "orgId": null, "tokens": ["--font-heading"],
+          "sizing": { "font": "24px", "weight": 700 }, "state": "default", "uiLogic": "" },
+        { "id": "subtitle", "label": "Enter the 6-digit code we sent you.", "orgId": null,
+          "tokens": ["--text-active-secondary"], "sizing": { "font": "14px" }, "state": "default", "uiLogic": "" },
+        { "id": "code", "label": "Code", "orgId": "otp-input", "tokens": ["--pg-radius-small", "--border-strong"],
+          "sizing": { "height": "52px" }, "state": "default", "uiLogic": "Auto-advance; submit on 6th digit." },
+        { "id": "submit", "label": "Verify", "orgId": "primary-button", "tokens": ["--fill-active-primary"],
+          "sizing": { "height": "40px", "width": "100%" }, "state": "default", "uiLogic": "Disabled until 6 digits." }
+      ],
+      "logicNotes": [ "On submit: POST /auth/verify.", "On 400: shake boxes, clear code." ]
+    }
+  ],
+  "staleness": { "flow": { "lastSyncedPromptCount": 0, "currentPromptCount": 0 } },
+  "flow": { "populated": false },
+  "erd": { "populated": false }
+}

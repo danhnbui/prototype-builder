@@ -1,0 +1,6 @@
+{
+  "name": "pb",
+  "description": "Product Builder v1.1.1 — registry-backed prototype builder with a cheap build loop, a small memory layer, a design-system-agnostic core, and a two-mode hand-off. Provides /pb:init, /pb:specify, /pb:clarify, /pb:plan, /pb:build (+ check-design-system, figma-handoff), /pb:sync-flow, /pb:sync-erd, /pb:check-drift, /pb:hand-off, /pb:validate.",
+  "version": "1.1.1",
+  "author": { "name": "Danh (danhbnp)" }
+}

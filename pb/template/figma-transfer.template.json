@@ -1,0 +1,62 @@
+{
+  "schemaVersion": "1.0",
+  "_comment": "Persistent contract for /pb:build-figma-handoff. Seeded at /pb:init; updated after every successful push. NEVER hand-edit between pushes — let the command write to it.",
+
+  "target": {
+    "fileKey": null,
+    "fileUrl": null,
+    "pageId": null,
+    "pageName": null,
+    "rootFrameId": null,
+    "rootFrameName": null
+  },
+
+  "dsMatch": { "library": "{design-system}" },
+
+  "lastScope": null,
+  "lastPushedAt": null,
+  "lastPushedHash": {
+    "components": null,
+    "screens": null
+  },
+
+  "components": {
+    "_example_text-input": {
+      "figmaComponentSetId": "1:33",
+      "figmaId": "1:34",
+      "dsMatch": {
+        "library": "{design-system}",
+        "figmaComponentId": "5678:910",
+        "matchedAt": "0000-00-00T00:00:00Z",
+        "matchedBy": "name"
+      },
+      "propertyMapping": {
+        "state": {
+          "figmaPropertyId": "1:35",
+          "options": ["default", "error", "success"]
+        }
+      },
+      "figmaModifiedAt": null
+    }
+  },
+
+  "screens": {
+    "_example_sign-in": {
+      "figmaFrameId": "1:50",
+      "lastPushedAt": "0000-00-00T00:00:00Z",
+      "elementMapping": {
+        "title": "1:51",
+        "emailFld": "1:52",
+        "passwordFld": "1:53",
+        "cta": "1:54"
+      },
+      "figmaModifiedAt": null
+    }
+  },
+
+  "decisions": {
+    "defaultSizing": "hug-V,fill-H",
+    "breakpoint": "375px",
+    "tokenCollectionForLocalCreates": "Prototype tokens"
+  }
+}

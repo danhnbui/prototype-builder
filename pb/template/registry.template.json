@@ -1,0 +1,20 @@
+{
+  "_about": "Product Builder v1.1.1 registry — the single source of truth the build loop edits. prototype.html renders from this file (a thin adapter maps it onto the in-memory PB_DATA shape the render machinery reads). DATA ONLY — render-function bodies are generated from components[]/screens[] at /pb:build --render. Schema is documented in prototype-builder.md.",
+  "meta": {
+    "name": "",
+    "overview": { "objectives": null, "principles": [] },
+    "userInsights": { "quantitative": null, "researchSummary": null, "executiveSummary": null },
+    "tradeoffs": [],
+    "others": null
+  },
+  "tokens": {},
+  "components": [],
+  "screens": [],
+  "staleness": {
+    "flow": { "lastSyncedPromptCount": 0, "currentPromptCount": 0 },
+    "handoffScreen": { "lastSyncedPromptCount": 0, "currentPromptCount": 0 },
+    "erd": { "lastSyncedPromptCount": 0, "currentPromptCount": 0 }
+  },
+  "flow": { "populated": false },
+  "erd": { "populated": false }
+}

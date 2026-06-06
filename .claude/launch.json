@@ -1,0 +1,133 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "pb-serve (preview dev server)",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": [
+        "/Users/danhbnp/pb-preview/serve.py",
+        "/Users/danhbnp/pb-preview/registry.json",
+        "--shell",
+        "/Users/danhbnp/pb-preview/shell.html",
+        "--port",
+        "8044",
+        "--no-open"
+      ],
+      "port": 8044
+    },
+    {
+      "name": "pg-signin-mockup",
+      "autoPort": true,
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "-y",
+        "serve",
+        "/Users/danhbnp/Desktop/pg-signin-mockup"
+      ]
+    },
+    {
+      "name": "test-login-prototype (populated)",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "-y",
+        "serve",
+        "-l",
+        "8003",
+        "--no-port-switching",
+        "/Users/danhbnp/Desktop/test-login-prototype/prototype"
+      ],
+      "port": 8003
+    },
+    {
+      "name": "prototype-builder template (source/empty)",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "-y",
+        "serve",
+        "-l",
+        "8002",
+        "--no-port-switching",
+        "/Users/danhbnp/Desktop/prototype-builder"
+      ],
+      "port": 8002
+    },
+    {
+      "name": "test-pb-signin",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "-y",
+        "serve",
+        "-l",
+        "8005",
+        "--no-port-switching",
+        "/Users/danhbnp/Desktop/test-pb-signin/prototype"
+      ],
+      "port": 8005
+    },
+    {
+      "name": "extension-template",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "-y",
+        "serve",
+        "-l",
+        "8006",
+        "--no-port-switching",
+        "/Users/danhbnp/Desktop/spec-kit-extension-prototype-builder/assets"
+      ],
+      "port": 8006
+    },
+    {
+      "name": "pb-v111-template",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "-y",
+        "serve",
+        "-l",
+        "8010",
+        "--no-port-switching",
+        "/Users/danhbnp/Desktop/prototype-builder v.2/template"
+      ],
+      "port": 8010
+    },
+    {
+      "name": "pb-render-test",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "-y",
+        "serve",
+        "-l",
+        "8011",
+        "--no-port-switching",
+        "/Users/danhbnp/Desktop/prototype-builder v.2/test-render"
+      ],
+      "port": 8011
+    },
+    {
+      "name": "pb-demo-auth",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "-y",
+        "serve",
+        "-l",
+        "8012",
+        "--no-port-switching",
+        "/Users/danhbnp/Desktop/prototype-builder v.2/demo-auth"
+      ],
+      "port": 8012
+    },
+    {
+      "name": "pb-selftest",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "-y",
+        "serve",
+        "-l",
+        "8013",
+        "--no-port-switching",
+        "/Users/danhbnp/Desktop/prototype-builder v.2/selftest"
+      ],
+      "port": 8013
+    }
+  ]
+}
