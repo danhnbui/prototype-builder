@@ -7,7 +7,8 @@ and component governance. (Sections marked _(Phase N)_ are filled as those phase
 ## registry.json — the data contract
 
 `registry.json` is the **single source of truth** the build loop edits. `prototype.html` is a
-rendered **view**: at `/pb:build --render` the generator inlines `registry.json` into the HTML's
+rendered **view** — a derived hand-off snapshot, not a parallel preview (the one live preview is the
+`/pb:preview` server over `registry.json`): at `/pb:build --render` the generator inlines `registry.json` into the HTML's
 `PB_REGISTRY`, and a thin adapter (`adaptRegistryToPBData`) maps it onto the in-memory `PB_DATA`
 shape the render machinery already reads — so the ported v0.4.0 render functions are unchanged.
 **Data only:** render-function bodies are generated from `components[]` / `screens[]`, never stored

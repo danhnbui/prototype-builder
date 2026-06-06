@@ -27,6 +27,13 @@ Locked at `/pb:init`. A switch requires explicit approval **and** a `decisions.m
 
 No style outside the DS tokens / components without a logged override (see `decisions.md`).
 
+## Preview
+
+One preview source of truth: the live `/pb:preview` server reading this project's `registry.json`.
+`prototype.html` is a derived snapshot for hand-off only — never a second preview, never hand-edited.
+If an in-app preview pane is used, `/pb:preview` keeps exactly one `.claude/launch.json` entry for this
+project (`pb-preview · <folder>`); duplicates are pruned automatically.
+
 ## Figma Hand-off
 
 Every export to Figma goes through `/pb:build-figma-handoff` and its gates — never hand-draw

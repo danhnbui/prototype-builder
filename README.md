@@ -49,7 +49,9 @@ state stays in each prototype's folder.)
 - **`prototype.html`** renders from it via a deterministic generator (`pb/tools/render.py`) + a thin
   adapter onto the ported render machinery — never hand-edited.
 - **`pb/tools/serve.py`** is the preview dev server: it watches `registry.json` and renders through the
-  *same* generator in memory, live-reloading the browser on every change (`/pb:preview`). Stdlib-only.
+  *same* generator in memory, live-reloading the browser on every change (`/pb:preview`). It's the **one**
+  preview per project — view it in any browser; `pb/tools/preview_register.py` keeps a single canonical
+  `.claude/launch.json` entry when an in-app preview pane is used. Stdlib-only.
 - **Memory:** `memory/constitution.md` (Principles + Stack/DS locks), `memory/decisions.md`,
   `design-system/{name}/`.
 
