@@ -11,6 +11,41 @@ All notable changes to Product Builder. Format follows [Keep a Changelog](https:
   keeps exactly **one** canonical `.claude/launch.json` entry per project (`pb-preview · <folder>`):
   upsert in place, dedupe entries for that project, never touch entries it doesn't own. Stdlib-only.
 
+## [1.3.0] — 2026-06-07
+
+A render-layer redesign: every tab in the shell (`pb/template/prototype.html`) gets richer, and the
+prototype itself becomes a real, clickable flow. Data-only change to the registry contract — same generator,
+no new dependencies.
+
+### Added
+- **Interactive prototype runtime** — the Prototype tab is now a live flow driven by `data-*` attributes the
+  shell wires up: `data-nav="<screen-id>"` (navigate), `data-action="toggle-password"`, and
+  `data-action="submit"` which validates the form (`data-required` · `data-validate="email"` ·
+  `data-minlength`) then on success runs `data-go` (navigate) / `data-toast` (toast) /
+  `data-redirect`+`data-redirect-ms` (auto-navigate). Clicking links/buttons moves between screens.
+- **Icon-only device switcher** replaces the screen-switcher: desktop (≤1180px) / tablet (834px) /
+  mobile (390px), one viewport with internal scroll. The default comes from a new registry field
+  **`meta.device`** (`'desktop'|'tablet'|'mobile'`), seeded at `/pb:init`.
+- **State-variant component demos** — if a component declares a `state` property (`properties[]` entry
+  `id:'state'`), the UI Design demo renders one labeled variant per state. Interactive components MUST ship
+  their states this way (e.g. default / error / disabled).
+- **UI Design Global | Local sub-tabs** — components split by `components[].scope` (`'global'` when
+  `scope==='global'` or a `dsMatch` exists, else `'local'`), via the shared `meta-subtab` component.
+- **Data Diagram | Table toggle** — Diagram = the `erDiagram`; Table = one styled `<table>` per entity (a
+  real table component, not text alignment) built from a new structured `erd.table[]`
+  (`{entity, field, type, example, notes}`).
+
+### Changed
+- **Unified `meta-subtab`** — the Project Summary tab now uses the same sub-tab component as UI Design.
+- **UX Design renders from structured data**, not a pre-baked HTML blob: `flow.mermaid` + `flow.stories[]`
+  (`{title, priority, jtbd, path, scenarios[], …}`). The left sidebar now has two sub-tabs — **User stories** |
+  **Test cases** — both built from `flow.stories[]`. Mermaid uses `curve:'basis'` (smooth curved connectors,
+  not zig-zag step), classDef colors match the on-canvas legend palette (start/end zinc · decision sky ·
+  action lavender · input pink · subprocess purple), and a legend is shown.
+- Registry contract extended (data-only): `meta.device`, `components[].scope`, the `state` property
+  convention, the screen `data-*` interaction runtime, and structured `flow`/`erd` shapes
+  (`flow.{mermaid,stories[]}`, `erd.{table[],mermaid}`); each tab's `html` field is now a legacy fallback only.
+
 ## [1.2.0] — 2026-06-06
 
 ### Added

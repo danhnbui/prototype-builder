@@ -27,11 +27,20 @@ only — `identifier`, `text`, `number`, `timestamp`, `boolean`, `json`) · **re
 If any failed, still write the diagram but **prepend a TODO block** listing the warnings.
 
 ## 4 · Write to the registry, then render
-Produce the Data tab content as the `renderERDPopulated()` output — the field/type/example **table**,
-then a `<div class="mermaid">` with the `erDiagram` (prepend the TODO block if any guardrail failed).
-Write into `registry.json` → `erd`:
-`{ "populated": true, "html": "<that markup>", "table": [ … ], "mermaid": "<source>", "warnings": [ … ] }`
-Then `/pb:build --render`. The shell's `renderERDPopulated()` returns `erd.html`, then `renderMetaERD()` runs Mermaid.
+Produce **structured data** — not a baked HTML blob. Write into `registry.json` → `erd`:
+```
+{ "populated": true,
+  "table": [ { "entity", "field", "type", "example", "notes" }, … ],
+  "mermaid": "<the erDiagram source>",
+  "warnings": [ … ] }
+```
+Then `/pb:build --render`. The shell renders a **Diagram | Table** view toggle: **Diagram** = `erd.mermaid`
+(zoom/pan + the cardinality legend); **Table** = one styled `<table>` per entity (a real table component
+grouped by `entity` — Field / Type / Example / Notes), not text alignment. If any guardrail failed, surface
+the `warnings[]` in the confirmation (and keep the TODO block).
+
+> `erd.html` is **legacy only** — a pre-baked fallback the shell uses when neither `erd.mermaid` nor
+> `erd.table` is present. Do not author it; emit `table[]` + `mermaid`.
 
 ## NEVER
 - NEVER use raw SQL types (varchar/int) — use the generic set.

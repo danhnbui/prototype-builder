@@ -59,6 +59,23 @@ Edit the **one** touched slice in `registry.json` (changed keys only):
 
 **Do not touch `prototype.html`. Do not re-render.** State what slice changed and stop (unless `--render`).
 
+### 4a · Interactivity rules (Prototype is a real flow)
+The Prototype tab is **interactive** — there is **no screen-switcher**. Wire navigation by emitting `data-*`
+attributes in screen/component `render` bodies; the shell's runtime handles them:
+- `data-nav="<screen-id>"` — navigate to that screen (links/buttons that move between screens).
+- `data-action="toggle-password"` — show/hide the password in its `.field`.
+- `data-action="submit"` — validate the enclosing form's `.field__input`s, then on success:
+  `data-go="<screen-id>"` (navigate) · `data-toast="<msg>"` (toast) ·
+  `data-redirect="<screen-id>"` + `data-redirect-ms="<n>"` (auto-navigate after a delay).
+- input validation: `data-required` · `data-validate="email"` · `data-minlength="<n>"`.
+
+Two more rules:
+- **Interactive components MUST declare a `state` property** (`properties[]` entry `id:'state'`, options
+  `{label,value}`) — e.g. `default / error / disabled`, `default / loading / disabled`. The UI Design demo
+  renders one labeled variant per state. A `state`-less interactive component is a defect.
+- **`meta.device`** (`'desktop'|'tablet'|'mobile'`) sets the Prototype's default device frame. It's seeded at
+  `/pb:init`; change it here only if the prototype's target form factor changes.
+
 ## 5 · Render — batched, deterministic, on demand only
 Rendering is the deterministic generator — **never** hand-write HTML (the G0.5 spike proved that is
 ~2–3× worse). From the project root:
