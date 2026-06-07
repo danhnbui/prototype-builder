@@ -29,12 +29,20 @@ A numbered list — one entry per story: `**<title> (P1)** — <JTBD>`, its **Pa
 `- [ ]` checkbox per acceptance scenario. This is the prototype's future **test checklist**.
 
 ## 4 · Write to the registry, then render
-Produce the Flow tab content as the `renderFlowPopulated()` output — the `.flow-doc-grid` (Flow-notes +
-Test-checklist sidebar) and a `.flow-doc-main` whose `#flow-stage` holds a `<div class="mermaid">` with
-the flowchart source. Write into `registry.json` → `flow`:
-`{ "populated": true, "html": "<that flow-doc-grid markup>", "mermaid": "<source>", "stories": [ … ] }`
-Then `/pb:build --render`. The shell's `renderFlowPopulated()` returns `flow.html`, then `renderMetaFlow()`
-runs Mermaid over `#flow-stage .mermaid` and wires pan/zoom + the legend popover.
+Produce **structured data** — not a baked HTML blob. Write into `registry.json` → `flow`:
+```
+{ "populated": true,
+  "mermaid": "<the flowchart LR source>",
+  "stories": [ { "title", "priority", "jtbd", "path", "scenarios": [ … ], "node?", "status?", "preview?" }, … ] }
+```
+Then `/pb:build --render`. The shell builds the tab from this data: the left sidebar has two sub-tabs —
+**User stories** (title / priority / jtbd / path) and **Test cases** (one checkbox per `scenarios[]` entry) —
+and the `.flow-doc-main` renders `flow.mermaid` with `curve: 'basis'` (smooth curved connectors, not zig-zag
+step), classDef colors matching the on-canvas legend palette (start/end zinc · decision sky · action lavender ·
+input pink · subprocess purple), a legend popover, and pan/zoom in one viewport with internal scroll.
+
+> `flow.html` is **legacy only** — a pre-baked fallback the shell uses when `flow.mermaid` is absent. Do not
+> author it; emit `mermaid` + `stories[]`.
 
 ## NEVER
 - NEVER violate a flow rule (defect, not style). NEVER omit the checklist (it's what makes the tab testable).

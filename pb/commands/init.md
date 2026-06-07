@@ -30,6 +30,10 @@ Stack Lock + DS Lock + a first cut of Principles (from the PRD + DS rules). Keep
 Copy `${CLAUDE_PLUGIN_ROOT}/template/registry.template.json` → `registry.json`; set `meta.name`. Leave
 `tokens` / `components` / `screens` empty — `/pb:build` fills them.
 
+Set **`meta.device`** (`'desktop' | 'tablet' | 'mobile'`) — the Prototype's default device frame — from the
+PRD's target form factor: auth / mobile-first apps → `'mobile'`; dashboards / desktop web → `'desktop'`;
+when unclear, default `'desktop'`.
+
 ## 4 · Seed memory + design system
 - `memory/decisions.md` from `${CLAUDE_PLUGIN_ROOT}/template/decisions.template.md`.
 - `design-system/{name}/{name}.md` — a starting DS reference (foundations + an empty component index +
