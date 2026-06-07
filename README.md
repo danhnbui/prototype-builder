@@ -1,7 +1,8 @@
-# Product Builder v1.2.0
+# Product Builder v1.3.1
 
 A standalone, CLAUDE.md-native prototype builder for Claude Code. Turn a PRD into an interactive,
-self-documenting **5-tab prototype** — with a cheap build loop, a small memory layer, and a
+self-documenting **5-tab prototype** — a real click-through flow you preview at desktop / tablet /
+mobile — with a cheap build loop, a small memory layer, and a
 **design-system-agnostic** core. State lives in a compact `registry.json`; `prototype.html` is a
 rendered view, regenerated deterministically (so the build loop edits tens of lines of JSON, not a
 3,600-line file).
@@ -27,7 +28,7 @@ state stays in each prototype's folder.)
 | `/pb:build` | The cheap loop: targeted `registry.json` patches, trio-gated, no per-tweak render; `--render` to view |
 | `/pb:preview` | Live preview dev server: watch `registry.json` → render → live-reload the browser |
 | `/pb:build-check-design-system` | DS-first reuse → variant → local + naming contract |
-| `/pb:build-figma-handoff` | One-way registry → Figma (5 gates, DS-neutral, auto-layout) |
+| `/pb:build-figma-handoff` | One-way registry → Figma (6 gates incl. G-FP6 render audit, DS-neutral, auto-layout) |
 | `/pb:sync-flow` | UX Design / Flow — wireflow + test checklist (decoupled) |
 | `/pb:sync-erd` | Data — field/type/example table + ERD (decoupled) |
 | `/pb:check-drift` | Read-only drift audit of the trio vs the constitution |
@@ -59,7 +60,7 @@ state stays in each prototype's folder.)
 
 - [prototype-builder.md](prototype-builder.md) — the playbook (registry contract, render inventory, governance).
 - [CLAUDE.md](CLAUDE.md) — the router (the three loop rules + memory layout).
-- [docs/architecture.md](docs/architecture.md) · [docs/data-flow.md](docs/data-flow.md) · [docs/CHANGES-from-v0.4.0.md](docs/CHANGES-from-v0.4.0.md)
+- [docs/architecture.md](docs/architecture.md) · [docs/data-flow.md](docs/data-flow.md)
 - [changelog.md](changelog.md)
 
 Design-system-agnostic: no hardcoded design system anywhere — set your tokens, components, and icon
