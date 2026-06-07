@@ -1,4 +1,4 @@
-# Architecture — Product Builder v1.2.0
+# Architecture — Product Builder v1.3.0
 
 The standalone, CLAUDE.md-native architecture. Read the [router](../CLAUDE.md) first; the
 data contract lives in the [playbook](../prototype-builder.md). This doc covers the plugin

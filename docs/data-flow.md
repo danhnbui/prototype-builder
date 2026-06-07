@@ -1,4 +1,4 @@
-# Data flow — Product Builder v1.2.0
+# Data flow — Product Builder v1.3.0
 
 How data moves through Product Builder: the cheap build loop, the Tab-2 sync fold, the decoupled
 syncs, and the two exits. See [architecture](architecture.md) for the static picture and the
