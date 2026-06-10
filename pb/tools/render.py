@@ -93,6 +93,14 @@ def main():
         sys.exit("usage: render.py <registry.json> <shell.html> <out.html>")
     try:
         reg, html, missing = render_file(sys.argv[1], sys.argv[2], sys.argv[3])
+    except json.JSONDecodeError as e:
+        # Fail closed with a one-line, human-readable message — never a traceback.
+        print("error: %s is not valid JSON (line %d, column %d): %s"
+              % (sys.argv[1], e.lineno, e.colno, e.msg), file=sys.stderr)
+        sys.exit(2)
+    except FileNotFoundError as e:
+        print("error: file not found: %s" % (e.filename or e), file=sys.stderr)
+        sys.exit(2)
     except RenderError as e:
         sys.exit("error: %s" % e)
     name = (reg.get("meta") or {}).get("name") or "(unnamed)"
