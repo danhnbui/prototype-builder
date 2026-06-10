@@ -26,8 +26,7 @@ nodes. Enforced rules (each violation is a defect):
 - Decision labels end with `?`; every branch labeled `-- Yes -->` / `-- No -->`.
 - Sentence case; verbs in actions; **no** emojis / HTML / Title Case / ALL CAPS.
 - Color-coded `classDef` (start/end zinc, decision sky, action lavender, input pink, subprocess purple).
-- **Wireflow nodes:** every screen-shaped node label MUST match a `registry.screens[].name`; carry
-  `{ status ∈ NEW·IN PROGRESS·DONE·ATTENTION·ASAP·REVIEW·PAUSE, preview ∈ form-1·form-2·form-3·otp·success·block }`.
+- Screen-shaped node labels SHOULD match a `registry.screens[].name` so the flow reads against the real screens.
 
 ## 3 · User-story test checklist (author as QA)
 A numbered list — one entry per story: `**<title> (P1)** — <JTBD>`, its **Path** through the flow, and a
@@ -52,7 +51,7 @@ Produce **structured data** — not a baked HTML blob. Write into `registry.json
   "mermaid": "<the flowchart LR source>",
   "screen": { "w": <px>, "h": <px> },
   "stories": [ { "title", "priority", "jtbd", "path",
-                 "scenarios": [ { "text", "category" }, … ], "node?", "status?", "preview?" }, … ],
+                 "scenarios": [ { "text", "category" }, … ] }, … ],
   "coverageWarnings": [ { "category", "note" }, … ] }
 ```
 Set **`flow.screen`** to the target screen size (derive from `meta.device` — mobile ≈ 390×844, tablet ≈

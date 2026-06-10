@@ -163,10 +163,40 @@ def run():
             check(not errors, f"zero console errors on golden ({errors})")
             page.close()
 
+        # ── T2.2 — a body containing </script> must BOOT (the </ -> <\/ escape) ──
+        print("page-killer fixture (</script> in a body):")
+        with tempfile.TemporaryDirectory() as tmp:
+            reg = {
+                "meta": {"name": "Page Killer", "schemaVersion": 3, "device": "desktop"},
+                "tokens": {"danger": {"value": "#dc2626", "kind": "color"}},
+                "components": [], "screens": [{
+                    "id": "home", "name": "Home", "renderFn": "renderScreenHome",
+                    "layout": {"type": "stack", "gap": 16, "maxWidth": 720, "padding": 32},
+                    "elements": [], "logicNotes": [],
+                    "render": "return '<div>boots</div><b></script><i>still alive</i>';",
+                }],
+                "staleness": {}, "flow": {"populated": False}, "erd": {"populated": False},
+            }
+            path = os.path.join(tmp, "registry.json")
+            json.dump(reg, open(path, "w", encoding="utf-8"), indent=2)
+            with Server(path) as srv:
+                page = browser.new_page()
+                errors = []
+                page.on("console", lambda m: errors.append(m.text) if m.type == "error" else None)
+                page.on("pageerror", lambda e: errors.append(str(e)))
+                page.goto(srv.url, wait_until="domcontentloaded")
+                page.wait_for_selector(".meta-tab", timeout=10000)
+                check(page.locator(".meta-tab").count() == 5,
+                      "page with a </script> body still boots (5 tabs render)")
+                check(not errors, f"zero console errors on the page-killer fixture ({errors})")
+                page.close()
+
         # ── view-only artifact hides every authoring CTA, on all 5 tabs ─────────
         print("view-only (--people) artifact:")
         with tempfile.TemporaryDirectory() as tmp:
-            vpath = make_viewonly_registry(tmp)
+            # unpopulate=True empties flow/erd so the UX Design + Data tabs render their
+            # empty-state cards — the exact case where the authoring-CTA leak lived (T3.3).
+            vpath = make_viewonly_registry(tmp, unpopulate=True)
             with Server(vpath) as srv:
                 page = browser.new_page()
                 errors = []

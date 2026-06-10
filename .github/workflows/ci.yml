@@ -29,6 +29,9 @@ jobs:
       - name: Migrations selftest
         run: python3 pb/migrations/selftest.py
 
+      - name: Shell hygiene lint (no dupes / dead code / v0.4 strings)
+        run: python3 tests/shell_lint.py
+
       - name: Render determinism (golden rendered twice -> identical SHA-256)
         run: |
           python3 pb/tools/render.py fixtures/golden/registry.json pb/template/prototype.html /tmp/g1.html

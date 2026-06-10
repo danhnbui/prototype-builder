@@ -97,7 +97,7 @@ registry on each load and never written back. (This is why a click in the protot
 
 ```
 flow = { populated, mermaid, screen?: { w, h }, flows?: [ { name, mermaid } ],
-         stories: [ { title, priority, jtbd, path, scenarios[], node?, status?, preview? } ],
+         stories: [ { title, priority, jtbd, path, scenarios[] } ],
          coverageWarnings?: [ { category, note } ], html? }
 ```
 
