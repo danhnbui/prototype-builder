@@ -6,6 +6,16 @@ description: Scaffold a real Vite or Next build from the prototype. Auto-renders
 
 Scaffold a real, runnable build from the prototype — the bridge from prototype → app.
 
+## 0 · Contract gate (fail-closed — runs first)
+Before rendering or scaffolding, run the contract validator in **strict** mode:
+```
+python3 "${CLAUDE_PLUGIN_ROOT}/tools/check.py" --strict registry.json
+```
+If it exits non-zero (any `ERROR`), **STOP** — do not render, do not scaffold. Print the
+findings and tell the user to fix them (or run `/pb:build`) and retry. A scaffold must
+never be built from a registry that violates the contract (NS6, fail-closed). Proceed
+only on a clean exit (0).
+
 ## 1 · Render first
 Run `/pb:build --render` so `prototype.html` is current with `registry.json`. (Never scaffold from a stale render.)
 

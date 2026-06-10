@@ -81,6 +81,18 @@ Two more rules:
 - **`meta.device`** (`'desktop'|'tablet'|'mobile'`) sets the Prototype's default device frame. It's seeded at
   `/pb:init`; change it here only if the prototype's target form factor changes.
 
+## 4.5 · Validate the contract (advisory, after every patch)
+Run the contract validator on the patched registry — **read-only, no render** (so the
+token levers NS2/NS3 stay intact). From the project root:
+```
+python3 "${CLAUDE_PLUGIN_ROOT}/tools/check.py" registry.json
+```
+Surface any `ERROR`/`WARN` lines to the user as advice (kebab/renderFn/orgId/token-kind
+issues, a `</script>` page-killer, raw hex/px, a missing `danger` token). This is
+**advisory** in the loop — it never blocks a build tweak — but the same check runs
+`--strict` and **fail-closed** at `/pb:hand-off` and `/pb:validate` before any render,
+so fixing findings now avoids a blocked exit later.
+
 ## 5 · Render — batched, deterministic, on demand only
 Rendering is the deterministic generator — **never** hand-write HTML (the G0.5 spike proved that is
 ~2–3× worse). From the project root:
