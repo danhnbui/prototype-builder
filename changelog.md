@@ -4,7 +4,46 @@ All notable changes to Product Builder. Format follows [Keep a Changelog](https:
 
 ## [Unreleased]
 
-### Added
+## [1.4.0] — 2026-06-10
+
+A major redesign of the prototype shell — every tab now shares one unified, two-column layout — together
+with the schema-migration system. Template + docs + commands; the registry contract gains several
+**optional, tolerated-absent** fields (schema stays at **3**, no migration required).
+
+### Added — unified UI shell (`pb/template/prototype.html`)
+- **One page chrome for every tab** — a `pb-page-header` (title + a `?` **info dialog** documenting the
+  tab's commands/skills + an optional CTA) over a `pb-content` shell: `--full` (Project Summary) or
+  `--split` (left main · right aside, **320–400px**). Replaces the old `meta-tag`/`meta-sub` headers.
+- **Empty-states everywhere** — an unpopulated tab renders only the header + an empty-state card that owns
+  the CTA; no dead controls against empty data.
+- **Prototype** — a device-framed preview (browser chrome on desktop, bezel + notch on tablet/mobile; sizes
+  not in `meta.devices` are disabled) plus a screen → component **structure tree** aside.
+- **UX Design** — the flow canvas (multi-flow dropdown + legend) on the left; **screen-size W×H** inputs and
+  **User stories | Test cases** on the right. Test cases are authored as **QA** across five lenses
+  (UX · UI · Function · Business · System-edge), with a **Coverage gaps** callout for edges the flow misses.
+- **UI Design** — a **Global | Local | Screen** control + a **design-system bar** (name + design link +
+  code-library link, or an "add one" affordance). Components list by `scope`, **grouped by atomic `level`**;
+  clicking a component/element opens its full spec in the persistent aside. The **Push to Figma** panel now
+  shows a **reuse** badge for DS-matched components and **which screens each push affects**.
+- **Data** — the ERD diagram in the shared canvas wrapper + an entity legend / click-to-inspect aside with a
+  **mock-data viewer** (preview Typical / Empty / Long-value sample sets against the fields).
+
+### Added — registry contract (all optional / tolerated-absent)
+- `meta.designSystem { name, designLink, codeLibrary, linked }`, `meta.devices[]`, `components[].level`
+  (`atom|molecule|organism`), `flow.screen {w,h}`, `flow.flows[]`, `flow.coverageWarnings[]`, `erd.mock[]`
+  — documented in `prototype-builder.md`.
+- **Atomic-design principle** — constitution principle 5 + design-system rule **R0.5**; the UI groups the
+  component lists by level.
+
+### Changed — commands + docs
+- `/pb:init` seeds `meta.designSystem` (from the DS Lock) + `meta.devices`.
+- `/pb:build-check-design-system` tags each component's atomic `level`.
+- `/pb:sync-flow` authors QA-lens test cases + `flow.coverageWarnings`, and persists `flow.screen`.
+- `/pb:sync-erd` gains `--mock` to generate `erd.mock[]` edge-case sets.
+- `/pb:build-figma-handoff` G-FP2 surfaces affected screens per updated component; Step 6 reports progress.
+- `CLAUDE.md` tab-render section and `README.md` updated to the v1.4 UI.
+
+### Added — schema migration system
 - **One preview per project** (`pb/tools/preview_register.py`, `/pb:preview`): each project has a single
   preview source of truth — the live `/pb:preview` server over its `registry.json`; `prototype.html` is a
   derived hand-off snapshot, not a parallel preview. When an in-app preview pane is used, the new helper
