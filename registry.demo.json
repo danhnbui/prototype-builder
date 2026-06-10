@@ -1,0 +1,146 @@
+{
+  "_about": "Populated demo registry for verifying the v1.2 UI redesign. Not a real project — renders every tab's populated state. Render via: python3 pb/tools/render.py registry.demo.json pb/template/prototype.html /tmp/pb-preview/index.html",
+  "meta": {
+    "name": "Acme Onboarding",
+    "schemaVersion": 3,
+    "device": "desktop",
+    "devices": ["desktop", "mobile"],
+    "designSystem": {
+      "name": "Acme DS",
+      "designLink": "https://www.figma.com",
+      "codeLibrary": "https://github.com/danhnbui/prototype-builder",
+      "linked": true
+    },
+    "overview": {
+      "objectives": "Let new users create an account and reach their dashboard in under 60 seconds, validating the sign-up flow before production.",
+      "principles": [
+        { "num": 1, "title": "One job per screen", "body": "Each screen asks for exactly one decision or input set." },
+        { "num": 2, "title": "Token-only styling", "body": "No raw hex or px — every value is a design token." },
+        { "num": 3, "title": "Atomic composition", "body": "Build atoms → molecules → organisms → screens; never inline a one-off." }
+      ]
+    },
+    "userInsights": {
+      "quantitative": "62% of drop-off happens on the password step.",
+      "researchSummary": "Users distrust forms that don't explain password rules up front.",
+      "executiveSummary": "Reduce sign-up friction by surfacing validation inline."
+    },
+    "tradeoffs": [
+      { "title": "Inline vs. on-submit validation", "question": "When do we validate?", "options": "Inline | On submit", "decision": "Inline", "why": "Catches errors before the user commits.", "tabsAffected": "Prototype, UX Design" }
+    ],
+    "others": null
+  },
+  "tokens": {
+    "brand": { "value": "#4f46e5", "kind": "color" },
+    "radius-medium": { "value": "14px", "kind": "radius" }
+  },
+  "components": [
+    {
+      "id": "button",
+      "name": "Button",
+      "renderFn": "renderCmpButton",
+      "scope": "global",
+      "level": "atom",
+      "properties": [
+        { "id": "label", "type": "string", "default": "Continue" },
+        { "id": "state", "type": "enum", "default": "default", "options": [
+          { "label": "Default", "value": "default" },
+          { "label": "Disabled", "value": "disabled" }
+        ] }
+      ],
+      "anatomy": "A pressable primary action.",
+      "spec": "44px tall, brand fill, 14px radius.",
+      "code": { "lang": "html", "snippet": "<button class=\"btn\">Continue</button>" },
+      "uiLogic": ["Disabled while the form is invalid."],
+      "render": "var dis = props.state === 'disabled' ? ' disabled' : ''; return '<button class=\"btn\" data-action=\"submit\"' + dis + ' style=\"height:44px;padding:0 20px;border:0;border-radius:10px;background:var(--brand);color:#fff;font:600 14px Inter;cursor:pointer;opacity:' + (dis?0.5:1) + '\">' + (props.label || 'Continue') + '</button>';"
+    },
+    {
+      "id": "text-input",
+      "name": "TextInput",
+      "renderFn": "renderCmpTextInput",
+      "scope": "global",
+      "level": "atom",
+      "dsMatch": { "library": "Acme DS", "component": "Input" },
+      "properties": [
+        { "id": "placeholder", "type": "string", "default": "you@example.com" },
+        { "id": "state", "type": "enum", "default": "default", "options": [
+          { "label": "Default", "value": "default" },
+          { "label": "Error", "value": "error" }
+        ] }
+      ],
+      "anatomy": "A single-line text field with label.",
+      "spec": "Full width, 1px border, brand focus ring.",
+      "code": { "lang": "html", "snippet": "<input class=\"field\" />" },
+      "uiLogic": ["Border turns red in the error state."],
+      "render": "var err = props.state === 'error'; return '<input class=\"field\" type=\"text\" data-required placeholder=\"' + (props.placeholder || '') + '\" style=\"width:100%;height:42px;padding:0 12px;border:1px solid ' + (err?'#dc2626':'var(--border-strong)') + ';border-radius:8px;font:14px Inter\" />';"
+    },
+    {
+      "id": "login-card",
+      "name": "LoginCard",
+      "renderFn": "renderCmpLoginCard",
+      "scope": "local",
+      "level": "organism",
+      "properties": [
+        { "id": "state", "type": "enum", "default": "default", "options": [
+          { "label": "Default", "value": "default" },
+          { "label": "Loading", "value": "loading" }
+        ] }
+      ],
+      "anatomy": "Card wrapping the email + password fields and the submit button.",
+      "spec": "Max 360px, white, 16px radius, soft shadow.",
+      "code": { "lang": "html", "snippet": "<div class=\"card\">…</div>" },
+      "uiLogic": ["Shows a spinner in the loading state."],
+      "render": "return '<div style=\"max-width:360px;padding:24px;background:#fff;border:1px solid var(--border);border-radius:16px;box-shadow:0 4px 12px rgba(0,0,0,.06)\"><h2 style=\"font:600 18px Poppins;margin:0 0 16px\">Sign in</h2></div>';"
+    }
+  ],
+  "screens": [
+    {
+      "id": "login",
+      "name": "Login",
+      "renderFn": "renderScreenLogin",
+      "layout": { "type": "centered", "gap": 16, "maxWidth": 360, "padding": 32 },
+      "elements": [
+        { "id": "email", "label": "Email field", "orgId": "text-input", "tokens": ["--border-strong"], "state": "default" },
+        { "id": "password", "label": "Password field", "orgId": "text-input", "tokens": ["--border-strong"], "state": "default" },
+        { "id": "submit", "label": "Submit button", "orgId": "button", "tokens": ["--brand"], "state": "default" }
+      ],
+      "logicNotes": ["Submit is disabled until both fields are valid.", "Successful submit redirects to the dashboard."],
+      "render": "return '<div style=\"min-height:100%;display:flex;align-items:center;justify-content:center;background:var(--bg-soft);padding:32px\"><div style=\"width:360px;padding:28px;background:#fff;border:1px solid var(--border);border-radius:16px\"><h1 style=\"font:700 22px Poppins;margin:0 0 20px\">Sign in</h1><input data-handoff-el=\"email\" type=\"text\" data-required data-validate=\"email\" placeholder=\"you@example.com\" style=\"width:100%;height:42px;margin-bottom:12px;padding:0 12px;border:1px solid var(--border-strong);border-radius:8px;font:14px Inter\" /><input data-handoff-el=\"password\" type=\"password\" data-required data-minlength=\"8\" placeholder=\"Password\" style=\"width:100%;height:42px;margin-bottom:16px;padding:0 12px;border:1px solid var(--border-strong);border-radius:8px;font:14px Inter\" /><button data-handoff-el=\"submit\" data-action=\"submit\" data-go=\"dashboard\" style=\"width:100%;height:44px;border:0;border-radius:10px;background:var(--brand);color:#fff;font:600 14px Inter;cursor:pointer\">Sign in</button></div></div>';"
+    },
+    {
+      "id": "dashboard",
+      "name": "Dashboard",
+      "renderFn": "renderScreenDashboard",
+      "layout": { "type": "stack", "gap": 16, "maxWidth": 720, "padding": 32 },
+      "elements": [
+        { "id": "welcome", "label": "Welcome banner", "orgId": "login-card", "tokens": ["--brand"], "state": "default" }
+      ],
+      "logicNotes": ["Landing screen after a successful sign-in."],
+      "render": "return '<div style=\"min-height:100%;padding:40px;background:var(--bg-soft)\"><h1 style=\"font:700 26px Poppins;margin:0 0 8px\">Welcome back 👋</h1><p style=\"font:15px Inter;color:#555\">You are signed in.</p></div>';"
+    }
+  ],
+  "staleness": {
+    "flow": { "lastSyncedPromptCount": 2, "currentPromptCount": 2 },
+    "handoffScreen": { "lastSyncedPromptCount": 0, "currentPromptCount": 0 },
+    "erd": { "lastSyncedPromptCount": 0, "currentPromptCount": 0 }
+  },
+  "flow": {
+    "populated": true,
+    "mermaid": "flowchart LR\n  Start([Start]) --> Login[Login]\n  Login --> Valid{Valid?}\n  Valid -- No --> Login\n  Valid -- Yes --> Dashboard[Dashboard]\n  Dashboard --> End([End])",
+    "stories": [
+      { "title": "Sign in with email", "priority": "P1", "jtbd": "As a user I want to sign in so I can reach my dashboard.", "path": "Start → Login → Dashboard", "scenarios": ["Valid credentials land on the dashboard.", "Invalid email shows an inline error.", "Short password is rejected."], "node": "Login", "status": "DONE" },
+      { "title": "Recover from an error", "priority": "P2", "jtbd": "As a user I want clear feedback when my input is wrong.", "path": "Login → Valid? → Login", "scenarios": ["Error message clears once corrected."], "node": "Valid", "status": "IN PROGRESS" }
+    ]
+  },
+  "erd": {
+    "populated": true,
+    "mermaid": "erDiagram\n  User ||--o{ Session : has\n  User {\n    string id\n    string email\n  }\n  Session {\n    string id\n    string userId\n  }",
+    "table": [
+      { "entity": "User", "field": "id", "type": "identifier", "example": "usr_01H...", "notes": "PK" },
+      { "entity": "User", "field": "email", "type": "text", "example": "you@example.com", "notes": "unique" },
+      { "entity": "User", "field": "createdAt", "type": "timestamp", "example": "2026-06-10T10:00:00Z", "notes": "" },
+      { "entity": "Session", "field": "id", "type": "identifier", "example": "ses_01H...", "notes": "PK" },
+      { "entity": "Session", "field": "userId", "type": "identifier", "example": "usr_01H...", "notes": "FK → User" }
+    ],
+    "warnings": []
+  }
+}

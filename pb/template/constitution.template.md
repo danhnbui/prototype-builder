@@ -11,6 +11,8 @@
 2. One primary action per screen.
 3. Every interactive element has a visible focus state.
 4. All color / space / radius / shadow come from tokens — no raw hex or arbitrary px.
+5. Build atomically: compose atoms → molecules → organisms → screens. A screen is assembled from
+   components (each tagged `level`), never inlined one-off markup. Reuse before you build (R0/R1).
 
 ## Stack Lock
 

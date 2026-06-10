@@ -9,8 +9,8 @@ Sub-routine of `/pb:build`. Run for **every new or changed component** before it
 
 ## 1 · Scan the index by function + purpose
 Read the design system's scannable **component index** — `design-system/{name}/{name}.md`, the
-`Component | renderFn | Props / variants | Purpose | Level` table. Match the NEEDED component by **what
-it does**, not its name (a "Sign-in CTA" is a Button; a "code box row" is an OTP input).
+`Component | renderFn | Props / variants | Purpose | Scope | Level` table. Match the NEEDED component by
+**what it does**, not its name (a "Sign-in CTA" is a Button; a "code box row" is an OTP input).
 
 ## 2 · Decide — in this order
 - **R0 / R1 · Reuse.** An existing component (global or local) already covers the function → reuse it;
@@ -18,9 +18,14 @@ it does**, not its name (a "Sign-in CTA" is a Button; a "code box row" is an OTP
 - **R2 · Variant.** An existing component covers it but needs a new state / size / style → **extend it
   with a variant** (add an option to its `properties`). Do **not** spawn a second component.
 - **Build local.** Nothing fits → create a **local** component (`"scope":"local"`). Invoke
-  `design-component-build` for the render body + anatomy/spec.
+  `design-component-build` for the render body + anatomy/spec. Tag its **`level`** (`atom` | `molecule` |
+  `organism`) by what it composes — a primitive (button, input) is an `atom`; a small cluster of atoms
+  (field + label + error) is a `molecule`; a self-contained section (a sign-in card) is an `organism`.
+  Build the smallest level that fits and compose upward — don't author an organism where a molecule + a
+  variant would do (constitution principle 5 · DS rule R0.5).
 
 > NEVER inline UI that bypasses a component (R0). NEVER spawn a second component when a variant suffices (R2).
+> NEVER build a higher atomic level when a lower one composes to the same result (R0.5).
 
 ## 3 · Naming contract  (also enforced by `/pb:build-figma-handoff`)
 - **`id`** — kebab-case, unique **across global and local** (R4). No collisions.

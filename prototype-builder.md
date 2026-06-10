@@ -20,6 +20,8 @@ here. Design tokens are applied onto `:root` at boot via `applyRegistryTokens`.
 |---|---|---|---|
 | `meta.name` | string | — | project name |
 | `meta.device` | `'desktop'\|'tablet'\|'mobile'` | Prototype | default device for the preview frame; set at `/pb:init`. Falls back to `'desktop'` |
+| `meta.devices` | `('desktop'\|'tablet'\|'mobile')[]` | Prototype | device sizes this project supports — unsupported sizes are disabled in the switcher. Optional; defaults to all three |
+| `meta.designSystem` | `{ name, designLink, codeLibrary, linked }` | UI Design | the linked design system — `designLink` (Figma/doc URL), `codeLibrary` (folder path or repo URL). Seeded from the DS Lock at `/pb:init`. Optional/tolerated-absent → the DS bar shows an "add one" affordance |
 | `meta.overview` | `{ objectives, principles[] }` | Project Summary | from spec + constitution |
 | `meta.userInsights` | `{ quantitative, researchSummary, executiveSummary }` | Project Summary | from `/pb:clarify` |
 | `meta.tradeoffs[]` | `[{ title, question, options, decision, why, tabsAffected }]` | Project Summary | UI Logic Trade-offs |
@@ -37,13 +39,17 @@ Ported **verbatim** from the v0.4.0 `PB_DATA.handoff.organisms` shape:
 
 ```
 { id (kebab, unique), name, renderFn ("renderCmp{PascalCase}"), meta, scope ("global"|"local"),
-  codeLayout ("stacked"|"side-by-side"),
+  level ("atom"|"molecule"|"organism"), codeLayout ("stacked"|"side-by-side"),
   properties[], code{ lang, snippet }, anatomy{ renderProps, parts[] }, spec{ legend, renderProps, marginX, stack[] },
   uiLogic[], usage{ demoProps, topics[], placement } }
 ```
 
 - **`scope`** — `'global' | 'local'`. Drives the UI Design **Global | Local** sub-tabs. A component reads as
   global when `scope === 'global'` **or** a `dsMatch` exists; otherwise local.
+- **`level`** — `'atom' | 'molecule' | 'organism'` — the atomic-design layer. Optional; when present, the UI
+  Design Global/Local lists group components by level (atoms → molecules → organisms). Compose upward:
+  atoms into molecules, molecules into organisms, organisms onto screens — never inline a one-off (see the
+  atomic-composition principle in `constitution.md`).
 - **`state` property convention** — if `properties[]` contains a property with `id: 'state'` (each option
   `{ label, value }`), the UI Design demo renders **one labeled variant per state**. **Interactive components
   MUST declare it** (e.g. `default / error / disabled`, `default / loading / disabled`).

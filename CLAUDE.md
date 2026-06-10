@@ -48,17 +48,31 @@ upserted, never duplicated; entries it doesn't own are left alone.
 
 ## Tab render behaviors (the shell, `pb/template/prototype.html`)
 
+**Unified page chrome (v1.2).** Every tab shares one layout: a `pb-page-header` (title + a `?`
+**info-dialog** explaining the tab's commands/skills + an optional CTA, shown only when the tab has data),
+over a `pb-content` shell — `--full` (single column, Project Summary only) or `--split` (left main · right
+aside, 400–600px). When a slice is unpopulated the tab renders **only** the header + an **empty-state**
+card that owns the CTA — no dead controls. (Replaces the old `meta-tag`/`meta-sub` per-tab headers.)
+
 - **Prototype** — interactive, **no** screen-switcher. A declarative `data-*` runtime drives a real flow:
   `data-nav="<id>"` navigates; `data-action="toggle-password"`; `data-action="submit"` validates the form
   (`data-required` · `data-validate="email"` · `data-minlength`) then `data-go` / `data-toast` /
-  `data-redirect`+`data-redirect-ms`. An **icon-only device switcher** (desktop ≤1180 / tablet 834 /
-  mobile 390) replaces it; default from `meta.device`; one viewport, internal scroll.
-- **Project Summary** & **UI Design** — share the same `meta-subtab` sub-tab component. UI Design splits
-  components into **Global | Local** (by `scope`), and demos render **state variants** when a component
-  declares a `state` property (interactive components MUST).
-- **UX Design** — built from structured `flow.mermaid` + `flow.stories[]` (no baked HTML); left sidebar =
-  **User stories | Test cases**; Mermaid uses `curve:'basis'` with legend-matched classDef colors + a legend.
-- **Data** — a **Diagram | Table** toggle: diagram = `erd.mermaid`; table = one styled table per entity from `erd.table[]`.
+  `data-redirect`+`data-redirect-ms`. Split layout: **left** = device-framed preview (browser chrome on
+  desktop, bezel+notch on tablet/mobile) with an icon-only device switcher — defaults from `meta.device`,
+  sizes not in `meta.devices` are **disabled**; **right** = a structure tree (screen → component level).
+- **Project Summary** — single-column; the `meta-subtab` sub-tabs (Overview · Insights · Trade-offs · Others).
+- **UI Design** — split layout under a **Global | Local | Screen** control + a **design-system bar**
+  (`meta.designSystem`: name + design link + code-library link, or an "add one" affordance). Global/Local
+  list components by `scope`, **grouped by `level`** (atom → molecule → organism); demos render **state
+  variants** when a component declares a `state` property (interactive components MUST). Clicking a
+  component/screen-element opens its spec in the **persistent right aside** (anatomy/spec/UI-logic/usage).
+  Components here are the **same** registry components the Prototype renders — never duplicated.
+- **UX Design** — split: **left** = the `flow.mermaid` canvas (multi-flow dropdown + legend, `curve:'basis'`
+  with legend-matched classDef colors); **right** = screen-size W×H inputs + **User stories | Test cases**
+  from `flow.stories[]`.
+- **Data** — split: **left** = a **Diagram | Table** toggle (diagram = `erd.mermaid` in the shared canvas
+  wrapper; table = one styled table per entity from `erd.table[]`); **right** = relationship legend +
+  clickable entities → field detail.
 
 ## Memory layout (per project)
 
