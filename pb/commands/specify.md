@@ -22,3 +22,5 @@ Write the spec's **Objective** into `registry.json` → `meta.overview.objective
 
 ## Result
 `memory/spec.md` written; Tab-2 Objective synced. Next: `/pb:clarify` or `/pb:plan`.
+
+> **Skill degrade (NS6).** If a skill this command invokes fails to load, say so explicitly and proceed with its core intent — never silently skip the step.

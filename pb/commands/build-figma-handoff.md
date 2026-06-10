@@ -138,3 +138,5 @@ Confirm to the user with the counts and the contracts updated. Re-running withou
 - NEVER position a frame child absolutely — auto-layout on every frame (R3).
 - NEVER hand-emit / hand-draw prototype content into Figma outside this command — every export runs these gates.
 - NEVER run Step 7 or report a push "done" while any G-FP6 invariant fails — the render audit is a hard completion gate.
+
+> **Skill degrade (NS6).** If a skill this command invokes fails to load, say so explicitly and proceed with its core intent — never silently skip the step.

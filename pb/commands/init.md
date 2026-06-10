@@ -6,7 +6,19 @@ description: Scaffold a new Product Builder prototype — PRD intake (Q&A or fil
 
 Scaffold a new prototype **in the current directory**. PRD intake is **never blank**.
 
-## 0 · Flags
+## 0 · Preflight — the one prerequisite
+Verify **Python 3** is on PATH (it's the only runtime pb needs — the render/preview/check/migrate tools are
+stdlib-only, no pip installs):
+```
+python3 --version
+```
+If that errors, STOP and print the OS-specific fix, then ask the user to install and re-run `/pb:init`:
+- **macOS:** `xcode-select --install` (or install from python.org)
+- **Windows:** install from python.org and tick "Add python.exe to PATH" (then use `py` / `python`)
+- **Linux:** `sudo apt install python3` (Debian/Ubuntu) or your distro's package
+Everything else pb uses ships with the plugin — there is nothing else to install.
+
+## 0b · Flags
 - `--import <bundle>` — ingest a context bundle from `/pb:hand-off --context` instead of doing intake (step 6).
 
 ## 1 · PRD intake (never blank)
@@ -65,3 +77,5 @@ suggest `/pb:migrate`. Do not silently copy an out-of-contract slice into the pr
 ## Result
 A seeded project — non-empty `memory/prd.md`, locks set, `registry.json` seeded, `memory/decisions.md`,
 `design-system/{name}/`. Next: `/pb:specify` (expand) or `/pb:build` (start building).
+
+> **Skill degrade (NS6).** If a skill this command invokes fails to load, say so explicitly and proceed with its core intent — never silently skip the step.

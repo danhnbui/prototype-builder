@@ -70,3 +70,5 @@ input pink · subprocess purple), a legend popover, and pan/zoom in one viewport
 - NEVER violate a flow rule (defect, not style). NEVER omit the checklist (it's what makes the tab testable).
 - NEVER auto-fire from `/pb:build` or run a drift check — Tab 3 is decoupled.
 - NEVER use emojis / HTML / Title Case / ALL CAPS in node labels; NEVER mix flow directions.
+
+> **Skill degrade (NS6).** If a skill this command invokes fails to load, say so explicitly and proceed with its core intent — never silently skip the step.

@@ -110,3 +110,5 @@ python3 "${CLAUDE_PLUGIN_ROOT}/tools/render.py" registry.json \
 The render machinery (`pbRender*`, the 4-tab spec drawer, wireflow, ERD) is ported as-is and reads from
 `PB_DATA`, which the shell's adapter rebuilds from `registry.json` each load. You produce **DATA**;
 the generator + adapter produce the view.
+
+> **Skill degrade (NS6).** If a skill this command invokes fails to load, say so explicitly and proceed with its core intent — never silently skip the step.

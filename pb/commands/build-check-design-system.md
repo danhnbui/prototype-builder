@@ -41,3 +41,5 @@ Read the design system's scannable **component index** — `design-system/{name}
 ## 4 · Report and return
 State the decision — `reuse <id>` / `variant on <id>` / `new local <id>` — plus any new tokens created,
 then hand back to `/pb:build` step 4 to write the slice.
+
+> **Skill degrade (NS6).** If a skill this command invokes fails to load, say so explicitly and proceed with its core intent — never silently skip the step.

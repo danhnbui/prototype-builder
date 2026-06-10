@@ -24,3 +24,5 @@ Bake in the sync rules: the **trio** auto-syncs on `/pb:build`; Flow / Data / ha
 
 ## Result
 `memory/plan.md` + `memory/tasks.md` (per-tab tasks with acceptance + skill). Next: `/pb:build`.
+
+> **Skill degrade (NS6).** If a skill this command invokes fails to load, say so explicitly and proceed with its core intent — never silently skip the step.
