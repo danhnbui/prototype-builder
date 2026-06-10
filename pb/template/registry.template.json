@@ -11,7 +11,9 @@
     "tradeoffs": [],
     "others": null
   },
-  "tokens": {},
+  "tokens": {
+    "danger": { "value": "#dc2626", "kind": "color" }
+  },
   "components": [],
   "screens": [],
   "staleness": {
