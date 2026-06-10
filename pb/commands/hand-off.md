@@ -27,7 +27,8 @@ Output: one `prototype.html` (or `--out <file>`) safe to share with non-builders
 
 ## `--context` — a portable bundle for another builder
 Export a bundle (`handoff-bundle/` or `--out <dir>`) containing:
-- `registry.json` · `design-system/` · `memory/constitution.md` · `memory/decisions.md`
+- `registry.json` · `render/` (the body files — **required**, or `renderSrc` references dangle) ·
+  `design-system/` · `memory/constitution.md` · `memory/decisions.md`
 
 The exported `registry.json` carries `meta.schemaVersion` — the bundle is schema-stamped so
 `/pb:init --import` can detect and suggest `/pb:migrate` if the receiving environment is newer.

@@ -56,11 +56,15 @@ The **trio** = a **screen**, a **component**, or **logic** (states, validation, 
 ## 4 · Apply the targeted patch
 Edit the **one** touched slice in `registry.json` (changed keys only):
 - **token** → set `tokens.<name>.value` (create one tagged `"scope":"local"` if none fits; never a raw hex/px elsewhere).
-- **component** → patch the `components[]` entry: a `properties` default, the `render` body string,
-  `anatomy`/`spec`, etc.
-- **screen** → patch the `screens[]` entry: add/zorder an element, change `layout`, a `label`, a `logicNotes` line.
+- **component** → patch the `components[]` entry: a `properties` default, `anatomy`/`spec`, etc. To
+  change what it renders, **edit its body file** — `render/components/<id>.js` (pointed at by
+  `renderSrc`). The registry holds no render code (v1.4).
+- **screen** → patch the `screens[]` entry: add/zorder an element, change `layout`, a `label`, a
+  `logicNotes` line. To change what it renders, edit `render/screens/<id>.js`.
 - **new component / screen** → append an entry with a **kebab-case** `id`, a `renderFn`
-  (`renderCmp{PascalCase}` / `renderScreen{PascalCase}`), and a `render` body string.
+  (`renderCmp{PascalCase}` / `renderScreen{PascalCase}`), and a `renderSrc`
+  (`render/components/<id>.js` / `render/screens/<id>.js`); create that `.js` body file with the render
+  code. (A legacy inline `render` string still works but is discouraged — `check.py` warns if both are set.)
 
 **Do not touch `prototype.html`. Do not re-render.** State what slice changed and stop (unless `--render`).
 

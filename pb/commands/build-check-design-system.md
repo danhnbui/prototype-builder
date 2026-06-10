@@ -18,7 +18,8 @@ Read the design system's scannable **component index** — `design-system/{name}
 - **R2 · Variant.** An existing component covers it but needs a new state / size / style → **extend it
   with a variant** (add an option to its `properties`). Do **not** spawn a second component.
 - **Build local.** Nothing fits → create a **local** component (`"scope":"local"`). Invoke
-  `design-component-build` for the render body + anatomy/spec. Tag its **`level`** (`atom` | `molecule` |
+  `design-component-build` for the render body file (`render/components/<id>.js`, referenced by
+  `renderSrc`) + anatomy/spec. Tag its **`level`** (`atom` | `molecule` |
   `organism`) by what it composes — a primitive (button, input) is an `atom`; a small cluster of atoms
   (field + label + error) is a `molecule`; a self-contained section (a sign-in card) is an `organism`.
   Build the smallest level that fits and compose upward — don't author an organism where a molecule + a
@@ -31,8 +32,9 @@ Read the design system's scannable **component index** — `design-system/{name}
 - **`id`** — kebab-case, unique **across global and local** (R4). No collisions.
 - **`renderFn`** — `renderCmp{PascalCase}` (`text-input` → `renderCmpTextInput`).
 - **tokens** — every color / space / radius / shadow is a token (`tokens.<name>`),
-  `kind ∈ color | radius | space | size | type`. No raw hex or px in a `render` body or `sizing`; if none
-  fits, create a token tagged `"scope":"local"` rather than inlining a value.
+  `kind ∈ color | radius | space | size | type`. No raw hex or px in a render body file (`renderSrc`) or
+  `sizing`; if none fits, create a token tagged `"scope":"local"` rather than inlining a value.
+  (`check.py` flags raw hex/px; `--strict` makes it an error.)
 - **anchors** — every element referenced by `anatomy.parts[]` or `spec.stack[]` carries a stable anchor
   class (`.field__label`, `.btn`, …) so the handoff redlines and Figma match resolve.
 
