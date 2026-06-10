@@ -163,3 +163,14 @@ Flow, Data, and UI Design · screen are **decoupled** — updated only by `/pb:s
 
 _(Phase 5)_ — DS-first, Local-first (R0); extend with a variant before spawning (R2); auto-layout
 on every Figma frame (R3); kebab-case non-colliding IDs (R4); the naming contract.
+
+## Backlog (gated, not built) — JSX/TSX component export
+
+The prototype artifact is **HTML** (single-file `prototype.html`); `/pb:validate` produces a runnable
+reference build of that file, **not** reusable framework components (see the validate command + Stack Lock
+note). A real per-component JSX/TSX export from `components[]` is **backlogged**, not in this release.
+
+**Pre-registered success criterion (decide before building it):** a front-end engineer can integrate
+**≥ 1 exported component** into a fresh CRA/Vite app and render it correctly in **< 30 minutes**, using only
+the generated files + a short README. Build this only if the consumption pilot shows real engineering demand
+(D5, Option B). Until then, engineers reuse the **design intent** — tokens, component specs, flows — not files.

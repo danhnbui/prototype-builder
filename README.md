@@ -57,7 +57,7 @@ If `/pb:init` says Python isn't installed, it will tell you exactly how to fix i
 | `/pb:sync-erd` | Data — field/type/example table + ERD (decoupled) |
 | `/pb:check-drift` | Read-only drift audit of the trio vs the constitution |
 | `/pb:hand-off` | `--people` (view-only) · `--context` (portable bundle) |
-| `/pb:validate` | Scaffold a Vite / Next build from `prototype.html` |
+| `/pb:validate` | Wrap `prototype.html` in a runnable reference build (Vite/Next) — serves the single file, not a component export |
 | `/pb:migrate` | Schema migration: dry-run / `--apply` / `--rollback` / `--to <N>` |
 
 ## Quickstart
@@ -68,7 +68,8 @@ If `/pb:init` says Python isn't installed, it will tell you exactly how to fix i
    registry change; no `--render` needed during the build loop.
 4. `/pb:sync-flow` / `/pb:sync-erd` — populate the UX Design and Data tabs (on demand).
 5. `/pb:hand-off --people` — a view-only artifact to share; `--context` to hand to another builder.
-6. `/pb:validate` — a real Vite/Next build when you're ready to graduate to an app.
+6. `/pb:validate` — wrap the single-file prototype in a runnable reference build (Vite/Next) to host it.
+   (It serves `prototype.html`; it does not export reusable component code — see the Engineering note below.)
 
 ## Under the hood
 
