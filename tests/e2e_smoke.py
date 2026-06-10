@@ -107,7 +107,8 @@ def run():
             errors = []
             page.on("console", lambda m: errors.append(m.text) if m.type == "error" else None)
             page.on("pageerror", lambda e: errors.append(str(e)))
-            page.goto(srv.url, wait_until="networkidle")
+            page.goto(srv.url, wait_until="domcontentloaded")
+            page.wait_for_selector(".meta-tab", timeout=10000)
 
             # 1. five tabs
             check(page.locator(".meta-tab").count() == 5, "5 doc tabs render")
@@ -137,6 +138,18 @@ def run():
             check("Welcome back" in page.locator("#proto-frame").inner_text(),
                   "valid submit navigates to the dashboard")
 
+            # T1.4 — a component named with an apostrophe ("User's Login Card") must
+            # render and open its drawer (pbEscape now escapes quotes).
+            page.click('.meta-tab >> nth=3')  # UI Design tab
+            page.wait_for_timeout(150)
+            card = page.locator(".handoff-card", has_text="User's Login Card")
+            check(card.count() >= 1, "apostrophe-named component renders in UI Design")
+            if card.count():
+                card.first.click()
+                page.wait_for_timeout(150)
+                check(page.locator(".handoff-card.is-selected").count() >= 1,
+                      "apostrophe-named component opens its drawer")
+
             check(not errors, f"zero console errors on golden ({errors})")
             page.close()
 
@@ -149,7 +162,8 @@ def run():
                 errors = []
                 page.on("console", lambda m: errors.append(m.text) if m.type == "error" else None)
                 page.on("pageerror", lambda e: errors.append(str(e)))
-                page.goto(srv.url, wait_until="networkidle")
+                page.goto(srv.url, wait_until="domcontentloaded")
+                page.wait_for_selector(".meta-tab", timeout=10000)
                 check(page.evaluate("document.body.classList.contains('view-only')"),
                       "body.view-only is set")
                 cta_sel = ".sync-button, .fp-panel, .empty-state-cta, .empty-state-actions"

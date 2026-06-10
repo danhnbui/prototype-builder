@@ -3107,7 +3107,9 @@
       return String(s)
         .replace(/&/g, '&amp;')
         .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;');
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')   // safe inside double-quoted attributes (title="…")
+        .replace(/'/g, '&#39;');   // safe inside single-quoted onclick handlers (…('${pbEscape(id)}'))
     }
 
     /* =========================================================================

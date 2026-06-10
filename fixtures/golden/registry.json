@@ -94,7 +94,7 @@
     },
     {
       "id": "login-card",
-      "name": "LoginCard",
+      "name": "User's Login Card",
       "renderFn": "renderCmpLoginCard",
       "scope": "local",
       "level": "organism",
