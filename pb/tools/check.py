@@ -19,6 +19,7 @@ Each finding prints as:  <SEVERITY> [<CODE>] <location>: <message>
 Usage:  python3 check.py [--strict] <registry.json>
 """
 import json
+import os
 import re
 import sys
 
@@ -55,8 +56,12 @@ def pascal(id_):
     return "".join(part[:1].upper() + part[1:] for part in str(id_).split("-") if part)
 
 
-def check(reg, strict=False):
-    """Return a list of Finding for the registry dict. strict promotes hex/px to errors."""
+def check(reg, strict=False, base_dir=None):
+    """Return a list of Finding for the registry dict. strict promotes hex/px to errors.
+
+    base_dir (the registry's directory) lets the validator resolve `renderSrc` body files
+    so it scans the real bodies — exactly what render.py compiles.
+    """
     findings = []
     hex_px_sev = ERROR if strict else WARN
 
@@ -98,7 +103,7 @@ def check(reg, strict=False):
             seen_comp[cid] = i
         comp_ids.add(cid)
         _check_renderfn(add, c, "renderCmp", where)
-        _scan_body(add, c.get("render", ""), where, hex_px_sev)
+        _scan_body(add, _resolve_body(add, c, where, base_dir), where, hex_px_sev)
 
     # ── screens: kebab id, uniqueness, renderFn, orgId refs, render-body ──────
     seen_screen = {}
@@ -116,7 +121,7 @@ def check(reg, strict=False):
         else:
             seen_screen[sid] = i
         _check_renderfn(add, s, "renderScreen", where)
-        _scan_body(add, s.get("render", ""), where, hex_px_sev)
+        _scan_body(add, _resolve_body(add, s, where, base_dir), where, hex_px_sev)
         for j, el in enumerate(s.get("elements", []) or []):
             if not isinstance(el, dict):
                 continue
@@ -153,6 +158,31 @@ def check(reg, strict=False):
             add(WARN, "R-ERD", "erd", "populated erd needs a table[] array")
 
     return findings
+
+
+def _resolve_body(add, item, where, base_dir):
+    """Return the render body to scan, resolving renderSrc (v1.4 schema 4).
+
+    Precedence: renderSrc > legacy render. Both present -> WARN (R-RENDERSRC). A
+    renderSrc pointing at a missing file -> ERROR (mirrors render.py failing closed).
+    """
+    src = item.get("renderSrc")
+    legacy = item.get("render", "")
+    if not src:
+        return legacy
+    if legacy:
+        add(WARN, "R-RENDERSRC", where,
+            "both renderSrc and a legacy render string are present — renderSrc wins; "
+            "remove the inline render")
+    if base_dir is None:
+        return legacy  # can't resolve without a path; skip body scan
+    path = os.path.normpath(os.path.join(base_dir, src))
+    try:
+        with open(path, encoding="utf-8") as f:
+            return f.read()
+    except FileNotFoundError:
+        add(ERROR, "R-RENDERSRC", where, f"renderSrc file not found: {src}")
+        return ""
 
 
 def _check_renderfn(add, item, prefix, where):
@@ -197,7 +227,7 @@ def main():
               file=sys.stderr)
         sys.exit(2)
 
-    findings = check(reg, strict=strict)
+    findings = check(reg, strict=strict, base_dir=os.path.dirname(os.path.abspath(path)))
     errors = [f for f in findings if f.severity == ERROR]
     warns = [f for f in findings if f.severity == WARN]
     for f in findings:

@@ -17,7 +17,7 @@ What it does:
 
 Usage:  python3 render.py <registry.json> <shell.html> <out.html>
 """
-import json, sys, re, copy
+import json, sys, re, copy, os
 
 
 class RenderError(Exception):
@@ -26,6 +26,46 @@ class RenderError(Exception):
     Raised by build_html so callers — the CLI and the preview dev server (serve.py) —
     can handle it: the CLI exits, the dev server shows a recoverable error page.
     """
+
+
+def load_bodies(reg, base_dir):
+    """Resolve `renderSrc` file references into in-memory `render` strings.
+
+    v1.4 (schema 4) moves render bodies out of the registry into real `.js` files
+    (render/components/<id>.js, render/screens/<id>.js) referenced by `renderSrc`.
+    This reader keeps build_html PURE (no file I/O there): callers resolve bodies here
+    first, then hand the resulting registry — with `render` strings populated — to
+    build_html. Precedence: renderSrc > legacy `render` (renderSrc overwrites it).
+
+    A `renderSrc` pointing at a missing file raises RenderError (NS6 — never silently
+    an empty function). Returns a NEW dict; the input is not mutated.
+    """
+    reg = copy.deepcopy(reg)
+    for kind in ("components", "screens"):
+        for item in reg.get(kind, []):
+            src = item.get("renderSrc")
+            if not src:
+                continue
+            path = os.path.normpath(os.path.join(base_dir, src))
+            try:
+                with open(path, encoding="utf-8") as f:
+                    item["render"] = f.read()
+            except FileNotFoundError:
+                raise RenderError(
+                    "renderSrc not found for %s %r: %s" % (kind[:-1], item.get("id"), src))
+    return reg
+
+
+def _escape_body(body):
+    """Escape `</` -> `<\\/` inside an emitted render body.
+
+    A render body is JS that builds HTML in string literals (return '<div></div>';).
+    Inside a <script>, only the literal `</script` ends the element — but `</` -> `<\\/`
+    is semantically identical inside a JS string literal (\\/ === /) and uniformly kills
+    the page-killer for ALL close tags. check.py's R-SCRIPT still flags a literal
+    `</script` so authors are steered away; this is the belt to that suspenders.
+    """
+    return body.replace("</", "<\\/")
 
 
 def build_html(reg, shell):
@@ -47,7 +87,7 @@ def build_html(reg, shell):
             if not fn:
                 continue
             if "render" in item and item["render"]:
-                parts.append('    window[%s] = function(props){\n%s\n    };' % (json.dumps(fn), item["render"]))
+                parts.append('    window[%s] = function(props){\n%s\n    };' % (json.dumps(fn), _escape_body(item["render"])))
             else:
                 missing.append(fn)
     bodies = ""
@@ -83,6 +123,7 @@ def render_file(reg_path, shell_path, out_path):
     """Read registry + shell from disk, render, and write out_path. Returns (reg, html, missing)."""
     reg = json.load(open(reg_path, encoding="utf-8"))
     shell = open(shell_path, encoding="utf-8").read()
+    reg = load_bodies(reg, os.path.dirname(os.path.abspath(reg_path)))
     html, missing = build_html(reg, shell)
     open(out_path, "w", encoding="utf-8").write(html)
     return reg, html, missing
