@@ -1,0 +1,64 @@
+name: ci
+
+# The permanent regression suite (refit plan Phase 0, T0.3). No release ships red.
+# Budgets (regression = failure): render <= 100 ms @ 50/20, check <= 1 s, CI wall-clock <= 6 min.
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  unit:
+    name: unit (python, stdlib-only)
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Migrations selftest
+        run: python3 pb/migrations/selftest.py
+
+      - name: Render determinism (golden rendered twice -> identical SHA-256)
+        run: |
+          python3 pb/tools/render.py fixtures/golden/registry.json pb/template/prototype.html /tmp/g1.html
+          python3 pb/tools/render.py fixtures/golden/registry.json pb/template/prototype.html /tmp/g2.html
+          a=$(shasum -a 256 /tmp/g1.html | cut -d' ' -f1)
+          b=$(shasum -a 256 /tmp/g2.html | cut -d' ' -f1)
+          echo "sha1=$a"; echo "sha2=$b"
+          test "$a" = "$b" || { echo "::error::render is not deterministic"; exit 1; }
+
+      - name: Render-time budget (<= 100 ms @ 50 components / 20 screens)
+        run: python3 tests/render_budget.py
+
+      - name: check.py --strict is clean on the golden
+        run: python3 pb/tools/check.py --strict fixtures/golden/registry.json
+
+      - name: check.py catches every seeded violation
+        run: python3 tests/check_violations.py
+
+  e2e:
+    name: e2e (playwright chromium, dev-only)
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install Playwright (dev/CI-only — never shipped to users)
+        run: |
+          pip install playwright
+          python3 -m playwright install --with-deps chromium
+      - name: Browser smoke (5 tabs, tokens, validation, navigation, view-only, console)
+        run: python3 tests/e2e_smoke.py
