@@ -65,13 +65,16 @@ def _latest_backup(registry_path):
     if not os.path.isdir(bdir):
         return None
     candidates = [
-        f for f in os.listdir(bdir)
+        os.path.join(bdir, f) for f in os.listdir(bdir)
         if f.startswith("registry.") and f.endswith(".json")
     ]
     if not candidates:
         return None
-    candidates.sort(reverse=True)  # ISO timestamps sort lexicographically
-    return os.path.join(bdir, candidates[0])
+    # Sort by mtime: ISO timestamp names sort chronologically, but the same-second
+    # collision suffix (-2, -3, …) breaks lexicographic order ('-' < '.'), so mtime
+    # is the real "latest" signal. Name is the deterministic tiebreaker.
+    candidates.sort(key=lambda p: (os.path.getmtime(p), p), reverse=True)
+    return candidates[0]
 
 
 def run(args=None):
@@ -153,6 +156,16 @@ def run(args=None):
     ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     backup_name = f"registry.{from_v}.{ts}.json"
     backup_path = os.path.join(bdir, backup_name)
+    # Second-granularity timestamps collide on a same-second re-apply. NEVER overwrite
+    # an existing backup — append -2, -3, … until the name is unique (deterministic, stdlib).
+    if os.path.exists(backup_path):
+        n = 2
+        while True:
+            backup_name = f"registry.{from_v}.{ts}-{n}.json"
+            backup_path = os.path.join(bdir, backup_name)
+            if not os.path.exists(backup_path):
+                break
+            n += 1
     shutil.copy2(registry_path, backup_path)
     print(f"\n✓ Backed up → .pb-backups/{backup_name}")
 
