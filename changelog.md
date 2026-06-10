@@ -4,12 +4,7 @@ All notable changes to Product Builder. Format follows [Keep a Changelog](https:
 
 ## [Unreleased]
 
-## [1.4.0] — 2026-06-10
-
-A major redesign of the prototype shell — every tab now shares one unified, two-column layout — together
-with the schema-migration system, **plus the v1.4 refit** (governance validator, file-based render bodies,
-CI, portability). The registry contract advances to **schema 4** (migration `0002` required; run
-`/pb:migrate`).
+## [1.4.1] — 2026-06-10
 
 ### v1.4 refit — quality, governance, portability
 
@@ -54,6 +49,12 @@ hygiene + portability. The audit harness is now the permanent regression suite.*
   `plugin.json 1.2.0` reference in `docs/architecture.md` corrected to 1.4.0.
 
 **Schema:** `CURRENT_SCHEMA = 4` — run `/pb:migrate` to upgrade an older registry.
+
+## [1.4.0] — 2026-06-10
+
+A major redesign of the prototype shell — every tab now shares one unified, two-column layout — together
+with the schema-migration system. Template + docs + commands; the registry contract gains several
+**optional, tolerated-absent** fields (schema stays at **3**, no migration required).
 
 ### Added — unified UI shell (`pb/template/prototype.html`)
 - **One page chrome for every tab** — a `pb-page-header` (title + a `?` **info dialog** documenting the

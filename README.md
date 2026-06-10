@@ -1,4 +1,4 @@
-# Product Builder v1.4.0
+# Product Builder v1.4.1
 
 A standalone, CLAUDE.md-native prototype builder for Claude Code. Turn a PRD into an interactive,
 self-documenting **5-tab prototype** — a real click-through flow you preview at desktop / tablet /
