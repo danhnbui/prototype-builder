@@ -22,7 +22,7 @@ FROM = 2
 TO = 3
 
 
-def up(reg):
+def up(reg, base_dir=None):
     import copy
     reg = copy.deepcopy(reg)
 
@@ -55,7 +55,7 @@ def up(reg):
     return reg
 
 
-def down(reg):
+def down(reg, base_dir=None):
     import copy
     reg = copy.deepcopy(reg)
 

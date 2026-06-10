@@ -26,6 +26,15 @@ def _load(path):
         return json.load(f)
 
 
+def _load_module(stem):
+    """Load a migration module by filename stem, resolved relative to this file."""
+    path = os.path.join(_HERE, stem + ".py")
+    spec = importlib.util.spec_from_file_location(stem, path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
 def _assert(cond, msg):
     if not cond:
         print(f"FAIL: {msg}")
@@ -71,8 +80,8 @@ def main():
         after_apply = _load(reg_path)
 
         _assert(
-            after_apply.get("meta", {}).get("schemaVersion") == 3,
-            "after --apply, meta.schemaVersion must be 3",
+            after_apply.get("meta", {}).get("schemaVersion") == 4,
+            "after --apply, meta.schemaVersion must be 4 (2 -> 3 -> 4)",
         )
         _assert(
             after_apply.get("meta", {}).get("device") == "desktop",
@@ -97,6 +106,21 @@ def main():
             "html" in after_apply.get("erd", {}),
             "legacy erd.html must be preserved after migration",
         )
+        # 0002: render bodies extracted to files; renderSrc set, inline render removed
+        for kind, sub in (("components", "render/components"), ("screens", "render/screens")):
+            for item in after_apply.get(kind, []):
+                _assert(
+                    "render" not in item,
+                    f"after 0002, {kind} '{item.get('id')}' must have no inline render",
+                )
+                _assert(
+                    item.get("renderSrc") == f"{sub}/{item['id']}.js",
+                    f"after 0002, {kind} '{item.get('id')}' renderSrc must point at {sub}/<id>.js",
+                )
+                _assert(
+                    os.path.isfile(os.path.join(tmpdir, item["renderSrc"])),
+                    f"after 0002, the body file {item['renderSrc']} must exist on disk",
+                )
 
         bdir = os.path.join(tmpdir, ".pb-backups")
         _assert(os.path.isdir(bdir), ".pb-backups/ must be created by --apply")
@@ -114,16 +138,21 @@ def main():
             rspec.loader.exec_module(rmod)
             with open(shell_path) as f:
                 shell = f.read()
-            html, missing = rmod.build_html(after_apply, shell)
+            resolved = rmod.load_bodies(after_apply, tmpdir)  # read renderSrc body files
+            html, missing = rmod.build_html(resolved, shell)
             _assert(
                 isinstance(html, str) and len(html) > 100,
                 "render.py build_html must return non-trivial HTML",
+            )
+            _assert(
+                not missing,
+                f"every renderFn must resolve a body after load_bodies (missing: {missing})",
             )
             print(f"  ✓ render.py build_html succeeded (missing fn bodies: {missing})")
         else:
             print("  ⚠ render.py or prototype.html not found — render validation skipped")
 
-        print("  ✓ apply migrated to schema 3, backup created\n")
+        print("  ✓ apply migrated to schema 4, bodies extracted, backup created\n")
 
         # ── Step 3: --rollback must restore pre-apply state ─────────────────────
         print("Step 3: --rollback …")
@@ -144,8 +173,8 @@ def main():
         _run(reg_path, "--apply")
         after_reapply = _load(reg_path)
         _assert(
-            after_reapply.get("meta", {}).get("schemaVersion") == 3,
-            "re-apply must stamp schemaVersion 3",
+            after_reapply.get("meta", {}).get("schemaVersion") == 4,
+            "re-apply must stamp schemaVersion 4",
         )
         backups2 = [f for f in os.listdir(bdir) if f.endswith(".json")]
         _assert(
@@ -153,6 +182,42 @@ def main():
             "each --apply must create a new backup (NEVER overwrite)",
         )
         print("  ✓ re-apply succeeded; second backup created\n")
+
+    # ── Step 5: 0002 module round-trip up→down→up is byte-identical ──────────────
+    print("Step 5: 0002 round-trip (up → down → up byte-identical) …")
+    m0002 = _load_module("0002_v13_to_v14")
+    with tempfile.TemporaryDirectory() as rt:
+        # Start from a v3 registry with inline render bodies (the demo registry).
+        demo = os.path.abspath(os.path.join(_HERE, "..", "..", "registry.demo.json"))
+        src_reg = _load(demo) if os.path.exists(demo) else _load(_FIXTURE)
+        v3 = json.loads(json.dumps(src_reg))
+        v3.setdefault("meta", {})["schemaVersion"] = 3
+        up1 = m0002.up(json.loads(json.dumps(v3)), rt)
+        down1 = m0002.down(json.loads(json.dumps(up1)), rt)
+        _assert(
+            down1 == v3,
+            "0002 down(up(reg)) must byte-identically restore the v3 registry",
+        )
+        up2 = m0002.up(json.loads(json.dumps(down1)), rt)
+        _assert(
+            up2 == up1,
+            "0002 up→down→up must be idempotent (up2 == up1)",
+        )
+    print("  ✓ 0002 round-trip is exactly reversible\n")
+
+    # ── Step 6: same-second double-apply must NOT overwrite a backup (T0.1) ──────
+    print("Step 6: same-second double-apply keeps both backups …")
+    with tempfile.TemporaryDirectory() as ss:
+        reg_path = os.path.join(ss, "registry.json")
+        shutil.copy2(_FIXTURE, reg_path)
+        _run(reg_path, "--apply")
+        # immediately roll back and re-apply within (almost certainly) the same second
+        _run(reg_path, "--rollback")
+        _run(reg_path, "--apply")
+        bdir = os.path.join(ss, ".pb-backups")
+        backups = [f for f in os.listdir(bdir) if f.endswith(".json")]
+        _assert(len(backups) >= 2, "same-second re-apply must produce two backup files")
+    print("  ✓ same-second double-apply preserved both backups\n")
 
     print("✓ All selftest steps passed.")
 
