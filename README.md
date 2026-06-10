@@ -23,6 +23,24 @@ warnings; and an ERD mock-data viewer for checking empty / sparse / overflow edg
 Restart Claude Code — the commands appear as `/pb:*`. (User-scope; the commands are global, per-project
 state stays in each prototype's folder.)
 
+**Full capability with zero external skills** — every skill the commands use ships inside the plugin
+(`pb/skills/`), so a fresh install works for anyone with no personal/employer skill set required. The
+**only** thing pb needs on your machine is **Python 3** (already present on most Macs and Linux; on Windows
+install it from python.org and tick "Add to PATH"). No other setup, no `pip install`.
+
+## Non-technical quickstart (for PMs & designers)
+
+No terminal knowledge needed — you just talk to Claude Code:
+
+1. **Install** — paste the two `/plugin` lines above into Claude Code, then **restart** it.
+2. **Start a project** — type `/pb:init` and answer a few questions about your product (or point it at a
+   PRD file). It sets things up for you.
+3. **See it live** — type `/pb:preview`. A prototype opens in your browser and updates by itself as you build.
+4. **Build by asking** — type `/pb:build` and describe the screen or change you want, in plain language.
+5. **Share it** — type `/pb:hand-off --people` to get a single self-explaining file you can send to anyone.
+
+If `/pb:init` says Python isn't installed, it will tell you exactly how to fix it for your computer.
+
 ## Commands
 
 | Command | Does |
@@ -39,7 +57,7 @@ state stays in each prototype's folder.)
 | `/pb:sync-erd` | Data — field/type/example table + ERD (decoupled) |
 | `/pb:check-drift` | Read-only drift audit of the trio vs the constitution |
 | `/pb:hand-off` | `--people` (view-only) · `--context` (portable bundle) |
-| `/pb:validate` | Scaffold a Vite / Next build from `prototype.html` |
+| `/pb:validate` | Wrap `prototype.html` in a runnable reference build (Vite/Next) — serves the single file, not a component export |
 | `/pb:migrate` | Schema migration: dry-run / `--apply` / `--rollback` / `--to <N>` |
 
 ## Quickstart
@@ -50,7 +68,8 @@ state stays in each prototype's folder.)
    registry change; no `--render` needed during the build loop.
 4. `/pb:sync-flow` / `/pb:sync-erd` — populate the UX Design and Data tabs (on demand).
 5. `/pb:hand-off --people` — a view-only artifact to share; `--context` to hand to another builder.
-6. `/pb:validate` — a real Vite/Next build when you're ready to graduate to an app.
+6. `/pb:validate` — wrap the single-file prototype in a runnable reference build (Vite/Next) to host it.
+   (It serves `prototype.html`; it does not export reusable component code — see the Engineering note below.)
 
 ## Under the hood
 

@@ -59,7 +59,9 @@ Output the audit (new / updated / axis-change counts + ids + total writes estima
 **Batch guard:** if (new+updated screens) > 1 OR (new+updated components) > 5 and `--batch` is absent → HARD FAIL (re-run with `--batch` or scope down).
 
 ## Gate G-FP3 — Token resolution (always runs)
-Collect every token reference in scope — the **union** of component `anatomy.parts[].token.name` + `spec.stack[]`, screen `elements[].tokens[]`, **and every `var(--name)` used in the in-scope `components[].render` / `screens[].render` bodies** (so a token that is used but not separately declared — e.g. spacing — is never silently skipped). Load `figma-tokens.json`. For each unique token: use the existing mapping, or propose one via `Figma:search_design_system` (query built from the token name). Pause:
+Collect every token reference in scope — the **union** of component `anatomy.parts[].token.name` + `spec.stack[]`, screen `elements[].tokens[]`, **and every `var(--name)` used in the in-scope render body files** (each entry's `renderSrc` →
+`render/components/<id>.js` / `render/screens/<id>.js`; resolve and scan it, falling back to a legacy
+inline `render` string if present) (so a token that is used but not separately declared — e.g. spacing — is never silently skipped). Load `figma-tokens.json`. For each unique token: use the existing mapping, or propose one via `Figma:search_design_system` (query built from the token name). Pause:
 ```
 ⏸ TOKEN MAPPING NEEDED
   --brand           → {DS}/Colors/brand              (VariableID:…)  [match by name]
@@ -136,3 +138,5 @@ Confirm to the user with the counts and the contracts updated. Re-running withou
 - NEVER position a frame child absolutely — auto-layout on every frame (R3).
 - NEVER hand-emit / hand-draw prototype content into Figma outside this command — every export runs these gates.
 - NEVER run Step 7 or report a push "done" while any G-FP6 invariant fails — the render audit is a hard completion gate.
+
+> **Skill degrade (NS6).** If a skill this command invokes fails to load, say so explicitly and proceed with its core intent — never silently skip the step.

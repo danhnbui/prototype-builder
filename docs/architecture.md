@@ -23,7 +23,7 @@ prototype-builder v.2/
 │  └─ marketplace.json          # marketplace "product-builder" → plugin pb (source ./pb)
 ├─ pb/                          # the plugin
 │  ├─ .claude-plugin/
-│  │  └─ plugin.json            # name "pb", version 1.2.0
+│  │  └─ plugin.json            # name "pb", version 1.4.0
 │  ├─ commands/                 # the 12 /pb:* command bodies (*.md)
 │  ├─ tools/
 │  │  └─ render.py              # deterministic registry.json → prototype.html generator
@@ -55,14 +55,16 @@ slice** — a token, one component, one screen — never the whole file.
 |---|---|---|
 | `meta` | `name`, `overview{objectives, principles[]}`, `userInsights{quantitative, researchSummary, executiveSummary}`, `tradeoffs[]`, `others` | Project Summary |
 | `tokens` | `{ "<name>": { value, kind } }` — `kind ∈ color\|radius\|space\|size\|type\|shadow\|alias` | all tabs (CSS vars) |
-| `components[]` | organism shape: `id` (kebab, unique), `name`, `renderFn` (`renderCmp{PascalCase}`), `properties`, `anatomy`, `spec`, `uiLogic`, `usage`, and a `render` body string | UI Design · component |
-| `screens[]` | `id` (kebab), `name`, `renderFn`, `layout`, `elements[]`, `logicNotes[]` | Prototype + UI Design · screen |
+| `components[]` | organism shape: `id` (kebab, unique), `name`, `renderFn` (`renderCmp{PascalCase}`), `renderSrc` (`render/components/<id>.js`), `properties`, `anatomy`, `spec`, `uiLogic`, `usage` | UI Design · component |
+| `screens[]` | `id` (kebab), `name`, `renderFn`, `renderSrc` (`render/screens/<id>.js`), `layout`, `elements[]`, `logicNotes[]` | Prototype + UI Design · screen |
 | `staleness` | per-tab `{ lastSyncedPromptCount, currentPromptCount }` | flow / handoff / erd badges |
 | `flow` / `erd` | `{ populated, ... }` | UX Design / Data (decoupled tabs) |
 | `config` | `{ viewOnly, cover, iconCdn }` | view-only hand-off + DS-neutral icons |
 
-**Data only.** Render-function *bodies* live as `render` strings in `components[]` / `screens[]`;
-the generator emits them — they are never stored as live JS in the registry. Figma fields
+**Data only.** Render-function *bodies* live as real `.js` files (`render/components/<id>.js`,
+`render/screens/<id>.js`) referenced by each entry's `renderSrc`; the generator reads those files and
+emits them (v1.4 schema 4 — a legacy inline `render` string still works for backward compatibility).
+The registry itself holds no render code. Figma fields
 (`figmaId`, `figmaComponentSetId`, `dsMatch`, `figmaFrameId`) are written back by
 `/pb:build-figma-handoff`. Ephemeral UI state (`handoff.view`, `selectedScreenId`,
 `selectedElementId`) is rebuilt fresh on each load and **never persisted** — which is why a click
@@ -76,9 +78,9 @@ DATA; `pb/tools/render.py` produces the view, at ~0 model tokens.
 ```
 registry.json  ──render.py──▶  prototype.html
                   │
-                  ├─ emits each render fn from its `render` body string:
-                  │     window["renderCmpX"] = function(props){ <render> };
-                  └─ inlines the registry (minus bulky render strings) into the
+                  ├─ reads each body from its renderSrc file and emits the render fn
+                  │     window["renderCmpX"] = function(props){ <body, </ escaped to <\/> };
+                  └─ inlines the registry (already render-code-free) into the
                         shell's /*__PB_REGISTRY_START__*/…/*__PB_REGISTRY_END__*/ slot
 ```
 

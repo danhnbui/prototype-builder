@@ -1,27 +1,32 @@
 <!DOCTYPE html>
 <!--
   ============================================================================
-  PROTOTYPE BUILDER — Single-file 5-tab UX-test prototype template
+  PRODUCT BUILDER — the rendered prototype shell
   ============================================================================
 
-  HOW TO USE
+  DO NOT HAND-EDIT THIS FILE. It is a deterministic render of registry.json
+  produced by pb/tools/render.py. The source of truth is registry.json (data)
+  plus the render body files in render/components/*.js and render/screens/*.js.
+  Hand edits are overwritten on the next render.
+
+  HOW IT WORKS
   ─────────────────────────────────────────────────────────────
-  1. Copy this file:           cp template.html my-prototype.html
-  2. Open in any browser       (double-click — no build, no server needed).
-  3. Edit in your editor       (TODO blocks below mark what to fill in).
-  4. Refresh browser to see changes.
-  5. Share by sending the file or hosting it (GitHub Pages / Vercel / Netlify).
+  • Build with the /pb:* commands — /pb:build patches registry.json; new
+    components/screens get a render/<kind>/<id>.js body file.
+  • Preview live with /pb:preview (watches registry.json + render/*.js and
+    live-reloads the browser).
+  • Regenerate this file with /pb:build --render (also auto-run at /pb:hand-off
+    and /pb:validate). Never copy or edit it by hand.
 
   THE 5 TABS
   ─────────────────────────────────────────────────────────────
-  1. Prototype           ← the live testable app (you build this)
-  2. Project Summary     ← Objective · Principles · Key Rules
-  3. User Flow           ← states + transitions diagram (zoomable canvas)
-  4. Component Variants  ← custom organisms with live variant toggle
-  5. ERD                 ← data model for a future production version
+  1. Prototype        ← the live, interactive flow (data-* runtime)
+  2. Project Summary  ← Overview · Insights · Trade-offs · Others
+  3. UX Design        ← wireflow (Mermaid) + user stories / QA test cases
+  4. UI Design        ← components by scope + level, spec drawer, design-system bar
+  5. Data             ← ERD diagram / table + entity inspector
 
-  Read `PROTOTYPE-BUILDER.md` (sibling file) for the full author guide.
-  Agents: load `.claude/skills/prototype-builder/SKILL.md` for the playbook.
+  Full data contract + render inventory: prototype-builder.md (the playbook).
 ============================================================================
 -->
 <html lang="en">
@@ -66,6 +71,7 @@
       --fill-active-primary:    var(--brand);
       --fill-active-secondary:  var(--brand-soft);
       --fill-hover-secondary:   var(--neutral-10);
+      --danger:                 #dc2626;   /* error/validation runtime — registry token overrides this */
 
       /* Fonts */
       --font-heading: 'Poppins', system-ui, -apple-system, sans-serif;
@@ -522,7 +528,14 @@
     }
     .sync-button.is-copied:hover { background: #10b981; }
     /* View-only (/pb:hand-off --people): hide every authoring CTA + the Figma push panel. */
-    body.view-only .sync-button, body.view-only .fp-panel { display: none !important; }
+    /* View-only (/pb:hand-off --people): hide EVERY authoring affordance — the sync bars,
+       the Figma push panel, and any empty-state build CTA (T3.3). */
+    body.view-only .sync-button,
+    body.view-only .sync-bar,
+    body.view-only .fp-panel,
+    body.view-only .empty-state-actions,
+    body.view-only .empty-state-cta { display: none !important; }
+    .empty-state-note { margin: 8px 0 0; font: 400 13px/1.5 var(--font-body); color: var(--text-tertiary); font-style: italic; }
     .pb-cover { padding: 18px 24px; background: var(--brand); color: #fff; display: flex; flex-direction: column; gap: 2px; font-family: var(--font-body); }
     .pb-cover strong { font-family: var(--font-heading); font-size: 18px; }
     .pb-cover span { font-size: 13px; opacity: 0.92; }
@@ -1600,40 +1613,6 @@
     .flow-stage-flow { padding: 28px 24px; }
     .flow-stage-flow svg { width: auto !important; height: auto !important; max-width: 100%; display: block; margin: 0 auto; }
     /* v0.3.14 — Wireflow: clickable screen-name nodes + numbered note badges. */
-    .flow-stage-flow .node[data-wireflow-screen] { cursor: pointer; }
-    .flow-stage-flow .node[data-wireflow-screen]:hover > rect,
-    .flow-stage-flow .node[data-wireflow-screen]:hover > polygon { filter: brightness(0.96); }
-    /* v0.3.15 — Wireflow CARD nodes (Mermaid HTML labels). */
-    .flow-stage-flow .wf-card { width: 180px; padding: 12px 14px; background: #ffffff; font-family: Inter, ui-sans-serif, system-ui; text-align: left; box-sizing: border-box; }
-    .flow-stage-flow .wf-card-head { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; padding-bottom: 10px; border-bottom: 1px solid #f4f4f5; }
-    .flow-stage-flow .wf-card-title { font: 600 13px/1.25 Inter; color: #0f172a; letter-spacing: -0.005em; }
-    .flow-stage-flow .wf-badge { display: inline-block; font: 700 9px/1 Inter; letter-spacing: 0.06em; padding: 3px 6px; border-radius: 3px; text-transform: uppercase; align-self: flex-start; }
-    .flow-stage-flow .wf-badge-done        { background: #d1fae5; color: #065f46; }
-    .flow-stage-flow .wf-badge-in-progress { background: #dbeafe; color: #1e40af; }
-    .flow-stage-flow .wf-badge-new         { background: #fef3c7; color: #92400e; }
-    .flow-stage-flow .wf-badge-attention   { background: #fed7aa; color: #c2410c; }
-    .flow-stage-flow .wf-badge-asap        { background: #fee2e2; color: #991b1b; }
-    .flow-stage-flow .wf-badge-review      { background: #e9d5ff; color: #6b21a8; }
-    .flow-stage-flow .wf-badge-pause       { background: #e5e7eb; color: #4b5563; }
-    .flow-stage-flow .wf-card-body { padding: 2px 0 0; }
-    .flow-stage-flow .wf-mini { display: flex; flex-direction: column; gap: 6px; }
-    .flow-stage-flow .wf-input { height: 10px; background: #f4f4f5; border: 1px solid #e4e4e7; border-radius: 3px; }
-    .flow-stage-flow .wf-cta { height: 14px; background: #0f172a; border-radius: 3px; margin-top: 4px; }
-    .flow-stage-flow .wf-otp-row { display: flex; gap: 4px; }
-    .flow-stage-flow .wf-otp-row > span { flex: 1; height: 14px; background: #ffffff; border: 1px solid #e4e4e7; border-radius: 3px; }
-    .flow-stage-flow .wf-mini-state { align-items: center; padding: 6px 0; }
-    .flow-stage-flow .wf-state-success { color: #065f46; }
-    .flow-stage-flow .wf-state-block   { color: #991b1b; }
-    .flow-stage-flow .wf-state-mark { width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font: 700 18px/1 Inter; color: #fff; margin: 4px 0; }
-    .flow-stage-flow .wf-state-success .wf-state-mark { background: #10b981; }
-    .flow-stage-flow .wf-state-block   .wf-state-mark { background: #dc2626; }
-    .wireflow-preview-frame { background: #f4f4f5; border: 1px solid var(--border); border-radius: 8px; padding: 16px; max-height: 60vh; overflow-y: auto; }
-    .wireflow-preview-footer { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border); font: 400 11px/1.5 var(--font-body); color: var(--text-tertiary); }
-    .flow-doc-notes { list-style: none; padding: 0; margin: 0; }
-    .flow-doc-notes > li { display: grid; grid-template-columns: 22px 1fr; gap: 10px; align-items: start; padding: 8px 0; border-bottom: 1px dashed var(--border); font: 400 12px/1.5 var(--font-body); color: var(--text-active-secondary); }
-    .flow-doc-notes > li:last-child { border-bottom: 0; }
-    .flow-doc-notes > li > div strong { color: var(--text-active-primary); font-weight: 600; }
-    .flow-doc-note-num { display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; background: #fde68a; color: #78350f; border-radius: 50%; font: 700 11px/1 var(--font-body); flex-shrink: 0; margin-top: 1px; }
     .flow-zoom-controls {
       position: absolute; top: 16px; right: 16px; z-index: 10;
       display: flex; flex-direction: column; gap: 2px;
@@ -2195,13 +2174,18 @@
        prompt that mentions the command name as a keyword — Claude follows
        the routing rule in CLAUDE.md to find and execute the actual body. */
     const CHAT_PROMPTS = {
-      '/pb:init':       'Run pb:init to set up this prototype project — clones agent-skill-set, copies template.html, prompts for DS + stack, writes constitution locks.',
-      '/pb:build':          'Run pb:build to generate Tab 1 (Prototype) and Tab 4-Component from the current spec/plan/tasks (runs inline drift check first).',
-      '/pb:sync-flow':      'Run pb:sync-flow to generate Tab 3 (User Flow) from spec.md, following the 18 rules in docs/USER-FLOW-GUIDE.md.',
-      '/pb:sync-erd':       'Run pb:sync-erd to generate Tab 5 (ERD) as a Mermaid erDiagram with the 5 PK/FK/cardinality guardrails.',
-      '/pb:build':        'Run pb:build to generate Tab 4-Screen (Design Handoff) — 7:3 layout, DS tokens + sizing only, no code.',
-      '/pb:init': 'Run pb:init to re-pull the pinned agent-skill-set repo and optionally upgrade the tag.',
-      '/pb:check-drift':    'Run pb:check-drift to audit Tab 1, Tab 2, and Tab 4-Component for contradictions against the constitution (report-only, no writes).',
+      '/pb:init':        'Run /pb:init to scaffold this project — PRD intake, set the Stack + DS locks, seed registry.json + memory/.',
+      '/pb:specify':     'Run /pb:specify to produce the spec/PRD — prototype-shaped user stories with JTBD and the tabs each affects.',
+      '/pb:clarify':     'Run /pb:clarify to capture user insights + UI-logic trade-offs into the Project Summary and decisions.md.',
+      '/pb:plan':        'Run /pb:plan to produce the implementation plan + a per-tab task breakdown (each task: acceptance + skill).',
+      '/pb:build':       'Run /pb:build to apply a targeted registry.json patch (trio-gated); add --render to regenerate prototype.html.',
+      '/pb:preview':     'Run /pb:preview to start the live dev server — it watches registry.json + render/*.js and reloads the browser.',
+      '/pb:sync-flow':   'Run /pb:sync-flow to (re)generate the UX Design tab — a Mermaid wireflow plus a QA test checklist.',
+      '/pb:sync-erd':    'Run /pb:sync-erd to (re)generate the Data tab — a field/type/example table plus a Mermaid erDiagram (PK/FK/cardinality guardrails).',
+      '/pb:check-drift': 'Run /pb:check-drift to audit the trio (screens, components, logic) against the constitution (report-only, no writes).',
+      '/pb:hand-off':    'Run /pb:hand-off --people for a view-only self-documenting prototype.html, or --context for a portable bundle.',
+      '/pb:validate':    'Run /pb:validate to scaffold a runnable reference build from prototype.html.',
+      '/pb:migrate':     'Run /pb:migrate to apply a versioned registry schema migration (dry-run by default; --apply to execute).',
     };
     function chatPromptFor(slashCommand) {
       if (CHAT_PROMPTS[slashCommand]) return CHAT_PROMPTS[slashCommand];
@@ -2624,6 +2608,17 @@
 
     /* v0.3.2 — empty-state helper for tabs that haven't been synced yet. */
     function renderEmptyState({ icon, title, body, ctaLabel, command, label, learnHref, learnLabel, meta }) {
+      // View-only (/pb:hand-off --people): an unpopulated tab must show NO authoring CTA.
+      // Render a neutral note instead of the build action (T3.3).
+      if (VIEW_ONLY) {
+        return `
+        <div class="empty-state">
+          <div class="empty-state-icon">${icon || ''}</div>
+          <h3 class="empty-state-title">${title}</h3>
+          <p class="empty-state-note">Not included in this hand-off.</p>
+        </div>
+      `;
+      }
       return `
         <div class="empty-state">
           <div class="empty-state-icon">${icon || ''}</div>
@@ -3106,7 +3101,9 @@
       return String(s)
         .replace(/&/g, '&amp;')
         .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;');
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')   // safe inside double-quoted attributes (title="…")
+        .replace(/'/g, '&#39;');   // safe inside single-quoted onclick handlers (…('${pbEscape(id)}'))
     }
 
     /* =========================================================================
@@ -3187,7 +3184,6 @@
             rect.setAttribute('ry', '24');
           });
           // v0.3.14 — Wireflow decorations: click-to-preview + numbered note badges.
-          if (typeof decorateWireflowNodes === 'function') decorateWireflowNodes();
           stage.style.width = 'auto';
           stage.style.height = 'auto';
           stage.style.marginLeft = '0';
@@ -3542,120 +3538,6 @@
         requestAnimationFrame(recomputeHandoffBounds);
       }
     });
-
-    /* =========================================================================
-       v0.3.14 — Wireflow extensions for Tab 3.
-       /pb:sync-flow populates these registries with
-       the screen renderers and flow notes for the current spec. The
-       decorate helper makes screen-name nodes clickable (preview popover)
-       and renders amber-circle note numbers on annotated nodes.
-       ========================================================================= */
-    /* Sync-flow OVERWRITES this with one entry per screen-mapped Mermaid node, e.g.:
-       { S: { fn: 'renderSignInScreen', label: 'Sign in Page', status: 'DONE', preview: 'form-2' } }
-       Statuses: NEW · IN PROGRESS · DONE · ATTENTION · ASAP · REVIEW · PAUSE
-       Preview kinds: form-1 · form-2 · form-3 · otp · success · block */
-    const WIREFLOW_SCREENS = {};
-    /* Sync-flow OVERWRITES this with { <noteNumber>: '<mermaidNodeId>' } — note numbers
-       must match the numbered list rendered in .flow-doc-notes inside the sidebar. */
-    const WIREFLOW_NOTES   = {};
-
-    /* v0.3.15 — Mini wireframe sketch HTML, embedded inside each Mermaid card label. */
-    function wfMiniPreview(type) {
-      switch (type) {
-        case 'form-1': return "<div class='wf-mini'><div class='wf-input'></div><div class='wf-cta'></div></div>";
-        case 'form-2': return "<div class='wf-mini'><div class='wf-input'></div><div class='wf-input'></div><div class='wf-cta'></div></div>";
-        case 'form-3': return "<div class='wf-mini'><div class='wf-input'></div><div class='wf-input'></div><div class='wf-input'></div><div class='wf-cta'></div></div>";
-        case 'otp':    return "<div class='wf-mini'><div class='wf-otp-row'><span></span><span></span><span></span><span></span><span></span><span></span></div><div class='wf-cta'></div></div>";
-        case 'success':return "<div class='wf-mini wf-mini-state wf-state-success'><div class='wf-state-mark'>&#10003;</div></div>";
-        case 'block':  return "<div class='wf-mini wf-mini-state wf-state-block'><div class='wf-state-mark'>!</div></div>";
-        default:       return "<div class='wf-mini'></div>";
-      }
-    }
-    function wfCardHtml(entry) {
-      const status = entry.status || 'NEW';
-      const statusCls = 'wf-badge-' + status.toLowerCase().replace(/\s+/g, '-');
-      /* Inline width+height so Mermaid measures the foreignObject correctly. */
-      return "<div class='wf-card' style='width:190px;height:148px'>" +
-        "<div class='wf-card-head'>" +
-          "<span class='wf-card-title'>" + entry.label + "</span>" +
-          "<span class='wf-badge " + statusCls + "'>" + status + "</span>" +
-        "</div>" +
-        "<div class='wf-card-body'>" + wfMiniPreview(entry.preview) + "</div>" +
-      "</div>";
-    }
-
-    function openScreenPreviewPopover(nodeId, anchorEl) {
-      const entry = WIREFLOW_SCREENS[nodeId];
-      if (!entry || typeof window[entry.fn] !== 'function') return;
-      document.querySelectorAll('.copy-popover, .copy-popover-backdrop').forEach(el => el.remove());
-      window.removeEventListener('keydown', copyPopoverKeyHandler);
-      window.removeEventListener('resize', repositionCopyPopover);
-
-      const backdrop = document.createElement('div');
-      backdrop.className = 'copy-popover-backdrop';
-      backdrop.addEventListener('click', closeCopyPopover);
-
-      const pop = document.createElement('div');
-      pop.className = 'copy-popover';
-      pop.setAttribute('role', 'dialog');
-      pop.setAttribute('aria-label', 'Screen preview: ' + entry.label);
-      pop.style.width = '420px';
-      pop.style.maxHeight = '78vh';
-      pop.style.overflowY = 'auto';
-      pop.innerHTML =
-        '<button class="copy-popover-close" type="button" aria-label="Close" onclick="closeCopyPopover()">' + COPY_POPOVER_ICONS.close + '</button>' +
-        '<div class="copy-popover-cmd-label" style="margin-bottom:14px"><span>' + entry.label + '</span></div>' +
-        '<div class="wireflow-preview-frame">' + window[entry.fn]() + '</div>' +
-        '<div class="wireflow-preview-footer">Full spec (tokens · sizing · states) lives in <strong>Tab 4 → Design Handoff → Screen</strong>.</div>';
-
-      document.body.appendChild(backdrop);
-      document.body.appendChild(pop);
-      positionCopyPopover(pop, anchorEl);
-      setTimeout(() => { pop.classList.add('is-visible'); positionCopyPopover(pop, anchorEl); }, 10);
-      window.addEventListener('keydown', copyPopoverKeyHandler);
-      window.addEventListener('resize', repositionCopyPopover);
-    }
-
-    function decorateWireflowNodes() {
-      const stage = document.getElementById('flow-stage');
-      if (!stage) return;
-      const notesByNode = {};
-      Object.entries(WIREFLOW_NOTES).forEach(([num, nodeId]) => {
-        (notesByNode[nodeId] = notesByNode[nodeId] || []).push(num);
-      });
-      stage.querySelectorAll('.node').forEach(n => {
-        const m = (n.id || '').match(/^flowchart-([A-Za-z]+)/);
-        if (!m) return;
-        const nodeId = m[1];
-        if (WIREFLOW_SCREENS[nodeId]) {
-          n.style.cursor = 'pointer';
-          n.setAttribute('data-wireflow-screen', nodeId);
-          if (!n._wireflowClickWired) {
-            n.addEventListener('click', function (e) {
-              e.stopPropagation();
-              openScreenPreviewPopover(nodeId, n);
-            });
-            n._wireflowClickWired = true;
-          }
-        }
-        if (notesByNode[nodeId] && !n.querySelector('.wireflow-note-badge')) {
-          const rect = n.querySelector('rect, polygon, ellipse');
-          if (!rect) return;
-          const bb = rect.getBBox();
-          notesByNode[nodeId].forEach((num, idx) => {
-            const cx = bb.x + bb.width - 6 + (idx * 18);
-            const cy = bb.y - 6;
-            const g  = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-            g.setAttribute('class', 'wireflow-note-badge');
-            g.innerHTML =
-              '<circle cx="' + cx + '" cy="' + cy + '" r="10" fill="#fde68a" stroke="#f59e0b" stroke-width="1.5"></circle>' +
-              '<text x="' + cx + '" y="' + (cy + 1) + '" text-anchor="middle" dominant-baseline="middle" ' +
-              'font-family="Inter, system-ui" font-size="11" font-weight="700" fill="#78350f">' + num + '</text>';
-            n.appendChild(g);
-          });
-        }
-      });
-    }
 
     /* v0.3.0 — Component view as vertical card list. Click card → spec drawer. */
     /* The component card list for the active scope (Global/Local). Selection + Push live

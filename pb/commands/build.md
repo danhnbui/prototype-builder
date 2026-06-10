@@ -56,11 +56,15 @@ The **trio** = a **screen**, a **component**, or **logic** (states, validation, 
 ## 4 · Apply the targeted patch
 Edit the **one** touched slice in `registry.json` (changed keys only):
 - **token** → set `tokens.<name>.value` (create one tagged `"scope":"local"` if none fits; never a raw hex/px elsewhere).
-- **component** → patch the `components[]` entry: a `properties` default, the `render` body string,
-  `anatomy`/`spec`, etc.
-- **screen** → patch the `screens[]` entry: add/zorder an element, change `layout`, a `label`, a `logicNotes` line.
+- **component** → patch the `components[]` entry: a `properties` default, `anatomy`/`spec`, etc. To
+  change what it renders, **edit its body file** — `render/components/<id>.js` (pointed at by
+  `renderSrc`). The registry holds no render code (v1.4).
+- **screen** → patch the `screens[]` entry: add/zorder an element, change `layout`, a `label`, a
+  `logicNotes` line. To change what it renders, edit `render/screens/<id>.js`.
 - **new component / screen** → append an entry with a **kebab-case** `id`, a `renderFn`
-  (`renderCmp{PascalCase}` / `renderScreen{PascalCase}`), and a `render` body string.
+  (`renderCmp{PascalCase}` / `renderScreen{PascalCase}`), and a `renderSrc`
+  (`render/components/<id>.js` / `render/screens/<id>.js`); create that `.js` body file with the render
+  code. (A legacy inline `render` string still works but is discouraged — `check.py` warns if both are set.)
 
 **Do not touch `prototype.html`. Do not re-render.** State what slice changed and stop (unless `--render`).
 
@@ -81,6 +85,18 @@ Two more rules:
 - **`meta.device`** (`'desktop'|'tablet'|'mobile'`) sets the Prototype's default device frame. It's seeded at
   `/pb:init`; change it here only if the prototype's target form factor changes.
 
+## 4.5 · Validate the contract (advisory, after every patch)
+Run the contract validator on the patched registry — **read-only, no render** (so the
+token levers NS2/NS3 stay intact). From the project root:
+```
+python3 "${CLAUDE_PLUGIN_ROOT}/tools/check.py" registry.json
+```
+Surface any `ERROR`/`WARN` lines to the user as advice (kebab/renderFn/orgId/token-kind
+issues, a `</script>` page-killer, raw hex/px, a missing `danger` token). This is
+**advisory** in the loop — it never blocks a build tweak — but the same check runs
+`--strict` and **fail-closed** at `/pb:hand-off` and `/pb:validate` before any render,
+so fixing findings now avoids a blocked exit later.
+
 ## 5 · Render — batched, deterministic, on demand only
 Rendering is the deterministic generator — **never** hand-write HTML (the G0.5 spike proved that is
 ~2–3× worse). From the project root:
@@ -94,3 +110,5 @@ python3 "${CLAUDE_PLUGIN_ROOT}/tools/render.py" registry.json \
 The render machinery (`pbRender*`, the 4-tab spec drawer, wireflow, ERD) is ported as-is and reads from
 `PB_DATA`, which the shell's adapter rebuilds from `registry.json` each load. You produce **DATA**;
 the generator + adapter produce the view.
+
+> **Skill degrade (NS6).** If a skill this command invokes fails to load, say so explicitly and proceed with its core intent — never silently skip the step.

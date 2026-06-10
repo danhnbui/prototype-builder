@@ -10,7 +10,9 @@ constitution. Produces a report only — it **never** writes to `registry.json` 
 ## 1 · Load inputs
 - `memory/constitution.md` → `## Principles`.
 - `registry.json` → the trio: `screens[]`, `components[]`, and the logic in `elements[].uiLogic` /
-  `components[].uiLogic` / `screens[].logicNotes`.
+  `components[].uiLogic` / `screens[].logicNotes`. When a component/screen has a `renderSrc`, read its
+  body file (`render/components/<id>.js` / `render/screens/<id>.js`) too — that is where the actual
+  markup/logic lives in v1.4.
 
 If an input is missing → HARD FAIL with the missing-file message. If Principles is empty →
 `"No principles to check against."` and end. (`$ARGUMENTS` may name one principle, e.g. `principle #3`,

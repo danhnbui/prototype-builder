@@ -49,8 +49,8 @@ Key points:
   it on a trio write. A drift contradiction pauses with `⏸ DRIFT` and, on override, appends to
   `memory/decisions.md`.
 - **The patch is minimal.** Only the changed keys of the one touched slice are written. New
-  components/screens append an entry with a kebab-case `id`, a `renderFn`, and a `render` body
-  string.
+  components/screens append an entry with a kebab-case `id`, a `renderFn`, and a `renderSrc`, plus
+  a `render/{components,screens}/<id>.js` body file holding the render code (v1.4 schema 4).
 - **Render is batched + deterministic.** Step 5 shells out to the generator; the model never
   hand-emits HTML (the G0.5 spike proved that ~2–3× worse).
 

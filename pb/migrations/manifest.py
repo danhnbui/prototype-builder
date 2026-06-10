@@ -1,7 +1,7 @@
 """
 pb/migrations/manifest.py — Schema version constant + migration chain.
 
-CURRENT_SCHEMA = 3 is the single source of truth for the v1.3 registry contract.
+CURRENT_SCHEMA = 4 is the single source of truth for the v1.4 registry contract.
 It is intentionally decoupled from the plugin's SemVer in plugin.json:
   - Plugin SemVer bumps on any release (features, fixes, docs, refactors).
   - CURRENT_SCHEMA bumps ONLY when the registry/template contract changes
@@ -10,8 +10,12 @@ It is intentionally decoupled from the plugin's SemVer in plugin.json:
 Migration module contract — each 000N_slug.py must export:
   FROM: int           — schema version this migration reads
   TO: int             — schema version this migration produces
-  up(reg) -> dict     — upgrade; idempotent where feasible; return the modified dict
-  down(reg) -> dict   — best-effort rollback; caveats documented per module
+  up(reg, base_dir=None) -> dict   — upgrade; idempotent where feasible; return the
+                        modified dict. base_dir (the registry's directory) is passed by
+                        the runner so a migration may read/write sidecar files (e.g.
+                        0002 extracts render bodies to render/*.js). File I/O happens
+                        only on --apply. Migrations that don't need it ignore the arg.
+  down(reg, base_dir=None) -> dict — best-effort rollback; caveats documented per module
   describe() -> str   — one-line human summary shown in the dry-run plan
   memory_notes() -> str | None  — (optional) advisory text surfaced to the user at
                         --apply for rule changes they must apply by hand to
@@ -26,12 +30,13 @@ Phase 3–4 non-goals (see docs/migrations.md):
 import importlib.util
 import os
 
-CURRENT_SCHEMA = 3
+CURRENT_SCHEMA = 4
 
 # Ordered registry: (FROM, TO, filename_stem).
 # Add a new tuple here when authoring a new migration.
 _REGISTRY = [
     (2, 3, "0001_v12_to_v13"),
+    (3, 4, "0002_v13_to_v14"),
 ]
 
 

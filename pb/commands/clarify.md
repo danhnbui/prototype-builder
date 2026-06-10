@@ -31,3 +31,5 @@ For **each** trade-off, append an entry to `memory/decisions.md` in the template
 
 ## Result
 Tab 2 (User Insights + Trade-offs) synced; one `decisions.md` entry per trade-off. **Do not render.**
+
+> **Skill degrade (NS6).** If a skill this command invokes fails to load, say so explicitly and proceed with its core intent — never silently skip the step.

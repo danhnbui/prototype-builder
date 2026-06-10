@@ -7,8 +7,53 @@ All notable changes to Product Builder. Format follows [Keep a Changelog](https:
 ## [1.4.0] — 2026-06-10
 
 A major redesign of the prototype shell — every tab now shares one unified, two-column layout — together
-with the schema-migration system. Template + docs + commands; the registry contract gains several
-**optional, tolerated-absent** fields (schema stays at **3**, no migration required).
+with the schema-migration system, **plus the v1.4 refit** (governance validator, file-based render bodies,
+CI, portability). The registry contract advances to **schema 4** (migration `0002` required; run
+`/pb:migrate`).
+
+### v1.4 refit — quality, governance, portability
+
+*Safety net + governance + the strategic move of render bodies out of JSON into real files, + shell
+hygiene + portability. The audit harness is now the permanent regression suite.*
+
+**Safety net (Phase 0)**
+- **No release ships red.** `.github/workflows/ci.yml`: a `unit` job (migrations selftest · golden render
+  twice → identical SHA-256 · render-time budget · `check.py --strict` clean on golden · all seeded
+  violations caught · shell hygiene lint) and an `e2e` job (Playwright chromium smoke). Fixtures committed
+  under `fixtures/`; tests under `tests/`.
+- **Backup-collision bug fixed.** `migrate_runner.py` no longer overwrites a backup on a same-second
+  re-apply (appends `-2`, `-3`, …; `_latest_backup` sorts by mtime).
+- **Friendly render errors.** `render.py` reports invalid JSON / missing files in one line, exit 2, no traceback.
+
+**Governance (Phase 1)**
+- **The contract is machine-checked.** New `pb/tools/check.py` (stdlib) validates shape, kebab/unique ids,
+  the `renderFn` naming contract, `orgId` resolution, token `kind`, a `</script>` page-killer (error), raw
+  hex/px (warn; `--strict` → error), the runtime-required `danger` token, and flow/erd shape. Wired
+  advisory into `/pb:build` and **fail-closed** (`--strict`) before `/pb:hand-off` and `/pb:validate`.
+- **Out-of-box danger gap closed.** The template seeds a `danger` token and the shell `:root` carries a
+  `--danger` fallback, so a fresh project's validation border is red with zero manual token work.
+- **`pbEscape` hardened** to escape `"` and `'` (names with quotes are safe in attributes/handlers).
+
+**Render bodies are real files (Phase 2, schema 3 → 4)**
+- Each component/screen carries a `renderSrc` → `render/components/<id>.js` / `render/screens/<id>.js`;
+  `render.py` reads and compiles them. Lintable, diffable, no triple-escaping. **Measured:** the golden
+  registry's resident state shrank **28.3%** (16,036 → 11,497 bytes); render holds at **0.7 ms** @ 50/20.
+- Migration `0002_v13_to_v14` extracts/re-inlines bodies and is exactly reversible (selftest round-trip).
+- **Page-killer eliminated.** All emitted bodies pass a `</` → `<\/` escape (a `</script>` body now boots).
+- `serve.py` watches `render/**/*.js`; `/pb:build`, `/pb:hand-off --context`, `/pb:init --import`,
+  `check-drift`, and the Figma token scan all account for the body files.
+
+**Shell hygiene + honest contracts (Phase 3)**
+- **`CHAT_PROMPTS` deduped + rewritten** against the real `/pb:*` command set; removed v0.4
+  `agent-skill-set` / `USER-FLOW-GUIDE` references.
+- **Dead wireflow feature deleted** (D2) — `WIREFLOW_SCREENS`/`WIREFLOW_NOTES`/`wfCardHtml` and their CSS;
+  `node/status/preview` stripped from `sync-flow.md` + the playbook so command demands match the renderer 1:1.
+- **View-only leak fixed** — `/pb:hand-off --people` hides every authoring CTA (sync bars, Figma panel,
+  empty-state actions); unpopulated tabs render a neutral "Not included in this hand-off."
+- **Truthful shell header** (no `cp template.html`, correct tab names, "do not hand-edit"); stale
+  `plugin.json 1.2.0` reference in `docs/architecture.md` corrected to 1.4.0.
+
+**Schema:** `CURRENT_SCHEMA = 4` — run `/pb:migrate` to upgrade an older registry.
 
 ### Added — unified UI shell (`pb/template/prototype.html`)
 - **One page chrome for every tab** — a `pb-page-header` (title + a `?` **info dialog** documenting the

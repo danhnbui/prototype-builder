@@ -1,0 +1,456 @@
+{
+  "_about": "Golden fixture \u2014 a clean, fully-tokenized 3-component / 3-screen dogfood project. CI renders this twice and asserts byte-identical output, checks render-time budget, and runs check.py --strict (must be CLEAN: no raw hex/px in render bodies, every orgId resolves, danger token present). e2e_smoke.py boots it through serve.py. Keep it token-only \u2014 it is the reference for Principle 2 (token-only styling).",
+  "meta": {
+    "name": "Acme Onboarding (golden)",
+    "schemaVersion": 4,
+    "device": "desktop",
+    "devices": [
+      "desktop",
+      "mobile"
+    ],
+    "designSystem": {
+      "name": "Acme DS",
+      "designLink": "https://www.figma.com",
+      "codeLibrary": "https://github.com/danhnbui/prototype-builder",
+      "linked": true
+    },
+    "overview": {
+      "objectives": "Let new users create an account and reach their dashboard in under 60 seconds, validating the sign-up flow before production.",
+      "principles": [
+        {
+          "num": 1,
+          "title": "One job per screen",
+          "body": "Each screen asks for exactly one decision or input set."
+        },
+        {
+          "num": 2,
+          "title": "Token-only styling",
+          "body": "No raw hex or px \u2014 every value is a design token."
+        },
+        {
+          "num": 3,
+          "title": "Atomic composition",
+          "body": "Build atoms then molecules then organisms then screens; never inline a one-off."
+        }
+      ]
+    },
+    "userInsights": {
+      "quantitative": "62% of drop-off happens on the password step.",
+      "researchSummary": "Users distrust forms that don't explain password rules up front.",
+      "executiveSummary": "Reduce sign-up friction by surfacing validation inline."
+    },
+    "tradeoffs": [
+      {
+        "title": "Inline vs. on-submit validation",
+        "question": "When do we validate?",
+        "options": "Inline | On submit",
+        "decision": "Inline",
+        "why": "Catches errors before the user commits.",
+        "tabsAffected": "Prototype, UX Design"
+      }
+    ],
+    "others": null
+  },
+  "tokens": {
+    "brand": {
+      "value": "#4f46e5",
+      "kind": "color"
+    },
+    "on-brand": {
+      "value": "#ffffff",
+      "kind": "color"
+    },
+    "danger": {
+      "value": "#dc2626",
+      "kind": "color"
+    },
+    "surface": {
+      "value": "#ffffff",
+      "kind": "color"
+    },
+    "text-muted": {
+      "value": "#5e6873",
+      "kind": "color"
+    },
+    "radius-small": {
+      "value": "8px",
+      "kind": "radius"
+    },
+    "radius-medium": {
+      "value": "16px",
+      "kind": "radius"
+    },
+    "border-width": {
+      "value": "1px",
+      "kind": "size"
+    },
+    "space-2": {
+      "value": "8px",
+      "kind": "space"
+    },
+    "space-3": {
+      "value": "12px",
+      "kind": "space"
+    },
+    "space-4": {
+      "value": "16px",
+      "kind": "space"
+    },
+    "space-5": {
+      "value": "20px",
+      "kind": "space"
+    },
+    "space-6": {
+      "value": "24px",
+      "kind": "space"
+    },
+    "space-8": {
+      "value": "32px",
+      "kind": "space"
+    },
+    "size-control": {
+      "value": "44px",
+      "kind": "size"
+    },
+    "size-field": {
+      "value": "42px",
+      "kind": "size"
+    },
+    "text-sm": {
+      "value": "14px",
+      "kind": "fontSize"
+    },
+    "text-lg": {
+      "value": "18px",
+      "kind": "fontSize"
+    },
+    "text-xl": {
+      "value": "22px",
+      "kind": "fontSize"
+    },
+    "text-2xl": {
+      "value": "26px",
+      "kind": "fontSize"
+    },
+    "w-card": {
+      "value": "360px",
+      "kind": "size"
+    }
+  },
+  "components": [
+    {
+      "id": "button",
+      "name": "Button",
+      "renderFn": "renderCmpButton",
+      "scope": "global",
+      "level": "atom",
+      "properties": [
+        {
+          "id": "label",
+          "type": "string",
+          "default": "Continue"
+        },
+        {
+          "id": "state",
+          "type": "enum",
+          "default": "default",
+          "options": [
+            {
+              "label": "Default",
+              "value": "default"
+            },
+            {
+              "label": "Disabled",
+              "value": "disabled"
+            }
+          ]
+        }
+      ],
+      "anatomy": "A pressable primary action.",
+      "spec": "Control-height tall, brand fill, small radius.",
+      "code": {
+        "lang": "html",
+        "snippet": "<button class=\"btn\">Continue</button>"
+      },
+      "uiLogic": [
+        "Disabled while the form is invalid."
+      ],
+      "renderSrc": "render/components/button.js"
+    },
+    {
+      "id": "text-input",
+      "name": "TextInput",
+      "renderFn": "renderCmpTextInput",
+      "scope": "global",
+      "level": "atom",
+      "dsMatch": {
+        "library": "Acme DS",
+        "component": "Input"
+      },
+      "properties": [
+        {
+          "id": "placeholder",
+          "type": "string",
+          "default": "you@example.com"
+        },
+        {
+          "id": "state",
+          "type": "enum",
+          "default": "default",
+          "options": [
+            {
+              "label": "Default",
+              "value": "default"
+            },
+            {
+              "label": "Error",
+              "value": "error"
+            }
+          ]
+        }
+      ],
+      "anatomy": "A single-line text field with label.",
+      "spec": "Full width, hairline border, brand focus ring.",
+      "code": {
+        "lang": "html",
+        "snippet": "<input class=\"field\" />"
+      },
+      "uiLogic": [
+        "Border turns to the danger token in the error state."
+      ],
+      "renderSrc": "render/components/text-input.js"
+    },
+    {
+      "id": "login-card",
+      "name": "User's Login Card",
+      "renderFn": "renderCmpLoginCard",
+      "scope": "local",
+      "level": "organism",
+      "properties": [
+        {
+          "id": "state",
+          "type": "enum",
+          "default": "default",
+          "options": [
+            {
+              "label": "Default",
+              "value": "default"
+            },
+            {
+              "label": "Loading",
+              "value": "loading"
+            }
+          ]
+        }
+      ],
+      "anatomy": "Card wrapping the email + password fields and the submit button.",
+      "spec": "Max card width, surface fill, medium radius, soft shadow.",
+      "code": {
+        "lang": "html",
+        "snippet": "<div class=\"card\">\u2026</div>"
+      },
+      "uiLogic": [
+        "Shows a spinner in the loading state."
+      ],
+      "renderSrc": "render/components/login-card.js"
+    }
+  ],
+  "screens": [
+    {
+      "id": "login",
+      "name": "Login",
+      "renderFn": "renderScreenLogin",
+      "layout": {
+        "type": "centered",
+        "gap": 16,
+        "maxWidth": 360,
+        "padding": 32
+      },
+      "elements": [
+        {
+          "id": "email",
+          "label": "Email field",
+          "orgId": "text-input",
+          "tokens": [
+            "--border-strong"
+          ],
+          "state": "default"
+        },
+        {
+          "id": "password",
+          "label": "Password field",
+          "orgId": "text-input",
+          "tokens": [
+            "--border-strong"
+          ],
+          "state": "default"
+        },
+        {
+          "id": "submit",
+          "label": "Submit button",
+          "orgId": "button",
+          "tokens": [
+            "--brand"
+          ],
+          "state": "default"
+        }
+      ],
+      "logicNotes": [
+        "Submit is disabled until both fields are valid.",
+        "Successful submit redirects to the dashboard."
+      ],
+      "renderSrc": "render/screens/login.js"
+    },
+    {
+      "id": "dashboard",
+      "name": "Dashboard",
+      "renderFn": "renderScreenDashboard",
+      "layout": {
+        "type": "stack",
+        "gap": 16,
+        "maxWidth": 720,
+        "padding": 32
+      },
+      "elements": [
+        {
+          "id": "welcome",
+          "label": "Welcome banner",
+          "orgId": "login-card",
+          "tokens": [
+            "--brand"
+          ],
+          "state": "default"
+        }
+      ],
+      "logicNotes": [
+        "Landing screen after a successful sign-in."
+      ],
+      "renderSrc": "render/screens/dashboard.js"
+    },
+    {
+      "id": "account",
+      "name": "Create Account",
+      "renderFn": "renderScreenAccount",
+      "layout": {
+        "type": "centered",
+        "gap": 16,
+        "maxWidth": 360,
+        "padding": 32
+      },
+      "elements": [
+        {
+          "id": "email2",
+          "label": "Email field",
+          "orgId": "text-input",
+          "tokens": [
+            "--border-strong"
+          ],
+          "state": "default"
+        },
+        {
+          "id": "create",
+          "label": "Create button",
+          "orgId": "button",
+          "tokens": [
+            "--brand"
+          ],
+          "state": "default"
+        }
+      ],
+      "logicNotes": [
+        "Alternate entry point reachable from the login screen.",
+        "Successful submit redirects to the dashboard."
+      ],
+      "renderSrc": "render/screens/account.js"
+    }
+  ],
+  "staleness": {
+    "flow": {
+      "lastSyncedPromptCount": 2,
+      "currentPromptCount": 2
+    },
+    "handoffScreen": {
+      "lastSyncedPromptCount": 0,
+      "currentPromptCount": 0
+    },
+    "erd": {
+      "lastSyncedPromptCount": 0,
+      "currentPromptCount": 0
+    }
+  },
+  "flow": {
+    "populated": true,
+    "mermaid": "flowchart LR\n  Start([Start]) --> Login[Login]\n  Login --> Valid{Valid?}\n  Valid -- No --> Login\n  Valid -- Yes --> Dashboard[Dashboard]\n  Dashboard --> End([End])",
+    "screen": {
+      "w": 1280,
+      "h": 720
+    },
+    "stories": [
+      {
+        "title": "Sign in with email",
+        "priority": "P1",
+        "jtbd": "As a user I want to sign in so I can reach my dashboard.",
+        "path": "Start \u2192 Login \u2192 Dashboard",
+        "scenarios": [
+          {
+            "text": "Valid credentials land on the dashboard.",
+            "category": "function"
+          },
+          {
+            "text": "Invalid email shows an inline error with a danger border AND error text.",
+            "category": "ui"
+          }
+        ]
+      },
+      {
+        "title": "Recover from an error",
+        "priority": "P2",
+        "jtbd": "As a user I want clear feedback when my input is wrong.",
+        "path": "Login \u2192 Valid? \u2192 Login",
+        "scenarios": [
+          {
+            "text": "Error message clears once the field is corrected.",
+            "category": "ui"
+          }
+        ]
+      }
+    ],
+    "coverageWarnings": []
+  },
+  "erd": {
+    "populated": true,
+    "mermaid": "erDiagram\n  User ||--o{ Session : has\n  User {\n    string id\n    string email\n  }\n  Session {\n    string id\n    string userId\n  }",
+    "table": [
+      {
+        "entity": "User",
+        "field": "id",
+        "type": "identifier",
+        "example": "usr_01H...",
+        "notes": "PK"
+      },
+      {
+        "entity": "User",
+        "field": "email",
+        "type": "text",
+        "example": "you@example.com",
+        "notes": "unique"
+      },
+      {
+        "entity": "Session",
+        "field": "id",
+        "type": "identifier",
+        "example": "ses_01H...",
+        "notes": "PK"
+      },
+      {
+        "entity": "Session",
+        "field": "userId",
+        "type": "identifier",
+        "example": "usr_01H...",
+        "notes": "FK to User"
+      }
+    ],
+    "warnings": [],
+    "mock": []
+  }
+}

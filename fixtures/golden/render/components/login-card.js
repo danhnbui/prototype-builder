@@ -1,0 +1,1 @@
+return '<div style="max-width:var(--w-card);padding:var(--space-6);background:var(--surface);border:var(--border-width) solid var(--border);border-radius:var(--radius-medium);box-shadow:var(--shadow-md)"><h2 style="font-family:var(--font-heading);font-size:var(--text-lg);font-weight:600;margin:0 0 var(--space-4)">Sign in</h2></div>';

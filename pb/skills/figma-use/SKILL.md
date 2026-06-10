@@ -24,7 +24,8 @@ Never write a literal design-system name. Read it from `memory/constitution.md` 
 For the in-scope slice, confirm the registry **declares** all of the following. Any missing field → STOP, do not guess:
 
 - **Layout** — every frame/screen has a layout intent (direction + spacing) expressible as auto-layout.
-- **Token** — every color, spacing, radius, and type value resolves to a token name (`component.anatomy.parts[].token.name`, `component.spec.stack[]`, `screen.elements[].tokens[]`, **and any `var(--name)` in the `render` bodies**), already mapped in `figma-tokens.json` or queued for G-FP3.
+- **Token** — every color, spacing, radius, and type value resolves to a token name (`component.anatomy.parts[].token.name`, `component.spec.stack[]`, `screen.elements[].tokens[]`, **and any `var(--name)` in the render body files** — each entry's `renderSrc` target, e.g.
+`render/components/<id>.js`), already mapped in `figma-tokens.json` or queued for G-FP3.
 - **Binding** — every element has a component binding: a `dsMatch.figmaComponentId` (instance) **or** an explicit `create-local` decision.
 - **Variant axes** — every multi-state component declares its axes in `properties[]`.
 - **Asset** — every image/graphic has a descriptor (source, format, intended node type).

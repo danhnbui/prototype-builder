@@ -65,13 +65,16 @@ def _latest_backup(registry_path):
     if not os.path.isdir(bdir):
         return None
     candidates = [
-        f for f in os.listdir(bdir)
+        os.path.join(bdir, f) for f in os.listdir(bdir)
         if f.startswith("registry.") and f.endswith(".json")
     ]
     if not candidates:
         return None
-    candidates.sort(reverse=True)  # ISO timestamps sort lexicographically
-    return os.path.join(bdir, candidates[0])
+    # Sort by mtime: ISO timestamp names sort chronologically, but the same-second
+    # collision suffix (-2, -3, …) breaks lexicographic order ('-' < '.'), so mtime
+    # is the real "latest" signal. Name is the deterministic tiebreaker.
+    candidates.sort(key=lambda p: (os.path.getmtime(p), p), reverse=True)
+    return candidates[0]
 
 
 def run(args=None):
@@ -153,15 +156,27 @@ def run(args=None):
     ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     backup_name = f"registry.{from_v}.{ts}.json"
     backup_path = os.path.join(bdir, backup_name)
+    # Second-granularity timestamps collide on a same-second re-apply. NEVER overwrite
+    # an existing backup — append -2, -3, … until the name is unique (deterministic, stdlib).
+    if os.path.exists(backup_path):
+        n = 2
+        while True:
+            backup_name = f"registry.{from_v}.{ts}-{n}.json"
+            backup_path = os.path.join(bdir, backup_name)
+            if not os.path.exists(backup_path):
+                break
+            n += 1
     shutil.copy2(registry_path, backup_path)
     print(f"\n✓ Backed up → .pb-backups/{backup_name}")
 
-    # 2. Run chain in memory
+    # 2. Run chain in memory (base_dir lets a migration read/write sidecar files,
+    #    e.g. 0002 extracts render bodies to render/*.js next to the registry)
+    base_dir = os.path.dirname(os.path.abspath(registry_path))
     working = copy.deepcopy(reg)
     for mod in mods:
         stem = getattr(mod, "__name__", "?")
         try:
-            working = mod.up(working) if direction == "up" else mod.down(working)
+            working = mod.up(working, base_dir) if direction == "up" else mod.down(working, base_dir)
         except Exception as e:
             print(f"✗ Migration failed at [{stem}]: {e}")
             print("  Nothing written (backup preserved).")
@@ -175,7 +190,9 @@ def run(args=None):
             render_mod = _load_render()
             with open(shell) as f:
                 shell_src = f.read()
-            html, _ = render_mod.build_html(working, shell_src)
+            # Resolve any renderSrc bodies (v1.4) from disk before the pure build_html.
+            resolved = render_mod.load_bodies(working, base_dir)
+            html, _ = render_mod.build_html(resolved, shell_src)
         except Exception as e:
             print(f"✗ Pre-write render validation failed: {e}")
             print("  Nothing written (backup preserved).")
@@ -238,7 +255,8 @@ def _rerender(reg, registry_path):
         render_mod = _load_render()
         with open(shell) as f:
             shell_src = f.read()
-        html, _ = render_mod.build_html(reg, shell_src)
+        resolved = render_mod.load_bodies(reg, project_dir)
+        html, _ = render_mod.build_html(resolved, shell_src)
         with open(out_path, "w") as f:
             f.write(html)
         print("✓ prototype.html re-rendered.")

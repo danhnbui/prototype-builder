@@ -6,7 +6,19 @@ description: Scaffold a new Product Builder prototype — PRD intake (Q&A or fil
 
 Scaffold a new prototype **in the current directory**. PRD intake is **never blank**.
 
-## 0 · Flags
+## 0 · Preflight — the one prerequisite
+Verify **Python 3** is on PATH (it's the only runtime pb needs — the render/preview/check/migrate tools are
+stdlib-only, no pip installs):
+```
+python3 --version
+```
+If that errors, STOP and print the OS-specific fix, then ask the user to install and re-run `/pb:init`:
+- **macOS:** `xcode-select --install` (or install from python.org)
+- **Windows:** install from python.org and tick "Add python.exe to PATH" (then use `py` / `python`)
+- **Linux:** `sudo apt install python3` (Debian/Ubuntu) or your distro's package
+Everything else pb uses ships with the plugin — there is nothing else to install.
+
+## 0b · Flags
 - `--import <bundle>` — ingest a context bundle from `/pb:hand-off --context` instead of doing intake (step 6).
 
 ## 1 · PRD intake (never blank)
@@ -28,8 +40,10 @@ Stack Lock + DS Lock + a first cut of Principles (from the PRD + DS rules). Keep
 
 ## 3 · Seed the registry
 Copy `${CLAUDE_PLUGIN_ROOT}/template/registry.template.json` → `registry.json`; set `meta.name`.
-The template already carries `meta.schemaVersion: 3` (= `CURRENT_SCHEMA` from
-`pb/migrations/manifest.py`). Leave `tokens` / `components` / `screens` empty — `/pb:build` fills them.
+The template already carries `meta.schemaVersion: 4` (= `CURRENT_SCHEMA` from
+`pb/migrations/manifest.py`) and a pre-seeded `danger` token (the validation runtime needs it).
+Leave `components` / `screens` empty — `/pb:build` fills them and creates their
+`render/{components,screens}/<id>.js` body files.
 
 Set **`meta.device`** (`'desktop' | 'tablet' | 'mobile'`) — the Prototype's default device frame — from the
 PRD's target form factor: auth / mobile-first apps → `'mobile'`; dashboards / desktop web → `'desktop'`;
@@ -52,8 +66,9 @@ Write into `registry.json`: `meta.overview.objectives` = the PRD objective; `met
 `after_*` hooks used to do — it now lives here. **Do not render yet.**
 
 ## 6 · `--import <bundle>` (alternative on-ramp)
-If set, skip 1–5: read the bundle (`registry.json` + `design-system/` + `memory/constitution.md` +
-`memory/decisions.md`), copy it into the new project, confirm the locks.
+If set, skip 1–5: read the bundle (`registry.json` + `render/` body files + `design-system/` +
+`memory/constitution.md` + `memory/decisions.md`), copy it **all** into the new project (the
+`render/` tree is required — without it the registry's `renderSrc` references dangle), confirm the locks.
 
 **Schema compatibility check** (see **Schema compatibility** in `CLAUDE.md`) — run it here, on the
 imported `registry.json`, before proceeding. If the bundle is on an older schema, show the banner and
@@ -62,3 +77,5 @@ suggest `/pb:migrate`. Do not silently copy an out-of-contract slice into the pr
 ## Result
 A seeded project — non-empty `memory/prd.md`, locks set, `registry.json` seeded, `memory/decisions.md`,
 `design-system/{name}/`. Next: `/pb:specify` (expand) or `/pb:build` (start building).
+
+> **Skill degrade (NS6).** If a skill this command invokes fails to load, say so explicitly and proceed with its core intent — never silently skip the step.

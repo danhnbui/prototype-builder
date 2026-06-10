@@ -21,7 +21,7 @@ the playbook, [prototype-builder.md](prototype-builder.md) (authored in Phase 2)
 | `/pb:sync-erd` | Data (field/type/example table + Mermaid ERD) — decoupled, manual | P5 |
 | `/pb:check-drift` | Read-only drift audit of the trio vs `constitution.md` | P5 |
 | `/pb:hand-off` | `--people` (view-only self-documenting `prototype.html` + cover) · `--context` (portable bundle) | P6 |
-| `/pb:validate` | Scaffold a Vite / Next build from `prototype.html` | P6 |
+| `/pb:validate` | Wrap `prototype.html` in a runnable reference build (Vite/Next) — serves the single file, not a component export | P6 |
 | `/pb:migrate` | Versioned schema migration: dry-run / `--apply` / `--rollback` / `--to <N>` | P6 |
 
 > Shipped as a Claude Code **plugin** (`pb@product-builder`, defined in `./.claude-plugin/marketplace.json` + `./pb/`) — commands invoke as `/pb:*`. After install, **restart Claude Code** to load them. (G1 decision: plugin ✓)
@@ -76,7 +76,8 @@ card that owns the CTA — no dead controls. (Replaces the old `meta-tag`/`meta-
 
 ## Memory layout (per project)
 
-- `registry.json` — the database: `tokens`, `components` (global refs + `local`), `screens`, `meta`, `staleness`, `flow`/`erd`.
+- `registry.json` — the database: `tokens`, `components` (global refs + `local`), `screens`, `meta`, `staleness`, `flow`/`erd`. Render code is **not** here — each component/screen's `renderSrc` points at a real body file.
+- `render/components/<id>.js` · `render/screens/<id>.js` — the render bodies (v1.4 schema 4): real, lintable `.js` files compiled into `prototype.html` by `render.py`. Edit these directly; the registry stays pure data.
 - `memory/constitution.md` — durable rules: Principles + **Stack Lock** + **DS Lock** (lean, rules-only).
 - `memory/decisions.md` — the why-log (trade-offs, gate overrides).
 - `design-system/{name}/{name}.md` — the global DS reference (scannable component index + rules R0–R4 + naming contract).
@@ -88,7 +89,7 @@ Write-path commands (`/pb:build`, `/pb:sync-flow`, `/pb:sync-erd`, `/pb:init --i
 this check before patching `registry.json`:
 
 1. Read `meta.schemaVersion` from `registry.json` (absent → treat as schema 2).
-2. Read `CURRENT_SCHEMA` from `pb/migrations/manifest.py` (currently **3**).
+2. Read `CURRENT_SCHEMA` from `pb/migrations/manifest.py` (currently **4**).
 3. If `schemaVersion < CURRENT_SCHEMA`: print a one-line banner —
    `⚠ Schema gap (v<from> → v<to>): <pending migration's describe() text>. Run /pb:migrate.`
 4. Proceed — **unless** the current write touches a slice a pending migration changes,
