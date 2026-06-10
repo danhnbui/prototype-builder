@@ -32,6 +32,9 @@ jobs:
       - name: Shell hygiene lint (no dupes / dead code / v0.4 strings)
         run: python3 tests/shell_lint.py
 
+      - name: Skill-reference lint (no dangling skill refs — portability)
+        run: python3 tests/skill_refs_lint.py
+
       - name: Render determinism (golden rendered twice -> identical SHA-256)
         run: |
           python3 pb/tools/render.py fixtures/golden/registry.json pb/template/prototype.html /tmp/g1.html
