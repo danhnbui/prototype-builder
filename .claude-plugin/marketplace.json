@@ -1,12 +1,12 @@
 {
   "name": "product-builder",
-  "description": "Product Builder v1.3.1 — the registry-backed, design-system-agnostic prototype builder.",
+  "description": "Product Builder v1.4.0 — the registry-backed, design-system-agnostic prototype builder.",
   "owner": { "name": "Danh (danhbnp)" },
   "plugins": [
     {
       "name": "pb",
       "source": "./pb",
-      "description": "Product Builder v1.3.1 — the /pb:* prototype-builder command surface."
+      "description": "Product Builder v1.4.0 — the /pb:* prototype-builder command surface."
     }
   ]
 }

@@ -1,4 +1,4 @@
-# Product Builder v1.3.1
+# Product Builder v1.4.0
 
 A standalone, CLAUDE.md-native prototype builder for Claude Code. Turn a PRD into an interactive,
 self-documenting **5-tab prototype** — a real click-through flow you preview at desktop / tablet /
@@ -6,6 +6,12 @@ mobile — with a cheap build loop, a small memory layer, and a
 **design-system-agnostic** core. State lives in a compact `registry.json`; `prototype.html` is a
 rendered view, regenerated deterministically (so the build loop edits tens of lines of JSON, not a
 3,600-line file).
+
+Every tab shares **one unified, two-column layout** (v1.4): a header with a `?` info dialog (what the tab
+does, its commands and skills) over a main canvas + a context aside. Highlights — a device-framed Prototype
+with a component structure tree; a UI Design tab that groups components by atomic level, links your design
+system, and previews Figma-push reuse + affected screens; QA-authored UX test cases with coverage-gap
+warnings; and an ERD mock-data viewer for checking empty / sparse / overflow edge cases.
 
 ## Install (it's a Claude Code plugin)
 

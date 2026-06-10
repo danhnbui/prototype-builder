@@ -742,6 +742,251 @@
       font-size: 11px;
       color: var(--text-active-secondary);
     }
+    /* empty-state nested inside the split/full content shells: flush-left, not floating */
+    .pb-content .empty-state { margin: 8px 0; }
+
+    /* ========================================================================
+       PB-PAGE (v1.2) — unified page chrome shared by every tab.
+       Header (title + info-icon · CTA) over a 1- or 2-column content shell.
+       Replaces the per-tab meta-tag / meta-h1 / meta-sub headers.
+       ======================================================================== */
+    .pb-page {
+      min-height: calc(100vh - 44px);
+      background: var(--bg-soft);
+      display: flex; flex-direction: column;
+    }
+    .pb-page-header {
+      display: flex; align-items: flex-start; justify-content: space-between;
+      gap: 24px;
+      padding: 32px 48px 0;
+    }
+    .pb-page-headings { min-width: 0; }
+    .pb-page-titlerow { display: flex; align-items: center; gap: 10px; }
+    .pb-page-title {
+      font-family: var(--font-heading);
+      font-size: 28px; font-weight: 700;
+      color: var(--text-active-primary);
+      margin: 0; line-height: 1.15; letter-spacing: -0.01em;
+    }
+    .pb-info-btn {
+      flex-shrink: 0;
+      width: 24px; height: 24px;
+      display: inline-flex; align-items: center; justify-content: center;
+      border: 1px solid var(--border); border-radius: 50%;
+      background: white; color: var(--text-active-secondary);
+      cursor: pointer; padding: 0; font: 600 13px/1 var(--font-body);
+      transition: border-color .15s, color .15s, background .15s;
+    }
+    .pb-info-btn:hover { border-color: var(--brand); color: var(--brand); background: var(--brand-soft); }
+    .pb-page-cta { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+    .pb-content { flex: 1 1 auto; padding: 24px 48px 48px; min-width: 0; }
+    .pb-content--full { max-width: 960px; margin: 0 auto; width: 100%; }
+    .pb-content--split {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) clamp(320px, 26vw, 400px);
+      gap: 24px;
+      align-items: start;
+    }
+    .pb-main { min-width: 0; }
+    .pb-aside {
+      position: sticky; top: 24px;
+      align-self: start;
+      max-height: calc(100vh - 44px - 72px);
+      overflow: auto;
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-medium);
+      padding: 20px;
+    }
+    .pb-aside-empty {
+      color: var(--text-tertiary);
+      font-size: 13px; line-height: 1.5;
+      text-align: center; padding: 28px 16px;
+    }
+    .pb-aside-section { margin-bottom: 22px; }
+    .pb-aside-section:last-child { margin-bottom: 0; }
+    .pb-entity-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+    .pb-entity-chip {
+      display: inline-flex; align-items: center; gap: 7px;
+      font: 500 13px/1 var(--font-body);
+      background: var(--neutral-5); border: 1px solid var(--border);
+      color: var(--text-active-primary); padding: 7px 11px; border-radius: 8px; cursor: pointer;
+      transition: border-color .12s, background .12s, color .12s;
+    }
+    .pb-entity-chip:hover { border-color: var(--brand); color: var(--brand); }
+    .pb-entity-chip.is-active { background: var(--brand); border-color: var(--brand); color: #fff; }
+    .pb-entity-chip-n {
+      font: 600 11px/1 var(--font-body);
+      background: rgba(0,0,0,0.06); color: inherit; padding: 2px 6px; border-radius: 999px;
+    }
+    .pb-entity-chip.is-active .pb-entity-chip-n { background: rgba(255,255,255,0.25); }
+
+    /* Data — mock-data viewer (per-entity sample sets) */
+    .pb-mock-total { font: 600 11px/1 var(--font-body); color: var(--text-active-secondary); background: var(--neutral-10); padding: 2px 7px; border-radius: 999px; margin-left: 6px; }
+    .pb-mock-chips { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 12px; }
+    .pb-mock-chip {
+      display: inline-flex; align-items: center; gap: 6px;
+      font: 500 12px/1 var(--font-body);
+      background: var(--neutral-5); border: 1px solid var(--border);
+      color: var(--text-active-primary); padding: 6px 10px; border-radius: 7px; cursor: pointer;
+      transition: border-color .12s, background .12s, color .12s;
+    }
+    .pb-mock-chip:hover { border-color: var(--brand); color: var(--brand); }
+    .pb-mock-chip.is-active { background: var(--brand); border-color: var(--brand); color: #fff; }
+    .pb-mock-n { font: 600 10px/1 var(--font-body); background: rgba(0,0,0,0.06); padding: 2px 5px; border-radius: 999px; }
+    .pb-mock-chip.is-active .pb-mock-n { background: rgba(255,255,255,0.25); }
+    .pb-mock-preview { overflow-x: auto; }
+    .pb-mock-table { font-size: 12px; }
+    .pb-mock-table th, .pb-mock-table td { white-space: nowrap; }
+
+    /* UX Design — flow main bar (flow dropdown + legend) and aside dims inputs */
+    .flow-main-bar {
+      display: flex; align-items: center; justify-content: space-between; gap: 12px;
+      margin-bottom: 12px;
+    }
+    .pb-flow-select {
+      font: 500 13px/1 var(--font-body);
+      padding: 7px 10px; border: 1px solid var(--border-strong); border-radius: 8px;
+      background: white; color: var(--text-active-primary); cursor: pointer;
+    }
+    .pb-flow-name { font-family: var(--font-heading); font-weight: 600; font-size: 14px; color: var(--text-active-primary); }
+    .pb-flow-dims {
+      display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+      padding-bottom: 16px; margin-bottom: 16px; border-bottom: 1px solid var(--border);
+    }
+    .pb-flow-dims label { font-size: 12px; color: var(--text-active-secondary); display: inline-flex; align-items: center; gap: 5px; }
+    .pb-flow-dims input {
+      width: 64px; font: 500 13px/1 var(--font-body);
+      padding: 6px 8px; border: 1px solid var(--border-strong); border-radius: 6px;
+    }
+    .pb-flow-dims-x { color: var(--text-tertiary); }
+
+    /* UX Design — QA test-case category chips + coverage-gap callout */
+    .pb-qa-cat {
+      display: inline-block; font: 700 9px/1.4 var(--font-body);
+      text-transform: uppercase; letter-spacing: .04em;
+      padding: 2px 6px; border-radius: 4px; vertical-align: middle;
+    }
+    .pb-qa-cat--ux          { background: #ede9fe; color: #6d28d9; }
+    .pb-qa-cat--ui          { background: #e0f2fe; color: #0369a1; }
+    .pb-qa-cat--function    { background: #dcfce7; color: #15803d; }
+    .pb-qa-cat--business    { background: #fef3c7; color: #b45309; }
+    .pb-qa-cat--system-edge { background: #fee2e2; color: #b91c1c; }
+    .pb-qa-warn {
+      border: 1px solid #fcd9b6; background: #fff7ed; border-radius: var(--radius-small);
+      padding: 12px 14px; margin: 4px 0 16px;
+    }
+    .pb-qa-warn-head { font: 700 12px/1 var(--font-body); color: #c2410c; margin-bottom: 8px; }
+    .pb-qa-warn-list { margin: 0; padding-left: 18px; font-size: 12px; line-height: 1.6; color: var(--text-active-primary); }
+    @media (max-width: 1100px) {
+      .pb-content--split { grid-template-columns: 1fr; }
+      .pb-aside { position: static; max-height: none; }
+    }
+
+    /* INFO DIALOG (v1.2) — per-tab "how this tab works" explainer */
+    .pb-dialog-backdrop {
+      position: fixed; inset: 0; z-index: 1200;
+      background: rgba(15,18,20,0.45);
+      display: flex; align-items: center; justify-content: center;
+      padding: 24px;
+    }
+    .pb-dialog {
+      background: white; border-radius: var(--radius-large);
+      max-width: 560px; width: 100%; max-height: 82vh; overflow: auto;
+      box-shadow: var(--shadow-md);
+      padding: 28px 30px;
+    }
+    .pb-dialog-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 10px; }
+    .pb-dialog-title { font-family: var(--font-heading); font-size: 20px; font-weight: 700; margin: 0; color: var(--text-active-primary); }
+    .pb-dialog-close {
+      flex-shrink: 0; width: 28px; height: 28px; border: 0; border-radius: 6px;
+      background: var(--neutral-10); color: var(--text-active-secondary);
+      cursor: pointer; font-size: 16px; line-height: 1;
+    }
+    .pb-dialog-close:hover { background: var(--neutral-20); color: var(--text-active-primary); }
+    .pb-dialog-blurb { font-size: 14px; color: var(--text-active-secondary); line-height: 1.55; margin: 0 0 22px; }
+    .pb-dialog-section { margin-bottom: 20px; }
+    .pb-dialog-section:last-child { margin-bottom: 0; }
+    .pb-dialog-h {
+      font-family: var(--font-heading); font-size: 11px; font-weight: 700;
+      text-transform: uppercase; letter-spacing: .5px;
+      color: var(--text-tertiary); margin: 0 0 10px;
+    }
+    .pb-dialog-list { margin: 0; padding-left: 18px; font-size: 13px; color: var(--text-active-primary); line-height: 1.65; }
+    .pb-cmd-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+    .pb-cmd-chip {
+      font-family: 'SF Mono', Menlo, monospace; font-size: 12px;
+      background: var(--neutral-10); border: 1px solid var(--border);
+      color: var(--text-active-primary); padding: 5px 10px; border-radius: 6px; cursor: pointer;
+      transition: border-color .12s, color .12s;
+    }
+    .pb-cmd-chip:hover { border-color: var(--brand); color: var(--brand); }
+    .pb-skill-tag {
+      font-size: 12px; background: var(--brand-soft); color: var(--brand-strong);
+      padding: 4px 9px; border-radius: 6px; font-weight: 500;
+    }
+
+    /* DESIGN-SYSTEM BAR (v1.2) — UI Design tab, under the title */
+    .pb-ds-bar {
+      display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+      margin: 14px 48px 0; padding: 11px 16px;
+      background: white; border: 1px solid var(--border); border-radius: var(--radius-medium);
+      font-size: 13px; color: var(--text-active-primary);
+    }
+    .pb-ds-bar--empty { border-style: dashed; color: var(--text-active-secondary); cursor: pointer; }
+    .pb-ds-bar--empty:hover { border-color: var(--brand); color: var(--brand); }
+    .pb-ds-name { font-weight: 600; font-family: var(--font-heading); }
+    .pb-ds-sep { color: var(--border-strong); }
+    .pb-ds-link {
+      color: var(--brand); text-decoration: none; font-weight: 500;
+      display: inline-flex; gap: 5px; align-items: center;
+    }
+    .pb-ds-link:hover { text-decoration: underline; }
+    .pb-ds-link--missing { color: var(--text-tertiary); font-style: italic; cursor: default; }
+
+    /* STRUCTURE TREE (v1.2) — Prototype aside, screen → component level */
+    .pb-tree { font-size: 13px; color: var(--text-active-primary); }
+    .pb-tree-screen { margin-bottom: 16px; }
+    .pb-tree-screen:last-child { margin-bottom: 0; }
+    .pb-tree-screen-name {
+      font-family: var(--font-heading); font-weight: 600; font-size: 13px;
+      display: flex; align-items: center; gap: 7px; margin-bottom: 6px;
+      color: var(--text-active-primary);
+    }
+    .pb-tree-screen-name.is-active { color: var(--brand); }
+    .pb-tree-list { list-style: none; margin: 0; padding-left: 18px; border-left: 1px solid var(--border); }
+    .pb-tree-node {
+      display: flex; align-items: baseline; gap: 8px;
+      padding: 4px 0; line-height: 1.4;
+    }
+    .pb-tree-node-label { color: var(--text-active-primary); }
+    .pb-tree-node-org {
+      font-family: 'SF Mono', Menlo, monospace; font-size: 11px;
+      color: var(--text-tertiary);
+    }
+    .pb-tree-node-org.is-missing { color: #d97706; }
+
+    /* UI Design — the spec drawer now lives in the persistent aside, not a push panel */
+    .pb-aside .handoff-drawer { width: auto; height: auto; border: 0; box-shadow: none; background: transparent; display: block; }
+    .pb-aside .handoff-drawer-header { padding: 0 0 14px; }
+    .pb-aside .handoff-drawer-segments { padding: 8px 0; }
+    .pb-aside .handoff-drawer-content { padding: 16px 0 0; overflow: visible; }
+    .pb-aside .handoff-drawer-tabs { display: flex; gap: 4px; padding: 8px 0; border-bottom: 1px solid var(--border); }
+    .pb-aside .handoff-drawer-body { padding: 16px 0 0; }
+    .handoff-card.is-selected { border-color: var(--brand); box-shadow: 0 0 0 1px var(--brand); }
+    /* UI Design — atomic-level grouping of the component list */
+    .pb-level-group { margin-bottom: 24px; }
+    .pb-level-group:last-child { margin-bottom: 0; }
+    .pb-level-head {
+      display: flex; align-items: center; gap: 8px;
+      font-family: var(--font-heading); font-size: 12px; font-weight: 700;
+      text-transform: uppercase; letter-spacing: .5px;
+      color: var(--text-tertiary); margin: 0 0 12px;
+    }
+    .pb-level-count {
+      font: 600 11px/1 var(--font-body); color: var(--text-active-secondary);
+      background: var(--neutral-10); padding: 2px 7px; border-radius: 999px;
+    }
 
     .handoff-card-list { display: flex; flex-direction: column; gap: 16px; }
     .handoff-card {
@@ -1254,8 +1499,17 @@
     .fp-item-meta { font:400 11px/1 var(--font-body); color:var(--text-active-secondary); white-space:nowrap; }
     .fp-badge { display:inline-block; padding:2px 6px; border-radius:4px; font:600 10px/1 var(--font-body); margin-left:6px; }
     .fp-badge-new    { background:#eff6ff; color:#1c4ed8; }
-    .fp-badge-update { background:#f0fdf4; color:#15803d; }
+    .fp-badge-update { background:#fff7ed; color:#c2410c; }
     .fp-badge-lib    { background:#faf5ff; color:#7e22ce; }
+    .fp-badge-reuse  { background:#faf5ff; color:#7e22ce; }
+    /* v1.2 — stacked push item with affected-screen line */
+    .fp-item--stacked { flex-direction:column; align-items:stretch; gap:6px; }
+    .fp-item-row { display:flex; align-items:center; gap:10px; }
+    .fp-item-affected { font:400 11px/1.4 var(--font-body); color:var(--text-active-secondary); padding-left:25px; }
+    .fp-item-affected--muted { color:var(--text-tertiary); font-style:italic; }
+    .fp-item-affected.is-warn { color:#c2410c; }
+    .fp-progress-hint { margin-top:8px; padding-top:8px; border-top:1px solid var(--border); font:400 11px/1.45 var(--font-body); color:var(--text-tertiary); }
+    .fp-progress-hint code { font-family:'SF Mono',Menlo,monospace; font-size:10px; }
     .fp-panel-foot {
       padding:14px 20px 16px; border-top:1px solid var(--border); flex-shrink:0;
       display:flex; align-items:center; justify-content:space-between; gap:12px;
@@ -1631,6 +1885,25 @@
     .proto-device--desktop { width:100%; max-width:1180px; }
     .proto-device--tablet  { width:834px;  max-width:100%; }
     .proto-device--mobile  { width:390px;  max-width:100%; }
+    /* v1.2 — device chrome: browser bar on desktop, bezel + notch on tablet/mobile */
+    .proto-stage { display:flex; justify-content:center; }
+    .proto-frame { background:#fff; border:1px solid var(--border-strong); border-radius:12px; overflow:hidden; box-shadow:0 10px 34px rgba(15,23,42,.12); }
+    .proto-frame--desktop { width:100%; max-width:1180px; }
+    .proto-frame--tablet  { width:768px; max-width:100%; border:10px solid #1c1f22; border-radius:26px; }
+    .proto-frame--mobile  { width:390px; max-width:100%; border:12px solid #1c1f22; border-radius:38px; }
+    .proto-frame .proto-device { width:100%; max-width:none; border:0; border-radius:0; box-shadow:none; }
+    .proto-chrome { display:flex; align-items:center; gap:12px; height:40px; padding:0 14px; background:var(--neutral-10); border-bottom:1px solid var(--border); }
+    .proto-chrome-dots { display:flex; gap:7px; }
+    .proto-chrome-dot { width:11px; height:11px; border-radius:50%; background:var(--border-strong); }
+    .proto-chrome-url { flex:1; height:24px; background:#fff; border-radius:7px; border:1px solid var(--border); font:12px/24px var(--font-body); color:var(--text-tertiary); padding:0 12px; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
+    .proto-notch { height:24px; background:#1c1f22; display:flex; align-items:center; justify-content:center; }
+    .proto-notch::after { content:''; width:42%; max-width:150px; height:6px; border-radius:6px; background:rgba(255,255,255,.28); }
+    .proto-screen { overflow:auto; background:#fff; }
+    .proto-frame--desktop .proto-screen { height:calc(100vh - 44px - 210px); min-height:440px; }
+    .proto-frame--tablet  .proto-screen { height:680px; }
+    .proto-frame--mobile  .proto-screen { height:720px; }
+    .pb-proto-toolbar { background:transparent !important; border:0 !important; justify-content:flex-start !important; padding:0 0 14px !important; }
+    .proto-device-btn:disabled, .proto-device-btn.is-disabled { opacity:.38; cursor:not-allowed; }
     .proto-toast-wrap { position:fixed; left:50%; bottom:24px; transform:translateX(-50%); z-index:9999;
       display:flex; flex-direction:column; gap:8px; align-items:center; pointer-events:none; }
     .proto-toast { background:#0f172a; color:#fff; font-family:var(--font-body); font-size:13px;
@@ -1739,6 +2012,10 @@
       protoDevice: null,              // 'desktop' | 'tablet' | 'mobile' — defaults from meta.device
       handoffScope: null,            // 'global' | 'local' — UI Design component sub-tab
       erdView: null,                 // 'diagram' | 'table' — Data tab view mode
+      erdEntity: null,               // null | <entity name> — selected entity in Data aside
+      erdMockIndex: 0,               // index into the selected entity's mock-data sets
+      flowIndex: 0,                  // index into flow.flows[] (multi-flow dropdown)
+      flowW: null, flowH: null,      // UX Design target screen dimensions (runtime)
       /* TODO: add your app state here, e.g.:
          user: null,
          currentScreen: 'home',
@@ -1808,6 +2085,25 @@
     function setSummarySubTab(v) { state.summarySubTab = v; renderMetaSummary(); }
     function setHandoffScope(v) { state.handoffScope = v; renderHandoff(); }
     function setErdView(v) { state.erdView = v; renderMetaERD(); }
+    function setErdEntity(name) { state.erdEntity = (state.erdEntity === name ? null : name); state.erdMockIndex = 0; renderMetaERD(); }
+    function setErdMock(i) { state.erdMockIndex = parseInt(i, 10) || 0; renderMetaERD(); }
+    function setFlowIndex(i) { state.flowIndex = parseInt(i, 10) || 0; renderMetaFlow(); }
+    /* Resize the flow canvas frame to the target screen dims — no full re-render (keeps zoom). */
+    function setFlowDim(axis, val) {
+      val = Math.max(320, Math.min(2400, parseInt(val, 10) || 0));
+      if (axis === 'w') state.flowW = val; else state.flowH = Math.max(360, Math.min(1000, val));
+      const c = document.getElementById('flow-canvas');
+      if (c) { c.style.maxWidth = state.flowW + 'px'; c.style.height = state.flowH + 'px'; }
+    }
+    function pbDefaultDims() {
+      // Persisted screen dims (set by /pb:sync-flow) win; else derive from the default device.
+      const f = (PB_DATA && PB_DATA.flow) || {};
+      if (f.screen && f.screen.w && f.screen.h) return { w: f.screen.w, h: f.screen.h };
+      const dev = (PB_REGISTRY && PB_REGISTRY.meta && PB_REGISTRY.meta.device) || 'desktop';
+      if (dev === 'mobile') return { w: 390, h: 844 };
+      if (dev === 'tablet') return { w: 834, h: 800 };
+      return { w: 1280, h: 720 };
+    }
     function openHandoffDrawer(id) { state.handoffDrawerOpenFor = id; state.handoffDrawerSegment = 'anatomy'; renderHandoff(); }
     function closeHandoffDrawer() { state.handoffDrawerOpenFor = null; renderHandoff(); }
     function setHandoffDrawerSegment(s) { state.handoffDrawerSegment = s; renderHandoff(); }
@@ -2086,22 +2382,34 @@
       const screens   = (PB_DATA.handoff && PB_DATA.handoff.screens)   || [];
 
       function statusBadge(org) {
+        if (org.dsMatch) return '<span class="fp-badge fp-badge-reuse" title="Matched in the design system — pushed as an instance, not rebuilt">reuse</span>';
         if (!org.figmaId && !org.figmaComponentSetId) return '<span class="fp-badge fp-badge-new">new</span>';
-        const t = (org.dsMatch && org.dsMatch.type) || 'local';
-        return t === 'library'
-          ? '<span class="fp-badge fp-badge-lib">lib</span>'
-          : '<span class="fp-badge fp-badge-update">update</span>';
+        return '<span class="fp-badge fp-badge-update" title="Already in Figma — this push updates it">update</span>';
       }
       function screenStatus(s) {
         return s.figmaFrameId ? `<span class="fp-item-meta">frame ${s.figmaFrameId}</span>` : '<span class="fp-badge fp-badge-new">new</span>';
       }
+      // Which screens reference this component (via elements[].orgId) — what an update affects.
+      function screensUsing(orgId) {
+        return screens.filter(s => (s.elements || []).some(e => e.orgId === orgId)).map(s => s.name);
+      }
 
-      const orgRows = organisms.map((o, i) => `
-        <li class="fp-item" onclick="this.querySelector('input').click()">
-          <input type="checkbox" id="fp-org-${i}" data-fp-org="${pbEscape(o.id)}" checked onclick="event.stopPropagation();fpUpdateSummary()">
-          <span class="fp-item-name">${pbEscape(o.name)}${statusBadge(o)}</span>
-          <span class="fp-item-meta">${pbEscape(o.id)}</span>
-        </li>`).join('');
+      const orgRows = organisms.map((o, i) => {
+        const used = screensUsing(o.id);
+        const isUpdate = !!(o.figmaId || o.figmaComponentSetId);
+        const affected = used.length
+          ? `<div class="fp-item-affected ${isUpdate ? 'is-warn' : ''}">${isUpdate ? '⚠ affects ' : 'Used in '}${used.length} screen${used.length !== 1 ? 's' : ''}: ${used.map(pbEscape).join(', ')}</div>`
+          : `<div class="fp-item-affected fp-item-affected--muted">Not placed on any screen yet</div>`;
+        return `
+        <li class="fp-item fp-item--stacked" onclick="this.querySelector('input').click()">
+          <div class="fp-item-row">
+            <input type="checkbox" id="fp-org-${i}" data-fp-org="${pbEscape(o.id)}" checked onclick="event.stopPropagation();fpUpdateSummary()">
+            <span class="fp-item-name">${pbEscape(o.name)}${statusBadge(o)}</span>
+            <span class="fp-item-meta">${pbEscape(o.id)}</span>
+          </div>
+          ${affected}
+        </li>`;
+      }).join('');
 
       const scrRows = screens.map((s, i) => `
         <li class="fp-item" onclick="this.querySelector('input').click()">
@@ -2225,7 +2533,8 @@
           <span class="fp-progress-title">Figma push progress</span>
           <button class="fp-progress-close" onclick="pbHideProgress()" aria-label="Dismiss">×</button>
         </div>
-        <div id="fp-progress-body"></div>`;
+        <div id="fp-progress-body"></div>
+        <div class="fp-progress-hint">Run the copied command — <code>/pb:build-figma-handoff</code> reports progress here as it pushes.</div>`;
       document.body.appendChild(el);
       setTimeout(() => el.classList.add('is-visible'), 10);
       _fpRenderProgress();
@@ -2333,7 +2642,125 @@
       flow: '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="6" height="6" rx="1"/><rect x="16" y="2" width="6" height="6" rx="1"/><rect x="9" y="16" width="6" height="6" rx="1"/><path d="M5 8v4h7v4M19 8v4h-7"/></svg>',
       erd:  '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="6" cy="6" rx="3" ry="2"/><ellipse cx="18" cy="6" rx="3" ry="2"/><ellipse cx="6" cy="18" rx="3" ry="2"/><ellipse cx="18" cy="18" rx="3" ry="2"/><line x1="9" y1="6" x2="15" y2="6"/><line x1="6" y1="8" x2="6" y2="16"/><line x1="18" y1="8" x2="18" y2="16"/><line x1="9" y1="18" x2="15" y2="18"/></svg>',
       handoff: '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="14" height="18" rx="2"/><line x1="7" y1="8" x2="13" y2="8"/><line x1="7" y1="12" x2="13" y2="12"/><line x1="7" y1="16" x2="11" y2="16"/><path d="M17 6h3a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1h-3"/></svg>',
+      prototype: '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>',
+      summary: '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="13" y2="17"/></svg>',
     };
+
+    /* =========================================================================
+       PB-PAGE CHROME (v1.2) — shared header + info dialog for every tab.
+       ========================================================================= */
+
+    /* Static per-tab explainer content (documents the tool, not project data). */
+    const TAB_INFO = {
+      prototype: {
+        title: 'Prototype',
+        blurb: 'The live, interactive app your users test. Screens render here exactly as built, with a real navigation/validation runtime — no screen-switcher, just the flow.',
+        howItWorks: [
+          'Each screen in registry.json becomes a frame you can click through.',
+          'The device switcher (desktop / tablet / mobile) previews responsive sizes; unsupported sizes are disabled.',
+          'The structure panel on the right maps each screen down to its component instances.',
+        ],
+        commands: ['/pb:build', '/pb:preview'],
+        skills: ['build-generate', 'build-explore'],
+      },
+      summary: {
+        title: 'Project Summary',
+        blurb: 'The why behind the prototype: objectives, principles, user insights, and the UI-logic trade-offs that shaped it. Auto-synced from your spec and clarify steps.',
+        howItWorks: [
+          'Overview = objectives + principles, folded in from /pb:specify and the constitution.',
+          'User Insights + Trade-offs are captured by /pb:clarify.',
+          'This tab is documentation — there is nothing to build here directly.',
+        ],
+        commands: ['/pb:specify', '/pb:clarify'],
+        skills: ['ref-prd', 'think-clarify'],
+      },
+      flow: {
+        title: 'UX Design',
+        blurb: 'The user-flow wireflow plus the user stories and test cases that validate it. A single Mermaid flow whose node labels match your screens.',
+        howItWorks: [
+          'Sync builds one flowchart covering the whole prototype from your spec.',
+          'User stories list jobs-to-be-done; test cases turn acceptance scenarios into a checklist.',
+          'Set the screen width/height to size the flow canvas to your target device.',
+        ],
+        commands: ['/pb:sync-flow'],
+        skills: ['build-flow', 'craft-connect-flow'],
+      },
+      handoff: {
+        title: 'UI Design',
+        blurb: 'Every reusable component and screen, with property controls, specs, and code — the design-system view. Components here are the same ones the Prototype renders, never duplicated.',
+        howItWorks: [
+          'Global / Local / Screen tabs split components by scope and show full screens.',
+          'Click any component or screen to open its spec (anatomy, redlines, UI logic, usage) on the right.',
+          'Push to Figma transfers the selection one-way, reusing matched design-system components.',
+        ],
+        commands: ['/pb:build', '/pb:build-check-design-system', '/pb:build-figma-handoff'],
+        skills: ['apply-design-system', 'design-component-build', 'figma-generate-library'],
+      },
+      erd: {
+        title: 'Data',
+        blurb: 'The entity-relationship model behind the prototype — field/type/example tables plus a Mermaid ER diagram with PK/FK/cardinality guardrails, for a future production build.',
+        howItWorks: [
+          'Sync derives entities and relationships from your spec and screens.',
+          'Toggle Diagram / Table; click an entity to inspect its fields on the right.',
+          'Mock data sets let you preview edge cases (empty / sparse / overflow) against the UI.',
+        ],
+        commands: ['/pb:sync-erd'],
+        skills: ['build-logic', 'think-logic'],
+      },
+    };
+
+    /* The page header used by every tab: title + ? info button (left), optional CTA (right). */
+    function pbPageHeader(opts) {
+      const info = TAB_INFO[opts.infoKey] || {};
+      const title = opts.title || info.title || '';
+      const cta = (!VIEW_ONLY && opts.cta) ? opts.cta : '';
+      return `
+        <div class="pb-page-header">
+          <div class="pb-page-headings">
+            <div class="pb-page-titlerow">
+              <h1 class="pb-page-title">${title}</h1>
+              <button class="pb-info-btn" title="How this tab works" aria-label="How this tab works"
+                      onclick="openInfoDialog('${opts.infoKey}')">?</button>
+            </div>
+          </div>
+          ${cta ? `<div class="pb-page-cta">${cta}</div>` : ''}
+        </div>`;
+    }
+
+    function openInfoDialog(key) {
+      const info = TAB_INFO[key];
+      if (!info) return;
+      closeInfoDialog();
+      const cmds = (info.commands || []).map(c =>
+        `<button class="pb-cmd-chip" onclick="openCopyPopover('${c}', this)">${c}</button>`).join('');
+      const skills = (info.skills || []).map(s => `<span class="pb-skill-tag">${s}</span>`).join('');
+      const back = document.createElement('div');
+      back.className = 'pb-dialog-backdrop';
+      back.id = 'pb-info-dialog';
+      back.innerHTML = `
+        <div class="pb-dialog" role="dialog" aria-modal="true">
+          <div class="pb-dialog-head">
+            <h2 class="pb-dialog-title">${info.title}</h2>
+            <button class="pb-dialog-close" aria-label="Close" onclick="closeInfoDialog()">×</button>
+          </div>
+          <p class="pb-dialog-blurb">${info.blurb}</p>
+          <div class="pb-dialog-section">
+            <p class="pb-dialog-h">How it works</p>
+            <ul class="pb-dialog-list">${(info.howItWorks || []).map(h => `<li>${h}</li>`).join('')}</ul>
+          </div>
+          ${cmds ? `<div class="pb-dialog-section"><p class="pb-dialog-h">Commands</p><div class="pb-cmd-chips">${cmds}</div></div>` : ''}
+          ${skills ? `<div class="pb-dialog-section"><p class="pb-dialog-h">Relevant skills</p><div class="pb-cmd-chips">${skills}</div></div>` : ''}
+        </div>`;
+      back.addEventListener('click', function (e) { if (e.target === back) closeInfoDialog(); });
+      document.body.appendChild(back);
+      document.addEventListener('keydown', pbInfoDialogEsc);
+    }
+    function closeInfoDialog() {
+      const el = document.getElementById('pb-info-dialog');
+      if (el) el.remove();
+      document.removeEventListener('keydown', pbInfoDialogEsc);
+    }
+    function pbInfoDialogEsc(e) { if (e.key === 'Escape') closeInfoDialog(); }
 
     function renderMetaPanel() {
       switch (state.metaView) {
@@ -2352,34 +2779,94 @@
     function renderPrototype() {
       // The live app = the registry's screens, rendered via their generated renderFn.
       const screens = (PB_DATA.handoff && PB_DATA.handoff.screens) || [];
+      const header = pbPageHeader({ title: 'Prototype', infoKey: 'prototype' });
+
       if (!screens.length) {
         $('#app').innerHTML = `
-          <div class="placeholder-card">
-            <h2>Your prototype goes here</h2>
-            <p>Run <code>/pb:build</code> to add screens — Tab 1 renders them as the live app
-               users interact with. The other 4 tabs are the documentation layer.</p>
+          <div class="pb-page">
+            ${header}
+            <div class="pb-content">
+              ${renderEmptyState({
+                icon: EMPTY_STATE_ICONS.prototype,
+                title: 'Your prototype goes here',
+                body: 'Run /pb:build to add screens — this tab renders them as the live app users interact with, with a real navigation and form-validation runtime. The other four tabs are the documentation layer.',
+                ctaLabel: 'Generate prototype screens', command: '/pb:build', label: 'Build command copied',
+              })}
+            </div>
           </div>`;
         return;
       }
+
       if (!state.protoScreenId || !screens.some(s => s.id === state.protoScreenId)) state.protoScreenId = screens[0].id;
+      // Supported device sizes — meta.devices (default all three); current device must be supported.
+      const supported = (PB_REGISTRY && PB_REGISTRY.meta && PB_REGISTRY.meta.devices) || ['desktop', 'tablet', 'mobile'];
       if (!state.protoDevice) state.protoDevice = ((PB_REGISTRY && PB_REGISTRY.meta && PB_REGISTRY.meta.device) || 'desktop');
+      if (supported.indexOf(state.protoDevice) === -1) state.protoDevice = supported[0] || 'desktop';
       const sel = screens.find(s => s.id === state.protoScreenId);
-      // Device switcher ONLY (icon-only). There is NO screen switcher — screens connect via [data-nav].
+      const device = state.protoDevice;
+
       const DEVICES = [['desktop', 'Desktop'], ['tablet', 'Tablet'], ['mobile', 'Mobile']];
-      const toolbar = `<div class="proto-toolbar" role="tablist" aria-label="Preview device">`
-        + DEVICES.map(([id, label]) =>
-            `<button class="proto-device-btn ${state.protoDevice === id ? 'active' : ''}" role="tab"
-               aria-selected="${state.protoDevice === id}" aria-label="${label}" title="${label}"
-               onclick="setProtoDevice('${id}')">${protoDeviceIcon(id)}</button>`).join('')
+      const toolbar = `<div class="proto-toolbar pb-proto-toolbar" role="tablist" aria-label="Preview device">`
+        + DEVICES.map(([id, label]) => {
+            const ok = supported.indexOf(id) !== -1;
+            return `<button class="proto-device-btn ${state.protoDevice === id ? 'active' : ''} ${ok ? '' : 'is-disabled'}" role="tab"
+               aria-selected="${state.protoDevice === id}" aria-label="${label}${ok ? '' : ' (not supported)'}"
+               title="${label}${ok ? '' : ' — not supported by this project'}" ${ok ? '' : 'disabled'}
+               ${ok ? `onclick="setProtoDevice('${id}')"` : ''}>${protoDeviceIcon(id)}</button>`;
+          }).join('')
         + `</div>`;
+
       const body = (typeof window[sel.renderFn] === 'function')
         ? window[sel.renderFn]()
         : `<div class="placeholder-card"><p>Screen "${sel.name}" has no render function yet — run <code>/pb:build --render</code>.</p></div>`;
-      $('#app').innerHTML = `<div class="proto-wrap">${toolbar}`
-        + `<div class="proto-viewport"><div class="proto-device proto-device--${state.protoDevice}" id="proto-frame">${body}</div></div></div>`;
+
+      const chrome = device === 'desktop'
+        ? `<div class="proto-chrome"><div class="proto-chrome-dots"><span class="proto-chrome-dot"></span><span class="proto-chrome-dot"></span><span class="proto-chrome-dot"></span></div><div class="proto-chrome-url">${pbEscape((PB_REGISTRY && PB_REGISTRY.meta && PB_REGISTRY.meta.name) || 'prototype')} · ${pbEscape(sel.name || sel.id)}</div></div>`
+        : `<div class="proto-notch"></div>`;
+
+      $('#app').innerHTML = `
+        <div class="pb-page">
+          ${header}
+          <div class="pb-content pb-content--split">
+            <div class="pb-main">
+              ${toolbar}
+              <div class="proto-stage">
+                <div class="proto-frame proto-frame--${device}">
+                  ${chrome}
+                  <div class="proto-device proto-device--${device} proto-screen" id="proto-frame">${body}</div>
+                </div>
+              </div>
+            </div>
+            <aside class="pb-aside">
+              <p class="pb-dialog-h">Structure</p>
+              ${pbRenderStructureTree(screens)}
+            </aside>
+          </div>
+        </div>`;
       wireProtoNav();
     }
-    function setProtoScreen(id) { state.protoScreenId = id; render(); }
+
+    /* Prototype aside: screen → component-level tree (does not recurse into component internals). */
+    function pbRenderStructureTree(screens) {
+      const comps = (PB_DATA.handoff && PB_DATA.handoff.organisms) || [];
+      const nameOf = id => { const c = comps.find(c => c.id === id); return c ? c.name : null; };
+      const dot = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="14" rx="2"/><path d="M8 21h8"/></svg>';
+      return '<div class="pb-tree">' + screens.map(s => {
+        const els = s.elements || [];
+        const nodes = els.length ? els.map(el => {
+          const cn = el.orgId ? nameOf(el.orgId) : null;
+          const org = el.orgId
+            ? `<span class="pb-tree-node-org ${cn ? '' : 'is-missing'}">${pbEscape(cn || el.orgId)}</span>` : '';
+          return `<li class="pb-tree-node"><span class="pb-tree-node-label">${pbEscape(el.label || el.id || 'element')}</span>${org}</li>`;
+        }).join('') : '<li class="pb-tree-node"><span class="pb-tree-node-label" style="color:var(--text-tertiary)">No mapped components</span></li>';
+        return `<div class="pb-tree-screen">
+          <div class="pb-tree-screen-name ${s.id === state.protoScreenId ? 'is-active' : ''}" title="Preview this screen"
+               style="cursor:pointer" onclick="setProtoScreen('${s.id}')">${dot}<span>${pbEscape(s.name || s.id)}</span></div>
+          <ul class="pb-tree-list">${nodes}</ul>
+        </div>`;
+      }).join('') + '</div>';
+    }
+    function setProtoScreen(id) { state.protoScreenId = id; renderPrototype(); }
     function setProtoDevice(id) { state.protoDevice = id; renderPrototype(); }
     function protoDeviceIcon(id) {
       const p = {
@@ -2478,6 +2965,30 @@
     ];
 
     function renderMetaSummary() {
+      const o  = (PB_DATA && PB_DATA.overview) || {};
+      const ui = (PB_DATA && PB_DATA.userInsights) || {};
+      const hasSummary = !!(o.objectives || (o.principles && o.principles.length) ||
+        ui.quantitative || ui.researchSummary || ui.executiveSummary ||
+        (PB_DATA.uiLogicTradeoffs && PB_DATA.uiLogicTradeoffs.length) || PB_DATA.others);
+
+      const header = pbPageHeader({ title: 'Project Summary', infoKey: 'summary' });
+
+      if (!hasSummary) {
+        $('#app').innerHTML = `
+          <div class="pb-page">
+            ${header}
+            <div class="pb-content pb-content--full">
+              ${renderEmptyState({
+                icon: EMPTY_STATE_ICONS.summary,
+                title: 'No summary yet',
+                body: 'The Project Summary is auto-synced from your spec and clarify steps — objectives, principles, user insights, and UI-logic trade-offs.',
+                ctaLabel: 'Write the spec', command: '/pb:specify',
+              })}
+            </div>
+          </div>`;
+        return;
+      }
+
       const subTabs = SUMMARY_SUBTABS.map(([id, label]) =>
         `<button class="meta-subtab ${state.summarySubTab === id ? 'active' : ''}"
                  onclick="setSummarySubTab('${id}')">${label}</button>`
@@ -2490,12 +3001,12 @@
       }[state.summarySubTab]();
 
       $('#app').innerHTML = `
-        <div class="meta-panel">
-          <span class="meta-tag">Project Summary</span>
-          <h1 class="meta-h1">What this prototype is testing</h1>
-          <p class="meta-sub">Auto-synced from <code>constitution.md</code>, <code>spec.md</code>, and <code>clarify.md</code>. Switch sections via the tabs below.</p>
-          <div class="meta-subtabs">${subTabs}</div>
-          ${body}
+        <div class="pb-page">
+          ${header}
+          <div class="pb-content pb-content--full">
+            <div class="meta-subtabs">${subTabs}</div>
+            ${body}
+          </div>
         </div>
       `;
     }
@@ -2603,23 +3114,37 @@
        Zoomable canvas with a custom SVG diagram. Edit `buildFlowSvg()` below
        to add your prototype's screens, decisions, and transitions.
        ========================================================================= */
+    /* QA test-case lenses — categories a scenario / coverage-gap can be tagged with. */
+    const QA_CAT_LABEL = { ux: 'UX', ui: 'UI', function: 'Function', business: 'Business', 'system-edge': 'System edge' };
+
     function renderMetaFlow() {
       const populated = !!(PB_DATA.flow && PB_DATA.flow.populated);
-      const body = populated ? renderFlowPopulated() : renderEmptyState({
-        icon: EMPTY_STATE_ICONS.flow,
-        title: 'No user flow yet',
-        body: 'Build your user flow from the project spec. Claude generates one combined left-to-right Mermaid flowchart that covers every story (including edge cases) — per-story detail lives in subprocesses, and the test checklist on the left side maps each story to a path. Zoomable canvas (pan + scroll-to-zoom + fit-to-view), color-coded shapes, curved connectors, 3:7 canvas-and-checklist layout. Follows 18 craft rules + 7 platform rules — Claude asks if the combined flow would exceed 9 nodes after subprocess extraction.',
-        ctaLabel: 'Generate user flow',
-        command: '/pb:sync-flow',
-        label: 'Sync flow command copied',
-      });
+      const cta = populated
+        ? `<button class="sync-button" onclick="openCopyPopover('/pb:sync-flow', this)">Sync</button>` : '';
+      const header = pbPageHeader({ title: 'UX Design', infoKey: 'flow', cta });
+
+      if (!populated) {
+        $('#app').innerHTML = `
+          <div class="pb-page">
+            ${header}
+            <div class="pb-content">
+              ${renderEmptyState({
+                icon: EMPTY_STATE_ICONS.flow,
+                title: 'No user flow yet',
+                body: 'Build your user flow from the project spec. Claude generates one combined left-to-right Mermaid flowchart that covers every story (including edge cases), with a per-story test checklist that maps each story to a path on the canvas.',
+                ctaLabel: 'Generate user flow', command: '/pb:sync-flow', label: 'Sync flow command copied',
+              })}
+            </div>
+          </div>`;
+        return;
+      }
+
       $('#app').innerHTML = `
-        <div class="meta-panel wide-panel">
-          <span class="meta-tag">UX Design</span>
-          <h1 class="meta-h1">User Flow Diagram</h1>
-          <p class="meta-sub">All states and transitions a user can take through the prototype.</p>
-          <hr class="meta-divider">
-          ${body}
+        <div class="pb-page">
+          ${header}
+          <div class="pb-content pb-content--split">
+            ${renderFlowPopulated()}
+          </div>
         </div>
       `;
       // v0.3.9 — once /pb:sync-flow rewrites renderFlowPopulated
@@ -2688,87 +3213,116 @@
     function renderFlowPopulated() {
       const f = (PB_DATA && PB_DATA.flow) || {};
       const fStories = f.stories || [];
-      if (!f.mermaid && f.html) return f.html;  // legacy pre-baked html (no structured data)
+      if (!f.mermaid && !(f.flows && f.flows.length) && f.html) {
+        return `<div class="pb-main">${f.html}</div><aside class="pb-aside"><p class="pb-aside-empty">Legacy flow.</p></aside>`;
+      }
+      // Multi-flow: prefer f.flows[]; fall back to the single f.mermaid.
+      const flows = (f.flows && f.flows.length) ? f.flows
+                  : (f.mermaid ? [{ name: 'Main flow', mermaid: f.mermaid }] : []);
+      const idx = Math.min(state.flowIndex || 0, Math.max(0, flows.length - 1));
+      const current = flows[idx];
+      const dropdown = flows.length > 1
+        ? `<select class="pb-flow-select" onchange="setFlowIndex(this.value)">`
+          + flows.map((fl, i) => `<option value="${i}" ${i === idx ? 'selected' : ''}>${pbEscape(fl.name || ('Flow ' + (i + 1)))}</option>`).join('')
+          + `</select>`
+        : `<span class="pb-flow-name">${pbEscape((current && current.name) || 'User flow')}</span>`;
+      const stage = current ? `<div class="mermaid">${current.mermaid}</div>` : buildFlowSvg();
+
+      const dims = pbDefaultDims();
+      if (state.flowW == null) state.flowW = dims.w;
+      if (state.flowH == null) state.flowH = dims.h;
+
       const storiesList = fStories.length
         ? '<ol class="flow-doc-stories">' + fStories.map(s =>
             `<li><strong>${pbEscape(s.title||'')}${s.priority?' ('+pbEscape(s.priority)+')':''}</strong>`
             + (s.jtbd ? ` — ${pbEscape(s.jtbd)}` : '')
             + (s.path ? `<div class="flow-doc-path"><em>Path:</em> ${pbEscape(s.path)}</div>` : '') + '</li>').join('') + '</ol>'
         : '<p class="flow-doc-side-sub">No user stories yet.</p>';
+      // QA test cases: scenarios may be plain strings or { text, category } across the QA lenses
+      // (UX · UI · Function · Business · System edge). f.coverageWarnings flags edges the UI misses.
+      const scenarioLi = (sc) => {
+        const text = (typeof sc === 'string') ? sc : (sc && sc.text) || '';
+        const cat = (sc && typeof sc === 'object') ? sc.category : null;
+        const chip = cat ? `<span class="pb-qa-cat pb-qa-cat--${pbEscape(cat)}">${pbEscape(QA_CAT_LABEL[cat] || cat)}</span> ` : '';
+        return `<li>☐ ${chip}${pbEscape(text)}</li>`;
+      };
       const testsList = fStories.length
         ? '<ol class="flow-doc-stories">' + fStories.map(s =>
             `<li><strong>${pbEscape(s.title||'')}</strong><ul class="flow-doc-checks">`
-            + (s.scenarios||[]).map(sc => `<li>☐ ${pbEscape(sc)}</li>`).join('') + '</ul></li>').join('') + '</ol>'
+            + (s.scenarios||[]).map(scenarioLi).join('') + '</ul></li>').join('') + '</ol>'
         : '<p class="flow-doc-side-sub">No test cases yet.</p>';
-      const stage = f.mermaid ? `<div class="mermaid">${f.mermaid}</div>` : buildFlowSvg();
-      return `
-        <div class="sync-bar">
-          <div class="sync-bar-msg">
-            ↻ This tab is decoupled from /build — re-render it from the spec by running <code>/pb:sync-flow</code>.
+      const warns = f.coverageWarnings || [];
+      const warnBlock = warns.length ? `
+        <div class="pb-qa-warn">
+          <div class="pb-qa-warn-head">⚠ Coverage gaps (${warns.length})</div>
+          <ul class="pb-qa-warn-list">${warns.map(w => {
+            const note = (typeof w === 'string') ? w : (w && w.note) || '';
+            const cat = (w && typeof w === 'object') ? w.category : null;
+            const chip = cat ? `<span class="pb-qa-cat pb-qa-cat--${pbEscape(cat)}">${pbEscape(QA_CAT_LABEL[cat] || cat)}</span> ` : '';
+            return `<li>${chip}${pbEscape(note)}</li>`;
+          }).join('')}</ul>
+        </div>` : '';
+
+      const legendBtn = `
+        <button class="flow-doc-legend-btn" type="button" aria-label="Show legend" onclick="openLegendPopover(this)">
+          <span class="flow-doc-legend-swatch flow-doc-swatch-start"></span>
+          <span class="flow-doc-legend-swatch flow-doc-swatch-decision"></span>
+          <span class="flow-doc-legend-swatch flow-doc-swatch-action"></span>
+          <span class="flow-doc-legend-swatch flow-doc-swatch-subprocess"></span>
+          <span class="flow-doc-legend-label">Legend</span>
+          <span class="flow-doc-legend-q" aria-hidden="true">?</span>
+        </button>`;
+
+      const main = `
+        <div class="pb-main">
+          <div class="flow-main-bar">
+            <div class="flow-main-bar-left">${dropdown}</div>
+            ${legendBtn}
           </div>
-          <button class="sync-button" onclick="openCopyPopover('/pb:sync-flow', this)">Sync now</button>
-        </div>
-
-        <div class="flow-doc-grid">
-          <aside class="flow-doc-side">
-            <div class="flow-side-tabs">
-              <button class="flow-side-tab active" data-tab="stories" onclick="setFlowSideTab('stories')">User stories</button>
-              <button class="flow-side-tab"        data-tab="tests"   onclick="setFlowSideTab('tests')">Test cases</button>
+          <div class="flow-canvas" id="flow-canvas" style="max-width:${state.flowW}px;height:${state.flowH}px">
+            <div class="flow-viewport" id="flow-viewport">
+              <div class="flow-stage" id="flow-stage">${stage}</div>
             </div>
-
-            <!-- Panel 1: User stories (from PRD + prototype) -->
-            <div class="flow-side-panel" data-tab="stories">
-              <div class="flow-doc-side-head">
-                <h2 class="flow-doc-side-title">User stories</h2>
-                <p class="flow-doc-side-sub">Generated from the PRD + prototype — each maps to a path on the canvas.</p>
-              </div>
-              ${storiesList}
+            <div class="flow-zoom-controls">
+              <button class="flow-zoom-btn" id="flow-zoom-in"  title="Zoom in">+</button>
+              <button class="flow-zoom-btn" id="flow-zoom-out" title="Zoom out">−</button>
+              <button class="flow-zoom-btn" id="flow-zoom-fit" title="Fit / reset">⊙</button>
             </div>
+            <div class="flow-zoom-readout" id="flow-zoom-readout">100%</div>
+            <div class="flow-hint">Scroll to zoom · drag to pan</div>
+          </div>
+        </div>`;
 
-            <!-- Panel 2: Test cases -->
-            <div class="flow-side-panel" data-tab="tests" hidden>
-              <div class="flow-doc-side-head">
-                <h2 class="flow-doc-side-title">Test cases</h2>
-                <p class="flow-doc-side-sub">Acceptance scenarios per story — the prototype's test checklist.</p>
-              </div>
-              ${testsList}
+      const aside = `
+        <aside class="pb-aside">
+          <div class="pb-flow-dims">
+            <span class="pb-dialog-h" style="margin:0">Screen size</span>
+            <label>W <input type="number" value="${state.flowW}" min="320" max="2400" oninput="setFlowDim('w', this.value)"></label>
+            <span class="pb-flow-dims-x">×</span>
+            <label>H <input type="number" value="${state.flowH}" min="360" max="1000" oninput="setFlowDim('h', this.value)"></label>
+          </div>
+          <div class="flow-side-tabs">
+            <button class="flow-side-tab active" data-tab="stories" onclick="setFlowSideTab('stories')">User stories</button>
+            <button class="flow-side-tab"        data-tab="tests"   onclick="setFlowSideTab('tests')">Test cases</button>
+          </div>
+          <div class="flow-side-panel" data-tab="stories">
+            <div class="flow-doc-side-head">
+              <h2 class="flow-doc-side-title">User stories</h2>
+              <p class="flow-doc-side-sub">Generated from the PRD + prototype — each maps to a path on the canvas.</p>
             </div>
-          </aside>
+            ${storiesList}
+          </div>
+          <div class="flow-side-panel" data-tab="tests" hidden>
+            <div class="flow-doc-side-head">
+              <h2 class="flow-doc-side-title">Test cases</h2>
+              <p class="flow-doc-side-sub">QA scenarios per story across UX · UI · Function · Business · System-edge — the prototype's test checklist.</p>
+            </div>
+            ${warnBlock}
+            ${testsList}
+          </div>
+        </aside>`;
 
-          <section class="flow-doc-main">
-            <header class="flow-doc-main-head">
-              <div>
-                <span class="flow-doc-pill">User flow</span>
-                <h2 class="flow-doc-main-title">User flow diagram</h2>
-                <p class="flow-doc-main-sub">All states and transitions a user can take through the prototype.</p>
-              </div>
-              <div class="flow-doc-legend">
-                <button class="flow-doc-legend-btn" type="button" aria-label="Show legend"
-                        onclick="openLegendPopover(this)">
-                  <span class="flow-doc-legend-swatch flow-doc-swatch-start"></span>
-                  <span class="flow-doc-legend-swatch flow-doc-swatch-decision"></span>
-                  <span class="flow-doc-legend-swatch flow-doc-swatch-action"></span>
-                  <span class="flow-doc-legend-swatch flow-doc-swatch-subprocess"></span>
-                  <span class="flow-doc-legend-label">Legend</span>
-                  <span class="flow-doc-legend-q" aria-hidden="true">?</span>
-                </button>
-              </div>
-            </header>
-            <div class="flow-canvas" id="flow-canvas">
-              <div class="flow-viewport" id="flow-viewport">
-                <div class="flow-stage" id="flow-stage">${stage}</div>
-              </div>
-              <div class="flow-zoom-controls">
-                <button class="flow-zoom-btn" id="flow-zoom-in"  title="Zoom in">+</button>
-                <button class="flow-zoom-btn" id="flow-zoom-out" title="Zoom out">−</button>
-                <button class="flow-zoom-btn" id="flow-zoom-fit" title="Fit / reset">⊙</button>
-              </div>
-              <div class="flow-zoom-readout" id="flow-zoom-readout">100%</div>
-              <div class="flow-hint">Scroll to zoom · drag to pan</div>
-            </div>
-          </section>
-        </div>
-      `;
+      return main + aside;
     }
 
     /* Tiny example flow: START → SCREEN → DECISION → END.
@@ -2865,52 +3419,92 @@
       renderHandoff();
     }
 
-    /* v0.3.17 — Component view: push-content drawer + property dropdowns + code panel. */
+    /* v1.2 — UI Design: page chrome + DS bar + 3-way Global|Local|Screen tabs over a split
+       layout (left = component cards / screen frame · right = persistent detail aside). */
+    function setHandoffTab(t) {
+      state.handoffTab = t;
+      if (t === 'screen') { PB_DATA.handoff.view = 'screen'; state.handoffDrawerOpenFor = null; }
+      else { PB_DATA.handoff.view = 'component'; state.handoffScope = t; state.screenDrawerOpenFor = null; }
+      renderHandoff();
+    }
+
     function renderHandoff() {
-      const isScreen = PB_DATA.handoff.view === 'screen';
-      if (isScreen) {
-        const sDrawerOpen = !!state.screenDrawerOpenFor;
+      const orgs = PB_DATA.handoff.organisms || [];
+      const screens = PB_DATA.handoff.screens || [];
+      const hasAny = orgs.length || screens.length;
+      const cta = hasAny ? `<button class="sync-button" onclick="openFigmaPushPanel(this)">Push to Figma →</button>` : '';
+      const header = pbPageHeader({ title: 'UI Design', infoKey: 'handoff', cta });
+      const dsBar = pbRenderDsBar();
+
+      if (!hasAny) {
         $('#app').innerHTML = `
-          <div class="handoff-shell ${sDrawerOpen ? 'is-drawer-open' : ''}">
-            <div class="meta-panel wide-panel handoff-main-col">
-              ${pbRenderHandoffHeader(true)}
-              ${pbRenderHandoffScreen()}
+          <div class="pb-page">
+            ${header}
+            ${dsBar}
+            <div class="pb-content">
+              ${renderEmptyState({
+                icon: EMPTY_STATE_ICONS.handoff,
+                title: 'No components yet',
+                body: 'Run /pb:build to populate the design system — every reusable component (with property controls, a code panel, and a spec drawer) and every screen handoff. Components here are the same ones the Prototype renders, never duplicated.',
+                ctaLabel: 'Generate components', command: '/pb:build', label: 'Build command copied',
+              })}
             </div>
-            <aside class="handoff-drawer-panel" aria-hidden="${sDrawerOpen ? 'false' : 'true'}">
-              ${sDrawerOpen ? pbRenderScreenDrawer() : ''}
-            </aside>
           </div>`;
         return;
       }
-      const drawerOpen = !!state.handoffDrawerOpenFor;
+
+      const isGlobal = o => o.scope === 'global' || !!o.dsMatch;
+      const groups = { global: orgs.filter(isGlobal), local: orgs.filter(o => !isGlobal(o)) };
+      if (!state.handoffTab) state.handoffTab = groups.local.length ? 'local' : (groups.global.length ? 'global' : 'screen');
+      const tab = state.handoffTab;
+      PB_DATA.handoff.view = (tab === 'screen') ? 'screen' : 'component';
+      if (tab !== 'screen') state.handoffScope = tab;
+
+      const tabsCtl = [['global', 'Global', groups.global.length], ['local', 'Local', groups.local.length], ['screen', 'Screen', screens.length]]
+        .map(([id, label, n]) => `<button class="meta-subtab ${tab === id ? 'active' : ''}" onclick="setHandoffTab('${id}')">${label}<span class="meta-subtab-count">${n}</span></button>`).join('');
+
+      const main = (tab === 'screen') ? pbRenderHandoffScreen() : pbRenderHandoffCards(groups[tab]);
+      const aside = (tab === 'screen')
+        ? (state.screenDrawerOpenFor ? `<div class="handoff-drawer">${pbRenderScreenDrawer()}</div>` : pbHandoffAsideHint('Select an element on the screen to inspect its tokens, sizing, UI logic, and live demo.'))
+        : (state.handoffDrawerOpenFor ? pbRenderHandoffDrawer() : pbHandoffAsideHint('Select a component to see its anatomy, specification, UI logic, and usage.'));
+
       $('#app').innerHTML = `
-        <div class="handoff-shell ${drawerOpen ? 'is-drawer-open' : ''}">
-          <div class="meta-panel wide-panel handoff-main-col">
-            ${pbRenderHandoffHeader(false)}
-            ${pbRenderHandoffComponent()}
+        <div class="pb-page">
+          ${header}
+          ${dsBar}
+          <div class="pb-content pb-content--split">
+            <div class="pb-main handoff-main-col">
+              <div class="meta-subtabs" style="margin-bottom:16px">${tabsCtl}</div>
+              ${main}
+            </div>
+            <aside class="pb-aside">${aside}</aside>
           </div>
-          <aside class="handoff-drawer-panel" aria-hidden="${drawerOpen ? 'false' : 'true'}">
-            ${drawerOpen ? pbRenderHandoffDrawer() : ''}
-          </aside>
         </div>`;
     }
 
-    function pbRenderHandoffHeader(isScreen) {
-      return `
-        <span class="meta-tag">UI Design</span>
-        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 0 8px;width:100%">
-          <h1 class="meta-h1" style="margin:0">UI Design</h1>
-          <button class="sync-button" onclick="openFigmaPushPanel(this)">Push to Figma →</button>
-        </div>
-        <p class="meta-sub">
-          <strong>Component</strong> view — every reusable component with property controls, a code panel, and a 4-tab spec drawer (Anatomy · Specification · UI Logic · Usage).
-          <strong>Screen</strong> view — the 7:3 annotated screen layout.
-        </p>
-        <div class="handoff-toggle">
-          <button class="handoff-toggle-btn ${!isScreen ? 'active' : ''}" onclick="setHandoffView('component')">Component</button>
-          <button class="handoff-toggle-btn ${isScreen  ? 'active' : ''}" onclick="setHandoffView('screen')">Screen</button>
-        </div>
-        <hr class="meta-divider">`;
+    function pbHandoffAsideHint(msg) { return `<p class="pb-aside-empty">${msg}</p>`; }
+
+    /* Design-system bar under the UI Design title (meta.designSystem; tolerated-absent). */
+    function pbRenderDsBar() {
+      const ds = (PB_REGISTRY && PB_REGISTRY.meta && PB_REGISTRY.meta.designSystem) || null;
+      if (!ds || !ds.name) {
+        if (VIEW_ONLY) return '';
+        return `<div class="pb-ds-bar pb-ds-bar--empty" onclick="openCopyPopover('/pb:build', this)" title="Link a design system">+ No design system linked — click to add one</div>`;
+      }
+      const linkIcon = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1"/><path d="M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1"/></svg>';
+      const codeIcon = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>';
+      const design = ds.designLink
+        ? `<a class="pb-ds-link" href="${pbEscape(ds.designLink)}" target="_blank" rel="noopener">${linkIcon} Design</a>`
+        : `<span class="pb-ds-link pb-ds-link--missing">No design link</span>`;
+      let code;
+      if (ds.codeLibrary && /^https?:/.test(ds.codeLibrary)) {
+        code = `<a class="pb-ds-link" href="${pbEscape(ds.codeLibrary)}" target="_blank" rel="noopener">${codeIcon} Code library</a>`;
+      } else if (ds.codeLibrary) {
+        code = `<span class="pb-ds-link" title="${pbEscape(ds.codeLibrary)}">${codeIcon} <code>${pbEscape(ds.codeLibrary)}</code></span>`;
+      } else {
+        code = `<span class="pb-ds-link pb-ds-link--missing">No code library</span>`;
+      }
+      return `<div class="pb-ds-bar"><span class="pb-ds-name">${pbEscape(ds.name)}</span><span class="pb-ds-sep">·</span>${design}<span class="pb-ds-sep">·</span>${code}</div>`;
     }
 
     /* Resolve the active property combo for an organism (lazy-seeded from defaults). */
@@ -3064,57 +3658,55 @@
     }
 
     /* v0.3.0 — Component view as vertical card list. Click card → spec drawer. */
-    function pbRenderHandoffComponent() {
+    /* The component card list for the active scope (Global/Local). Selection + Push live
+       in the page header / tab control now — this returns just the cards. */
+    function pbRenderHandoffCards(shown) {
       const orgs = (PB_DATA.handoff.organisms || []);
-      if (!orgs.length) {
-        return `<p class="meta-p" style="color:var(--text-tertiary);font-style:italic">
-          No components recorded yet. Run <code>/pb:build</code> to populate this view.
-        </p>`;
+      if (!shown || !shown.length) {
+        const scope = state.handoffScope || 'local';
+        return `<p class="meta-p" style="color:var(--text-tertiary);font-style:italic">No ${scope} components.${scope === 'global' ? ' Global components are shared design-system refs reused across prototypes.' : ' Local components are built for this project.'}</p>`;
       }
-      // Global vs Local sub-tabs (shared meta-subtab component, same as Project Summary).
-      const isGlobal = o => o.scope === 'global' || !!o.dsMatch;
-      const groups = { global: orgs.filter(isGlobal), local: orgs.filter(o => !isGlobal(o)) };
-      if (!state.handoffScope) state.handoffScope = groups.local.length ? 'local' : 'global';
-      const subtabs = [['global', 'Global'], ['local', 'Local']].map(([id, label]) =>
-        `<button class="meta-subtab ${state.handoffScope === id ? 'active' : ''}" onclick="setHandoffScope('${id}')">${label}<span class="meta-subtab-count">${groups[id].length}</span></button>`).join('');
-      const shown = groups[state.handoffScope] || [];
-      const list = shown.length ? `
-        <div class="handoff-card-list">
-          ${shown.map((org) => {
-            const i = orgs.indexOf(org);
-            const props = pbActiveProps(org);
-            const layout = org.codeLayout === 'side-by-side' ? 'side-by-side' : 'stacked';
-            return `
-              <div class="handoff-card" onclick="openHandoffDrawer('${pbEscape(org.id)}')">
-                <div class="handoff-card-header">
-                  <span class="handoff-card-title">${i+1} · ${pbEscape(org.name)}</span>
-                  <span class="handoff-card-id">${pbEscape(org.scope || 'local')} · ${pbEscape(org.id)}</span>
-                </div>
-                ${org.meta ? `<p class="handoff-card-meta">${pbEscape(org.meta)}</p>` : ''}
-                <div class="handoff-card-controls" onclick="event.stopPropagation()">
-                  ${(org.properties || []).filter(prop => prop.id !== 'state').map(prop => `
-                    <label class="prop-field">
-                      <span class="prop-label">${pbEscape(prop.label)}</span>
-                      <select class="prop-select" onchange="setHandoffProp('${pbEscape(org.id)}','${pbEscape(prop.id)}',this.value)">
-                        ${prop.options.map(o => `<option value="${pbEscape(o.value)}" ${props[prop.id]===o.value?'selected':''}>${pbEscape(o.label)}</option>`).join('')}
-                      </select>
-                    </label>`).join('')}
-                </div>
-                <div class="handoff-card-body handoff-card-body--${layout}">
-                  ${pbRenderComponentDemo(org, props)}
-                  ${pbRenderHandoffCode(org)}
-                </div>
-                <div class="handoff-card-hint">→ Click the card for the full spec (Anatomy · Specification · UI Logic · Usage)</div>
-              </div>`;
-          }).join('')}
-        </div>`
-        : `<p class="meta-p" style="color:var(--text-tertiary);font-style:italic">No ${state.handoffScope} components.${state.handoffScope === 'global' ? ' Global components are shared design-system refs reused across prototypes.' : ''}</p>`;
-      return `
-        <div style="margin-bottom: 16px;">
-          <button class="sync-button" onclick="openFigmaPushPanel(this)">Push components to Figma →</button>
-        </div>
-        <div class="meta-subtabs">${subtabs}</div>
-        ${list}`;
+      const cardHtml = (org) => {
+        const i = orgs.indexOf(org);
+        const props = pbActiveProps(org);
+        const layout = org.codeLayout === 'side-by-side' ? 'side-by-side' : 'stacked';
+        const selected = state.handoffDrawerOpenFor === org.id;
+        return `
+          <div class="handoff-card ${selected ? 'is-selected' : ''}" onclick="openHandoffDrawer('${pbEscape(org.id)}')">
+            <div class="handoff-card-header">
+              <span class="handoff-card-title">${i+1} · ${pbEscape(org.name)}</span>
+              <span class="handoff-card-id">${pbEscape(org.scope || 'local')}${org.level ? ' · ' + pbEscape(org.level) : ''} · ${pbEscape(org.id)}</span>
+            </div>
+            ${org.meta ? `<p class="handoff-card-meta">${pbEscape(org.meta)}</p>` : ''}
+            <div class="handoff-card-controls" onclick="event.stopPropagation()">
+              ${(org.properties || []).filter(prop => prop.id !== 'state').map(prop => `
+                <label class="prop-field">
+                  <span class="prop-label">${pbEscape(prop.label || prop.id)}</span>
+                  <select class="prop-select" onchange="setHandoffProp('${pbEscape(org.id)}','${pbEscape(prop.id)}',this.value)">
+                    ${(prop.options || []).map(o => `<option value="${pbEscape(o.value)}" ${props[prop.id]===o.value?'selected':''}>${pbEscape(o.label)}</option>`).join('')}
+                  </select>
+                </label>`).join('')}
+            </div>
+            <div class="handoff-card-body handoff-card-body--${layout}">
+              ${pbRenderComponentDemo(org, props)}
+              ${pbRenderHandoffCode(org)}
+            </div>
+            <div class="handoff-card-hint">→ Click the card for the full spec (Anatomy · Specification · UI Logic · Usage)</div>
+          </div>`;
+      };
+      // Group by atomic level when any component declares one; otherwise a flat list.
+      const LEVELS = ['atom', 'molecule', 'organism'];
+      if (!shown.some(o => o.level)) {
+        return `<div class="handoff-card-list">${shown.map(cardHtml).join('')}</div>`;
+      }
+      const buckets = {};
+      shown.forEach(o => { const k = LEVELS.indexOf(o.level) >= 0 ? o.level : 'other'; (buckets[k] = buckets[k] || []).push(o); });
+      const labels = { atom: 'Atoms', molecule: 'Molecules', organism: 'Organisms', other: 'Other' };
+      return LEVELS.concat(['other']).filter(k => buckets[k] && buckets[k].length).map(k => `
+        <div class="pb-level-group">
+          <div class="pb-level-head">${labels[k]}<span class="pb-level-count">${buckets[k].length}</span></div>
+          <div class="handoff-card-list">${buckets[k].map(cardHtml).join('')}</div>
+        </div>`).join('');
     }
 
     // Component demo: if a component declares a `state` property, show EVERY state, labeled
@@ -3442,20 +4034,11 @@
           label: 'Handoff command copied',
         });
       }
-      const syncBar = `
-        <div class="sync-bar">
-          <div class="sync-bar-msg">
-            ↻ Screens populated. Re-render from the latest spec by running <code>/pb:build</code>.
-          </div>
-          <button class="sync-button" onclick="openCopyPopover('/pb:build', this)">Sync now</button>
-          <button class="sync-button" onclick="openFigmaPushPanel(this)">Push screens to Figma →</button>
-        </div>
-      `;
       const selectedId = PB_DATA.handoff.selectedScreenId || screens[0].id;
       const selectedScreen = screens.find(s => s.id === selectedId) || screens[0];
       const elements = selectedScreen.elements || [];
 
-      return syncBar + `
+      return `
         <div class="handoff-screen-pick">
           <label class="handoff-screen-label">Screen:</label>
           <select class="handoff-screen-select" onchange="setHandoffScreen(this.value)">
@@ -3599,24 +4182,44 @@
        ========================================================================= */
     function renderMetaERD() {
       const populated = !!(PB_DATA.erd && PB_DATA.erd.populated);
-      const body = populated ? renderERDPopulated() : renderEmptyState({
-        icon: EMPTY_STATE_ICONS.erd,
-        title: 'No data model yet',
-        body: 'Build the entity-relationship diagram from your spec. Claude generates a Mermaid `erDiagram` with PK/FK/cardinality guardrails — for a future production implementation.',
-        ctaLabel: 'Generate ERD',
-        command: '/pb:sync-erd',
-        label: 'Sync ERD command copied',
-      });
+      const cta = populated
+        ? `<button class="sync-button" onclick="openCopyPopover('/pb:sync-erd', this)">Sync</button>` : '';
+      const header = pbPageHeader({ title: 'Data', infoKey: 'erd', cta });
+
+      if (!populated) {
+        $('#app').innerHTML = `
+          <div class="pb-page">
+            ${header}
+            <div class="pb-content">
+              ${renderEmptyState({
+                icon: EMPTY_STATE_ICONS.erd,
+                title: 'No data model yet',
+                body: 'Build the entity-relationship diagram from your spec. Claude generates a Mermaid `erDiagram` with PK/FK/cardinality guardrails — for a future production implementation.',
+                ctaLabel: 'Generate ERD', command: '/pb:sync-erd', label: 'Sync ERD command copied',
+              })}
+            </div>
+          </div>`;
+        return;
+      }
+
+      const e = (PB_DATA && PB_DATA.erd) || {};
+      const rows = e.table || [];
+      const byEntity = {};
+      rows.forEach(r => { (byEntity[r.entity] = byEntity[r.entity] || []).push(r); });
+      const entities = Object.keys(byEntity);
+      if (state.erdEntity && entities.indexOf(state.erdEntity) === -1) state.erdEntity = null;
+      if (!state.erdView) state.erdView = 'diagram';
+
       $('#app').innerHTML = `
-        <div class="meta-panel wide-panel">
-          <span class="meta-tag">Data</span>
-          <h1 class="meta-h1">Entity Relationship Diagram</h1>
-          <p class="meta-sub">Data model for a future production implementation.</p>
-          <hr class="meta-divider">
-          ${body}
-        </div>
-      `;
-      if (populated && window.mermaid && state.erdView !== 'table') {
+        <div class="pb-page">
+          ${header}
+          <div class="pb-content pb-content--split">
+            <div class="pb-main">${pbErdMain(e, byEntity)}</div>
+            <aside class="pb-aside">${pbErdAside(byEntity, entities)}</aside>
+          </div>
+        </div>`;
+
+      if (state.erdView !== 'table' && e.mermaid && window.mermaid) {
         mermaid.initialize({ startOnLoad: false, theme: 'neutral' });
         mermaid.run({ querySelector: '#erd-diagram' }).then(function () {
           var stage = document.getElementById('erd-stage');
@@ -3637,16 +4240,10 @@
       }
     }
 
-    function renderERDPopulated() {
-      const e = (PB_DATA && PB_DATA.erd) || {};
-      const rows = e.table || [];
-      if (!e.mermaid && !rows.length && e.html) return e.html;  // legacy pre-baked html
-      if (!state.erdView) state.erdView = 'diagram';
+    /* Data-tab left column: Diagram | Table toggle + the canvas or the per-entity tables. */
+    function pbErdMain(e, byEntity) {
       const subtabs = [['diagram', 'Diagram'], ['table', 'Table']].map(([id, label]) =>
         `<button class="meta-subtab ${state.erdView === id ? 'active' : ''}" onclick="setErdView('${id}')">${label}</button>`).join('');
-      // Table view — one styled table per entity (real table component, not text alignment).
-      const byEntity = {};
-      rows.forEach(r => { (byEntity[r.entity] = byEntity[r.entity] || []).push(r); });
       const tableView = Object.keys(byEntity).length
         ? `<div class="erd-tables">` + Object.keys(byEntity).map(ent => `
             <div class="erd-entity">
@@ -3658,42 +4255,82 @@
               </table>
             </div>`).join('') + `</div>`
         : `<p class="meta-p" style="color:var(--text-tertiary);font-style:italic">No table data.</p>`;
-      // Diagram view — the ERD in the zoomable canvas (mermaid div carries #erd-diagram).
       const diagramView = `
-        <div class="flow-layout">
-          <div class="flow-canvas" id="erd-canvas">
-            <div class="flow-viewport" id="erd-viewport">
-              <div class="flow-stage flow-stage-erd" id="erd-stage">
-                <div class="mermaid" id="erd-diagram">${e.mermaid || ''}</div>
-              </div>
+        <div class="flow-canvas" id="erd-canvas">
+          <div class="flow-viewport" id="erd-viewport">
+            <div class="flow-stage flow-stage-erd" id="erd-stage">
+              <div class="mermaid" id="erd-diagram">${e.mermaid || ''}</div>
             </div>
-            <div class="flow-zoom-controls">
-              <button class="flow-zoom-btn" id="erd-zoom-in"  title="Zoom in">+</button>
-              <button class="flow-zoom-btn" id="erd-zoom-out" title="Zoom out">−</button>
-              <button class="flow-zoom-btn" id="erd-zoom-fit" title="Fit / reset">⊙</button>
-            </div>
-            <div class="flow-zoom-readout" id="erd-zoom-readout">100%</div>
-            <div class="flow-hint">Scroll to zoom · drag to pan</div>
           </div>
-          <aside class="flow-legend">
-            <span class="flow-legend-tag">Legend</span>
-            <h2 class="flow-legend-title">Relationships</h2>
-            <div class="erd-legend-rels">
-              <div class="erd-legend-rel"><span class="lbl">1 : 1</span>${erdRelSvg('one-one')}<span class="desc">One-to-One</span></div>
-              <div class="erd-legend-rel"><span class="lbl">1 : N</span>${erdRelSvg('one-many')}<span class="desc">One-to-Many</span></div>
-              <div class="erd-legend-rel"><span class="lbl">N : N</span>${erdRelSvg('many-many')}<span class="desc">Many-to-Many</span></div>
-            </div>
-          </aside>
+          <div class="flow-zoom-controls">
+            <button class="flow-zoom-btn" id="erd-zoom-in"  title="Zoom in">+</button>
+            <button class="flow-zoom-btn" id="erd-zoom-out" title="Zoom out">−</button>
+            <button class="flow-zoom-btn" id="erd-zoom-fit" title="Fit / reset">⊙</button>
+          </div>
+          <div class="flow-zoom-readout" id="erd-zoom-readout">100%</div>
+          <div class="flow-hint">Scroll to zoom · drag to pan</div>
         </div>`;
-      return `
-        <div class="sync-bar">
-          <div class="sync-bar-msg">
-            ↻ This tab is decoupled from /build — re-render it from the spec by running <code>/pb:sync-erd</code>.
-          </div>
-          <button class="sync-button" onclick="openCopyPopover('/pb:sync-erd', this)">Sync now</button>
-        </div>
-        <div class="meta-subtabs">${subtabs}</div>
+      return `<div class="meta-subtabs" style="margin-bottom:16px">${subtabs}</div>
         ${state.erdView === 'table' ? tableView : diagramView}`;
+    }
+
+    /* Data-tab right aside: relationship legend + clickable entities + selected entity detail. */
+    function pbErdAside(byEntity, entities) {
+      const legend = `
+        <div class="pb-aside-section">
+          <p class="pb-dialog-h">Relationships</p>
+          <div class="erd-legend-rels">
+            <div class="erd-legend-rel"><span class="lbl">1 : 1</span>${erdRelSvg('one-one')}<span class="desc">One-to-One</span></div>
+            <div class="erd-legend-rel"><span class="lbl">1 : N</span>${erdRelSvg('one-many')}<span class="desc">One-to-Many</span></div>
+            <div class="erd-legend-rel"><span class="lbl">N : N</span>${erdRelSvg('many-many')}<span class="desc">Many-to-Many</span></div>
+          </div>
+        </div>`;
+      const chips = entities.map(ent =>
+        `<button class="pb-entity-chip ${state.erdEntity === ent ? 'is-active' : ''}" onclick="setErdEntity('${pbEscape(ent)}')">${pbEscape(ent)} <span class="pb-entity-chip-n">${byEntity[ent].length}</span></button>`).join('');
+      const sel = state.erdEntity && byEntity[state.erdEntity];
+      const detail = sel
+        ? `<table class="erd-entity-table" style="margin-top:14px">
+             <thead><tr><th>Field</th><th>Type</th><th>Example</th></tr></thead>
+             <tbody>${sel.map(r =>
+               `<tr><td>${pbEscape(r.field||'')}</td><td><code>${pbEscape(r.type||'')}</code></td><td>${pbEscape(r.example||'')}</td></tr>`).join('')}</tbody>
+           </table>`
+        : `<p class="pb-aside-empty">Select an entity to inspect its fields.</p>`;
+      return `${legend}
+        <div class="pb-aside-section">
+          <p class="pb-dialog-h">Entities</p>
+          <div class="pb-entity-chips">${chips || '<span class="pb-aside-empty">No entities.</span>'}</div>
+          ${detail}
+        </div>
+        ${sel ? pbErdMockSection(state.erdEntity, byEntity[state.erdEntity]) : ''}`;
+    }
+
+    /* Mock-data viewer: preview each sample set (typical / empty / overflow) for an entity,
+       so edge cases can be checked against the UI. Data lives in erd.mock[]. */
+    function pbErdMockSection(entity, fields) {
+      const sets = ((PB_DATA.erd && PB_DATA.erd.mock) || []).filter(m => m.entity === entity);
+      if (!sets.length) {
+        return `<div class="pb-aside-section">
+          <p class="pb-dialog-h">Mock data</p>
+          <p class="pb-aside-empty" style="padding:14px 8px">No mock data for ${pbEscape(entity)} yet — run <code>/pb:sync-erd --mock</code>.</p>
+        </div>`;
+      }
+      const mi = Math.min(state.erdMockIndex || 0, sets.length - 1);
+      const cur = sets[mi];
+      const cols = fields.map(f => f.field);
+      const selector = sets.map((m, i) =>
+        `<button class="pb-mock-chip ${i === mi ? 'is-active' : ''}" onclick="setErdMock(${i})">${pbEscape(m.label || ('Set ' + (i + 1)))}<span class="pb-mock-n">${(m.rows || []).length}</span></button>`).join('');
+      const rows = (cur.rows || []);
+      const table = rows.length
+        ? `<table class="erd-entity-table pb-mock-table">
+             <thead><tr>${cols.map(c => `<th>${pbEscape(c)}</th>`).join('')}</tr></thead>
+             <tbody>${rows.map(r => `<tr>${cols.map(c => `<td>${pbEscape(r[c] != null ? String(r[c]) : '—')}</td>`).join('')}</tr>`).join('')}</tbody>
+           </table>`
+        : `<p class="pb-aside-empty" style="padding:14px 8px">This set is empty — useful for testing the no-data state.</p>`;
+      return `<div class="pb-aside-section">
+        <p class="pb-dialog-h">Mock data <span class="pb-mock-total">${sets.length} set${sets.length !== 1 ? 's' : ''}</span></p>
+        <div class="pb-mock-chips">${selector}</div>
+        <div class="pb-mock-preview">${table}</div>
+      </div>`;
     }
 
     /* ERD legend cardinality symbols (Crow's-foot notation) */

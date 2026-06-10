@@ -4,6 +4,8 @@
     "name": "",
     "schemaVersion": 3,
     "device": "desktop",
+    "devices": ["desktop", "tablet", "mobile"],
+    "designSystem": { "name": "", "designLink": null, "codeLibrary": null, "linked": false },
     "overview": { "objectives": null, "principles": [] },
     "userInsights": { "quantitative": null, "researchSummary": null, "executiveSummary": null },
     "tradeoffs": [],

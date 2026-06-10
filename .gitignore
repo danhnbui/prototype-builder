@@ -15,3 +15,6 @@ dist/
 # Local Claude Code settings (machine-specific)
 .claude/settings.local.json
 .claude/launch.json
+
+# Local preview scratch (not a plugin deliverable)
+/registry.json

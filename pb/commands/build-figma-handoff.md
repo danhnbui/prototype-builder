@@ -52,8 +52,9 @@ Sequential. ANY failure → HARD FAIL with the exact message; no Figma writes ye
 - **components / both:** each component with a `figmaComponentSetId` in `figma-transfer.json` → `update`; else `new`.
 - **screens / both:** each screen with a `figmaFrameId` → `update`; else `new`.
 - **Variant-axis change (components):** compare `properties[]` to `figma-transfer.json.propertyMapping`. A new property or new option values → flag `axis-change`. **NEVER auto-add a variant axis** — it surfaces as its own group here.
+- **Affected-screen analysis (components):** for every `update` / `axis-change` component, list the **screens that reference it** (`screens[].elements[].orgId === <component id>`). Re-pushing the component re-renders its instances on those frames — name them so the blast radius is explicit before confirming. (This mirrors the "⚠ affects N screens" line shown in the UI Design push panel.)
 
-Output the audit (new / updated / axis-change counts + ids + total writes estimate) and ask `Proceed to G-FP3? (yes / cancel)`. On `cancel` → stop.
+Output the audit (new / updated / axis-change counts + ids + total writes estimate + **affected screens per updated component**) and ask `Proceed to G-FP3? (yes / cancel)`. On `cancel` → stop.
 
 **Batch guard:** if (new+updated screens) > 1 OR (new+updated components) > 5 and `--batch` is absent → HARD FAIL (re-run with `--batch` or scope down).
 
@@ -93,6 +94,8 @@ Ordered, each a `Figma:use_figma` call (load the `figma-use` skill first):
 3. **Screens** (skip if scope=components) — create a frame in `rootFrameId` per screen; for each element create a child node **with auto-layout** per the sizing heuristic; DS-matched element components inserted as **instances**, not local copies; record `frameId` + element map.
 4. **Token bindings** — bind each element's computed property to its VariableID.
 5. **Instance bindings** — ensure each instance points at the correct `{DS}` library component.
+
+**Progress reporting:** as each component / screen completes, print a one-line tick (`✓ pushed <name> (3/7)`). If the live `/pb:preview` server is up, also drive the in-app progress widget by evaluating `window.pbSetPushProgress({ components:{done,total,current}, screens:{done,total,current} })` in the preview so the user sees the bars advance in the UI Design tab; the chat ticks are the source of truth.
 
 **Roll-forward only:** on partial failure, persist every node ID written; the next push reconciles via G-FP2. Never roll back.
 

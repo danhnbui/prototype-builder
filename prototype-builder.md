@@ -20,6 +20,8 @@ here. Design tokens are applied onto `:root` at boot via `applyRegistryTokens`.
 |---|---|---|---|
 | `meta.name` | string | — | project name |
 | `meta.device` | `'desktop'\|'tablet'\|'mobile'` | Prototype | default device for the preview frame; set at `/pb:init`. Falls back to `'desktop'` |
+| `meta.devices` | `('desktop'\|'tablet'\|'mobile')[]` | Prototype | device sizes this project supports — unsupported sizes are disabled in the switcher. Optional; defaults to all three |
+| `meta.designSystem` | `{ name, designLink, codeLibrary, linked }` | UI Design | the linked design system — `designLink` (Figma/doc URL), `codeLibrary` (folder path or repo URL). Seeded from the DS Lock at `/pb:init`. Optional/tolerated-absent → the DS bar shows an "add one" affordance |
 | `meta.overview` | `{ objectives, principles[] }` | Project Summary | from spec + constitution |
 | `meta.userInsights` | `{ quantitative, researchSummary, executiveSummary }` | Project Summary | from `/pb:clarify` |
 | `meta.tradeoffs[]` | `[{ title, question, options, decision, why, tabsAffected }]` | Project Summary | UI Logic Trade-offs |
@@ -37,13 +39,17 @@ Ported **verbatim** from the v0.4.0 `PB_DATA.handoff.organisms` shape:
 
 ```
 { id (kebab, unique), name, renderFn ("renderCmp{PascalCase}"), meta, scope ("global"|"local"),
-  codeLayout ("stacked"|"side-by-side"),
+  level ("atom"|"molecule"|"organism"), codeLayout ("stacked"|"side-by-side"),
   properties[], code{ lang, snippet }, anatomy{ renderProps, parts[] }, spec{ legend, renderProps, marginX, stack[] },
   uiLogic[], usage{ demoProps, topics[], placement } }
 ```
 
 - **`scope`** — `'global' | 'local'`. Drives the UI Design **Global | Local** sub-tabs. A component reads as
   global when `scope === 'global'` **or** a `dsMatch` exists; otherwise local.
+- **`level`** — `'atom' | 'molecule' | 'organism'` — the atomic-design layer. Optional; when present, the UI
+  Design Global/Local lists group components by level (atoms → molecules → organisms). Compose upward:
+  atoms into molecules, molecules into organisms, organisms onto screens — never inline a one-off (see the
+  atomic-composition principle in `constitution.md`).
 - **`state` property convention** — if `properties[]` contains a property with `id: 'state'` (each option
   `{ label, value }`), the UI Design demo renders **one labeled variant per state**. **Interactive components
   MUST declare it** (e.g. `default / error / disabled`, `default / loading / disabled`).
@@ -84,25 +90,43 @@ registry on each load and never written back. (This is why a click in the protot
 ### `flow` (UX Design tab — structured, decoupled)
 
 ```
-flow = { populated, mermaid, stories: [ { title, priority, jtbd, path, scenarios[], node?, status?, preview? } ], html? }
+flow = { populated, mermaid, screen?: { w, h }, flows?: [ { name, mermaid } ],
+         stories: [ { title, priority, jtbd, path, scenarios[], node?, status?, preview? } ],
+         coverageWarnings?: [ { category, note } ], html? }
 ```
 
-`/pb:sync-flow` writes `mermaid` (a `flowchart LR` source) + `stories[]`. The shell renders two sidebar
-sub-tabs — **User stories** (title/priority/jtbd/path) and **Test cases** (each `scenarios[]` entry as a
-checkbox) — and runs Mermaid with `curve:'basis'` (smooth curved connectors) and classDef colors matching
-the on-canvas legend (start/end zinc · decision sky · action lavender · input pink · subprocess purple),
-plus a legend popover. `html` is a legacy pre-baked fallback used only when `mermaid` is absent.
+`/pb:sync-flow` writes `mermaid` (a `flowchart LR` source) + `stories[]`. The shell renders the canvas on
+the **left** and a **User stories | Test cases** aside on the right (each `scenarios[]` entry a checkbox),
+running Mermaid with `curve:'basis'` (smooth curved connectors) and classDef colors matching the on-canvas
+legend (start/end zinc · decision sky · action lavender · input pink · subprocess purple), plus a legend
+popover. `html` is a legacy pre-baked fallback used only when `mermaid` is absent.
+
+- **`screen`** — `{ w, h }` the target screen dimensions; sizes the flow canvas frame. The aside's W×H
+  inputs edit these live; `/pb:sync-flow` persists them here (else the canvas defaults from `meta.device`).
+- **`flows`** — optional named flows for multi-flow projects; the canvas shows a dropdown to switch. When
+  absent, the single `mermaid` is shown as one "Main flow".
+- **`scenarios[]`** — a test case is either a plain string or `{ text, category }` where `category ∈
+  ux | ui | function | business | system-edge` (the **QA lenses**). The Test cases panel tags each with a
+  colored category chip; untagged strings render plain.
+- **`coverageWarnings`** — `[{ category, note }]` (or plain strings) — edge cases the QA pass found that the
+  UI/flow does **not** cover yet. Rendered as a "Coverage gaps" callout above the test checklist so the user
+  sees what's missing.
 
 ### `erd` (Data tab — structured, decoupled)
 
 ```
-erd = { populated, table: [ { entity, field, type, example, notes } ], mermaid, warnings[], html? }
+erd = { populated, table: [ { entity, field, type, example, notes } ], mermaid, warnings[],
+        mock?: [ { entity, label, rows: [ { <field>: <value> } ] } ], html? }
 ```
 
 `/pb:sync-erd` writes `table[]` + `mermaid` (an `erDiagram` source). The shell renders a **Diagram | Table**
-toggle: Diagram = the `erDiagram`; Table = one styled `<table>` per entity (a real table component, grouped
-by `entity`), not text alignment. `html` is a legacy pre-baked fallback used only when neither `mermaid` nor
-`table` is present.
+toggle on the left; the right aside lists entities and, for the selected one, its fields plus a **mock-data
+viewer**. `html` is a legacy pre-baked fallback used only when neither `mermaid` nor `table` is present.
+
+- **`mock`** — optional sample row-sets per entity. Each set has a `label` (e.g. `Typical`, `Empty`,
+  `Long values`, `Overflow`) and `rows[]` (objects keyed by the entity's field names). The Data aside shows
+  a selector to preview each set against the field columns, so **edge cases** (no data / sparse / overflow)
+  can be checked. Authored by `/pb:sync-erd --mock`.
 
 ## The 5 tabs
 

@@ -33,7 +33,13 @@ The template already carries `meta.schemaVersion: 3` (= `CURRENT_SCHEMA` from
 
 Set **`meta.device`** (`'desktop' | 'tablet' | 'mobile'`) — the Prototype's default device frame — from the
 PRD's target form factor: auth / mobile-first apps → `'mobile'`; dashboards / desktop web → `'desktop'`;
-when unclear, default `'desktop'`.
+when unclear, default `'desktop'`. Set **`meta.devices`** to the sizes the project actually supports (a
+subset of the three) so unsupported sizes are disabled in the Prototype switcher; default all three.
+
+Seed **`meta.designSystem`** from the Design System Lock (step 2): `name` = the DS name; `codeLibrary` =
+its source when that's a repo URL or local path (**required** — a DS must have a code home); `designLink` =
+a Figma/doc URL if one was given (else `null`); `linked: true` once both name and codeLibrary are set.
+This drives the UI Design design-system bar.
 
 ## 4 · Seed memory + design system
 - `memory/decisions.md` from `${CLAUDE_PLUGIN_ROOT}/template/decisions.template.md`.

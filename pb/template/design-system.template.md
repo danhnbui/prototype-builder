@@ -20,14 +20,20 @@ inline-SVG fallback.
 
 ## Component index  ← scan this first
 
-| Component | renderFn | Props / variants | Purpose | Level |
-|---|---|---|---|---|
-| _(one row per component in `registry.components[]`; populated by `/pb:build`)_ | | | | global / local |
+| Component | renderFn | Props / variants | Purpose | Scope | Level |
+|---|---|---|---|---|---|
+| _(one row per component in `registry.components[]`; populated by `/pb:build`)_ | | | | global / local | atom / molecule / organism |
+
+> **Scope** = where it lives (`global` shared DS · `local` this project). **Level** = its atomic layer
+> (`atom` → `molecule` → `organism`). The UI Design tab groups each scope's list by level.
 
 ## Rules
 
 - **R0 · DS-first, Local-first.** Never inline UI that bypasses a component. Reuse a global or local
   component before building anything.
+- **R0.5 · Atomic composition.** Tag every component with a `level` (`atom`|`molecule`|`organism`) and
+  compose upward — atoms into molecules, molecules into organisms, organisms onto screens. Don't build an
+  organism where a molecule + variants would do.
 - **R1 · Reuse.** If a component covers the function, reuse it — point the screen element's `orgId` at it.
 - **R2 · Variant before spawn.** Need a new state / size / style? Add a **variant** (an option on
   `properties`) — never a second component.
