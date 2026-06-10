@@ -860,6 +860,24 @@
       padding: 6px 8px; border: 1px solid var(--border-strong); border-radius: 6px;
     }
     .pb-flow-dims-x { color: var(--text-tertiary); }
+
+    /* UX Design — QA test-case category chips + coverage-gap callout */
+    .pb-qa-cat {
+      display: inline-block; font: 700 9px/1.4 var(--font-body);
+      text-transform: uppercase; letter-spacing: .04em;
+      padding: 2px 6px; border-radius: 4px; vertical-align: middle;
+    }
+    .pb-qa-cat--ux          { background: #ede9fe; color: #6d28d9; }
+    .pb-qa-cat--ui          { background: #e0f2fe; color: #0369a1; }
+    .pb-qa-cat--function    { background: #dcfce7; color: #15803d; }
+    .pb-qa-cat--business    { background: #fef3c7; color: #b45309; }
+    .pb-qa-cat--system-edge { background: #fee2e2; color: #b91c1c; }
+    .pb-qa-warn {
+      border: 1px solid #fcd9b6; background: #fff7ed; border-radius: var(--radius-small);
+      padding: 12px 14px; margin: 4px 0 16px;
+    }
+    .pb-qa-warn-head { font: 700 12px/1 var(--font-body); color: #c2410c; margin-bottom: 8px; }
+    .pb-qa-warn-list { margin: 0; padding-left: 18px; font-size: 12px; line-height: 1.6; color: var(--text-active-primary); }
     @media (max-width: 1100px) {
       .pb-content--split { grid-template-columns: 1fr; }
       .pb-aside { position: static; max-height: none; }
@@ -3096,6 +3114,9 @@
        Zoomable canvas with a custom SVG diagram. Edit `buildFlowSvg()` below
        to add your prototype's screens, decisions, and transitions.
        ========================================================================= */
+    /* QA test-case lenses — categories a scenario / coverage-gap can be tagged with. */
+    const QA_CAT_LABEL = { ux: 'UX', ui: 'UI', function: 'Function', business: 'Business', 'system-edge': 'System edge' };
+
     function renderMetaFlow() {
       const populated = !!(PB_DATA.flow && PB_DATA.flow.populated);
       const cta = populated
@@ -3217,11 +3238,30 @@
             + (s.jtbd ? ` — ${pbEscape(s.jtbd)}` : '')
             + (s.path ? `<div class="flow-doc-path"><em>Path:</em> ${pbEscape(s.path)}</div>` : '') + '</li>').join('') + '</ol>'
         : '<p class="flow-doc-side-sub">No user stories yet.</p>';
+      // QA test cases: scenarios may be plain strings or { text, category } across the QA lenses
+      // (UX · UI · Function · Business · System edge). f.coverageWarnings flags edges the UI misses.
+      const scenarioLi = (sc) => {
+        const text = (typeof sc === 'string') ? sc : (sc && sc.text) || '';
+        const cat = (sc && typeof sc === 'object') ? sc.category : null;
+        const chip = cat ? `<span class="pb-qa-cat pb-qa-cat--${pbEscape(cat)}">${pbEscape(QA_CAT_LABEL[cat] || cat)}</span> ` : '';
+        return `<li>☐ ${chip}${pbEscape(text)}</li>`;
+      };
       const testsList = fStories.length
         ? '<ol class="flow-doc-stories">' + fStories.map(s =>
             `<li><strong>${pbEscape(s.title||'')}</strong><ul class="flow-doc-checks">`
-            + (s.scenarios||[]).map(sc => `<li>☐ ${pbEscape(sc)}</li>`).join('') + '</ul></li>').join('') + '</ol>'
+            + (s.scenarios||[]).map(scenarioLi).join('') + '</ul></li>').join('') + '</ol>'
         : '<p class="flow-doc-side-sub">No test cases yet.</p>';
+      const warns = f.coverageWarnings || [];
+      const warnBlock = warns.length ? `
+        <div class="pb-qa-warn">
+          <div class="pb-qa-warn-head">⚠ Coverage gaps (${warns.length})</div>
+          <ul class="pb-qa-warn-list">${warns.map(w => {
+            const note = (typeof w === 'string') ? w : (w && w.note) || '';
+            const cat = (w && typeof w === 'object') ? w.category : null;
+            const chip = cat ? `<span class="pb-qa-cat pb-qa-cat--${pbEscape(cat)}">${pbEscape(QA_CAT_LABEL[cat] || cat)}</span> ` : '';
+            return `<li>${chip}${pbEscape(note)}</li>`;
+          }).join('')}</ul>
+        </div>` : '';
 
       const legendBtn = `
         <button class="flow-doc-legend-btn" type="button" aria-label="Show legend" onclick="openLegendPopover(this)">
@@ -3275,8 +3315,9 @@
           <div class="flow-side-panel" data-tab="tests" hidden>
             <div class="flow-doc-side-head">
               <h2 class="flow-doc-side-title">Test cases</h2>
-              <p class="flow-doc-side-sub">Acceptance scenarios per story — the prototype's test checklist.</p>
+              <p class="flow-doc-side-sub">QA scenarios per story across UX · UI · Function · Business · System-edge — the prototype's test checklist.</p>
             </div>
+            ${warnBlock}
             ${testsList}
           </div>
         </aside>`;

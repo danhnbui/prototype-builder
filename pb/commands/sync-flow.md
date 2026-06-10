@@ -29,9 +29,21 @@ nodes. Enforced rules (each violation is a defect):
 - **Wireflow nodes:** every screen-shaped node label MUST match a `registry.screens[].name`; carry
   `{ status ∈ NEW·IN PROGRESS·DONE·ATTENTION·ASAP·REVIEW·PAUSE, preview ∈ form-1·form-2·form-3·otp·success·block }`.
 
-## 3 · User-story test checklist
+## 3 · User-story test checklist (author as QA)
 A numbered list — one entry per story: `**<title> (P1)** — <JTBD>`, its **Path** through the flow, and a
 `- [ ]` checkbox per acceptance scenario. This is the prototype's future **test checklist**.
+
+**Wear the QA hat.** For each story, write scenarios across the five lenses — tag each
+`{ text, category }` with `category ∈ ux | ui | function | business | system-edge`:
+- **ux** — focus order, affordances, feedback, empty/loading states.
+- **ui** — visual correctness (error border AND text, tokens, responsive at the target screen size).
+- **function** — the happy path + validation actually works.
+- **business** — rules and policy (locked accounts, entitlements, limits).
+- **system-edge** — concurrency, rate limits, timeouts, double-submit, offline.
+
+Then list **coverage gaps** — edges your QA pass identified that the **flow/screens do not cover yet**
+(a referenced-but-missing screen, an unhandled error state). Write them to `flow.coverageWarnings` as
+`{ category, note }`; the tab renders them as a "Coverage gaps" callout so the user sees what to build next.
 
 ## 4 · Write to the registry, then render
 Produce **structured data** — not a baked HTML blob. Write into `registry.json` → `flow`:
@@ -39,7 +51,9 @@ Produce **structured data** — not a baked HTML blob. Write into `registry.json
 { "populated": true,
   "mermaid": "<the flowchart LR source>",
   "screen": { "w": <px>, "h": <px> },
-  "stories": [ { "title", "priority", "jtbd", "path", "scenarios": [ … ], "node?", "status?", "preview?" }, … ] }
+  "stories": [ { "title", "priority", "jtbd", "path",
+                 "scenarios": [ { "text", "category" }, … ], "node?", "status?", "preview?" }, … ],
+  "coverageWarnings": [ { "category", "note" }, … ] }
 ```
 Set **`flow.screen`** to the target screen size (derive from `meta.device` — mobile ≈ 390×844, tablet ≈
 834×1112, desktop ≈ 1280×720 — or carry over the values the user set via the tab's W×H inputs). It sizes

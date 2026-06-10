@@ -91,7 +91,8 @@ registry on each load and never written back. (This is why a click in the protot
 
 ```
 flow = { populated, mermaid, screen?: { w, h }, flows?: [ { name, mermaid } ],
-         stories: [ { title, priority, jtbd, path, scenarios[], node?, status?, preview? } ], html? }
+         stories: [ { title, priority, jtbd, path, scenarios[], node?, status?, preview? } ],
+         coverageWarnings?: [ { category, note } ], html? }
 ```
 
 `/pb:sync-flow` writes `mermaid` (a `flowchart LR` source) + `stories[]`. The shell renders the canvas on
@@ -104,6 +105,12 @@ popover. `html` is a legacy pre-baked fallback used only when `mermaid` is absen
   inputs edit these live; `/pb:sync-flow` persists them here (else the canvas defaults from `meta.device`).
 - **`flows`** — optional named flows for multi-flow projects; the canvas shows a dropdown to switch. When
   absent, the single `mermaid` is shown as one "Main flow".
+- **`scenarios[]`** — a test case is either a plain string or `{ text, category }` where `category ∈
+  ux | ui | function | business | system-edge` (the **QA lenses**). The Test cases panel tags each with a
+  colored category chip; untagged strings render plain.
+- **`coverageWarnings`** — `[{ category, note }]` (or plain strings) — edge cases the QA pass found that the
+  UI/flow does **not** cover yet. Rendered as a "Coverage gaps" callout above the test checklist so the user
+  sees what's missing.
 
 ### `erd` (Data tab — structured, decoupled)
 

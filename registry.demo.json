@@ -128,8 +128,21 @@
     "mermaid": "flowchart LR\n  Start([Start]) --> Login[Login]\n  Login --> Valid{Valid?}\n  Valid -- No --> Login\n  Valid -- Yes --> Dashboard[Dashboard]\n  Dashboard --> End([End])",
     "screen": { "w": 1280, "h": 720 },
     "stories": [
-      { "title": "Sign in with email", "priority": "P1", "jtbd": "As a user I want to sign in so I can reach my dashboard.", "path": "Start → Login → Dashboard", "scenarios": ["Valid credentials land on the dashboard.", "Invalid email shows an inline error.", "Short password is rejected."], "node": "Login", "status": "DONE" },
-      { "title": "Recover from an error", "priority": "P2", "jtbd": "As a user I want clear feedback when my input is wrong.", "path": "Login → Valid? → Login", "scenarios": ["Error message clears once corrected."], "node": "Valid", "status": "IN PROGRESS" }
+      { "title": "Sign in with email", "priority": "P1", "jtbd": "As a user I want to sign in so I can reach my dashboard.", "path": "Start → Login → Dashboard", "scenarios": [
+        { "text": "Valid credentials land on the dashboard.", "category": "function" },
+        { "text": "Invalid email shows an inline error with a red border AND error text.", "category": "ui" },
+        { "text": "The email field is focused on load; tab order is email → password → submit.", "category": "ux" },
+        { "text": "A locked account is blocked with a support message, not a generic error.", "category": "business" },
+        { "text": "Submitting twice quickly does not create two sessions.", "category": "system-edge" }
+      ], "node": "Login", "status": "DONE" },
+      { "title": "Recover from an error", "priority": "P2", "jtbd": "As a user I want clear feedback when my input is wrong.", "path": "Login → Valid? → Login", "scenarios": [
+        { "text": "Error message clears once the field is corrected.", "category": "ui" },
+        { "text": "Three failed attempts trigger a rate-limit notice.", "category": "system-edge" }
+      ], "node": "Valid", "status": "IN PROGRESS" }
+    ],
+    "coverageWarnings": [
+      { "category": "system-edge", "note": "No screen covers the rate-limited / locked-out state — the flow loops back to Login with no lockout UI." },
+      { "category": "ux", "note": "Password reset path is referenced in stories but absent from the flow and screens." }
     ]
   },
   "erd": {
