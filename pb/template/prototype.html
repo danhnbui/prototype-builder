@@ -821,6 +821,24 @@
     }
     .pb-entity-chip.is-active .pb-entity-chip-n { background: rgba(255,255,255,0.25); }
 
+    /* Data — mock-data viewer (per-entity sample sets) */
+    .pb-mock-total { font: 600 11px/1 var(--font-body); color: var(--text-active-secondary); background: var(--neutral-10); padding: 2px 7px; border-radius: 999px; margin-left: 6px; }
+    .pb-mock-chips { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 12px; }
+    .pb-mock-chip {
+      display: inline-flex; align-items: center; gap: 6px;
+      font: 500 12px/1 var(--font-body);
+      background: var(--neutral-5); border: 1px solid var(--border);
+      color: var(--text-active-primary); padding: 6px 10px; border-radius: 7px; cursor: pointer;
+      transition: border-color .12s, background .12s, color .12s;
+    }
+    .pb-mock-chip:hover { border-color: var(--brand); color: var(--brand); }
+    .pb-mock-chip.is-active { background: var(--brand); border-color: var(--brand); color: #fff; }
+    .pb-mock-n { font: 600 10px/1 var(--font-body); background: rgba(0,0,0,0.06); padding: 2px 5px; border-radius: 999px; }
+    .pb-mock-chip.is-active .pb-mock-n { background: rgba(255,255,255,0.25); }
+    .pb-mock-preview { overflow-x: auto; }
+    .pb-mock-table { font-size: 12px; }
+    .pb-mock-table th, .pb-mock-table td { white-space: nowrap; }
+
     /* UX Design — flow main bar (flow dropdown + legend) and aside dims inputs */
     .flow-main-bar {
       display: flex; align-items: center; justify-content: space-between; gap: 12px;
@@ -1977,6 +1995,7 @@
       handoffScope: null,            // 'global' | 'local' — UI Design component sub-tab
       erdView: null,                 // 'diagram' | 'table' — Data tab view mode
       erdEntity: null,               // null | <entity name> — selected entity in Data aside
+      erdMockIndex: 0,               // index into the selected entity's mock-data sets
       flowIndex: 0,                  // index into flow.flows[] (multi-flow dropdown)
       flowW: null, flowH: null,      // UX Design target screen dimensions (runtime)
       /* TODO: add your app state here, e.g.:
@@ -2048,7 +2067,8 @@
     function setSummarySubTab(v) { state.summarySubTab = v; renderMetaSummary(); }
     function setHandoffScope(v) { state.handoffScope = v; renderHandoff(); }
     function setErdView(v) { state.erdView = v; renderMetaERD(); }
-    function setErdEntity(name) { state.erdEntity = (state.erdEntity === name ? null : name); renderMetaERD(); }
+    function setErdEntity(name) { state.erdEntity = (state.erdEntity === name ? null : name); state.erdMockIndex = 0; renderMetaERD(); }
+    function setErdMock(i) { state.erdMockIndex = parseInt(i, 10) || 0; renderMetaERD(); }
     function setFlowIndex(i) { state.flowIndex = parseInt(i, 10) || 0; renderMetaFlow(); }
     /* Resize the flow canvas frame to the target screen dims — no full re-render (keeps zoom). */
     function setFlowDim(axis, val) {
@@ -4239,7 +4259,37 @@
           <p class="pb-dialog-h">Entities</p>
           <div class="pb-entity-chips">${chips || '<span class="pb-aside-empty">No entities.</span>'}</div>
           ${detail}
+        </div>
+        ${sel ? pbErdMockSection(state.erdEntity, byEntity[state.erdEntity]) : ''}`;
+    }
+
+    /* Mock-data viewer: preview each sample set (typical / empty / overflow) for an entity,
+       so edge cases can be checked against the UI. Data lives in erd.mock[]. */
+    function pbErdMockSection(entity, fields) {
+      const sets = ((PB_DATA.erd && PB_DATA.erd.mock) || []).filter(m => m.entity === entity);
+      if (!sets.length) {
+        return `<div class="pb-aside-section">
+          <p class="pb-dialog-h">Mock data</p>
+          <p class="pb-aside-empty" style="padding:14px 8px">No mock data for ${pbEscape(entity)} yet — run <code>/pb:sync-erd --mock</code>.</p>
         </div>`;
+      }
+      const mi = Math.min(state.erdMockIndex || 0, sets.length - 1);
+      const cur = sets[mi];
+      const cols = fields.map(f => f.field);
+      const selector = sets.map((m, i) =>
+        `<button class="pb-mock-chip ${i === mi ? 'is-active' : ''}" onclick="setErdMock(${i})">${pbEscape(m.label || ('Set ' + (i + 1)))}<span class="pb-mock-n">${(m.rows || []).length}</span></button>`).join('');
+      const rows = (cur.rows || []);
+      const table = rows.length
+        ? `<table class="erd-entity-table pb-mock-table">
+             <thead><tr>${cols.map(c => `<th>${pbEscape(c)}</th>`).join('')}</tr></thead>
+             <tbody>${rows.map(r => `<tr>${cols.map(c => `<td>${pbEscape(r[c] != null ? String(r[c]) : '—')}</td>`).join('')}</tr>`).join('')}</tbody>
+           </table>`
+        : `<p class="pb-aside-empty" style="padding:14px 8px">This set is empty — useful for testing the no-data state.</p>`;
+      return `<div class="pb-aside-section">
+        <p class="pb-dialog-h">Mock data <span class="pb-mock-total">${sets.length} set${sets.length !== 1 ? 's' : ''}</span></p>
+        <div class="pb-mock-chips">${selector}</div>
+        <div class="pb-mock-preview">${table}</div>
+      </div>`;
     }
 
     /* ERD legend cardinality symbols (Crow's-foot notation) */

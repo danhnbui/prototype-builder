@@ -6,6 +6,10 @@ description: Generate or update the Data tab — a field / type / example table 
 
 Generate the **Data** tab. **Decoupled** — only the user invokes it; never auto-fires.
 
+## Flags
+- `--mock` — also generate `erd.mock[]` sample row-sets per entity (see step 5) so the Data aside can
+  preview edge cases against the UI.
+
 ## Pre-write schema check
 Apply the **Schema compatibility** check from `CLAUDE.md` before writing to the registry. If
 `meta.schemaVersion` is below `CURRENT_SCHEMA`, print the banner and suggest `/pb:migrate`. Stop
@@ -46,6 +50,17 @@ the `warnings[]` in the confirmation (and keep the TODO block).
 
 > `erd.html` is **legacy only** — a pre-baked fallback the shell uses when neither `erd.mermaid` nor
 > `erd.table` is present. Do not author it; emit `table[]` + `mermaid`.
+
+## 5 · Mock data (`--mock` only)
+Write `erd.mock[]` — sample row-sets per entity for previewing **edge cases** against the UI:
+```
+"mock": [ { "entity": "<PascalCase>", "label": "<Typical|Empty|Long values|Overflow|…>",
+            "rows": [ { "<field>": <value>, … }, … ] }, … ]
+```
+For each entity author at least **Typical** (2–4 representative rows) plus the edges worth testing — an
+**Empty** set (0 rows → the no-data state) and a **Long values / Overflow** set (boundary widths / counts).
+Row keys are the entity's field names (from `table[]`); values are realistic, type-appropriate examples.
+The Data aside shows a selector to switch sets. Decoupled — only on `--mock`.
 
 ## NEVER
 - NEVER use raw SQL types (varchar/int) — use the generic set.

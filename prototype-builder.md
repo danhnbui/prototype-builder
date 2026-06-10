@@ -108,13 +108,18 @@ popover. `html` is a legacy pre-baked fallback used only when `mermaid` is absen
 ### `erd` (Data tab — structured, decoupled)
 
 ```
-erd = { populated, table: [ { entity, field, type, example, notes } ], mermaid, warnings[], html? }
+erd = { populated, table: [ { entity, field, type, example, notes } ], mermaid, warnings[],
+        mock?: [ { entity, label, rows: [ { <field>: <value> } ] } ], html? }
 ```
 
 `/pb:sync-erd` writes `table[]` + `mermaid` (an `erDiagram` source). The shell renders a **Diagram | Table**
-toggle: Diagram = the `erDiagram`; Table = one styled `<table>` per entity (a real table component, grouped
-by `entity`), not text alignment. `html` is a legacy pre-baked fallback used only when neither `mermaid` nor
-`table` is present.
+toggle on the left; the right aside lists entities and, for the selected one, its fields plus a **mock-data
+viewer**. `html` is a legacy pre-baked fallback used only when neither `mermaid` nor `table` is present.
+
+- **`mock`** — optional sample row-sets per entity. Each set has a `label` (e.g. `Typical`, `Empty`,
+  `Long values`, `Overflow`) and `rows[]` (objects keyed by the entity's field names). The Data aside shows
+  a selector to preview each set against the field columns, so **edge cases** (no data / sparse / overflow)
+  can be checked. Authored by `/pb:sync-erd --mock`.
 
 ## The 5 tabs
 

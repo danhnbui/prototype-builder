@@ -142,6 +142,21 @@
       { "entity": "Session", "field": "id", "type": "identifier", "example": "ses_01H...", "notes": "PK" },
       { "entity": "Session", "field": "userId", "type": "identifier", "example": "usr_01H...", "notes": "FK → User" }
     ],
-    "warnings": []
+    "warnings": [],
+    "mock": [
+      { "entity": "User", "label": "Typical", "rows": [
+        { "id": "usr_01HQ", "email": "ada@example.com", "createdAt": "2026-06-01T09:00:00Z" },
+        { "id": "usr_02KR", "email": "grace@hopper.dev", "createdAt": "2026-06-02T10:30:00Z" },
+        { "id": "usr_03MT", "email": "alan@turing.io", "createdAt": "2026-06-03T14:05:00Z" }
+      ] },
+      { "entity": "User", "label": "Empty", "rows": [] },
+      { "entity": "User", "label": "Long values", "rows": [
+        { "id": "usr_04ZZ", "email": "a.very.long.email.address.for.layout.testing@subdomain.example.co.uk", "createdAt": "2026-06-04T23:59:59Z" }
+      ] },
+      { "entity": "Session", "label": "Typical", "rows": [
+        { "id": "ses_88AB", "userId": "usr_01HQ" },
+        { "id": "ses_88CD", "userId": "usr_02KR" }
+      ] }
+    ]
   }
 }
