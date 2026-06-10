@@ -11,8 +11,13 @@ rendered **view** — a derived hand-off snapshot, not a parallel preview (the o
 `/pb:preview` server over `registry.json`): at `/pb:build --render` the generator inlines `registry.json` into the HTML's
 `PB_REGISTRY`, and a thin adapter (`adaptRegistryToPBData`) maps it onto the in-memory `PB_DATA`
 shape the render machinery already reads — so the ported v0.4.0 render functions are unchanged.
-**Data only:** render-function bodies are generated from `components[]` / `screens[]`, never stored
-here. Design tokens are applied onto `:root` at boot via `applyRegistryTokens`.
+**Data only:** the registry holds **no render code**. As of v1.4 (schema 4) each component/screen
+carries a `renderSrc` pointing at a real `.js` body file (`render/components/<id>.js`,
+`render/screens/<id>.js`, resolved relative to the registry); `render.py` reads those files and
+generates the render functions at `/pb:build --render`. Edit the `.js` files directly — they are
+lintable and diffable. (A legacy inline `render` string still renders for backward compatibility;
+`renderSrc` wins when both are present, and `check.py` warns to remove the inline copy.) Design
+tokens are applied onto `:root` at boot via `applyRegistryTokens`.
 
 ### Top-level shape
 
@@ -38,7 +43,8 @@ here. Design tokens are applied onto `:root` at boot via `applyRegistryTokens`.
 Ported **verbatim** from the v0.4.0 `PB_DATA.handoff.organisms` shape:
 
 ```
-{ id (kebab, unique), name, renderFn ("renderCmp{PascalCase}"), meta, scope ("global"|"local"),
+{ id (kebab, unique), name, renderFn ("renderCmp{PascalCase}"), renderSrc ("render/components/<id>.js"),
+  meta, scope ("global"|"local"),
   level ("atom"|"molecule"|"organism"), codeLayout ("stacked"|"side-by-side"),
   properties[], code{ lang, snippet }, anatomy{ renderProps, parts[] }, spec{ legend, renderProps, marginX, stack[] },
   uiLogic[], usage{ demoProps, topics[], placement } }
@@ -60,7 +66,7 @@ Figma fields (`figmaId`, `figmaComponentSetId`, `dsMatch`) are added by `/pb:bui
 ### `screens[]` (one per screen)
 
 ```
-{ id (kebab), name, renderFn, layout{ type, gap, maxWidth, padding },
+{ id (kebab), name, renderFn, renderSrc ("render/screens/<id>.js"), layout{ type, gap, maxWidth, padding },
   elements[ { id, label, orgId, tokens[], sizing, state, uiLogic, bounds? } ], logicNotes[], figmaFrameId? }
 ```
 
