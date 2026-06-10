@@ -22,6 +22,7 @@ the playbook, [prototype-builder.md](prototype-builder.md) (authored in Phase 2)
 | `/pb:check-drift` | Read-only drift audit of the trio vs `constitution.md` | P5 |
 | `/pb:hand-off` | `--people` (view-only self-documenting `prototype.html` + cover) · `--context` (portable bundle) | P6 |
 | `/pb:validate` | Scaffold a Vite / Next build from `prototype.html` | P6 |
+| `/pb:migrate` | Versioned schema migration: dry-run / `--apply` / `--rollback` / `--to <N>` | P6 |
 
 > Shipped as a Claude Code **plugin** (`pb@product-builder`, defined in `./.claude-plugin/marketplace.json` + `./pb/`) — commands invoke as `/pb:*`. After install, **restart Claude Code** to load them. (G1 decision: plugin ✓)
 
@@ -66,6 +67,21 @@ upserted, never duplicated; entries it doesn't own are left alone.
 - `memory/decisions.md` — the why-log (trade-offs, gate overrides).
 - `design-system/{name}/{name}.md` — the global DS reference (scannable component index + rules R0–R4 + naming contract).
 - `prototype.html` — rendered view, regenerated from `registry.json`.
+
+## Schema compatibility
+
+Write-path commands (`/pb:build`, `/pb:sync-flow`, `/pb:sync-erd`, `/pb:init --import`) apply
+this check before patching `registry.json`:
+
+1. Read `meta.schemaVersion` from `registry.json` (absent → treat as schema 2).
+2. Read `CURRENT_SCHEMA` from `pb/migrations/manifest.py` (currently **3**).
+3. If `schemaVersion < CURRENT_SCHEMA`: print a one-line banner —
+   `⚠ Schema gap (v<from> → v<to>): <pending migration's describe() text>. Run /pb:migrate.`
+4. Proceed — **unless** the current write touches a slice a pending migration changes,
+   in which case **stop** and print: `Blocked: run /pb:migrate --apply first, then retry.`
+
+This is the canonical text. Write-path commands reference this section rather than re-stating it.
+Read-only commands (`/pb:check-drift`, `/pb:preview`) and exits do **not** carry this check.
 
 ## Why (G0.5 spike, 2026-06-05)
 

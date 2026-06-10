@@ -1,0 +1,60 @@
+{
+  "_about": "Synthetic v1.2 fixture for migration selftest — no schemaVersion, no meta.device, no scope on components, legacy flow.html / erd.html only. Run: python3 pb/migrations/selftest.py",
+  "meta": {
+    "name": "Selftest Project",
+    "overview": { "objectives": "Verify schema 2 → 3 migration round-trip.", "principles": [] },
+    "userInsights": { "quantitative": null, "researchSummary": null, "executiveSummary": null },
+    "tradeoffs": [],
+    "others": null
+  },
+  "tokens": {
+    "primary": { "value": "#0070f3", "kind": "color" }
+  },
+  "components": [
+    {
+      "id": "button",
+      "name": "Button",
+      "renderFn": "renderCmpButton",
+      "properties": [
+        { "id": "label", "type": "string", "default": "Click me" },
+        { "id": "state", "type": "enum", "options": [
+          { "label": "Default", "value": "default" },
+          { "label": "Disabled", "value": "disabled" }
+        ], "default": "default" }
+      ],
+      "anatomy": "A pressable element.",
+      "spec": "Primary action trigger.",
+      "render": "return '<button data-action=\"submit\">' + (props.label || 'Click') + '</button>';"
+    },
+    {
+      "id": "input",
+      "name": "Input",
+      "renderFn": "renderCmpInput",
+      "dsMatch": { "library": "SampleDS", "component": "Input" },
+      "properties": [
+        { "id": "placeholder", "type": "string", "default": "Enter text" }
+      ],
+      "anatomy": "A text input field.",
+      "spec": "Single-line form field.",
+      "render": "return '<input type=\"text\" data-required placeholder=\"' + (props.placeholder || '') + '\" />';"
+    }
+  ],
+  "screens": [
+    {
+      "id": "home",
+      "name": "Home",
+      "renderFn": "renderScreenHome",
+      "layout": "centered",
+      "elements": [],
+      "logicNotes": [],
+      "render": "return '<div class=\"screen\"><h1>Home</h1></div>';"
+    }
+  ],
+  "staleness": {
+    "flow": { "lastSyncedPromptCount": 0, "currentPromptCount": 0 },
+    "handoffScreen": { "lastSyncedPromptCount": 0, "currentPromptCount": 0 },
+    "erd": { "lastSyncedPromptCount": 0, "currentPromptCount": 0 }
+  },
+  "flow": { "populated": false, "html": "<div class='flow-legacy'>Legacy flow HTML placeholder.</div>" },
+  "erd": { "populated": false, "html": "<div class='erd-legacy'>Legacy erd HTML placeholder.</div>" }
+}

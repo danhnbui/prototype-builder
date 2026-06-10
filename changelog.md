@@ -10,6 +10,20 @@ All notable changes to Product Builder. Format follows [Keep a Changelog](https:
   derived hand-off snapshot, not a parallel preview. When an in-app preview pane is used, the new helper
   keeps exactly **one** canonical `.claude/launch.json` entry per project (`pb-preview · <folder>`):
   upsert in place, dedupe entries for that project, never touch entries it doesn't own. Stdlib-only.
+- **`/pb:migrate`** — versioned schema migration command: dry-run (default), `--apply`, `--rollback`,
+  `--to <N>`, `--registry <path>`. Backup-first, single-write, render-validated. Stdlib-only.
+- **Migration framework** (`pb/migrations/manifest.py`, `pb/migrations/migrate_runner.py`): `CURRENT_SCHEMA`
+  as the single version source; `chain(from_v, to_v)` helper; module contract (`up`, `down`, `describe`,
+  `memory_notes`). Advisory memory rule: migrations never auto-edit `constitution.md`.
+- **Soft compat gate** on write-path commands (`/pb:build`, `/pb:sync-flow`, `/pb:sync-erd`,
+  `/pb:init --import`): prints a one-line schema-gap banner and suggests `/pb:migrate`; hard-stops only
+  when the pending write touches a slice a pending migration changes.
+- **`registry.template.json`** now carries `meta.schemaVersion: 3` and `meta.device: "desktop"` so fresh
+  scaffolds are correctly stamped.
+
+### Migrations
+- `CURRENT_SCHEMA = 3` (first formal stamp; unstamped registries treated as schema 2).
+- Migration `0001_v12_to_v13`: "v1.2 → v1.3: add meta.device, components[].scope, structured flow/erd shape (legacy html preserved)."
 
 ## [1.3.1] — 2026-06-07
 

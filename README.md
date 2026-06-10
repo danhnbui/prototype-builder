@@ -26,7 +26,7 @@ state stays in each prototype's folder.)
 | `/pb:clarify` | User Insights + UI Logic Trade-offs → Project Summary; append to `decisions.md` |
 | `/pb:plan` | Implementation plan + per-tab task breakdown (acceptance + skill) |
 | `/pb:build` | The cheap loop: targeted `registry.json` patches, trio-gated, no per-tweak render; `--render` to view |
-| `/pb:preview` | Live preview dev server: watch `registry.json` → render → live-reload the browser |
+| `/pb:preview` | Live preview dev server: watch `registry.json` → render → live-reload the browser (start once, leave running) |
 | `/pb:build-check-design-system` | DS-first reuse → variant → local + naming contract |
 | `/pb:build-figma-handoff` | One-way registry → Figma (6 gates incl. G-FP6 render audit, DS-neutral, auto-layout) |
 | `/pb:sync-flow` | UX Design / Flow — wireflow + test checklist (decoupled) |
@@ -34,12 +34,14 @@ state stays in each prototype's folder.)
 | `/pb:check-drift` | Read-only drift audit of the trio vs the constitution |
 | `/pb:hand-off` | `--people` (view-only) · `--context` (portable bundle) |
 | `/pb:validate` | Scaffold a Vite / Next build from `prototype.html` |
+| `/pb:migrate` | Schema migration: dry-run / `--apply` / `--rollback` / `--to <N>` |
 
 ## Quickstart
 
 1. `/pb:init` — intake a PRD, set the locks, seed the project.
 2. `/pb:specify` → `/pb:clarify` → `/pb:plan` — shape the spec, insights, and tasks.
-3. `/pb:build` — build the prototype; `/pb:build --render` to regenerate `prototype.html`.
+3. `/pb:preview` (start once, leave running) → `/pb:build` — the preview server live-reloads on every
+   registry change; no `--render` needed during the build loop.
 4. `/pb:sync-flow` / `/pb:sync-erd` — populate the UX Design and Data tabs (on demand).
 5. `/pb:hand-off --people` — a view-only artifact to share; `--context` to hand to another builder.
 6. `/pb:validate` — a real Vite/Next build when you're ready to graduate to an app.

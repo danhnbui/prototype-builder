@@ -27,8 +27,9 @@ Write `memory/constitution.md` from `${CLAUDE_PLUGIN_ROOT}/template/constitution
 Stack Lock + DS Lock + a first cut of Principles (from the PRD + DS rules). Keep it lean.
 
 ## 3 · Seed the registry
-Copy `${CLAUDE_PLUGIN_ROOT}/template/registry.template.json` → `registry.json`; set `meta.name`. Leave
-`tokens` / `components` / `screens` empty — `/pb:build` fills them.
+Copy `${CLAUDE_PLUGIN_ROOT}/template/registry.template.json` → `registry.json`; set `meta.name`.
+The template already carries `meta.schemaVersion: 3` (= `CURRENT_SCHEMA` from
+`pb/migrations/manifest.py`). Leave `tokens` / `components` / `screens` empty — `/pb:build` fills them.
 
 Set **`meta.device`** (`'desktop' | 'tablet' | 'mobile'`) — the Prototype's default device frame — from the
 PRD's target form factor: auth / mobile-first apps → `'mobile'`; dashboards / desktop web → `'desktop'`;
@@ -46,7 +47,11 @@ Write into `registry.json`: `meta.overview.objectives` = the PRD objective; `met
 
 ## 6 · `--import <bundle>` (alternative on-ramp)
 If set, skip 1–5: read the bundle (`registry.json` + `design-system/` + `memory/constitution.md` +
-`memory/decisions.md`), copy it into the new project, confirm the locks. Ready to `/pb:build`.
+`memory/decisions.md`), copy it into the new project, confirm the locks.
+
+**Schema compatibility check** (see **Schema compatibility** in `CLAUDE.md`) — run it here, on the
+imported `registry.json`, before proceeding. If the bundle is on an older schema, show the banner and
+suggest `/pb:migrate`. Do not silently copy an out-of-contract slice into the project. Ready to `/pb:build`.
 
 ## Result
 A seeded project — non-empty `memory/prd.md`, locks set, `registry.json` seeded, `memory/decisions.md`,

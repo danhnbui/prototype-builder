@@ -7,6 +7,11 @@ description: Generate or update the UX Design / Flow tab — a Mermaid wireflow 
 Generate the **UX Design · Flow** content. **Decoupled** — only the user invokes it; it never
 auto-fires and runs no drift check (trio principles don't constrain flow representation).
 
+## Pre-write schema check
+Apply the **Schema compatibility** check from `CLAUDE.md` before writing to the registry. If
+`meta.schemaVersion` is below `CURRENT_SCHEMA`, print the banner and suggest `/pb:migrate`. Stop
+(do not write) if the current write touches a slice a pending migration changes.
+
 ## 1 · Read inputs
 `memory/spec.md` (user stories, JTBDs, acceptance scenarios) + `memory/plan.md` (per-story approach,
 state transitions). Invoke the `craft-connect-flow` skill for navigation / shared-state / entry-exit patterns.
