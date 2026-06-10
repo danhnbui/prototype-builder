@@ -26,7 +26,7 @@ Usage:
   python3 serve.py [registry.json] [--port N] [--host H] [--shell PATH]
                    [--write [--out PATH]] [--no-open]
 """
-import argparse, json, mimetypes, os, socket, sys, threading, time, traceback, webbrowser
+import argparse, glob, json, mimetypes, os, socket, sys, threading, time, traceback, webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from html import escape as _esc
 
@@ -96,8 +96,19 @@ class State:
         self._cache_err = None
 
     @property
+    def base_dir(self):
+        return os.path.dirname(self.reg_path)
+
+    @property
+    def body_files(self):
+        """The v1.4 render-body files (render/**/*.js next to the registry), if any."""
+        root = os.path.join(self.base_dir, "render")
+        return sorted(glob.glob(os.path.join(root, "**", "*.js"), recursive=True))
+
+    @property
     def watched(self):
-        return [self.reg_path, self.shell_path, self.render_path]
+        # body_files is recomputed each poll so newly added/removed .js files are noticed.
+        return [self.reg_path, self.shell_path, self.render_path] + self.body_files
 
     def bump(self):
         with self.cond:
@@ -117,6 +128,7 @@ def render_current(state):
             reg = json.load(f)
         with open(state.shell_path, encoding="utf-8") as f:
             shell = f.read()
+        reg = render.load_bodies(reg, state.base_dir)  # resolve renderSrc body files (v1.4)
         html, _missing = render.build_html(reg, shell)
         if state.write and state.out_path:
             try:
@@ -346,7 +358,7 @@ def main():
         log("  registry  %s" % rel(reg_path))
     log("  shell     %s" % rel(shell_path))
     log("  preview   %s" % url)
-    log("  watching  registry.json, shell, render.py — saving any reloads the browser")
+    log("  watching  registry.json, shell, render.py, render/**/*.js — saving any reloads the browser")
     log("  to disk   %s" % ("ON → %s" % rel(out_path) if args.write
                             else "off (in-memory preview; --write to update prototype.html)"))
 

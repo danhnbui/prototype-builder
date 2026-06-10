@@ -21,6 +21,7 @@ Exit:   0 = all passed · 1 = a failure · 2 = Playwright/browser not available
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -76,10 +77,19 @@ class Server:
                 self.proc.kill()
 
 
-def make_viewonly_registry(tmpdir):
-    """Copy the golden, flip on config.viewOnly — the /pb:hand-off --people shape."""
+def make_viewonly_registry(tmpdir, unpopulate=False):
+    """Copy the golden project (registry + render/ body files) and flip on config.viewOnly
+    — the /pb:hand-off --people shape. With unpopulate=True, also empty the flow/erd tabs
+    so the artifact exercises empty-state tabs in view-only (T3.3)."""
+    src_dir = os.path.dirname(GOLDEN)
+    render_src = os.path.join(src_dir, "render")
+    if os.path.isdir(render_src):
+        shutil.copytree(render_src, os.path.join(tmpdir, "render"))
     reg = json.load(open(GOLDEN, encoding="utf-8"))
     reg.setdefault("config", {})["viewOnly"] = True
+    if unpopulate:
+        reg["flow"] = {"populated": False}
+        reg["erd"] = {"populated": False}
     path = os.path.join(tmpdir, "registry.json")
     json.dump(reg, open(path, "w", encoding="utf-8"), indent=2)
     return path
