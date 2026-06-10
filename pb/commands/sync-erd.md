@@ -6,6 +6,11 @@ description: Generate or update the Data tab — a field / type / example table 
 
 Generate the **Data** tab. **Decoupled** — only the user invokes it; never auto-fires.
 
+## Pre-write schema check
+Apply the **Schema compatibility** check from `CLAUDE.md` before writing to the registry. If
+`meta.schemaVersion` is below `CURRENT_SCHEMA`, print the banner and suggest `/pb:migrate`. Stop
+(do not write) if the current write touches a slice a pending migration changes.
+
 ## 1 · Read inputs + extract entities
 `memory/spec.md` (the "Key Entities" + entity-like nouns) + `memory/plan.md` (relationships). For each
 entity capture: **Name** (PascalCase singular) · **purpose** (1 line) · **attributes** (generic types
