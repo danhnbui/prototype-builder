@@ -7,8 +7,22 @@ All notable changes to Product Builder. Format follows [Keep a Changelog](https:
 ## [1.4.0] — 2026-06-10
 
 A major redesign of the prototype shell — every tab now shares one unified, two-column layout — together
-with the schema-migration system. Template + docs + commands; the registry contract gains several
-**optional, tolerated-absent** fields (schema stays at **3**, no migration required).
+with the schema-migration system, **plus the v1.4 refit** (governance validator, file-based render bodies,
+CI, portability). The registry contract advances to **schema 4** (migration `0002` required; run
+`/pb:migrate`).
+
+### v1.4 refit — quality, governance, portability
+
+*Safety net + governance + the strategic move of render bodies out of JSON into real files.*
+
+- **Render bodies are real files (schema 3 → 4).** Each component/screen carries a `renderSrc` pointing at
+  `render/components/<id>.js` / `render/screens/<id>.js`; `render.py` reads and compiles them. Lintable,
+  diffable, no triple-escaping. **Measured:** the golden registry's resident state shrank **28.3%**
+  (16,036 → 11,497 bytes) with bodies extracted; render holds at **0.7 ms** @ 50 components / 20 screens
+  (budget 100 ms). Migration `0002` extracts/rewrites bodies and is exactly reversible.
+- **Page-killer eliminated.** All emitted bodies pass a `</` → `<\/` escape, so a close-tag in a body can
+  never end the `<script>` (a `</script>` body now boots, verified in-browser).
+- *(more refit entries — governance validator, CI, shell hygiene, portability — added per task in T3.5.)*
 
 ### Added — unified UI shell (`pb/template/prototype.html`)
 - **One page chrome for every tab** — a `pb-page-header` (title + a `?` **info dialog** documenting the
