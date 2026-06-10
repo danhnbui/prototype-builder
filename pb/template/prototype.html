@@ -1463,8 +1463,17 @@
     .fp-item-meta { font:400 11px/1 var(--font-body); color:var(--text-active-secondary); white-space:nowrap; }
     .fp-badge { display:inline-block; padding:2px 6px; border-radius:4px; font:600 10px/1 var(--font-body); margin-left:6px; }
     .fp-badge-new    { background:#eff6ff; color:#1c4ed8; }
-    .fp-badge-update { background:#f0fdf4; color:#15803d; }
+    .fp-badge-update { background:#fff7ed; color:#c2410c; }
     .fp-badge-lib    { background:#faf5ff; color:#7e22ce; }
+    .fp-badge-reuse  { background:#faf5ff; color:#7e22ce; }
+    /* v1.2 — stacked push item with affected-screen line */
+    .fp-item--stacked { flex-direction:column; align-items:stretch; gap:6px; }
+    .fp-item-row { display:flex; align-items:center; gap:10px; }
+    .fp-item-affected { font:400 11px/1.4 var(--font-body); color:var(--text-active-secondary); padding-left:25px; }
+    .fp-item-affected--muted { color:var(--text-tertiary); font-style:italic; }
+    .fp-item-affected.is-warn { color:#c2410c; }
+    .fp-progress-hint { margin-top:8px; padding-top:8px; border-top:1px solid var(--border); font:400 11px/1.45 var(--font-body); color:var(--text-tertiary); }
+    .fp-progress-hint code { font-family:'SF Mono',Menlo,monospace; font-size:10px; }
     .fp-panel-foot {
       padding:14px 20px 16px; border-top:1px solid var(--border); flex-shrink:0;
       display:flex; align-items:center; justify-content:space-between; gap:12px;
@@ -2049,6 +2058,9 @@
       if (c) { c.style.maxWidth = state.flowW + 'px'; c.style.height = state.flowH + 'px'; }
     }
     function pbDefaultDims() {
+      // Persisted screen dims (set by /pb:sync-flow) win; else derive from the default device.
+      const f = (PB_DATA && PB_DATA.flow) || {};
+      if (f.screen && f.screen.w && f.screen.h) return { w: f.screen.w, h: f.screen.h };
       const dev = (PB_REGISTRY && PB_REGISTRY.meta && PB_REGISTRY.meta.device) || 'desktop';
       if (dev === 'mobile') return { w: 390, h: 844 };
       if (dev === 'tablet') return { w: 834, h: 800 };
@@ -2332,22 +2344,34 @@
       const screens   = (PB_DATA.handoff && PB_DATA.handoff.screens)   || [];
 
       function statusBadge(org) {
+        if (org.dsMatch) return '<span class="fp-badge fp-badge-reuse" title="Matched in the design system — pushed as an instance, not rebuilt">reuse</span>';
         if (!org.figmaId && !org.figmaComponentSetId) return '<span class="fp-badge fp-badge-new">new</span>';
-        const t = (org.dsMatch && org.dsMatch.type) || 'local';
-        return t === 'library'
-          ? '<span class="fp-badge fp-badge-lib">lib</span>'
-          : '<span class="fp-badge fp-badge-update">update</span>';
+        return '<span class="fp-badge fp-badge-update" title="Already in Figma — this push updates it">update</span>';
       }
       function screenStatus(s) {
         return s.figmaFrameId ? `<span class="fp-item-meta">frame ${s.figmaFrameId}</span>` : '<span class="fp-badge fp-badge-new">new</span>';
       }
+      // Which screens reference this component (via elements[].orgId) — what an update affects.
+      function screensUsing(orgId) {
+        return screens.filter(s => (s.elements || []).some(e => e.orgId === orgId)).map(s => s.name);
+      }
 
-      const orgRows = organisms.map((o, i) => `
-        <li class="fp-item" onclick="this.querySelector('input').click()">
-          <input type="checkbox" id="fp-org-${i}" data-fp-org="${pbEscape(o.id)}" checked onclick="event.stopPropagation();fpUpdateSummary()">
-          <span class="fp-item-name">${pbEscape(o.name)}${statusBadge(o)}</span>
-          <span class="fp-item-meta">${pbEscape(o.id)}</span>
-        </li>`).join('');
+      const orgRows = organisms.map((o, i) => {
+        const used = screensUsing(o.id);
+        const isUpdate = !!(o.figmaId || o.figmaComponentSetId);
+        const affected = used.length
+          ? `<div class="fp-item-affected ${isUpdate ? 'is-warn' : ''}">${isUpdate ? '⚠ affects ' : 'Used in '}${used.length} screen${used.length !== 1 ? 's' : ''}: ${used.map(pbEscape).join(', ')}</div>`
+          : `<div class="fp-item-affected fp-item-affected--muted">Not placed on any screen yet</div>`;
+        return `
+        <li class="fp-item fp-item--stacked" onclick="this.querySelector('input').click()">
+          <div class="fp-item-row">
+            <input type="checkbox" id="fp-org-${i}" data-fp-org="${pbEscape(o.id)}" checked onclick="event.stopPropagation();fpUpdateSummary()">
+            <span class="fp-item-name">${pbEscape(o.name)}${statusBadge(o)}</span>
+            <span class="fp-item-meta">${pbEscape(o.id)}</span>
+          </div>
+          ${affected}
+        </li>`;
+      }).join('');
 
       const scrRows = screens.map((s, i) => `
         <li class="fp-item" onclick="this.querySelector('input').click()">
@@ -2471,7 +2495,8 @@
           <span class="fp-progress-title">Figma push progress</span>
           <button class="fp-progress-close" onclick="pbHideProgress()" aria-label="Dismiss">×</button>
         </div>
-        <div id="fp-progress-body"></div>`;
+        <div id="fp-progress-body"></div>
+        <div class="fp-progress-hint">Run the copied command — <code>/pb:build-figma-handoff</code> reports progress here as it pushes.</div>`;
       document.body.appendChild(el);
       setTimeout(() => el.classList.add('is-visible'), 10);
       _fpRenderProgress();

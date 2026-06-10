@@ -38,8 +38,12 @@ Produce **structured data** — not a baked HTML blob. Write into `registry.json
 ```
 { "populated": true,
   "mermaid": "<the flowchart LR source>",
+  "screen": { "w": <px>, "h": <px> },
   "stories": [ { "title", "priority", "jtbd", "path", "scenarios": [ … ], "node?", "status?", "preview?" }, … ] }
 ```
+Set **`flow.screen`** to the target screen size (derive from `meta.device` — mobile ≈ 390×844, tablet ≈
+834×1112, desktop ≈ 1280×720 — or carry over the values the user set via the tab's W×H inputs). It sizes
+the flow canvas frame. Persisting them here is what makes those inputs stick across renders.
 Then `/pb:build --render`. The shell builds the tab from this data: the left sidebar has two sub-tabs —
 **User stories** (title / priority / jtbd / path) and **Test cases** (one checkbox per `scenarios[]` entry) —
 and the `.flow-doc-main` renders `flow.mermaid` with `curve: 'basis'` (smooth curved connectors, not zig-zag

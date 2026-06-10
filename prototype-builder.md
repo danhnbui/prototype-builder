@@ -90,14 +90,20 @@ registry on each load and never written back. (This is why a click in the protot
 ### `flow` (UX Design tab — structured, decoupled)
 
 ```
-flow = { populated, mermaid, stories: [ { title, priority, jtbd, path, scenarios[], node?, status?, preview? } ], html? }
+flow = { populated, mermaid, screen?: { w, h }, flows?: [ { name, mermaid } ],
+         stories: [ { title, priority, jtbd, path, scenarios[], node?, status?, preview? } ], html? }
 ```
 
-`/pb:sync-flow` writes `mermaid` (a `flowchart LR` source) + `stories[]`. The shell renders two sidebar
-sub-tabs — **User stories** (title/priority/jtbd/path) and **Test cases** (each `scenarios[]` entry as a
-checkbox) — and runs Mermaid with `curve:'basis'` (smooth curved connectors) and classDef colors matching
-the on-canvas legend (start/end zinc · decision sky · action lavender · input pink · subprocess purple),
-plus a legend popover. `html` is a legacy pre-baked fallback used only when `mermaid` is absent.
+`/pb:sync-flow` writes `mermaid` (a `flowchart LR` source) + `stories[]`. The shell renders the canvas on
+the **left** and a **User stories | Test cases** aside on the right (each `scenarios[]` entry a checkbox),
+running Mermaid with `curve:'basis'` (smooth curved connectors) and classDef colors matching the on-canvas
+legend (start/end zinc · decision sky · action lavender · input pink · subprocess purple), plus a legend
+popover. `html` is a legacy pre-baked fallback used only when `mermaid` is absent.
+
+- **`screen`** — `{ w, h }` the target screen dimensions; sizes the flow canvas frame. The aside's W×H
+  inputs edit these live; `/pb:sync-flow` persists them here (else the canvas defaults from `meta.device`).
+- **`flows`** — optional named flows for multi-flow projects; the canvas shows a dropdown to switch. When
+  absent, the single `mermaid` is shown as one "Main flow".
 
 ### `erd` (Data tab — structured, decoupled)
 
