@@ -45,10 +45,21 @@ The template already carries `meta.schemaVersion: 4` (= `CURRENT_SCHEMA` from
 Leave `components` / `screens` empty — `/pb:build` fills them and creates their
 `render/{components,screens}/<id>.js` body files.
 
-Set **`meta.device`** (`'desktop' | 'tablet' | 'mobile'`) — the Prototype's default device frame — from the
-PRD's target form factor: auth / mobile-first apps → `'mobile'`; dashboards / desktop web → `'desktop'`;
-when unclear, default `'desktop'`. Set **`meta.devices`** to the sizes the project actually supports (a
-subset of the three) so unsupported sizes are disabled in the Prototype switcher; default all three.
+**Ask the user up front what platform + devices this project covers** (one Q&A, even in file
+intake): *"Is this a browser app or a native/installed application, and which screen sizes does it
+target?"* Use the answer to seed:
+
+- **`meta.shell`** (`'browser' | 'app'`) — the default Prototype chrome. `'browser'` adds a tab strip
+  + back/reload/URL bar; `'app'` shows a plain titlebar (a device status bar — clock + signal/wifi/battery, auto black/white for contrast — on tablet/mobile). Web apps,
+  dashboards, marketing sites → `'browser'`; native/installed/mobile apps → `'app'`. The viewer can
+  flip this live, but the lock sets the default. Default `'browser'` when unclear.
+- **`meta.device`** (`'monitor' | 'laptop' | 'tablet' | 'mobile'`) — the default device frame, from
+  the PRD's primary form factor: mobile-first apps → `'mobile'`; dashboards/desktop web → `'laptop'`;
+  big-screen/data-dense → `'monitor'`; when unclear, default `'laptop'`.
+- **`meta.devices`** — the fixed sizes this project supports (any subset of the four:
+  `monitor 1920×1080 · laptop 1280×832 · tablet 834×1112 · mobile 390×844`). Sizes **not** listed are
+  disabled in the Prototype switcher. Default all four. *(Legacy `'desktop'` is still honored — the
+  shell expands it to `monitor` + `laptop`.)*
 
 Seed **`meta.designSystem`** from the Design System Lock (step 2): `name` = the DS name; `codeLibrary` =
 its source when that's a repo URL or local path (**required** — a DS must have a code home); `designLink` =
