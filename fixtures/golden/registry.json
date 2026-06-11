@@ -209,8 +209,80 @@
           ]
         }
       ],
-      "anatomy": "A single-line text field with label.",
-      "spec": "Full width, hairline border, brand focus ring.",
+      "anatomy": {
+        "renderProps": {
+          "state": "error",
+          "label": "Email",
+          "placeholder": "you@example.com"
+        },
+        "parts": [
+          {
+            "n": 1,
+            "name": "Label",
+            "anchor": ".field__label",
+            "required": true,
+            "token": {
+              "name": "--text-xs",
+              "value": "12px",
+              "kind": "type"
+            }
+          },
+          {
+            "n": 2,
+            "name": "Input",
+            "anchor": ".field__input",
+            "required": true,
+            "token": {
+              "name": "--border-strong",
+              "value": "#cbd5e1",
+              "kind": "color"
+            }
+          },
+          {
+            "n": 3,
+            "name": "Help text",
+            "anchor": ".field__help",
+            "required": false,
+            "token": {
+              "name": "--danger",
+              "value": "#dc2626",
+              "kind": "color"
+            }
+          }
+        ]
+      },
+      "spec": {
+        "renderProps": {
+          "state": "error",
+          "label": "Email",
+          "placeholder": "you@example.com"
+        },
+        "marginX": 0,
+        "legend": [
+          {
+            "color": "#F6C000",
+            "label": "Element height"
+          },
+          {
+            "color": "#2196F3",
+            "label": "Gap between elements"
+          }
+        ],
+        "stack": [
+          {
+            "name": "Label",
+            "anchor": ".field__label"
+          },
+          {
+            "name": "Input",
+            "anchor": ".field__input"
+          },
+          {
+            "name": "Help text",
+            "anchor": ".field__help"
+          }
+        ]
+      },
       "code": {
         "lang": "html",
         "snippet": "<input class=\"field\" />"
@@ -243,8 +315,72 @@
           ]
         }
       ],
-      "anatomy": "Card wrapping the email + password fields and the submit button.",
-      "spec": "Max card width, surface fill, medium radius, soft shadow.",
+      "anatomy": {
+        "renderProps": {},
+        "parts": [
+          {
+            "n": 1,
+            "name": "Card container",
+            "anchor": ".card",
+            "required": true,
+            "token": {
+              "name": "--radius-medium",
+              "value": "12px",
+              "kind": "radius"
+            }
+          },
+          {
+            "n": 2,
+            "name": "Title",
+            "anchor": ".card__title",
+            "required": true,
+            "token": {
+              "name": "--text-lg",
+              "value": "18px",
+              "kind": "type"
+            }
+          },
+          {
+            "n": 3,
+            "name": "Subtitle",
+            "anchor": ".card__sub",
+            "required": false,
+            "token": {
+              "name": "--text-sm",
+              "value": "14px",
+              "kind": "type"
+            }
+          }
+        ]
+      },
+      "spec": {
+        "renderProps": {},
+        "marginX": 0,
+        "legend": [
+          {
+            "color": "#f97316",
+            "label": "Element height"
+          },
+          {
+            "color": "#2563eb",
+            "label": "Gap between elements"
+          },
+          {
+            "color": "#16a34a",
+            "label": "Container padding"
+          }
+        ],
+        "stack": [
+          {
+            "name": "Title",
+            "anchor": ".card__title"
+          },
+          {
+            "name": "Subtitle",
+            "anchor": ".card__sub"
+          }
+        ]
+      },
       "code": {
         "lang": "html",
         "snippet": "<div class=\"card\">\u2026</div>"

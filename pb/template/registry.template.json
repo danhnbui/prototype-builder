@@ -3,8 +3,9 @@
   "meta": {
     "name": "",
     "schemaVersion": 4,
-    "device": "desktop",
-    "devices": ["desktop", "tablet", "mobile"],
+    "shell": "browser",
+    "device": "laptop",
+    "devices": ["monitor", "laptop", "tablet", "mobile"],
     "designSystem": { "name": "", "designLink": null, "codeLibrary": null, "linked": false },
     "overview": { "objectives": null, "principles": [] },
     "userInsights": { "quantitative": null, "researchSummary": null, "executiveSummary": null },

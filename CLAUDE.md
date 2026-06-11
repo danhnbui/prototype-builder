@@ -57,22 +57,31 @@ card that owns the CTA — no dead controls. (Replaces the old `meta-tag`/`meta-
 - **Prototype** — interactive, **no** screen-switcher. A declarative `data-*` runtime drives a real flow:
   `data-nav="<id>"` navigates; `data-action="toggle-password"`; `data-action="submit"` validates the form
   (`data-required` · `data-validate="email"` · `data-minlength`) then `data-go` / `data-toast` /
-  `data-redirect`+`data-redirect-ms`. Split layout: **left** = device-framed preview (browser chrome on
-  desktop, bezel+notch on tablet/mobile) with an icon-only device switcher — defaults from `meta.device`,
-  sizes not in `meta.devices` are **disabled**; **right** = a structure tree (screen → component level).
-- **Project Summary** — single-column; the `meta-subtab` sub-tabs (Overview · Insights · Trade-offs · Others).
-- **UI Design** — split layout under a **Global | Local | Screen** control + a **design-system bar**
-  (`meta.designSystem`: name + design link + code-library link, or an "add one" affordance). Global/Local
-  list components by `scope`, **grouped by `level`** (atom → molecule → organism); demos render **state
-  variants** when a component declares a `state` property (interactive components MUST). Clicking a
-  component/screen-element opens its spec in the **persistent right aside** (anatomy/spec/UI-logic/usage).
-  Components here are the **same** registry components the Prototype renders — never duplicated.
-- **UX Design** — split: **left** = the `flow.mermaid` canvas (multi-flow dropdown + legend, `curve:'basis'`
-  with legend-matched classDef colors); **right** = screen-size W×H inputs + **User stories | Test cases**
-  from `flow.stories[]`.
-- **Data** — split: **left** = a **Diagram | Table** toggle (diagram = `erd.mermaid` in the shared canvas
-  wrapper; table = one styled table per entity from `erd.table[]`); **right** = relationship legend +
-  clickable entities → field detail.
+  `data-redirect`+`data-redirect-ms`. Header-line tools: a **Browser | App** chrome toggle (`meta.shell`
+  default; browser = tab strip + back/reload/URL bar, app = titlebar on desktop, a contrast-aware status bar on tablet/mobile) + an icon-only device switcher
+  over **4 fixed sizes** (monitor 1920×1080 · laptop 1280×832 · tablet 834×1112 · mobile 390×844), default
+  from `meta.device`, sizes not in `meta.devices` **disabled**. The device-framed preview scales to fit;
+  **right** = a structure tree (screen → component level).
+- **Project Summary** — split: **left** = the `meta-subtab` sub-tabs (Overview · Insights · Trade-offs · Others) over a scrolling content column; **right** = a **scroll-spy table of contents** (built from the content's headings) that highlights the section in view and navigates on click. One viewport, internal scroll.
+- **UI Design** — split layout under a **Global | Local | Screen** control; the **design-system bar**
+  (`meta.designSystem`: name + design link + code-library link, or an "add one" affordance) sits on the
+  title line. Global/Local list components by `scope`, **grouped by `level`** (atom → molecule → organism);
+  each card shows **one dropdown-driven demo** (the selected variant, incl. `state`) centered, with a **Copy
+  code** action on the title row. The **Screen** view auto-selects a screen and, by default, lists the
+  **components used inside it** (click to open in the Component tab). Clicking a component/screen-element opens
+  its spec in the **persistent right aside** — anatomy (numbered element markers + per-element token list) ·
+  specification (margin/padding/gap measurement lines) · UI-logic · usage; anatomy/spec accept a **string**
+  (prose) *or* a **structured object** (redlines). Components here are the **same** registry components the
+  Prototype renders — never duplicated.
+- **UX Design** — split: **left** = the `flow.mermaid` canvas (multi-flow dropdown + legend, straight **orthogonal**
+  connectors anchored at node side-centers, nodes recolored by shape and **Yes/No branches drawn green/red**),
+  filling **one viewport** — no W×H controls; **right** = **User stories | Test cases** from `flow.stories[]`.
+  Hovering a story **highlights the flow path it satisfies** (matched nodes + edges, rest dimmed).
+- **Data** — **single column**: a **Diagram | Table** toggle (diagram = `erd.mermaid` in the shared canvas
+  wrapper, with a relationship-legend popover; table = one styled table per entity from `erd.table[]`, fixed
+  column widths so all tables align). In Table view, **each entity table that has multiple data treatments
+  (`erd.mock` sets) gets its own variant switcher** (Schema · its scenarios) that swaps that table's Example
+  column.
 
 ## Memory layout (per project)
 

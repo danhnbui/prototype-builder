@@ -468,6 +468,15 @@
       margin: 0 0 28px;
       flex-wrap: wrap;
     }
+    /* v1.5 — Project Summary split: scrolling content + scroll-spy table of contents */
+    .summary-main { display: flex; flex-direction: column; min-height: 0; }
+    .summary-scroll { flex: 1 1 auto; min-height: 0; overflow: auto; padding-right: 10px; }
+    .summary-scroll .meta-section:last-child { margin-bottom: 8px; }
+    /* TOC reuses the .pb-tree structure component (like the Prototype panel) */
+    .summary-toc-item { cursor: pointer; transition: color .12s; }
+    .summary-toc-tree .pb-tree-node { padding: 5px 0; }
+    .summary-toc-item:hover { color: var(--text-active-primary); }
+    .summary-toc-tree .is-toc-active, .summary-toc-tree .pb-tree-screen-name.is-toc-active { color: var(--brand); font-weight: 600; }
     .meta-subtab {
       height: 32px; padding: 0 14px;
       background: transparent;
@@ -801,6 +810,13 @@
       align-items: start;
     }
     .pb-main { min-width: 0; }
+    /* v1.5 — viewport-locked pages (Prototype, UX Design): the page fills exactly one
+       viewport with no body scroll; the split columns stretch to full height and scroll
+       internally if needed. */
+    .pb-page--viewport { height: calc(100vh - 44px); overflow: hidden; }
+    .pb-content--fill { flex: 1 1 auto; min-height: 0; overflow: hidden; }
+    .pb-content--fill.pb-content--split { align-items: stretch; grid-template-rows: minmax(0, 1fr); }
+    .pb-content--fill .pb-aside { position: static; top: auto; max-height: none; height: 100%; align-self: stretch; }
     .pb-aside {
       position: sticky; top: 24px;
       align-self: start;
@@ -863,16 +879,6 @@
       background: white; color: var(--text-active-primary); cursor: pointer;
     }
     .pb-flow-name { font-family: var(--font-heading); font-weight: 600; font-size: 14px; color: var(--text-active-primary); }
-    .pb-flow-dims {
-      display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
-      padding-bottom: 16px; margin-bottom: 16px; border-bottom: 1px solid var(--border);
-    }
-    .pb-flow-dims label { font-size: 12px; color: var(--text-active-secondary); display: inline-flex; align-items: center; gap: 5px; }
-    .pb-flow-dims input {
-      width: 64px; font: 500 13px/1 var(--font-body);
-      padding: 6px 8px; border: 1px solid var(--border-strong); border-radius: 6px;
-    }
-    .pb-flow-dims-x { color: var(--text-tertiary); }
 
     /* UX Design — QA test-case category chips + coverage-gap callout */
     .pb-qa-cat {
@@ -940,9 +946,10 @@
     }
 
     /* DESIGN-SYSTEM BAR (v1.2) — UI Design tab, under the title */
+    /* v1.5 — DS bar now sits inline in the UI Design page header (3.1). */
     .pb-ds-bar {
-      display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
-      margin: 14px 48px 0; padding: 11px 16px;
+      display: inline-flex; align-items: center; gap: 12px; flex-wrap: wrap;
+      padding: 8px 14px;
       background: white; border: 1px solid var(--border); border-radius: var(--radius-medium);
       font-size: 13px; color: var(--text-active-primary);
     }
@@ -1013,9 +1020,10 @@
     .handoff-card:hover { border-color: var(--border-strong); box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
     .handoff-card:active { transform: translateY(1px); }
     .handoff-card-header {
-      display: flex; align-items: baseline; gap: 12px;
+      display: flex; align-items: center; gap: 12px;
       margin-bottom: 4px;
     }
+    .handoff-card-header-actions { margin-left: auto; flex-shrink: 0; }
     .handoff-card-title {
       font-family: var(--font-heading);
       font-size: 16px; font-weight: 600;
@@ -1160,6 +1168,11 @@
       line-height: 1.55;
       margin: 0 0 8px;
     }
+    /* v1.5 — prose form for string-authored anatomy / spec (3.5). */
+    .handoff-spec-prose {
+      font-size: 13px; line-height: 1.65;
+      color: var(--text-active-primary); margin: 12px 0 0;
+    }
     .handoff-spec-note:last-child { margin-bottom: 0; }
 
     /* ---- v0.3.17 component-view: property dropdowns ---- */
@@ -1184,24 +1197,30 @@
     .handoff-card-body--side-by-side { flex-direction: row; align-items: stretch; }
     .handoff-card-body .handoff-card-preview { flex: 1 1 50%; min-width: 0; margin: 0; }
     .handoff-card-body--stacked .handoff-card-preview { flex: 1 1 auto; }
-    .handoff-code {
-      flex: 1 1 50%; min-width: 0;
-      border: 1px solid var(--border); border-radius: var(--radius-small);
-      background: #0f172a; overflow: hidden; display: flex; flex-direction: column;
-    }
-    .handoff-card-body--stacked .handoff-code { flex: 1 1 auto; }
-    .handoff-code-bar {
-      padding: 6px 10px; border-bottom: 1px solid rgba(255,255,255,0.08);
-      flex-shrink: 0;
-    }
+    /* v1.5 — code is a "Copy code" button opening a review dialog (3.3). */
+    .handoff-code { flex: 0 0 auto; display: flex; align-items: flex-start; }
+    .handoff-card-body--stacked .handoff-code { margin-top: 2px; }
     .handoff-code-lang {
       font: 600 10px/1 var(--font-body); text-transform: uppercase;
-      letter-spacing: 0.06em; color: #a1a1aa;
+      letter-spacing: 0.06em; color: var(--text-tertiary);
     }
-    .handoff-code-pre {
-      margin: 0; padding: 12px 14px; overflow: auto;
-      font: 400 12px/1.6 'SF Mono', Menlo, monospace; color: #e4e4e7;
+    .handoff-copy-code-btn {
+      display: inline-flex; align-items: center; gap: 7px;
+      font: 600 12px/1 var(--font-body); color: var(--text-active-secondary);
+      background: #fff; border: 1px solid var(--border-strong); border-radius: 8px;
+      padding: 8px 13px; cursor: pointer; transition: border-color .12s, color .12s, background .12s;
     }
+    .handoff-copy-code-btn:hover { border-color: var(--brand); color: var(--brand); background: var(--brand-soft); }
+    .handoff-copy-code-btn.is-copied { border-color: #10b981; color: #10b981; }
+    .pb-code-dialog { max-width: 640px; width: 100%; }
+    .pb-code-dialog-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 4px 0 10px; }
+    .pb-code-dialog-pre {
+      margin: 0; padding: 16px 18px; overflow: auto; max-height: 50vh;
+      background: #0f172a; color: #e4e4e7; border-radius: var(--radius-small);
+      font: 400 12.5px/1.65 'SF Mono', Menlo, monospace; white-space: pre;
+    }
+    .pb-code-dialog-note { font: 500 12px/1 var(--font-body); color: var(--text-tertiary); margin: 10px 0 0; transition: color .2s; }
+    .pb-code-dialog-note.flash { color: #10b981; }
     .handoff-code--empty {
       padding: 14px; font: 400 12px/1.5 var(--font-body);
       color: var(--text-tertiary); font-style: italic;
@@ -1277,9 +1296,11 @@
     .spec-band { z-index: 0; pointer-events: none; box-sizing: border-box; }
     .spec-band--gap    { background: rgba(37,99,235,0.13); border-top: 1px dotted #2563eb; border-bottom: 1px dotted #2563eb; }
     .spec-band--margin { background: rgba(236,72,153,0.13); border-left: 1px dotted #db2777; border-right: 1px dotted #db2777; }
+    .spec-band--pad    { background: rgba(22,163,74,0.13); border: 1px dotted #16a34a; }
     .spec-mark--dimension { color: #f97316; }
     .spec-mark--gap       { color: #2563eb; }
     .spec-mark--margin    { color: #db2777; }
+    .spec-chip--pad       { background: #16a34a; }
     .spec-dline   { z-index: 2; pointer-events: none; background: currentColor; border-radius: 1px; }
     .spec-cap     { z-index: 2; pointer-events: none; background: currentColor; border-radius: 1px; }
     .spec-witness { height: 0; z-index: 1; pointer-events: none; border-top: 1px dotted rgba(24,24,27,0.22); }
@@ -1412,13 +1433,25 @@
     .flow-doc-section .mermaid svg { display: block; }
     .flow-doc-summary { font-size: 13px; color: var(--text-active-secondary); margin: 14px 0 0; line-height: 1.6; padding: 12px 16px; background: white; border: 1px solid var(--border); border-left: 3px solid #3b82f6; border-radius: 0 6px 6px 0; }
     .flow-side-tabs { display: flex; gap: 4px; margin-bottom: 14px; border-bottom: 1px solid var(--border); padding-bottom: 0; }
-    .flow-side-tab { flex: 1; padding: 7px 10px; font: 600 11px/1 var(--font-body); color: var(--text-active-secondary); background: none; border: none; border-bottom: 2px solid transparent; margin-bottom: -1px; cursor: pointer; border-radius: 0; transition: color .15s, border-color .15s; text-align: center; }
+    .flow-side-tab { flex: 1; padding: 7px 10px; font: 600 14px/1 var(--font-body); color: var(--text-active-secondary); background: none; border: none; border-bottom: 2px solid transparent; margin-bottom: -1px; cursor: pointer; border-radius: 0; transition: color .15s, border-color .15s; text-align: center; }
     .flow-side-tab:hover { color: var(--text-active-primary); }
     .flow-side-tab.active { color: var(--pg-brand-primary, #1c4ed8); border-bottom-color: var(--pg-brand-primary, #1c4ed8); }
     .flow-side-panel[hidden] { display: none; }
     .flow-doc-stories { padding-left: 22px; margin: 0; }
     .flow-doc-stories > li { margin-bottom: 18px; line-height: 1.55; }
     .flow-doc-stories > li:last-child { margin-bottom: 0; }
+    /* 2.2/2.3 — interactive story rows + canvas fills one viewport + flow dim/highlight */
+    .flow-doc-stories--interactive > li { cursor: default; border-radius: 8px; padding: 8px 10px; margin-left: -10px; transition: background .12s, box-shadow .12s; }
+    .flow-doc-stories--interactive > li:hover { background: var(--brand-soft); box-shadow: inset 2px 0 0 var(--brand); }
+    .flow-main-col { display: flex; flex-direction: column; min-height: 0; }
+    .flow-canvas--fill { max-width: none !important; flex: 1 1 auto; min-height: 0; height: auto; }
+    .flow-stage.flow-dim .node { opacity: .2; transition: opacity .15s; }
+    .flow-stage.flow-dim .edgePaths path, .flow-stage.flow-dim path.flowchart-link, .flow-stage.flow-dim .edgePath path { opacity: .12; transition: opacity .15s; }
+    .flow-stage.flow-dim .edgeLabels .edgeLabel, .flow-stage.flow-dim .edgeLabel { opacity: .18; }
+    .flow-stage .node.flow-hl { opacity: 1 !important; }
+    .flow-stage .node.flow-hl rect, .flow-stage .node.flow-hl polygon, .flow-stage .node.flow-hl circle, .flow-stage .node.flow-hl path {
+      stroke: var(--brand) !important; stroke-width: 3px !important; }
+    .flow-stage path.flow-hl { opacity: 1 !important; stroke: var(--brand) !important; stroke-width: 2.5px !important; }
     .flow-doc-story-title { font-size: 13px; color: var(--text-active-primary); margin-bottom: 3px; line-height: 1.4; }
     .flow-doc-story-ref { font-size: 10px; color: var(--text-tertiary); font-family: 'SF Mono', Menlo, monospace; margin-left: 4px; background: var(--neutral-10); padding: 1px 5px; border-radius: 3px; }
     .flow-doc-story-path { font-size: 11px; color: var(--text-active-secondary); margin-bottom: 6px; line-height: 1.5; }
@@ -1441,12 +1474,12 @@
     }
     .flow-doc-legend-btn:hover { background: var(--neutral-10); border-color: var(--text-tertiary); color: var(--text-active-primary); }
     .flow-doc-legend-swatch { width: 12px; height: 12px; border-radius: 3px; display: inline-block; flex-shrink: 0; border: 1px solid rgba(0,0,0,0.06); }
-    .flow-doc-swatch-start      { background: #0f172a; border-color: #000000; }
-    .flow-doc-swatch-end        { background: #0f172a; border-color: #000000; }
-    .flow-doc-swatch-decision   { background: #DBEAFE; border-color: #60A5FA; transform: rotate(45deg); border-radius: 1px; }
-    .flow-doc-swatch-action     { background: #F3E8FF; border-color: #C084FC; }
-    .flow-doc-swatch-input      { background: #FCE7F3; border-color: #EC4899; transform: skewX(-18deg); }
-    .flow-doc-swatch-subprocess { background: #EDE9FE; border-color: #7C3AED; border-width: 2px; }
+    .flow-doc-swatch-start      { background: #1c1f22; border-color: #000000; border-radius: 50%; }
+    .flow-doc-swatch-end        { background: #1c1f22; border-color: #000000; border-radius: 50%; }
+    .flow-doc-swatch-decision   { background: #F6C000; border-color: #D99E00; transform: rotate(45deg); border-radius: 1px; }
+    .flow-doc-swatch-action     { background: #2196F3; border-color: #1565C0; border-radius: 4px; }
+    .flow-doc-swatch-input      { background: #7C3AED; border-color: #6D28D9; transform: skewX(-18deg); }
+    .flow-doc-swatch-subprocess { background: #E5E7EB; border-color: #9CA3AF; border-width: 2px; }
     .flow-doc-legend-label { margin: 0 2px 0 4px; font-weight: 600; color: var(--text-active-primary); }
     .flow-doc-legend-q {
       display: inline-flex; align-items: center; justify-content: center;
@@ -1848,41 +1881,65 @@
       border-radius: 4px;
     }
 
-    /* ===== Prototype tab — device preview (replaces the old screen switcher) ===== */
-    .proto-wrap { display:flex; flex-direction:column; height:calc(100vh - 44px); background:var(--bg, #f8fafc); }
-    .proto-toolbar { flex:0 0 auto; display:flex; gap:6px; justify-content:center; align-items:center;
-      padding:10px; background:#fff; border-bottom:1px solid var(--border-strong); }
-    .proto-device-btn { display:inline-flex; align-items:center; justify-content:center; width:40px; height:32px;
-      border-radius:8px; border:1px solid var(--border-strong); background:#fff; color:var(--text-active-secondary);
-      cursor:pointer; transition:background .12s, color .12s, border-color .12s; }
-    .proto-device-btn:hover { color:var(--text-active-primary); border-color:var(--text-tertiary); }
-    .proto-device-btn.active { background:var(--brand); border-color:var(--brand); color:#fff; }
-    .proto-viewport { flex:1 1 auto; overflow:auto; display:flex; justify-content:center; align-items:stretch;
-      padding:24px 16px; }
-    .proto-device { overflow:auto; background:#fff; border:1px solid var(--border-strong); border-radius:12px;
-      box-shadow:0 10px 34px rgba(15,23,42,.12); }
-    .proto-device--desktop { width:100%; max-width:1180px; }
-    .proto-device--tablet  { width:834px;  max-width:100%; }
-    .proto-device--mobile  { width:390px;  max-width:100%; }
-    /* v1.2 — device chrome: browser bar on desktop, bezel + notch on tablet/mobile */
-    .proto-stage { display:flex; justify-content:center; }
-    .proto-frame { background:#fff; border:1px solid var(--border-strong); border-radius:12px; overflow:hidden; box-shadow:0 10px 34px rgba(15,23,42,.12); }
-    .proto-frame--desktop { width:100%; max-width:1180px; }
-    .proto-frame--tablet  { width:768px; max-width:100%; border:10px solid #1c1f22; border-radius:26px; }
-    .proto-frame--mobile  { width:390px; max-width:100%; border:12px solid #1c1f22; border-radius:38px; }
-    .proto-frame .proto-device { width:100%; max-width:none; border:0; border-radius:0; box-shadow:none; }
-    .proto-chrome { display:flex; align-items:center; gap:12px; height:40px; padding:0 14px; background:var(--neutral-10); border-bottom:1px solid var(--border); }
-    .proto-chrome-dots { display:flex; gap:7px; }
-    .proto-chrome-dot { width:11px; height:11px; border-radius:50%; background:var(--border-strong); }
-    .proto-chrome-url { flex:1; height:24px; background:#fff; border-radius:7px; border:1px solid var(--border); font:12px/24px var(--font-body); color:var(--text-tertiary); padding:0 12px; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
-    .proto-notch { height:24px; background:#1c1f22; display:flex; align-items:center; justify-content:center; }
-    .proto-notch::after { content:''; width:42%; max-width:150px; height:6px; border-radius:6px; background:rgba(255,255,255,.28); }
-    .proto-screen { overflow:auto; background:#fff; }
-    .proto-frame--desktop .proto-screen { height:calc(100vh - 44px - 210px); min-height:440px; }
-    .proto-frame--tablet  .proto-screen { height:680px; }
-    .proto-frame--mobile  .proto-screen { height:720px; }
-    .pb-proto-toolbar { background:transparent !important; border:0 !important; justify-content:flex-start !important; padding:0 0 14px !important; }
+    /* ===== Prototype tab — device preview + browser/app chrome (v1.5) =====
+       Toolbar (shell toggle + device switcher) now lives in the page-header CTA slot.
+       4 fixed device sizes; the frame scales to fit the column via fitProtoFrame(). */
+    .proto-header-tools { display:flex; align-items:center; gap:12px; flex-wrap:wrap; justify-content:flex-end; }
+    .proto-shell-toggle { display:inline-flex; border:1px solid var(--border-strong); border-radius:8px; overflow:hidden; background:#fff; }
+    .proto-shell-btn { height:32px; display:inline-flex; align-items:center; border:0; background:transparent;
+      padding:0 14px; font:600 12px/1 var(--font-body);
+      color:var(--text-active-secondary); cursor:pointer; transition:background .12s, color .12s; }
+    .proto-shell-btn + .proto-shell-btn { border-left:1px solid var(--border-strong); }
+    .proto-shell-btn.active { background:var(--brand); color:#fff; }
+    /* Device switcher as a connected segmented tab group (matches the Browser | App toggle). */
+    .proto-toolbar { display:inline-flex; align-items:center; border:1px solid var(--border-strong);
+      border-radius:8px; overflow:hidden; background:#fff; }
+    .proto-device-btn { display:inline-flex; align-items:center; justify-content:center; width:44px; height:32px;
+      border:0; border-radius:0; background:transparent; color:var(--text-active-secondary);
+      cursor:pointer; transition:background .12s, color .12s; }
+    .proto-device-btn + .proto-device-btn { border-left:1px solid var(--border-strong); }
+    .proto-device-btn:hover:not(:disabled):not(.is-disabled) { color:var(--text-active-primary); background:var(--neutral-5, #f6f7f9); }
+    .proto-device-btn.active { background:var(--brand); color:#fff; }
     .proto-device-btn:disabled, .proto-device-btn.is-disabled { opacity:.38; cursor:not-allowed; }
+    .proto-main { display:flex; min-height:0; }
+    .proto-stage { flex:1 1 auto; min-width:0; min-height:0; overflow:hidden; }
+    .proto-fit { height:100%; display:flex; justify-content:center; align-items:center; }
+    .proto-frame { background:#fff; border:1px solid var(--border-strong); border-radius:12px; overflow:hidden;
+      box-shadow:0 10px 34px rgba(15,23,42,.12); transform-origin:center center; flex:0 0 auto; }
+    .proto-frame--tablet { border:10px solid #1c1f22; border-radius:26px; }
+    .proto-frame--mobile { border:12px solid #1c1f22; border-radius:38px; }
+    .proto-screen { overflow:auto; background:#fff; }
+    /* Browser chrome — tab strip + nav bar */
+    .proto-tabbar { display:flex; align-items:flex-end; gap:6px; height:40px; padding:8px 10px 0; background:var(--neutral-10); border-bottom:1px solid var(--border); }
+    .proto-tab { display:inline-flex; align-items:center; gap:8px; max-width:260px; height:32px; padding:0 13px;
+      background:#fff; border:1px solid var(--border); border-bottom:0; border-radius:9px 9px 0 0;
+      font:500 12px/32px var(--font-body); color:var(--text-active-secondary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .proto-tab.active { color:var(--text-active-primary); font-weight:600; }
+    .proto-tab-x { cursor:pointer; color:var(--text-tertiary); font-size:15px; line-height:1; flex-shrink:0; }
+    .proto-tab-x:hover { color:var(--danger); }
+    .proto-newtab { width:28px; height:28px; border-radius:6px; border:0; background:transparent; color:var(--text-tertiary);
+      font-size:19px; line-height:1; cursor:pointer; flex-shrink:0; }
+    .proto-newtab:hover { background:rgba(0,0,0,.06); color:var(--text-active-primary); }
+    .proto-navbar { display:flex; align-items:center; gap:8px; height:42px; padding:0 12px; background:var(--neutral-10); border-bottom:1px solid var(--border); }
+    .proto-navbtn { width:28px; height:28px; border-radius:50%; border:1px solid var(--border); background:#fff;
+      color:var(--text-active-secondary); cursor:pointer; font-size:15px; line-height:1; display:inline-flex; align-items:center; justify-content:center; flex-shrink:0; }
+    .proto-navbtn:hover:not(:disabled) { border-color:var(--text-tertiary); color:var(--text-active-primary); }
+    .proto-navbtn:disabled { opacity:.4; cursor:not-allowed; }
+    .proto-urlbar { flex:1; height:27px; background:#fff; border-radius:7px; border:1px solid var(--border);
+      font:12px/27px var(--font-body); color:var(--text-tertiary); padding:0 12px; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
+    /* App chrome — slim titlebar (desktop-class) or bezel notch (tablet/mobile) */
+    .proto-appbar { height:38px; display:flex; align-items:center; padding:0 16px; background:var(--neutral-10); border-bottom:1px solid var(--border); }
+    .proto-appbar-title { font:600 13px/1 var(--font-body); color:var(--text-active-primary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    /* Device status bar — clock + signal/wifi/battery, contrast color picked from the screen bg */
+    .proto-statusbar { position:relative; height:40px; display:flex; align-items:center; justify-content:space-between;
+      padding:0 20px; background:#fff; }
+    .proto-sb-time { font:700 14px/1 var(--font-body); min-width:60px; letter-spacing:.2px; }
+    .proto-sb-icons { display:inline-flex; align-items:center; gap:6px; }
+    .proto-sb-icons svg { display:block; }
+    .proto-sb-island { position:absolute; left:50%; top:9px; transform:translateX(-50%);
+      width:30%; max-width:118px; height:22px; background:#000; border-radius:14px; }
+    .proto-statusbar--dark  { color:#1c1f22; }
+    .proto-statusbar--light { color:#ffffff; }
     .proto-toast-wrap { position:fixed; left:50%; bottom:24px; transform:translateX(-50%); z-index:9999;
       display:flex; flex-direction:column; gap:8px; align-items:center; pointer-events:none; }
     .proto-toast { background:#0f172a; color:#fff; font-family:var(--font-body); font-size:13px;
@@ -1907,6 +1964,20 @@
     .erd-entity-table th { text-align:left; font:600 11px/1 var(--font-body); text-transform:uppercase; letter-spacing:.04em; color:var(--text-tertiary); background:var(--neutral-10, #f8fafc); padding:9px 12px; }
     .erd-entity-table td { border-top:1px solid var(--border); padding:9px 12px; color:var(--text-active-primary); vertical-align:top; }
     .erd-entity-table td code { font-size:12px; background:var(--neutral-10, #f1f5f9); padding:1px 6px; border-radius:4px; color:var(--text-active-secondary); }
+    /* v1.5 — Data single-column toolbar, data-set variants, fixed column alignment, legend */
+    .erd-toolbar { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:16px; }
+    .erd-entity-head { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-bottom:8px; }
+    .erd-entity-head .erd-entity-title { margin:0; }
+    .erd-entity-variants { display:flex; align-items:center; flex-wrap:wrap; gap:6px; }
+    .erd-fixed { table-layout:fixed; }
+    .erd-fixed th:nth-child(1), .erd-fixed td:nth-child(1) { width:24%; }
+    .erd-fixed th:nth-child(2), .erd-fixed td:nth-child(2) { width:20%; }
+    .erd-fixed th:nth-child(3), .erd-fixed td:nth-child(3) { width:28%; }
+    .erd-fixed th:nth-child(4), .erd-fixed td:nth-child(4) { width:28%; }
+    .erd-fixed td { word-break:break-word; }
+    .erd-legend-mini svg { width:38px; height:12px; display:block; }
+    .erd-legend-svgwrap { display:inline-flex; width:56px; flex-shrink:0; }
+    .erd-legend-svgwrap svg { width:56px; height:14px; }
   </style>
 
   <!-- Mermaid CDN — used by the ERD tab. Keep this even if you don't ship ERD;
@@ -1988,13 +2059,14 @@
       handoffDrawerSegment: 'anatomy', // 'anatomy' | 'spec' | 'uiLogic' | 'usage' (v0.3.17)
       screenDrawerOpenFor: null,      // null | element.id — screen-view element drawer (v0.3.18)
       screenDrawerSegment: 'spec',    // 'spec' | 'uiLogic' | 'demo' (v0.3.18)
-      protoDevice: null,              // 'desktop' | 'tablet' | 'mobile' — defaults from meta.device
+      protoDevice: null,              // 'monitor' | 'laptop' | 'tablet' | 'mobile' — defaults from meta.device
+      protoShell: null,               // 'browser' | 'app' — display chrome; defaults from meta.shell
+      protoHistory: [],               // screen-id stack for the browser back button
+      protoTabs: [],                  // cosmetic extra browser tabs (the "+" new-tab affordance)
       handoffScope: null,            // 'global' | 'local' — UI Design component sub-tab
       erdView: null,                 // 'diagram' | 'table' — Data tab view mode
-      erdEntity: null,               // null | <entity name> — selected entity in Data aside
-      erdMockIndex: 0,               // index into the selected entity's mock-data sets
+      erdVariant: {},                // { <entity>: 'schema' | <mock label> } — per-table data set (4.4)
       flowIndex: 0,                  // index into flow.flows[] (multi-flow dropdown)
-      flowW: null, flowH: null,      // UX Design target screen dimensions (runtime)
       /* TODO: add your app state here, e.g.:
          user: null,
          currentScreen: 'home',
@@ -2064,25 +2136,8 @@
     function setSummarySubTab(v) { state.summarySubTab = v; renderMetaSummary(); }
     function setHandoffScope(v) { state.handoffScope = v; renderHandoff(); }
     function setErdView(v) { state.erdView = v; renderMetaERD(); }
-    function setErdEntity(name) { state.erdEntity = (state.erdEntity === name ? null : name); state.erdMockIndex = 0; renderMetaERD(); }
-    function setErdMock(i) { state.erdMockIndex = parseInt(i, 10) || 0; renderMetaERD(); }
+    function setErdVariant(entity, key) { state.erdVariant = state.erdVariant || {}; state.erdVariant[entity] = key; renderMetaERD(); }
     function setFlowIndex(i) { state.flowIndex = parseInt(i, 10) || 0; renderMetaFlow(); }
-    /* Resize the flow canvas frame to the target screen dims — no full re-render (keeps zoom). */
-    function setFlowDim(axis, val) {
-      val = Math.max(320, Math.min(2400, parseInt(val, 10) || 0));
-      if (axis === 'w') state.flowW = val; else state.flowH = Math.max(360, Math.min(1000, val));
-      const c = document.getElementById('flow-canvas');
-      if (c) { c.style.maxWidth = state.flowW + 'px'; c.style.height = state.flowH + 'px'; }
-    }
-    function pbDefaultDims() {
-      // Persisted screen dims (set by /pb:sync-flow) win; else derive from the default device.
-      const f = (PB_DATA && PB_DATA.flow) || {};
-      if (f.screen && f.screen.w && f.screen.h) return { w: f.screen.w, h: f.screen.h };
-      const dev = (PB_REGISTRY && PB_REGISTRY.meta && PB_REGISTRY.meta.device) || 'desktop';
-      if (dev === 'mobile') return { w: 390, h: 844 };
-      if (dev === 'tablet') return { w: 834, h: 800 };
-      return { w: 1280, h: 720 };
-    }
     function openHandoffDrawer(id) { state.handoffDrawerOpenFor = id; state.handoffDrawerSegment = 'anatomy'; renderHandoff(); }
     function closeHandoffDrawer() { state.handoffDrawerOpenFor = null; renderHandoff(); }
     function setHandoffDrawerSegment(s) { state.handoffDrawerSegment = s; renderHandoff(); }
@@ -2709,6 +2764,8 @@
       const info = TAB_INFO[opts.infoKey] || {};
       const title = opts.title || info.title || '';
       const cta = (!VIEW_ONLY && opts.cta) ? opts.cta : '';
+      // headerAside (e.g. the UI Design DS bar) shows regardless of VIEW_ONLY.
+      const aside = opts.headerAside || '';
       return `
         <div class="pb-page-header">
           <div class="pb-page-headings">
@@ -2718,7 +2775,7 @@
                       onclick="openInfoDialog('${opts.infoKey}')">?</button>
             </div>
           </div>
-          ${cta ? `<div class="pb-page-cta">${cta}</div>` : ''}
+          ${(aside || cta) ? `<div class="pb-page-cta">${aside}${cta}</div>` : ''}
         </div>`;
     }
 
@@ -2793,42 +2850,54 @@
       }
 
       if (!state.protoScreenId || !screens.some(s => s.id === state.protoScreenId)) state.protoScreenId = screens[0].id;
-      // Supported device sizes — meta.devices (default all three); current device must be supported.
-      const supported = (PB_REGISTRY && PB_REGISTRY.meta && PB_REGISTRY.meta.devices) || ['desktop', 'tablet', 'mobile'];
-      if (!state.protoDevice) state.protoDevice = ((PB_REGISTRY && PB_REGISTRY.meta && PB_REGISTRY.meta.device) || 'desktop');
-      if (supported.indexOf(state.protoDevice) === -1) state.protoDevice = supported[0] || 'desktop';
+      const meta = (PB_REGISTRY && PB_REGISTRY.meta) || {};
+      // Supported device sizes — meta.devices (normalized to the 4-key model; legacy 'desktop'
+      // expands to monitor+laptop). The current device must be supported.
+      const supported = pbNormalizeDeviceList(meta.devices);
+      if (!state.protoDevice) state.protoDevice = pbNormalizeDevice(meta.device || 'laptop');
+      if (supported.indexOf(state.protoDevice) === -1) state.protoDevice = supported[0] || 'laptop';
+      if (!state.protoShell) state.protoShell = (meta.shell === 'app' ? 'app' : 'browser');
       const sel = screens.find(s => s.id === state.protoScreenId);
       const device = state.protoDevice;
+      const shell = state.protoShell;
+      const dim = PROTO_DEVICES.find(d => d.id === device) || PROTO_DEVICES[1];
 
-      const DEVICES = [['desktop', 'Desktop'], ['tablet', 'Tablet'], ['mobile', 'Mobile']];
-      const toolbar = `<div class="proto-toolbar pb-proto-toolbar" role="tablist" aria-label="Preview device">`
-        + DEVICES.map(([id, label]) => {
-            const ok = supported.indexOf(id) !== -1;
-            return `<button class="proto-device-btn ${state.protoDevice === id ? 'active' : ''} ${ok ? '' : 'is-disabled'}" role="tab"
-               aria-selected="${state.protoDevice === id}" aria-label="${label}${ok ? '' : ' (not supported)'}"
-               title="${label}${ok ? '' : ' — not supported by this project'}" ${ok ? '' : 'disabled'}
-               ${ok ? `onclick="setProtoDevice('${id}')"` : ''}>${protoDeviceIcon(id)}</button>`;
+      // Header tools: Browser|App toggle + the device switcher (sits in the header CTA slot, 1.1/1.3).
+      const shellToggle = `<div class="proto-shell-toggle" role="group" aria-label="Display type">
+          <button class="proto-shell-btn ${shell === 'browser' ? 'active' : ''}" onclick="setProtoShell('browser')">Browser</button>
+          <button class="proto-shell-btn ${shell === 'app' ? 'active' : ''}" onclick="setProtoShell('app')">App</button>
+        </div>`;
+      const switcher = `<div class="proto-toolbar" role="tablist" aria-label="Preview device">`
+        + PROTO_DEVICES.map(d => {
+            const ok = supported.indexOf(d.id) !== -1;
+            return `<button class="proto-device-btn ${state.protoDevice === d.id ? 'active' : ''} ${ok ? '' : 'is-disabled'}" role="tab"
+               aria-selected="${state.protoDevice === d.id}" aria-label="${d.label}${ok ? '' : ' (not supported)'}"
+               title="${d.label} · ${d.w}×${d.h}${ok ? '' : ' — not supported by this project'}" ${ok ? '' : 'disabled'}
+               ${ok ? `onclick="setProtoDevice('${d.id}')"` : ''}>${protoDeviceIcon(d.id)}</button>`;
           }).join('')
         + `</div>`;
+      const headerWithTools = pbPageHeader({
+        title: 'Prototype', infoKey: 'prototype',
+        cta: `<div class="proto-header-tools">${shellToggle}${switcher}</div>`,
+      });
 
       const body = (typeof window[sel.renderFn] === 'function')
         ? window[sel.renderFn]()
         : `<div class="placeholder-card"><p>Screen "${sel.name}" has no render function yet — run <code>/pb:build --render</code>.</p></div>`;
 
-      const chrome = device === 'desktop'
-        ? `<div class="proto-chrome"><div class="proto-chrome-dots"><span class="proto-chrome-dot"></span><span class="proto-chrome-dot"></span><span class="proto-chrome-dot"></span></div><div class="proto-chrome-url">${pbEscape((PB_REGISTRY && PB_REGISTRY.meta && PB_REGISTRY.meta.name) || 'prototype')} · ${pbEscape(sel.name || sel.id)}</div></div>`
-        : `<div class="proto-notch"></div>`;
+      const chrome = protoChrome(shell, device, sel, meta);
 
       $('#app').innerHTML = `
-        <div class="pb-page">
-          ${header}
-          <div class="pb-content pb-content--split">
-            <div class="pb-main">
-              ${toolbar}
-              <div class="proto-stage">
-                <div class="proto-frame proto-frame--${device}">
-                  ${chrome}
-                  <div class="proto-device proto-device--${device} proto-screen" id="proto-frame">${body}</div>
+        <div class="pb-page pb-page--viewport">
+          ${headerWithTools}
+          <div class="pb-content pb-content--split pb-content--fill">
+            <div class="pb-main proto-main">
+              <div class="proto-stage" id="proto-stage">
+                <div class="proto-fit" id="proto-fit">
+                  <div class="proto-frame proto-frame--${device} proto-shell--${shell}" id="proto-frame-wrap" style="width:${dim.w}px">
+                    ${chrome}
+                    <div class="proto-screen" id="proto-frame" style="height:${dim.h}px">${body}</div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -2839,7 +2908,116 @@
           </div>
         </div>`;
       wireProtoNav();
+      requestAnimationFrame(function () { fitProtoFrame(); pbSetStatusBarContrast(); });
     }
+
+    // The 4 fixed device sizes (logical CSS px). Gated per project by meta.devices.
+    const PROTO_DEVICES = [
+      { id: 'monitor', label: 'Large monitor', w: 1920, h: 1080 },
+      { id: 'laptop',  label: 'Laptop',        w: 1280, h: 832  },
+      { id: 'tablet',  label: 'Tablet',        w: 834,  h: 1112 },
+      { id: 'mobile',  label: 'Mobile',        w: 390,  h: 844  },
+    ];
+    // Normalize a meta.devices list to the 4-key model — legacy 'desktop' → monitor + laptop.
+    function pbNormalizeDeviceList(list) {
+      const order = ['monitor', 'laptop', 'tablet', 'mobile'];
+      const set = {};
+      (list || []).forEach(d => {
+        if (d === 'desktop') { set.monitor = 1; set.laptop = 1; }
+        else if (order.indexOf(d) !== -1) set[d] = 1;
+      });
+      const out = order.filter(d => set[d]);
+      return out.length ? out : order.slice();
+    }
+    function pbNormalizeDevice(dev) {
+      if (dev === 'desktop') return 'laptop';
+      return ['monitor', 'laptop', 'tablet', 'mobile'].indexOf(dev) !== -1 ? dev : 'laptop';
+    }
+    // Device chrome — browser (tabs + nav bar) or app (titlebar / bezel notch).
+    function protoChrome(shell, device, sel, meta) {
+      const url = `${(meta.name || 'prototype')} · ${(sel.name || sel.id)}`;
+      if (shell === 'browser') {
+        const extra = (state.protoTabs || []).map((t, i) =>
+          `<span class="proto-tab">${pbEscape(t)}<span class="proto-tab-x" title="Close tab" onclick="protoCloseTab(${i})">×</span></span>`).join('');
+        const canBack = (state.protoHistory || []).length > 0;
+        return `<div class="proto-tabbar">
+            <span class="proto-tab active">${pbEscape(url)}</span>
+            ${extra}
+            <button class="proto-newtab" title="New tab" aria-label="Open a new tab" onclick="protoNewTab()">+</button>
+          </div>
+          <div class="proto-navbar">
+            <button class="proto-navbtn" title="Back" aria-label="Back" onclick="protoBack()" ${canBack ? '' : 'disabled'}>‹</button>
+            <button class="proto-navbtn" title="Reload" aria-label="Reload" onclick="protoReload()">⟳</button>
+            <div class="proto-urlbar">${pbEscape(url)}</div>
+          </div>`;
+      }
+      if (device === 'tablet' || device === 'mobile') return protoStatusBar();
+      return `<div class="proto-appbar"><span class="proto-appbar-title">${pbEscape(url)}</span></div>`;
+    }
+    // Device status bar (replaces the notch) — clock + signal/wifi/battery. The foreground color is
+    // chosen for high contrast against the screen's background (see pbSetStatusBarContrast).
+    function protoStatusBar() {
+      const sig = '<svg width="17" height="11" viewBox="0 0 17 11" fill="currentColor" aria-hidden="true"><rect x="0" y="7" width="3" height="4" rx="1"/><rect x="4.5" y="5" width="3" height="6" rx="1"/><rect x="9" y="2.5" width="3" height="8.5" rx="1"/><rect x="13.5" y="0" width="3" height="11" rx="1"/></svg>';
+      const wifi = '<svg width="16" height="12" viewBox="0 0 16 12" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M1 3.6a10 10 0 0 1 14 0"/><path d="M3.4 6.3a6.4 6.4 0 0 1 9.2 0"/><path d="M5.8 9a3 3 0 0 1 4.4 0"/><circle cx="8" cy="11" r="0.6" fill="currentColor" stroke="none"/></svg>';
+      const batt = '<svg width="25" height="12" viewBox="0 0 25 12" fill="none" aria-hidden="true"><rect x="0.6" y="0.6" width="21" height="10.8" rx="2.6" stroke="currentColor" stroke-opacity="0.4" stroke-width="1"/><rect x="2.2" y="2.2" width="14" height="7.6" rx="1.3" fill="currentColor"/><path d="M23 4v4a2 2 0 0 0 1.2-1.84V5.84A2 2 0 0 0 23 4z" fill="currentColor" fill-opacity="0.5"/></svg>';
+      return `<div class="proto-statusbar" id="proto-statusbar">
+          <span class="proto-sb-time">9:41</span>
+          <span class="proto-sb-island"></span>
+          <span class="proto-sb-icons">${sig}${wifi}${batt}</span>
+        </div>`;
+    }
+    // Pick black/white foreground for the status bar based on the screen's effective background.
+    function pbSetStatusBarContrast() {
+      const sb = document.getElementById('proto-statusbar');
+      const screen = document.getElementById('proto-frame');
+      if (!sb || !screen) return;
+      const bg = pbEffectiveBg(screen);
+      sb.style.background = bg;
+      const lum = pbColorLuminance(bg);
+      const dark = lum >= 0.5; // light background → dark text
+      sb.classList.toggle('proto-statusbar--dark', dark);
+      sb.classList.toggle('proto-statusbar--light', !dark);
+    }
+    function pbEffectiveBg(screen) {
+      // Sample the background directly under the status bar — the top strip of the screen content,
+      // not a centered card — then walk up to the first opaque background.
+      const r = screen.getBoundingClientRect();
+      let el = document.elementFromPoint(r.left + r.width / 2, r.top + 6);
+      let guard = 0;
+      while (el && guard++ < 12) {
+        const bg = getComputedStyle(el).backgroundColor;
+        if (bg && !/^rgba?\(0,\s*0,\s*0,\s*0\)$|transparent/.test(bg)) return bg;
+        if (el === screen) break;
+        el = el.parentElement;
+      }
+      const sbg = getComputedStyle(screen).backgroundColor;
+      return (sbg && !/^rgba?\(0,\s*0,\s*0,\s*0\)$|transparent/.test(sbg)) ? sbg : 'rgb(255,255,255)';
+    }
+    function pbColorLuminance(color) {
+      const m = (color || '').match(/(\d+(?:\.\d+)?)/g);
+      if (!m || m.length < 3) return 1;
+      const r = +m[0], g = +m[1], b = +m[2];
+      return (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+    }
+    // Scale the device frame to fit BOTH the stage width and the remaining viewport height, so
+    // the whole frame is visible without scrolling (tall phones/tablets included). Clicks still map
+    // correctly through the CSS transform. Collapses the wrapper height to the scaled height.
+    function fitProtoFrame() {
+      const stage = document.getElementById('proto-stage');
+      const fit   = document.getElementById('proto-fit');
+      const frame = document.getElementById('proto-frame-wrap');
+      if (!stage || !fit || !frame) return;
+      frame.style.transform = 'none';
+      const availW = stage.clientWidth;
+      const availH = stage.clientHeight; // the stage fills the viewport-locked content cell
+      const fw = frame.offsetWidth, fh = frame.offsetHeight;
+      let s = fw > 0 ? Math.min(1, availW / fw) : 1;
+      if (fh > 0 && availH > 80) s = Math.min(s, availH / fh);
+      frame.style.transform = s < 1 ? `scale(${s})` : 'none';
+    }
+    window.addEventListener('resize', function () {
+      if (state && state.metaView === 'prototype') requestAnimationFrame(fitProtoFrame);
+    });
 
     /* Prototype aside: screen → component-level tree (does not recurse into component internals). */
     function pbRenderStructureTree(screens) {
@@ -2861,11 +3039,27 @@
         </div>`;
       }).join('') + '</div>';
     }
-    function setProtoScreen(id) { state.protoScreenId = id; renderPrototype(); }
+    function setProtoScreen(id, fromBack) {
+      if (!fromBack && state.protoScreenId && state.protoScreenId !== id) {
+        state.protoHistory = state.protoHistory || [];
+        state.protoHistory.push(state.protoScreenId);
+      }
+      state.protoScreenId = id; renderPrototype();
+    }
     function setProtoDevice(id) { state.protoDevice = id; renderPrototype(); }
+    function setProtoShell(v) { state.protoShell = (v === 'app' ? 'app' : 'browser'); renderPrototype(); }
+    function protoBack() {
+      const h = state.protoHistory || [];
+      if (!h.length) return;
+      setProtoScreen(h.pop(), true);
+    }
+    function protoReload() { renderPrototype(); }
+    function protoNewTab() { state.protoTabs = state.protoTabs || []; state.protoTabs.push('New tab'); renderPrototype(); }
+    function protoCloseTab(i) { (state.protoTabs || []).splice(i, 1); renderPrototype(); }
     function protoDeviceIcon(id) {
       const p = {
-        desktop: '<rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/>',
+        monitor: '<rect x="2" y="3" width="20" height="13" rx="1.5"/><path d="M2 20h20M9 16l-1 4M15 16l1 4"/>',
+        laptop:  '<rect x="4" y="4" width="16" height="11" rx="1.5"/><path d="M2 19h20l-1.4-3H3.4L2 19z"/>',
         tablet:  '<rect x="5" y="2" width="14" height="20" rx="2"/><path d="M11 18h2"/>',
         mobile:  '<rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/>',
       }[id] || '';
@@ -2995,15 +3189,72 @@
         others:    pbRenderOthers,
       }[state.summarySubTab]();
 
+      // v1.5 — split layout: scrolling content on the left, a scroll-spy table of contents on
+      // the right that reflects the left column and navigates on click.
       $('#app').innerHTML = `
-        <div class="pb-page">
+        <div class="pb-page pb-page--viewport">
           ${header}
-          <div class="pb-content pb-content--full">
-            <div class="meta-subtabs">${subTabs}</div>
-            ${body}
+          <div class="pb-content pb-content--split pb-content--fill">
+            <div class="pb-main summary-main">
+              <div class="meta-subtabs">${subTabs}</div>
+              <div class="summary-scroll" id="summary-scroll">${body}</div>
+            </div>
+            <aside class="pb-aside summary-toc">
+              <p class="pb-dialog-h">On this page</p>
+              <nav class="summary-toc-nav" id="summary-toc-nav"></nav>
+            </aside>
           </div>
         </div>
       `;
+      requestAnimationFrame(pbBuildSummaryToc);
+    }
+
+    /* Build the Project Summary table of contents from the left column's headings, wire
+       click-to-scroll + scroll-spy highlighting. Re-runs on every sub-tab render. */
+    function pbBuildSummaryToc() {
+      const scroll = document.getElementById('summary-scroll');
+      const nav = document.getElementById('summary-toc-nav');
+      if (!scroll || !nav) return;
+      const heads = Array.from(scroll.querySelectorAll('.meta-h2, .meta-h3'));
+      if (!heads.length) { nav.innerHTML = '<p class="pb-aside-empty" style="padding:6px 0">No sections.</p>'; return; }
+      heads.forEach((h, i) => { if (!h.id) h.id = 'summary-sec-' + i; });
+      // Group headings into a tree: each h2 is a parent node, the h3s under it are children —
+      // rendered with the same .pb-tree component as the Prototype structure panel.
+      const groups = []; let cur = null;
+      heads.forEach(h => {
+        if (h.classList.contains('meta-h2')) { cur = { head: h, children: [] }; groups.push(cur); }
+        else { if (!cur) { cur = { head: null, children: [] }; groups.push(cur); } cur.children.push(h); }
+      });
+      const dot = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="14" rx="2"/><path d="M8 21h8"/></svg>';
+      const tocNode = (h, isChild) => isChild
+        ? `<li class="pb-tree-node"><span class="pb-tree-node-label summary-toc-item" data-toc="${h.id}" onclick="pbSummaryTocClick(event,'${h.id}')">${pbEscape(h.textContent)}</span></li>`
+        : `<div class="pb-tree-screen-name summary-toc-item" data-toc="${h.id}" onclick="pbSummaryTocClick(event,'${h.id}')">${dot}<span>${pbEscape(h.textContent)}</span></div>`;
+      nav.innerHTML = '<div class="pb-tree summary-toc-tree">' + groups.map(g => {
+        const parent = g.head ? tocNode(g.head, false) : '';
+        const kids = g.children.length ? `<ul class="pb-tree-list">${g.children.map(c => tocNode(c, true)).join('')}</ul>` : '';
+        return `<div class="pb-tree-screen">${parent}${kids}</div>`;
+      }).join('') + '</div>';
+      scroll.onscroll = pbSummaryTocSpy;
+      pbSummaryTocSpy();
+    }
+    function pbSummaryTocClick(e, id) {
+      e.preventDefault();
+      const scroll = document.getElementById('summary-scroll');
+      const el = document.getElementById(id);
+      if (!scroll || !el) return;
+      const top = scroll.scrollTop + (el.getBoundingClientRect().top - scroll.getBoundingClientRect().top) - 8;
+      scroll.scrollTo({ top: top, behavior: 'smooth' });
+    }
+    function pbSummaryTocSpy() {
+      const scroll = document.getElementById('summary-scroll');
+      const nav = document.getElementById('summary-toc-nav');
+      if (!scroll || !nav) return;
+      const heads = Array.from(scroll.querySelectorAll('.meta-h2, .meta-h3'));
+      const stop = scroll.getBoundingClientRect().top;
+      let active = heads[0];
+      heads.forEach(h => { if (h.getBoundingClientRect().top - stop <= 16) active = h; });
+      nav.querySelectorAll('.summary-toc-item').forEach(a =>
+        a.classList.toggle('is-toc-active', !!active && a.getAttribute('data-toc') === active.id));
     }
 
     function pbRenderOverview() {
@@ -3069,9 +3320,13 @@
             <div class="meta-card" style="margin-bottom:12px">
               <div class="meta-h3">Trade-off ${i+1} — ${pbEscape(to.title || '')}</div>
               ${to.question ? `<p class="meta-p"><strong>Question:</strong> ${pbEscape(to.question)}</p>` : ''}
-              ${to.options && to.options.length ? `<p class="meta-p"><strong>Options considered:</strong></p><ul>${
-                to.options.map(opt => `<li>${pbEscape(opt)}</li>`).join('')
-              }</ul>` : ''}
+              ${(function(){
+                const opts = Array.isArray(to.options) ? to.options
+                  : (typeof to.options === 'string' ? to.options.split('|').map(s => s.trim()).filter(Boolean) : []);
+                return opts.length ? `<p class="meta-p"><strong>Options considered:</strong></p><ul>${
+                  opts.map(opt => `<li>${pbEscape(opt)}</li>`).join('')
+                }</ul>` : '';
+              })()}
               ${to.decision ? `<p class="meta-p"><strong>Decision:</strong> ${pbEscape(to.decision)}</p>` : ''}
               ${to.why ? `<p class="meta-p"><strong>Why:</strong> ${pbEscape(to.why)}</p>` : ''}
               ${to.tabsAffected ? `<p class="meta-p" style="color:var(--text-tertiary);font-size:12px">Affects: ${pbEscape(to.tabsAffected)}</p>` : ''}
@@ -3137,9 +3392,9 @@
       }
 
       $('#app').innerHTML = `
-        <div class="pb-page">
+        <div class="pb-page pb-page--viewport">
           ${header}
-          <div class="pb-content pb-content--split">
+          <div class="pb-content pb-content--split pb-content--fill">
             ${renderFlowPopulated()}
           </div>
         </div>
@@ -3153,7 +3408,7 @@
         mermaid.initialize({
           startOnLoad: false,
           theme: 'base',
-          flowchart: { curve: 'basis', htmlLabels: true, padding: 18, useMaxWidth: false, nodeSpacing: 54, rankSpacing: 70 },
+          flowchart: { curve: 'linear', htmlLabels: true, padding: 18, useMaxWidth: false, nodeSpacing: 50, rankSpacing: 90 },
           themeVariables: {
             fontFamily: 'var(--font-body, system-ui, sans-serif)',
             fontSize: '14px',
@@ -3183,6 +3438,11 @@
             rect.setAttribute('rx', '24');
             rect.setAttribute('ry', '24');
           });
+          // Recolor nodes by detected shape to the wireflow legend palette (start/end black ·
+          // decision yellow · input purple · action blue · subprocess grey).
+          pbStyleFlowNodes(stage);
+          // Re-route connectors as straight orthogonal lines anchored at node side-centers.
+          pbOrthogonalizeFlowEdges(stage);
           // v0.3.14 — Wireflow decorations: click-to-preview + numbered note badges.
           stage.style.width = 'auto';
           stage.style.height = 'auto';
@@ -3224,13 +3484,11 @@
         : `<span class="pb-flow-name">${pbEscape((current && current.name) || 'User flow')}</span>`;
       const stage = current ? `<div class="mermaid">${current.mermaid}</div>` : buildFlowSvg();
 
-      const dims = pbDefaultDims();
-      if (state.flowW == null) state.flowW = dims.w;
-      if (state.flowH == null) state.flowH = dims.h;
-
+      // 2.2 — hovering a story highlights the flow path that satisfies it (and dims the rest).
       const storiesList = fStories.length
-        ? '<ol class="flow-doc-stories">' + fStories.map(s =>
-            `<li><strong>${pbEscape(s.title||'')}${s.priority?' ('+pbEscape(s.priority)+')':''}</strong>`
+        ? '<ol class="flow-doc-stories flow-doc-stories--interactive">' + fStories.map((s, i) =>
+            `<li data-story-idx="${i}" onmouseenter="pbFlowHighlight(${i}, true)" onmouseleave="pbFlowHighlight(${i}, false)">`
+            + `<strong>${pbEscape(s.title||'')}${s.priority?' ('+pbEscape(s.priority)+')':''}</strong>`
             + (s.jtbd ? ` — ${pbEscape(s.jtbd)}` : '')
             + (s.path ? `<div class="flow-doc-path"><em>Path:</em> ${pbEscape(s.path)}</div>` : '') + '</li>').join('') + '</ol>'
         : '<p class="flow-doc-side-sub">No user stories yet.</p>';
@@ -3270,12 +3528,12 @@
         </button>`;
 
       const main = `
-        <div class="pb-main">
+        <div class="pb-main flow-main-col">
           <div class="flow-main-bar">
             <div class="flow-main-bar-left">${dropdown}</div>
             ${legendBtn}
           </div>
-          <div class="flow-canvas" id="flow-canvas" style="max-width:${state.flowW}px;height:${state.flowH}px">
+          <div class="flow-canvas flow-canvas--fill" id="flow-canvas">
             <div class="flow-viewport" id="flow-viewport">
               <div class="flow-stage" id="flow-stage">${stage}</div>
             </div>
@@ -3291,12 +3549,6 @@
 
       const aside = `
         <aside class="pb-aside">
-          <div class="pb-flow-dims">
-            <span class="pb-dialog-h" style="margin:0">Screen size</span>
-            <label>W <input type="number" value="${state.flowW}" min="320" max="2400" oninput="setFlowDim('w', this.value)"></label>
-            <span class="pb-flow-dims-x">×</span>
-            <label>H <input type="number" value="${state.flowH}" min="360" max="1000" oninput="setFlowDim('h', this.value)"></label>
-          </div>
           <div class="flow-side-tabs">
             <button class="flow-side-tab active" data-tab="stories" onclick="setFlowSideTab('stories')">User stories</button>
             <button class="flow-side-tab"        data-tab="tests"   onclick="setFlowSideTab('tests')">Test cases</button>
@@ -3319,6 +3571,190 @@
         </aside>`;
 
       return main + aside;
+    }
+
+    /* 2.2 — story → flow-path highlight. Resolve the story's node ids (explicit story.nodes,
+       else parse story.path tokens) and match them against the rendered Mermaid node labels,
+       then emphasise those nodes + the edges between them and dim everything else. */
+    function pbFlowStoryTokens(story) {
+      if (story.nodes && story.nodes.length) return story.nodes.map(String);
+      return (story.path || '').split(/\s*(?:→|->|,|·|>|\/)\s*/).map(s => s.trim()).filter(Boolean);
+    }
+    function pbFlowHighlight(idx, on) {
+      const stage = document.getElementById('flow-stage');
+      if (!stage) return;
+      if (!on) {
+        stage.classList.remove('flow-dim');
+        stage.querySelectorAll('.flow-hl').forEach(e => e.classList.remove('flow-hl'));
+        return;
+      }
+      const stories = (PB_DATA.flow && PB_DATA.flow.stories) || [];
+      const story = stories[idx];
+      if (!story) return;
+      const tokens = pbFlowStoryTokens(story).map(t => t.toLowerCase());
+      if (!tokens.length) return;
+      const matchedIds = {};
+      let any = false;
+      stage.querySelectorAll('g.node').forEach(n => {
+        const txt = (n.textContent || '').trim().toLowerCase();
+        if (!txt) return;
+        const hit = tokens.some(t => t === txt || t.indexOf(txt) >= 0 || txt.indexOf(t) >= 0);
+        if (hit) {
+          n.classList.add('flow-hl'); any = true;
+          const id = (n.id || '').replace(/^flowchart-/, '').replace(/-\d+$/, '');
+          if (id) matchedIds[id] = 1;
+        }
+      });
+      if (!any) return;
+      stage.classList.add('flow-dim');
+      // Highlight edges connecting two matched nodes (Mermaid tags edge paths LS-<from> LE-<to>).
+      stage.querySelectorAll('path.flowchart-link, .edgePaths path, .edgePath path').forEach(p => {
+        const cl = p.getAttribute('class') || '';
+        const from = (cl.match(/LS-([^\s]+)/) || [])[1];
+        const to   = (cl.match(/LE-([^\s]+)/) || [])[1];
+        if (from && to && matchedIds[from] && matchedIds[to]) p.classList.add('flow-hl');
+      });
+    }
+
+    /* Wireflow node palette — recolor each Mermaid node by its detected shape so the flow
+       matches the legend regardless of whether classDefs were authored. */
+    const FLOW_NODE_PALETTE = {
+      startEnd: { fill: '#1c1f22', stroke: '#1c1f22', text: '#ffffff' }, // stadium / circle
+      decision: { fill: '#F6C000', stroke: '#D99E00', text: '#1f2937' }, // diamond
+      input:    { fill: '#7C3AED', stroke: '#6D28D9', text: '#ffffff' }, // parallelogram
+      action:   { fill: '#2196F3', stroke: '#1565C0', text: '#ffffff' }, // rectangle / screen
+      sub:      { fill: '#E5E7EB', stroke: '#9CA3AF', text: '#1f2937' }, // subprocess / external / data
+    };
+    function pbIsDiamond(poly) {
+      const pts = (poly.getAttribute('points') || '').trim().split(/\s+/).map(p => {
+        const xy = p.split(','); return { x: parseFloat(xy[0]), y: parseFloat(xy[1]) };
+      }).filter(p => !isNaN(p.x) && !isNaN(p.y));
+      if (pts.length < 3) return false;
+      const minY = Math.min.apply(null, pts.map(p => p.y));
+      // A diamond has a single vertex at the top edge; a parallelogram has two.
+      return pts.filter(p => Math.abs(p.y - minY) < 1).length === 1;
+    }
+    function pbStyleFlowNodes(stage) {
+      if (!stage) return;
+      stage.querySelectorAll('g.node').forEach(node => {
+        const circle = node.querySelector('circle, ellipse');
+        const poly   = node.querySelector('polygon');
+        const rect   = node.querySelector('rect');
+        const path   = node.querySelector('path');
+        const lines  = node.querySelectorAll('line').length;
+        let key = null;
+        if (poly)        key = pbIsDiamond(poly) ? 'decision' : 'input';
+        else if (circle) key = 'startEnd';
+        else if (rect) {
+          if (lines >= 2) key = 'sub'; // subroutine [[ ]]
+          else {
+            const h  = parseFloat(rect.getAttribute('height')) || 0;
+            const rx = parseFloat(rect.getAttribute('rx')) || 0;
+            if (rx > 0 && rx >= h / 2 - 2) key = 'startEnd';       // stadium ([ ])
+            else { key = 'action'; rect.setAttribute('rx', '14'); rect.setAttribute('ry', '14'); }
+          }
+        } else if (path) key = 'sub'; // cylinder / other
+        if (!key) return;
+        const c = FLOW_NODE_PALETTE[key];
+        node.querySelectorAll('rect, polygon, circle, ellipse, path').forEach(el => {
+          el.style.fill = c.fill; el.style.stroke = c.stroke;
+        });
+        node.querySelectorAll('.nodeLabel, .nodeLabel *, foreignObject div, text, text tspan').forEach(t => {
+          t.style.color = c.text; t.style.fill = c.text;
+        });
+      });
+    }
+
+    /* Blueprint-style edges: re-route every connector as straight orthogonal segments anchored at
+       the 4 side-centers (left/right/top/bottom) of each node — like a Figma/FigJam board. Forward
+       edges run straight (or a right-angle Z when ranks differ); back-edges route under both nodes. */
+    function pbFlowNodeGeom(stage) {
+      const geom = {};
+      stage.querySelectorAll('g.node').forEach(node => {
+        const id = (node.id || '').replace(/^flowchart-/, '').replace(/-\d+$/, '');
+        if (!id) return;
+        const tr = (node.getAttribute('transform') || '').match(/translate\(\s*([-\d.]+)[ ,]+([-\d.]+)/);
+        const shape = node.querySelector('rect, polygon, circle, ellipse, path');
+        if (!tr || !shape) return;
+        let bb; try { bb = shape.getBBox(); } catch (e) { return; }
+        geom[id] = { cx: parseFloat(tr[1]), cy: parseFloat(tr[2]), hw: bb.width / 2, hh: bb.height / 2 };
+      });
+      return geom;
+    }
+    function pbOrthoRoute(S, T) {
+      const gap = 28;
+      const dx = T.cx - S.cx;
+      if (dx >= 0) {
+        // forward — exit source right-center, enter target left-center
+        const sx = S.cx + S.hw, sy = S.cy, tx = T.cx - T.hw, ty = T.cy;
+        if (Math.abs(sy - ty) < 2) return { d: `M${sx},${sy} L${tx},${ty}`, lx: (sx + tx) / 2, ly: sy - 12 };
+        const mx = (sx + tx) / 2;
+        return { d: `M${sx},${sy} L${mx},${sy} L${mx},${ty} L${tx},${ty}`, lx: mx, ly: (sy + ty) / 2 - 10 };
+      }
+      // back-edge — exit source bottom-center, run under both, enter target bottom-center
+      const sx = S.cx, sy = S.cy + S.hh, tx = T.cx, ty = T.cy + T.hh;
+      const ry = Math.max(sy, ty) + gap;
+      return { d: `M${sx},${sy} L${sx},${ry} L${tx},${ry} L${tx},${ty}`, lx: (sx + tx) / 2, ly: ry - 10 };
+    }
+    // Decision-branch edge colors: Yes → green, No → red, everything else → dark. Solid lines.
+    const PB_FLOW_EDGE_COLORS = { yes: '#16a34a', no: '#dc2626', def: '#1f2937' };
+    function pbFlowMarker(svg, id, color) {
+      const NS = 'http://www.w3.org/2000/svg';
+      if (svg.querySelector('#' + id)) return 'url(#' + id + ')';
+      let defs = svg.querySelector('defs');
+      if (!defs) { defs = document.createElementNS(NS, 'defs'); svg.insertBefore(defs, svg.firstChild); }
+      const m = document.createElementNS(NS, 'marker');
+      m.setAttribute('id', id); m.setAttribute('viewBox', '0 0 10 10');
+      m.setAttribute('refX', '8'); m.setAttribute('refY', '5');
+      m.setAttribute('markerWidth', '7'); m.setAttribute('markerHeight', '7'); m.setAttribute('orient', 'auto');
+      const path = document.createElementNS(NS, 'path');
+      path.setAttribute('d', 'M0,1 L9,5 L0,9 z'); path.setAttribute('fill', color);
+      m.appendChild(path); defs.appendChild(m);
+      return 'url(#' + id + ')';
+    }
+    function pbOrthogonalizeFlowEdges(stage) {
+      if (!stage) return;
+      const svg = stage.querySelector('svg'); if (!svg) return;
+      const geom = pbFlowNodeGeom(stage);
+      const paths = Array.prototype.slice.call(stage.querySelectorAll('.edgePaths path'));
+      const labels = Array.prototype.slice.call(stage.querySelectorAll('.edgeLabels .edgeLabel'));
+      // Match each non-empty label to its edge by ORIGINAL proximity (before we rewrite paths) —
+      // Mermaid emits multiple label nodes in an order that doesn't track the path order.
+      const pmid = paths.map(p => { const r = p.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; });
+      const labelsByPath = {}, textByPath = {};
+      labels.forEach(lab => {
+        const t = (lab.textContent || '').trim(); if (!t) return;
+        const r = lab.getBoundingClientRect(); const lx = r.left + r.width / 2, ly = r.top + r.height / 2;
+        let best = 0, bd = Infinity;
+        pmid.forEach((m, idx) => { const dd = (m.x - lx) * (m.x - lx) + (m.y - ly) * (m.y - ly); if (dd < bd) { bd = dd; best = idx; } });
+        (labelsByPath[best] = labelsByPath[best] || []).push(lab);
+        if (!textByPath[best]) textByPath[best] = t;
+      });
+      const mk = { yes: pbFlowMarker(svg, 'pb-arrow-green', PB_FLOW_EDGE_COLORS.yes),
+                   no:  pbFlowMarker(svg, 'pb-arrow-red',   PB_FLOW_EDGE_COLORS.no),
+                   def: pbFlowMarker(svg, 'pb-arrow-dark',  PB_FLOW_EDGE_COLORS.def) };
+      paths.forEach((p, i) => {
+        const cl = p.getAttribute('class') || '';
+        const from = (cl.match(/LS-([^\s"]+)/) || [])[1];
+        const to   = (cl.match(/LE-([^\s"]+)/) || [])[1];
+        const S = geom[from], T = geom[to];
+        if (!S || !T) return;
+        const r = pbOrthoRoute(S, T);
+        p.setAttribute('d', r.d);
+        const lt = (textByPath[i] || '').toLowerCase();
+        const key = lt === 'yes' ? 'yes' : lt === 'no' ? 'no' : 'def';
+        p.style.stroke = PB_FLOW_EDGE_COLORS[key]; p.style.strokeWidth = '2';
+        p.style.fill = 'none'; p.style.strokeDasharray = 'none';
+        p.setAttribute('marker-end', mk[key]);
+        (labelsByPath[i] || []).forEach(lab => lab.setAttribute('transform', `translate(${r.lx},${r.ly})`));
+      });
+      // Back-edges route below the nodes, often past Mermaid's original viewBox (which clips,
+      // since the SVG is overflow:hidden) — grow the viewBox to fit the full rerouted geometry.
+      try {
+        const bb = svg.getBBox();
+        const pad = 14;
+        svg.setAttribute('viewBox', `${bb.x - pad} ${bb.y - pad} ${bb.width + pad * 2} ${bb.height + pad * 2}`);
+      } catch (e) { /* getBBox can throw if detached — ignore */ }
     }
 
     /* Tiny example flow: START → SCREEN → DECISION → END.
@@ -3429,14 +3865,12 @@
       const screens = PB_DATA.handoff.screens || [];
       const hasAny = orgs.length || screens.length;
       const cta = hasAny ? `<button class="sync-button" onclick="openFigmaPushPanel(this)">Push to Figma →</button>` : '';
-      const header = pbPageHeader({ title: 'UI Design', infoKey: 'handoff', cta });
-      const dsBar = pbRenderDsBar();
+      const header = pbPageHeader({ title: 'UI Design', infoKey: 'handoff', cta, headerAside: pbRenderDsBar() });
 
       if (!hasAny) {
         $('#app').innerHTML = `
           <div class="pb-page">
             ${header}
-            ${dsBar}
             <div class="pb-content">
               ${renderEmptyState({
                 icon: EMPTY_STATE_ICONS.handoff,
@@ -3461,13 +3895,12 @@
 
       const main = (tab === 'screen') ? pbRenderHandoffScreen() : pbRenderHandoffCards(groups[tab]);
       const aside = (tab === 'screen')
-        ? (state.screenDrawerOpenFor ? `<div class="handoff-drawer">${pbRenderScreenDrawer()}</div>` : pbHandoffAsideHint('Select an element on the screen to inspect its tokens, sizing, UI logic, and live demo.'))
+        ? (state.screenDrawerOpenFor ? `<div class="handoff-drawer">${pbRenderScreenDrawer()}</div>` : pbRenderScreenOverviewAside())
         : (state.handoffDrawerOpenFor ? pbRenderHandoffDrawer() : pbHandoffAsideHint('Select a component to see its anatomy, specification, UI logic, and usage.'));
 
       $('#app').innerHTML = `
         <div class="pb-page">
           ${header}
-          ${dsBar}
           <div class="pb-content pb-content--split">
             <div class="pb-main handoff-main-col">
               <div class="meta-subtabs" style="margin-bottom:16px">${tabsCtl}</div>
@@ -3558,10 +3991,11 @@
             <div class="handoff-card-header">
               <span class="handoff-card-title">${i+1} · ${pbEscape(org.name)}</span>
               <span class="handoff-card-id">${pbEscape(org.scope || 'local')}${org.level ? ' · ' + pbEscape(org.level) : ''} · ${pbEscape(org.id)}</span>
+              <div class="handoff-card-header-actions" onclick="event.stopPropagation()">${pbRenderHandoffCode(org)}</div>
             </div>
             ${org.meta ? `<p class="handoff-card-meta">${pbEscape(org.meta)}</p>` : ''}
             <div class="handoff-card-controls" onclick="event.stopPropagation()">
-              ${(org.properties || []).filter(prop => prop.id !== 'state').map(prop => `
+              ${(org.properties || []).filter(prop => (prop.options || []).length).map(prop => `
                 <label class="prop-field">
                   <span class="prop-label">${pbEscape(prop.label || prop.id)}</span>
                   <select class="prop-select" onchange="setHandoffProp('${pbEscape(org.id)}','${pbEscape(prop.id)}',this.value)">
@@ -3571,9 +4005,7 @@
             </div>
             <div class="handoff-card-body handoff-card-body--${layout}">
               ${pbRenderComponentDemo(org, props)}
-              ${pbRenderHandoffCode(org)}
             </div>
-            <div class="handoff-card-hint">→ Click the card for the full spec (Anatomy · Specification · UI Logic · Usage)</div>
           </div>`;
       };
       // Group by atomic level when any component declares one; otherwise a flat list.
@@ -3591,31 +4023,75 @@
         </div>`).join('');
     }
 
-    // Component demo: if a component declares a `state` property, show EVERY state, labeled
-    // (interactive components MUST ship their states as variants). Otherwise a single preview.
+    // Component demo (v1.5): a single live preview of the currently-selected variant. The
+    // variant (incl. `state`) is chosen via the card's dropdowns — changing one re-renders
+    // this demo through setHandoffProp, so the demo stays interactive.
     function pbRenderComponentDemo(org, props) {
-      const render = (p) => (typeof window[org.renderFn] === 'function')
-        ? window[org.renderFn](p)
+      const body = (typeof window[org.renderFn] === 'function')
+        ? window[org.renderFn](props)
         : `<div style="padding:14px;color:var(--text-tertiary);font-style:italic;font-size:12px">Renderer <code>${pbEscape(org.renderFn || '(none)')}</code> not defined.</div>`;
-      const stateProp = (org.properties || []).find(p => p.id === 'state');
-      if (!stateProp) {
-        return `<div class="handoff-card-preview" data-component-preview="${pbEscape(org.id)}">${render(props)}</div>`;
-      }
-      return `<div class="handoff-card-preview handoff-variants" data-component-preview="${pbEscape(org.id)}">`
-        + stateProp.options.map(o =>
-            `<div class="handoff-variant"><span class="handoff-variant-label">${pbEscape(o.label)}</span>`
-            + `<div class="handoff-variant-demo">${render(Object.assign({}, props, { state: o.value }))}</div></div>`).join('')
-        + `</div>`;
+      return `<div class="handoff-card-preview" data-component-preview="${pbEscape(org.id)}">${body}</div>`;
     }
 
+    const PB_CLIPBOARD_ICON = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
     function pbRenderHandoffCode(org) {
       if (!org.code || !org.code.snippet)
         return `<div class="handoff-code handoff-code--empty">No code recorded.</div>`;
-      return `
-        <div class="handoff-code">
-          <div class="handoff-code-bar"><span class="handoff-code-lang">${pbEscape(org.code.lang || 'html')}</span></div>
-          <pre class="handoff-code-pre"><code>${pbEscape(org.code.snippet)}</code></pre>
+      return `<div class="handoff-code">
+          <button class="handoff-copy-code-btn" onclick="event.stopPropagation(); openCodeDialog('${pbEscape(org.id)}')">
+            ${PB_CLIPBOARD_ICON} Copy code
+          </button>
         </div>`;
+    }
+
+    /* v1.5 — code review dialog: shows the snippet, auto-copies on open, "Copy again" button. */
+    function pbCopyText(text) {
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(text); return; }
+      } catch (e) { /* fall through */ }
+      const ta = document.createElement('textarea');
+      ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+      document.body.appendChild(ta); ta.select();
+      try { document.execCommand('copy'); } catch (e) { /* silent */ }
+      document.body.removeChild(ta);
+    }
+    function openCodeDialog(orgId) {
+      const org = (PB_DATA.handoff.organisms || []).find(x => x.id === orgId);
+      if (!org || !org.code || !org.code.snippet) return;
+      closeCodeDialog();
+      const back = document.createElement('div');
+      back.className = 'pb-dialog-backdrop';
+      back.id = 'pb-code-dialog';
+      back.innerHTML = `
+        <div class="pb-dialog pb-code-dialog" role="dialog" aria-modal="true">
+          <div class="pb-dialog-head">
+            <h2 class="pb-dialog-title">${pbEscape(org.name)} — code</h2>
+            <button class="pb-dialog-close" aria-label="Close" onclick="closeCodeDialog()">×</button>
+          </div>
+          <div class="pb-code-dialog-bar">
+            <span class="handoff-code-lang">${pbEscape(org.code.lang || 'html')}</span>
+            <button class="handoff-copy-code-btn" onclick="pbCopyCode(this)">${PB_CLIPBOARD_ICON} Copy again</button>
+          </div>
+          <pre class="pb-code-dialog-pre"><code>${pbEscape(org.code.snippet)}</code></pre>
+          <p class="pb-code-dialog-note flash" id="pb-code-note">✓ Copied to clipboard</p>
+        </div>`;
+      back.addEventListener('click', e => { if (e.target === back) closeCodeDialog(); });
+      document.body.appendChild(back);
+      document.addEventListener('keydown', pbCodeDialogEsc);
+      pbCopyText(org.code.snippet); // auto-copy on open
+      setTimeout(() => { const n = document.getElementById('pb-code-note'); if (n) n.classList.remove('flash'); }, 700);
+    }
+    function closeCodeDialog() {
+      const el = document.getElementById('pb-code-dialog');
+      if (el) el.remove();
+      document.removeEventListener('keydown', pbCodeDialogEsc);
+    }
+    function pbCodeDialogEsc(e) { if (e.key === 'Escape') closeCodeDialog(); }
+    function pbCopyCode(btn) {
+      const pre = document.querySelector('#pb-code-dialog .pb-code-dialog-pre');
+      pbCopyText(pre ? pre.textContent : '');
+      const note = document.getElementById('pb-code-note');
+      if (note) { note.textContent = '✓ Copied to clipboard'; note.classList.add('flash'); setTimeout(() => note.classList.remove('flash'), 700); }
     }
 
     /* ---- Drawer: push-content, 4 tabs ---- */
@@ -3665,8 +4141,17 @@
 
     function pbRenderHandoffAnatomy(org) {
       const a = org.anatomy;
-      if (!a || !a.parts || !a.parts.length)
-        return '<p class="handoff-spec-note">Anatomy not authored for this component yet.</p>';
+      if (!a) return '<p class="handoff-spec-note">Anatomy not authored for this component yet.</p>';
+      // Prose form: components often author anatomy as a plain string (or {description}).
+      // Render it as text with a live preview, rather than falling through to "not authored".
+      if (typeof a === 'string' || !a.parts || !a.parts.length) {
+        const text = typeof a === 'string' ? a : (a.description || '');
+        if (!text) return '<p class="handoff-spec-note">Anatomy not authored for this component yet.</p>';
+        const p = (typeof a === 'object' && a.renderProps) || pbActiveProps(org);
+        const prev = typeof window[org.renderFn] === 'function' ? window[org.renderFn](p) : '';
+        return `${prev ? `<div class="anatomy-stage"><div class="anatomy-render">${prev}</div></div>` : ''}
+          <p class="handoff-spec-prose">${pbEscape(text)}</p>`;
+      }
       const preview = typeof window[org.renderFn] === 'function'
         ? window[org.renderFn](a.renderProps || {}) : '';
       return `
@@ -3689,8 +4174,16 @@
 
     function pbRenderHandoffSpec(org) {
       const s = org.spec;
-      if (!s || !s.stack || !s.stack.length)
-        return '<p class="handoff-spec-note">Specification not authored for this component yet.</p>';
+      if (!s) return '<p class="handoff-spec-note">Specification not authored for this component yet.</p>';
+      // Prose form: spec authored as a plain string (or {description}) → render as text + preview.
+      if (typeof s === 'string' || !s.stack || !s.stack.length) {
+        const text = typeof s === 'string' ? s : (s.description || '');
+        if (!text) return '<p class="handoff-spec-note">Specification not authored for this component yet.</p>';
+        const p = (typeof s === 'object' && s.renderProps) || pbActiveProps(org);
+        const prev = typeof window[org.renderFn] === 'function' ? window[org.renderFn](p) : '';
+        return `${prev ? `<div class="spec-stage"><div class="spec-render">${prev}</div></div>` : ''}
+          <p class="handoff-spec-prose">${pbEscape(text)}</p>`;
+      }
       const preview = typeof window[org.renderFn] === 'function'
         ? window[org.renderFn](s.renderProps || {}) : '';
       const legend = `<div class="spec-legend">${(s.legend || []).map(a =>
@@ -3867,6 +4360,27 @@
         bottomY = mY + 6 + chipH;
       }
 
+      /* container padding — green bands between the component's box edge and its contents,
+         measured from the wrapping element's computed padding (top + left labelled). */
+      const firstEl = stage.querySelector(s.stack[0].anchor);
+      const container = firstEl ? firstEl.parentElement : null;
+      if (container && stage.contains(container)) {
+        const cs = getComputedStyle(container);
+        const pad = { t: parseFloat(cs.paddingTop) || 0, r: parseFloat(cs.paddingRight) || 0, b: parseFloat(cs.paddingBottom) || 0, l: parseFloat(cs.paddingLeft) || 0 };
+        const cr = container.getBoundingClientRect();
+        const cL = cr.left - sr.left, cR = cr.right - sr.left, cT = cr.top - sr.top, cB = cr.bottom - sr.top;
+        if (pad.t > 0) {
+          mk('spec-band spec-band--pad', `left:${cL}px;top:${cT}px;width:${cR - cL}px;height:${pad.t}px`);
+          mk('spec-chip spec-chip--pad', `left:${(cL + cR) / 2 - chipW / 2}px;top:${cT + pad.t / 2 - chipH / 2}px;height:${chipH}px`, Math.round(pad.t));
+        }
+        if (pad.b > 0) mk('spec-band spec-band--pad', `left:${cL}px;top:${cB - pad.b}px;width:${cR - cL}px;height:${pad.b}px`);
+        if (pad.l > 0) {
+          mk('spec-band spec-band--pad', `left:${cL}px;top:${cT + pad.t}px;width:${pad.l}px;height:${cB - cT - pad.t - pad.b}px`);
+          mk('spec-chip spec-chip--pad', `left:${cL + pad.l / 2 - chipW / 2}px;top:${(cT + cB) / 2 - chipH / 2}px;height:${chipH}px`, Math.round(pad.l));
+        }
+        if (pad.r > 0) mk('spec-band spec-band--pad', `left:${cR - pad.r}px;top:${cT + pad.t}px;width:${pad.r}px;height:${cB - cT - pad.t - pad.b}px`);
+      }
+
       /* grow the stage so nothing in the bottom margin row is clipped */
       stage.style.minHeight = Math.ceil(bottomY + 16) + 'px';
     }
@@ -3895,10 +4409,10 @@
         orig.apply(this, arguments);
         const col = document.querySelector('.handoff-main-col');
         if (col) col.scrollTop = prevScroll;
-        requestAnimationFrame(after);
+        requestAnimationFrame(function(){ requestAnimationFrame(after); });
       };
       window.addEventListener('resize', function(){
-        if (state && state.metaView === 'handoff') requestAnimationFrame(after);
+        if (state && state.metaView === 'handoff') requestAnimationFrame(function(){ requestAnimationFrame(after); });
       });
       document.addEventListener('mouseover', function(e){ pbAnatomyHoverToggle(e, true); });
       document.addEventListener('mouseout',  function(e){ pbAnatomyHoverToggle(e, false); });
@@ -3950,6 +4464,36 @@
           </div>
         ` : ''}
       `;
+    }
+
+    /* Screen-tab default aside (no element selected): the screen's spec overview + the list of
+       components used inside it (click to open in the Component tab). */
+    function pbRenderScreenOverviewAside() {
+      const screens = PB_DATA.handoff.screens || [];
+      const sel = screens.find(s => s.id === (PB_DATA.handoff.selectedScreenId || (screens[0] && screens[0].id))) || screens[0];
+      if (!sel) return pbHandoffAsideHint('No screens yet.');
+      const orgs = PB_DATA.handoff.organisms || [];
+      const dot = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="14" rx="2"/><path d="M8 21h8"/></svg>';
+      const used = (sel.elements || []).filter(el => el.orgId);
+      const list = used.length
+        ? used.map(el => {
+            const o = orgs.find(x => x.id === el.orgId);
+            return `<li class="pb-tree-node" style="cursor:pointer" ${o ? `onclick="openComponentTab('${pbEscape(el.orgId)}')"` : ''}>
+              <span class="pb-tree-node-label">${pbEscape(el.label || el.id)}</span>
+              <span class="pb-tree-node-org ${o ? '' : 'is-missing'}">${pbEscape(o ? o.name : el.orgId)}</span>
+            </li>`;
+          }).join('')
+        : '<li class="pb-tree-node"><span class="pb-tree-node-label" style="color:var(--text-tertiary)">No mapped components.</span></li>';
+      const sizing = sel.layout ? Object.entries(sel.layout).map(([k, v]) =>
+        `<div class="handoff-spec-row"><span class="handoff-spec-key">${pbEscape(k)}</span><span class="handoff-spec-val">${pbEscape(String(v))}</span></div>`).join('') : '';
+      return `
+        <div class="pb-tree-screen-name" style="margin-bottom:6px">${dot}<span>${pbEscape(sel.name)}</span></div>
+        <p class="pb-aside-sub" style="font-size:12px;color:var(--text-tertiary);margin:0 0 14px">Components used in this screen — click one to open it in the Component tab.</p>
+        <p class="pb-dialog-h">Components</p>
+        <ul class="pb-tree-list" style="margin-bottom:18px">${list}</ul>
+        ${sizing ? `<p class="pb-dialog-h">Layout</p><div class="handoff-spec-section">${sizing}</div>` : ''}
+        ${(sel.logicNotes && sel.logicNotes.length) ? `<p class="pb-dialog-h" style="margin-top:16px">Logic notes</p><ul style="margin:8px 0 0;padding-left:18px;font-size:12.5px;line-height:1.6;color:var(--text-active-secondary)">${sel.logicNotes.map(n => `<li>${pbEscape(n)}</li>`).join('')}</ul>` : ''}
+        <p class="pb-aside-empty" style="text-align:left;margin-top:16px;padding:12px 0 0;border-top:1px solid var(--border)">Click an element on the screen to inspect its tokens, sizing, UI logic, and live demo.</p>`;
     }
 
     function pbRenderScreenDrawer() {
@@ -4088,16 +4632,15 @@
       const rows = e.table || [];
       const byEntity = {};
       rows.forEach(r => { (byEntity[r.entity] = byEntity[r.entity] || []).push(r); });
-      const entities = Object.keys(byEntity);
-      if (state.erdEntity && entities.indexOf(state.erdEntity) === -1) state.erdEntity = null;
       if (!state.erdView) state.erdView = 'diagram';
 
+      // v1.5 — Data is single-column now (4.2): the table view carries the variants (4.4),
+      // the diagram view carries the relationship legend (4.5). No right aside.
       $('#app').innerHTML = `
         <div class="pb-page">
           ${header}
-          <div class="pb-content pb-content--split">
+          <div class="pb-content">
             <div class="pb-main">${pbErdMain(e, byEntity)}</div>
-            <aside class="pb-aside">${pbErdAside(byEntity, entities)}</aside>
           </div>
         </div>`;
 
@@ -4109,34 +4652,73 @@
           var svg = stage.querySelector('svg');
           if (!svg) return;
           svg.style.maxWidth = 'none';
-          svg.style.width = ''; svg.style.height = '';
-          var bbox = svg.getBoundingClientRect();
-          var W = Math.ceil(bbox.width)  || 800;
-          var H = Math.ceil(bbox.height) || 600;
-          stage.style.width = W + 'px';
-          stage.style.height = H + 'px';
-          stage.style.marginLeft = -(W/2) + 'px';
-          stage.style.marginTop  = -(H/2) + 'px';
-          initCanvas('erd', W, H);
+          svg.removeAttribute('width'); svg.removeAttribute('height');
+          // erDiagram SVGs carry only a viewBox (no pixel width), so a bare bounding-box read
+          // collapses the height. Pin a concrete target width first, measure the aspect-correct
+          // height, size the stage to that, then release the SVG to fill the stage. initCanvas
+          // re-fits the result into the viewport.
+          requestAnimationFrame(function () {
+            requestAnimationFrame(function () {
+              var vp = document.getElementById('erd-viewport');
+              var targetW = Math.min(Math.max(((vp && vp.clientWidth) || 900) - 48, 320), 1100);
+              svg.style.width = targetW + 'px';
+              svg.style.height = 'auto';
+              var bbox = svg.getBoundingClientRect();
+              var W = Math.ceil(bbox.width)  || targetW;
+              var H = Math.ceil(bbox.height) || 600;
+              svg.style.width = ''; svg.style.height = '';
+              stage.style.width = W + 'px';
+              stage.style.height = H + 'px';
+              stage.style.marginLeft = -(W/2) + 'px';
+              stage.style.marginTop  = -(H/2) + 'px';
+              initCanvas('erd', W, H);
+            });
+          });
         }).catch(function(){ /* silent */ });
       }
     }
 
-    /* Data-tab left column: Diagram | Table toggle + the canvas or the per-entity tables. */
+    /* Data-tab (v1.5, single column): Diagram | Table toggle + relationship-legend button
+       (diagram) / data-set variant chips (table). */
     function pbErdMain(e, byEntity) {
       const subtabs = [['diagram', 'Diagram'], ['table', 'Table']].map(([id, label]) =>
         `<button class="meta-subtab ${state.erdView === id ? 'active' : ''}" onclick="setErdView('${id}')">${label}</button>`).join('');
-      const tableView = Object.keys(byEntity).length
-        ? `<div class="erd-tables">` + Object.keys(byEntity).map(ent => `
-            <div class="erd-entity">
-              <h3 class="erd-entity-title">${pbEscape(ent)}</h3>
-              <table class="erd-entity-table">
-                <thead><tr><th>Field</th><th>Type</th><th>Example</th><th>Notes</th></tr></thead>
-                <tbody>${byEntity[ent].map(r =>
-                  `<tr><td>${pbEscape(r.field||'')}</td><td><code>${pbEscape(r.type||'')}</code></td><td>${pbEscape(r.example||'')}</td><td>${pbEscape(r.notes||'')}</td></tr>`).join('')}</tbody>
+      const toolbar = `<div class="erd-toolbar">
+          <div class="meta-subtabs">${subtabs}</div>
+          ${state.erdView === 'table' ? '' : erdLegendButton()}
+        </div>`;
+
+      if (state.erdView === 'table') {
+        const ents = Object.keys(byEntity);
+        if (!ents.length) return toolbar + `<p class="meta-p" style="color:var(--text-tertiary);font-style:italic">No table data.</p>`;
+        // 4.4 — **per-entity** data-set variants: each table that has multiple data treatments
+        // (erd.mock sets for that entity) gets its own switcher — "Schema" (the field/type/example
+        // definition) + one chip per label. Selecting one swaps just that table's Example column.
+        if (!state.erdVariant || typeof state.erdVariant !== 'object') state.erdVariant = {};
+        // 4.3 — fixed column widths (.erd-fixed) so every entity table lines up.
+        const tables = `<div class="erd-tables">` + ents.map(ent => {
+          const sets = ((e && e.mock) || []).filter(m => m.entity === ent);
+          const variants = [{ key: 'schema', label: 'Schema' }].concat(sets.map(m => ({ key: m.label, label: m.label })));
+          let v = state.erdVariant[ent] || 'schema';
+          if (!variants.some(x => x.key === v)) v = 'schema';
+          const switcher = sets.length ? `<div class="erd-entity-variants">`
+            + variants.map(opt => `<button class="pb-mock-chip ${v === opt.key ? 'is-active' : ''}" onclick="setErdVariant('${pbEscape(ent)}','${pbEscape(opt.key)}')">${pbEscape(opt.label)}</button>`).join('')
+            + `</div>` : '';
+          const exHead = v === 'schema' ? 'Example' : v;
+          return `<div class="erd-entity">
+              <div class="erd-entity-head"><h3 class="erd-entity-title">${pbEscape(ent)}</h3>${switcher}</div>
+              <table class="erd-entity-table erd-fixed">
+                <thead><tr><th>Field</th><th>Type</th><th>${pbEscape(exHead)}</th><th>Notes</th></tr></thead>
+                <tbody>${byEntity[ent].map(r => {
+                  const ex = v === 'schema' ? (r.example || '') : pbErdExampleFor(e, ent, r.field, v);
+                  return `<tr><td>${pbEscape(r.field||'')}</td><td><code>${pbEscape(r.type||'')}</code></td><td>${pbEscape(ex || '—')}</td><td>${pbEscape(r.notes||'')}</td></tr>`;
+                }).join('')}</tbody>
               </table>
-            </div>`).join('') + `</div>`
-        : `<p class="meta-p" style="color:var(--text-tertiary);font-style:italic">No table data.</p>`;
+            </div>`;
+        }).join('') + `</div>`;
+        return toolbar + tables;
+      }
+
       const diagramView = `
         <div class="flow-canvas" id="erd-canvas">
           <div class="flow-viewport" id="erd-viewport">
@@ -4152,67 +4734,68 @@
           <div class="flow-zoom-readout" id="erd-zoom-readout">100%</div>
           <div class="flow-hint">Scroll to zoom · drag to pan</div>
         </div>`;
-      return `<div class="meta-subtabs" style="margin-bottom:16px">${subtabs}</div>
-        ${state.erdView === 'table' ? tableView : diagramView}`;
+      return toolbar + diagramView;
     }
 
-    /* Data-tab right aside: relationship legend + clickable entities + selected entity detail. */
-    function pbErdAside(byEntity, entities) {
-      const legend = `
-        <div class="pb-aside-section">
-          <p class="pb-dialog-h">Relationships</p>
-          <div class="erd-legend-rels">
-            <div class="erd-legend-rel"><span class="lbl">1 : 1</span>${erdRelSvg('one-one')}<span class="desc">One-to-One</span></div>
-            <div class="erd-legend-rel"><span class="lbl">1 : N</span>${erdRelSvg('one-many')}<span class="desc">One-to-Many</span></div>
-            <div class="erd-legend-rel"><span class="lbl">N : N</span>${erdRelSvg('many-many')}<span class="desc">Many-to-Many</span></div>
+    /* The ordered data-set list for the Table view — "Schema" first, then each distinct
+       erd.mock label in first-seen order. */
+    function pbErdVariants(e) {
+      const labels = [];
+      ((e && e.mock) || []).forEach(m => { if (m.label && labels.indexOf(m.label) < 0) labels.push(m.label); });
+      return [{ key: 'schema', label: 'Schema' }].concat(labels.map(l => ({ key: l, label: l })));
+    }
+    /* The example value for a field under a given data-set variant (rows[0] is representative;
+       an absent/empty set → '' so the column reads as the no-data state). */
+    function pbErdExampleFor(e, entity, field, variantKey) {
+      const set = ((e && e.mock) || []).find(m => m.entity === entity && m.label === variantKey);
+      if (!set || !(set.rows || []).length) return '';
+      const row = set.rows[0];
+      return (row && row[field] != null) ? String(row[field]) : '';
+    }
+
+    /* 4.5 — relationship legend in the diagram canvas (mirrors the UX-flow legend button). */
+    function erdLegendButton() {
+      return `<button class="flow-doc-legend-btn" type="button" aria-label="Show relationship legend" onclick="openErdLegendPopover(this)">
+          <span class="erd-legend-mini">${erdRelSvg('one-many')}</span>
+          <span class="flow-doc-legend-label">Legend</span>
+          <span class="flow-doc-legend-q" aria-hidden="true">?</span>
+        </button>`;
+    }
+    function openErdLegendPopover(anchorBtn) {
+      document.querySelectorAll('.copy-popover, .copy-popover-backdrop').forEach(el => el.remove());
+      window.removeEventListener('keydown', copyPopoverKeyHandler);
+      window.removeEventListener('resize', repositionCopyPopover);
+      const backdrop = document.createElement('div');
+      backdrop.className = 'copy-popover-backdrop';
+      backdrop.addEventListener('click', closeCopyPopover);
+      const pop = document.createElement('div');
+      pop.className = 'copy-popover';
+      pop.setAttribute('role', 'dialog');
+      pop.setAttribute('aria-label', 'Relationship legend');
+      pop.style.width = '300px';
+      const rel = (kind, lbl, desc) => `
+        <div class="legend-popover-row">
+          <span class="erd-legend-svgwrap">${erdRelSvg(kind)}</span>
+          <div class="legend-popover-text">
+            <div class="legend-popover-name">${lbl}</div>
+            <div class="legend-popover-desc">${desc}</div>
           </div>
         </div>`;
-      const chips = entities.map(ent =>
-        `<button class="pb-entity-chip ${state.erdEntity === ent ? 'is-active' : ''}" onclick="setErdEntity('${pbEscape(ent)}')">${pbEscape(ent)} <span class="pb-entity-chip-n">${byEntity[ent].length}</span></button>`).join('');
-      const sel = state.erdEntity && byEntity[state.erdEntity];
-      const detail = sel
-        ? `<table class="erd-entity-table" style="margin-top:14px">
-             <thead><tr><th>Field</th><th>Type</th><th>Example</th></tr></thead>
-             <tbody>${sel.map(r =>
-               `<tr><td>${pbEscape(r.field||'')}</td><td><code>${pbEscape(r.type||'')}</code></td><td>${pbEscape(r.example||'')}</td></tr>`).join('')}</tbody>
-           </table>`
-        : `<p class="pb-aside-empty">Select an entity to inspect its fields.</p>`;
-      return `${legend}
-        <div class="pb-aside-section">
-          <p class="pb-dialog-h">Entities</p>
-          <div class="pb-entity-chips">${chips || '<span class="pb-aside-empty">No entities.</span>'}</div>
-          ${detail}
+      pop.innerHTML = `
+        <button class="copy-popover-close" type="button" aria-label="Close" onclick="closeCopyPopover()">${COPY_POPOVER_ICONS.close}</button>
+        <div class="copy-popover-cmd-label" style="margin-bottom:8px"><span>Relationship legend</span></div>
+        <div class="legend-popover-body">
+          ${rel('one-one', '1 : 1', 'One-to-one')}
+          ${rel('one-many', '1 : N', 'One-to-many')}
+          ${rel('many-many', 'N : N', 'Many-to-many')}
         </div>
-        ${sel ? pbErdMockSection(state.erdEntity, byEntity[state.erdEntity]) : ''}`;
-    }
-
-    /* Mock-data viewer: preview each sample set (typical / empty / overflow) for an entity,
-       so edge cases can be checked against the UI. Data lives in erd.mock[]. */
-    function pbErdMockSection(entity, fields) {
-      const sets = ((PB_DATA.erd && PB_DATA.erd.mock) || []).filter(m => m.entity === entity);
-      if (!sets.length) {
-        return `<div class="pb-aside-section">
-          <p class="pb-dialog-h">Mock data</p>
-          <p class="pb-aside-empty" style="padding:14px 8px">No mock data for ${pbEscape(entity)} yet — run <code>/pb:sync-erd --mock</code>.</p>
-        </div>`;
-      }
-      const mi = Math.min(state.erdMockIndex || 0, sets.length - 1);
-      const cur = sets[mi];
-      const cols = fields.map(f => f.field);
-      const selector = sets.map((m, i) =>
-        `<button class="pb-mock-chip ${i === mi ? 'is-active' : ''}" onclick="setErdMock(${i})">${pbEscape(m.label || ('Set ' + (i + 1)))}<span class="pb-mock-n">${(m.rows || []).length}</span></button>`).join('');
-      const rows = (cur.rows || []);
-      const table = rows.length
-        ? `<table class="erd-entity-table pb-mock-table">
-             <thead><tr>${cols.map(c => `<th>${pbEscape(c)}</th>`).join('')}</tr></thead>
-             <tbody>${rows.map(r => `<tr>${cols.map(c => `<td>${pbEscape(r[c] != null ? String(r[c]) : '—')}</td>`).join('')}</tr>`).join('')}</tbody>
-           </table>`
-        : `<p class="pb-aside-empty" style="padding:14px 8px">This set is empty — useful for testing the no-data state.</p>`;
-      return `<div class="pb-aside-section">
-        <p class="pb-dialog-h">Mock data <span class="pb-mock-total">${sets.length} set${sets.length !== 1 ? 's' : ''}</span></p>
-        <div class="pb-mock-chips">${selector}</div>
-        <div class="pb-mock-preview">${table}</div>
-      </div>`;
+        <div class="legend-popover-footer">Crow's-foot notation: bars = exactly one · split foot = many · circle = optional (zero).</div>`;
+      document.body.appendChild(backdrop);
+      document.body.appendChild(pop);
+      positionCopyPopover(pop, anchorBtn);
+      setTimeout(() => { pop.classList.add('is-visible'); positionCopyPopover(pop, anchorBtn); }, 10);
+      window.addEventListener('keydown', copyPopoverKeyHandler);
+      window.addEventListener('resize', repositionCopyPopover);
     }
 
     /* ERD legend cardinality symbols (Crow's-foot notation) */

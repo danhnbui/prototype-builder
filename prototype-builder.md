@@ -24,8 +24,9 @@ tokens are applied onto `:root` at boot via `applyRegistryTokens`.
 | Key | Type | Feeds | Notes |
 |---|---|---|---|
 | `meta.name` | string | — | project name |
-| `meta.device` | `'desktop'\|'tablet'\|'mobile'` | Prototype | default device for the preview frame; set at `/pb:init`. Falls back to `'desktop'` |
-| `meta.devices` | `('desktop'\|'tablet'\|'mobile')[]` | Prototype | device sizes this project supports — unsupported sizes are disabled in the switcher. Optional; defaults to all three |
+| `meta.shell` | `'browser'\|'app'` | Prototype | default preview chrome — `browser` (tab strip + back/reload/URL bar) or `app` (plain titlebar on desktop; a contrast-aware device status bar on tablet/mobile). Viewer can toggle live; set at `/pb:init`. Defaults to `'browser'` |
+| `meta.device` | `'monitor'\|'laptop'\|'tablet'\|'mobile'` | Prototype | default device for the preview frame; set at `/pb:init`. Falls back to `'laptop'`. Legacy `'desktop'` → `'laptop'` |
+| `meta.devices` | `('monitor'\|'laptop'\|'tablet'\|'mobile')[]` | Prototype | the fixed sizes this project supports (`monitor 1920×1080 · laptop 1280×832 · tablet 834×1112 · mobile 390×844`) — unsupported sizes are disabled in the switcher. Optional; defaults to all four. Legacy `'desktop'` expands to `monitor`+`laptop` |
 | `meta.designSystem` | `{ name, designLink, codeLibrary, linked }` | UI Design | the linked design system — `designLink` (Figma/doc URL), `codeLibrary` (folder path or repo URL). Seeded from the DS Lock at `/pb:init`. Optional/tolerated-absent → the DS bar shows an "add one" affordance |
 | `meta.overview` | `{ objectives, principles[] }` | Project Summary | from spec + constitution |
 | `meta.userInsights` | `{ quantitative, researchSummary, executiveSummary }` | Project Summary | from `/pb:clarify` |
@@ -46,7 +47,7 @@ Ported **verbatim** from the v0.4.0 `PB_DATA.handoff.organisms` shape:
 { id (kebab, unique), name, renderFn ("renderCmp{PascalCase}"), renderSrc ("render/components/<id>.js"),
   meta, scope ("global"|"local"),
   level ("atom"|"molecule"|"organism"), codeLayout ("stacked"|"side-by-side"),
-  properties[], code{ lang, snippet }, anatomy{ renderProps, parts[] }, spec{ legend, renderProps, marginX, stack[] },
+  properties[], code{ lang, snippet }, anatomy (string | { renderProps, parts[] }), spec (string | { legend, renderProps, marginX, stack[] }),
   uiLogic[], usage{ demoProps, topics[], placement } }
 ```
 
@@ -57,8 +58,14 @@ Ported **verbatim** from the v0.4.0 `PB_DATA.handoff.organisms` shape:
   atoms into molecules, molecules into organisms, organisms onto screens — never inline a one-off (see the
   atomic-composition principle in `constitution.md`).
 - **`state` property convention** — if `properties[]` contains a property with `id: 'state'` (each option
-  `{ label, value }`), the UI Design demo renders **one labeled variant per state**. **Interactive components
-  MUST declare it** (e.g. `default / error / disabled`, `default / loading / disabled`).
+  `{ label, value }`), it appears as a dropdown alongside the component's other enum properties; the UI Design
+  demo shows **one live, interactive instance of the currently-selected variant** (changing any dropdown,
+  including `state`, re-renders it). **Interactive components MUST declare it** (e.g. `default / error /
+  disabled`, `default / loading / disabled`).
+- **`anatomy` / `spec`** — either a **prose string** (rendered as a description beside a live preview) or a
+  **structured object** (`anatomy.parts[]` / `spec.stack[]`) that drives the numbered redline annotations. The
+  UI Design drawer renders whichever form is present; author the structured object when you want measured
+  redlines, the string when a plain description suffices.
 
 Figma fields (`figmaId`, `figmaComponentSetId`, `dsMatch`) are added by `/pb:build-figma-handoff`.
 `token.kind ∈ color | radius | space | size | type`.
@@ -96,19 +103,23 @@ registry on each load and never written back. (This is why a click in the protot
 ### `flow` (UX Design tab — structured, decoupled)
 
 ```
-flow = { populated, mermaid, screen?: { w, h }, flows?: [ { name, mermaid } ],
-         stories: [ { title, priority, jtbd, path, scenarios[] } ],
+flow = { populated, mermaid, flows?: [ { name, mermaid } ],
+         stories: [ { title, priority, jtbd, path, nodes?, scenarios[] } ],
          coverageWarnings?: [ { category, note } ], html? }
 ```
 
 `/pb:sync-flow` writes `mermaid` (a `flowchart LR` source) + `stories[]`. The shell renders the canvas on
-the **left** and a **User stories | Test cases** aside on the right (each `scenarios[]` entry a checkbox),
-running Mermaid with `curve:'basis'` (smooth curved connectors) and classDef colors matching the on-canvas
-legend (start/end zinc · decision sky · action lavender · input pink · subprocess purple), plus a legend
-popover. `html` is a legacy pre-baked fallback used only when `mermaid` is absent.
+the **left** (it fills one viewport — no W×H controls) and a **User stories | Test cases** aside on the
+right (each `scenarios[]` entry a checkbox), running Mermaid then re-routing every edge as straight
+**orthogonal** connectors anchored at the nodes' 4 side-centers (Figma-board style)
+and node colors matching the on-canvas legend (start/end black · decision yellow · input purple · action/
+screen blue · subprocess grey — recolored by detected shape), plus a legend popover. `html` is a legacy pre-baked fallback used only when
+`mermaid` is absent.
 
-- **`screen`** — `{ w, h }` the target screen dimensions; sizes the flow canvas frame. The aside's W×H
-  inputs edit these live; `/pb:sync-flow` persists them here (else the canvas defaults from `meta.device`).
+- **`path` / `nodes`** — each story declares the flow path it satisfies. `path` is the human string
+  (`"Start → Login → Dashboard"`); **hovering a story highlights that path on the canvas** (matched nodes +
+  connecting edges emphasized, the rest dimmed). The runtime resolves nodes by matching `path` tokens to the
+  rendered node labels; `nodes` (an optional array of Mermaid node ids) makes the match exact when authored.
 - **`flows`** — optional named flows for multi-flow projects; the canvas shows a dropdown to switch. When
   absent, the single `mermaid` is shown as one "Main flow".
 - **`scenarios[]`** — a test case is either a plain string or `{ text, category }` where `category ∈
@@ -125,25 +136,35 @@ erd = { populated, table: [ { entity, field, type, example, notes } ], mermaid, 
         mock?: [ { entity, label, rows: [ { <field>: <value> } ] } ], html? }
 ```
 
-`/pb:sync-erd` writes `table[]` + `mermaid` (an `erDiagram` source). The shell renders a **Diagram | Table**
-toggle on the left; the right aside lists entities and, for the selected one, its fields plus a **mock-data
-viewer**. `html` is a legacy pre-baked fallback used only when neither `mermaid` nor `table` is present.
+`/pb:sync-erd` writes `table[]` + `mermaid` (an `erDiagram` source). The shell is **single-column**: a
+**Diagram | Table** toggle, with a relationship-legend popover (crow's-foot 1:1 / 1:N / N:N) on the diagram
+and **data-set variant chips** on the table. Per-entity tables share fixed column widths so they line up.
+`html` is a legacy pre-baked fallback used only when neither `mermaid` nor `table` is present.
 
-- **`mock`** — optional sample row-sets per entity. Each set has a `label` (e.g. `Typical`, `Empty`,
-  `Long values`, `Overflow`) and `rows[]` (objects keyed by the entity's field names). The Data aside shows
-  a selector to preview each set against the field columns, so **edge cases** (no data / sparse / overflow)
-  can be checked. Authored by `/pb:sync-erd --mock`.
+- **`mock`** — optional sample row-sets per entity, surfaced as **per-table data-set variants** in the Table
+  view: each entity table that has mock sets gets its own switcher (chips: `Schema` = the field/type/example
+  definition, then one per `label`); a table with no mock sets shows no switcher. Selecting a variant swaps
+  that table's Example column to the scenario's values (`rows[0]` is representative; an empty set reads as the
+  no-data state). Use standard review scenarios — e.g. `New user`, `Empty`, `Returning`. Each set: `label` +
+  `rows[]` (objects keyed by field names). Authored by `/pb:sync-erd --mock`.
 
 ## The 5 tabs
 
-- **Prototype** — the live **interactive** app driven by the `data-*` runtime (above); an icon-only device
-  switcher (desktop ≤1180px / tablet 834px / mobile 390px, default from `meta.device`) renders the selected
-  screen in a device frame — one viewport, internal scroll. No screen-switcher.
-- **Project Summary** — PRD / Insights / Trade-offs, navigated by the shared `meta-subtab` sub-tab component.
-- **UX Design** — the wireflow from `flow.mermaid`, with **User stories | Test cases** sidebar sub-tabs (above).
-- **UI Design** — components split into **Global | Local** sub-tabs (by `scope`), with state-variant demos
-  (the `state` property), plus the per-component spec drawer and the Screen view.
-- **Data** — the **Diagram | Table** toggle over `erd` (above).
+- **Prototype** — the live **interactive** app driven by the `data-*` runtime (above). Header-line tools (a
+  **Browser | App** chrome toggle + an icon-only device switcher over 4 fixed sizes — monitor 1920×1080 /
+  laptop 1280×832 / tablet 834×1112 / mobile 390×844, gated by `meta.devices`, default from `meta.device`)
+  render the selected screen in a device frame that scales to fit. Browser chrome adds a tab strip +
+  back/reload/URL bar; app chrome a titlebar (desktop) or a status bar (tablet/mobile). No screen-switcher.
+- **Project Summary** — split: PRD / Insights / Trade-offs (the shared `meta-subtab` sub-tabs) in a scrolling
+  left column, with a **scroll-spy table of contents** on the right that tracks the headings in view and
+  navigates on click. One viewport, internal scroll.
+- **UX Design** — the wireflow from `flow.mermaid` (fills one viewport), with **User stories | Test cases**
+  sidebar sub-tabs; hovering a story highlights the flow path it satisfies (above).
+- **UI Design** — the DS bar sits on the title line; components split into **Global | Local** sub-tabs (by
+  `scope`), each card a single dropdown-driven demo (incl. `state`) + a **Copy code** dialog, plus the
+  per-component spec drawer (string-or-structured anatomy/spec) and the Screen view.
+- **Data** — single-column **Diagram | Table** toggle over `erd` (above): relationship-legend popover on the
+  diagram, data-set variant chips on the aligned tables.
 
 ## Render-function inventory
 

@@ -25,7 +25,7 @@ nodes. Enforced rules (each violation is a defect):
 - 5–9 nodes per flow (7±2); excess → extract a subprocess, then **ASK** if still over.
 - Decision labels end with `?`; every branch labeled `-- Yes -->` / `-- No -->`.
 - Sentence case; verbs in actions; **no** emojis / HTML / Title Case / ALL CAPS.
-- Color-coded `classDef` (start/end zinc, decision sky, action lavender, input pink, subprocess purple).
+- Color-coded by shape (the shell recolors nodes to the legend palette: start/end black · decision yellow · input purple · action/screen blue · subprocess grey).
 - Screen-shaped node labels SHOULD match a `registry.screens[].name` so the flow reads against the real screens.
 
 ## 3 · User-story test checklist (author as QA)
@@ -49,19 +49,22 @@ Produce **structured data** — not a baked HTML blob. Write into `registry.json
 ```
 { "populated": true,
   "mermaid": "<the flowchart LR source>",
-  "screen": { "w": <px>, "h": <px> },
-  "stories": [ { "title", "priority", "jtbd", "path",
+  "stories": [ { "title", "priority", "jtbd", "path", "nodes": ["<mermaid-node-id>", …],
                  "scenarios": [ { "text", "category" }, … ] }, … ],
   "coverageWarnings": [ { "category", "note" }, … ] }
 ```
-Set **`flow.screen`** to the target screen size (derive from `meta.device` — mobile ≈ 390×844, tablet ≈
-834×1112, desktop ≈ 1280×720 — or carry over the values the user set via the tab's W×H inputs). It sizes
-the flow canvas frame. Persisting them here is what makes those inputs stick across renders.
+Set each story's **`path`** to its route through the flow (`"Start → Login → Dashboard"`) — hovering the
+story highlights that path on the canvas. The runtime matches `path` tokens to the rendered node labels;
+add **`nodes`** (the exact Mermaid node ids the story traverses, e.g. `["Start","Login","Dashboard"]`) to
+make the highlight precise and robust. The canvas fills one viewport and self-fits — there are no W×H controls.
 Then `/pb:build --render`. The shell builds the tab from this data: the left sidebar has two sub-tabs —
 **User stories** (title / priority / jtbd / path) and **Test cases** (one checkbox per `scenarios[]` entry) —
-and the `.flow-doc-main` renders `flow.mermaid` with `curve: 'basis'` (smooth curved connectors, not zig-zag
-step), classDef colors matching the on-canvas legend palette (start/end zinc · decision sky · action lavender ·
-input pink · subprocess purple), a legend popover, and pan/zoom in one viewport with internal scroll.
+and the `.flow-doc-main` renders `flow.mermaid` with **straight orthogonal connectors** — the shell re-routes
+every edge as horizontal/vertical segments anchored at the nodes' 4 side-centers (forward edges run straight,
+back-edges route under both nodes), like a Figma board (not curved or zig-zag
+step). Nodes are colored by shape (start/end black · decision yellow · input purple · action/screen blue ·
+subprocess grey) and the **Yes / No decision branches are drawn green / red** (with matching arrowheads).
+A legend popover plus pan/zoom in one viewport with internal scroll.
 
 > `flow.html` is **legacy only** — a pre-baked fallback the shell uses when `flow.mermaid` is absent. Do not
 > author it; emit `mermaid` + `stories[]`.
