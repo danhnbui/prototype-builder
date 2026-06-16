@@ -94,6 +94,7 @@ def stamp(html, version):
     pure render stays deterministic (this adds a timestamp)."""
     ts = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     comment = "<!-- pb-shell v%s · rendered %s -->" % (version, ts)
+    html = re.sub(r"<!-- pb-shell v[^>]*-->\n?", "", html, count=1)  # idempotent: drop any prior stamp
     marker = "<!DOCTYPE html>"
     if marker in html:
         return html.replace(marker, marker + "\n" + comment, 1)

@@ -129,11 +129,12 @@ def render_current(state):
         with open(state.shell_path, encoding="utf-8") as f:
             shell = f.read()
         reg = render.load_bodies(reg, state.base_dir)  # resolve renderSrc body files (v1.4)
-        html, _missing = render.build_html(reg, shell)
+        version = render.plugin_version()
+        html, _missing = render.build_html(reg, shell, version)
         if state.write and state.out_path:
             try:
                 with open(state.out_path, "w", encoding="utf-8") as f:
-                    f.write(html)
+                    f.write(render.stamp(html, version))  # disk artifact gets the drift stamp
             except OSError as e:
                 log("warn: could not write %s (%s)" % (state.out_path, e))
     except FileNotFoundError as e:
@@ -356,7 +357,7 @@ def main():
         log("  registry  %s  ·  %s" % (rel(reg_path), summary))
     else:
         log("  registry  %s" % rel(reg_path))
-    log("  shell     %s" % rel(shell_path))
+    log("  shell     %s  ·  pb v%s" % (rel(shell_path), render.plugin_version()))
     log("  preview   %s" % url)
     log("  watching  registry.json, shell, render.py, render/**/*.js — saving any reloads the browser")
     log("  to disk   %s" % ("ON → %s" % rel(out_path) if args.write
