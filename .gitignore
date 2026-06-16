@@ -18,3 +18,7 @@ dist/
 
 # Local preview scratch (not a plugin deliverable)
 /registry.json
+/prototype.html
+/memory/
+/design-system/
+/.pb-backups/
