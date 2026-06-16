@@ -106,7 +106,9 @@ def build_html(reg, shell, version="unknown"):
 
     Pure: no file I/O, no globals. This is the single source of render truth — the
     CLI (render_file) and the preview dev server (serve.py) both go through here, so
-    a live preview is byte-identical to what `/pb:build --render` writes to disk.
+    the live preview uses the same render logic as `/pb:build --render`. (render_file
+    adds a stamp() drift-comment to the on-disk artifact only, so the disk file differs
+    from the in-memory preview by exactly that one comment.)
 
     Returns (html, missing) where `missing` lists renderFn names that had no `render`
     body (rendered as empty). Raises RenderError if the shell lacks an anchor.
