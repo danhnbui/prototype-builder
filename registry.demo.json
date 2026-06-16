@@ -104,7 +104,21 @@
         { "id": "submit", "label": "Submit button", "orgId": "button", "tokens": ["--brand"], "state": "default" }
       ],
       "logicNotes": ["Submit is disabled until both fields are valid.", "Successful submit redirects to the dashboard."],
-      "render": "return '<div style=\"min-height:100%;display:flex;align-items:center;justify-content:center;background:var(--bg-soft);padding:32px\"><div style=\"width:360px;padding:28px;background:#fff;border:1px solid var(--border);border-radius:16px\"><h1 style=\"font:700 22px Poppins;margin:0 0 20px\">Sign in</h1><input data-handoff-el=\"email\" type=\"text\" data-required data-validate=\"email\" placeholder=\"you@example.com\" style=\"width:100%;height:42px;margin-bottom:12px;padding:0 12px;border:1px solid var(--border-strong);border-radius:8px;font:14px Inter\" /><input data-handoff-el=\"password\" type=\"password\" data-required data-minlength=\"8\" placeholder=\"Password\" style=\"width:100%;height:42px;margin-bottom:16px;padding:0 12px;border:1px solid var(--border-strong);border-radius:8px;font:14px Inter\" /><button data-handoff-el=\"submit\" data-action=\"submit\" data-go=\"dashboard\" style=\"width:100%;height:44px;border:0;border-radius:10px;background:var(--brand);color:#fff;font:600 14px Inter;cursor:pointer\">Sign in</button></div></div>';"
+      "render": "return '<div style=\"min-height:100%;display:flex;align-items:center;justify-content:center;background:var(--bg-soft);padding:32px\"><div style=\"width:360px;padding:28px;background:#fff;border:1px solid var(--border);border-radius:16px\"><h1 style=\"font:700 22px Poppins;margin:0 0 20px\">Sign in</h1><input data-handoff-el=\"email\" type=\"text\" data-required data-validate=\"email\" placeholder=\"you@example.com\" style=\"width:100%;height:42px;margin-bottom:12px;padding:0 12px;border:1px solid var(--border-strong);border-radius:8px;font:14px Inter\" /><input data-handoff-el=\"password\" type=\"password\" data-required data-minlength=\"8\" placeholder=\"Password\" style=\"width:100%;height:42px;margin-bottom:16px;padding:0 12px;border:1px solid var(--border-strong);border-radius:8px;font:14px Inter\" /><button data-handoff-el=\"submit\" data-action=\"submit\" data-go=\"dashboard\" style=\"width:100%;height:44px;border:0;border-radius:10px;background:var(--brand);color:#fff;font:600 14px Inter;cursor:pointer\">Sign in</button><p style=\"text-align:center;font:13px Inter;color:#6b7280;margin:16px 0 0\">New here? <a href=\"#\" data-nav=\"sign-up\" style=\"color:var(--brand);text-decoration:none;font-weight:600\">Create an account</a></p></div></div>';"
+    },
+    {
+      "id": "sign-up",
+      "name": "Sign up",
+      "renderFn": "renderScreenSignUp",
+      "layout": { "type": "centered", "gap": 16, "maxWidth": 360, "padding": 32 },
+      "elements": [
+        { "id": "email", "label": "Email field", "orgId": "text-input", "tokens": ["--border-strong"], "state": "default" },
+        { "id": "password", "label": "Password field", "orgId": "text-input", "tokens": ["--border-strong"], "state": "default" },
+        { "id": "confirm", "label": "Confirm-password field", "orgId": "text-input", "tokens": ["--border-strong"], "state": "default" },
+        { "id": "submit", "label": "Create-account button", "orgId": "button", "tokens": ["--brand"], "state": "default" }
+      ],
+      "logicNotes": ["Create-account form; inline validation per the Inline-vs-on-submit trade-off (Inline).", "Successful submit redirects to the dashboard.", "'Sign in' navigates back to Login."],
+      "render": "return '<div style=\"min-height:100%;display:flex;align-items:center;justify-content:center;background:var(--bg-soft);padding:32px\"><div style=\"width:360px;padding:28px;background:#fff;border:1px solid var(--border);border-radius:16px\"><h1 style=\"font:700 22px Poppins;margin:0 0 6px\">Create your account</h1><p style=\"font:14px Inter;color:#6b7280;margin:0 0 20px\">Reach your dashboard in under a minute.</p><input data-handoff-el=\"email\" type=\"text\" data-required data-validate=\"email\" placeholder=\"you@example.com\" style=\"width:100%;height:42px;margin-bottom:12px;padding:0 12px;border:1px solid var(--border-strong);border-radius:8px;font:14px Inter\" /><input data-handoff-el=\"password\" type=\"password\" data-required data-minlength=\"8\" placeholder=\"Password\" style=\"width:100%;height:42px;margin-bottom:6px;padding:0 12px;border:1px solid var(--border-strong);border-radius:8px;font:14px Inter\" /><p style=\"font:12px Inter;color:#6b7280;margin:0 0 12px\">At least 8 characters.</p><input data-handoff-el=\"confirm\" type=\"password\" data-required data-minlength=\"8\" placeholder=\"Confirm password\" style=\"width:100%;height:42px;margin-bottom:16px;padding:0 12px;border:1px solid var(--border-strong);border-radius:8px;font:14px Inter\" /><button data-handoff-el=\"submit\" data-action=\"submit\" data-go=\"dashboard\" style=\"width:100%;height:44px;border:0;border-radius:10px;background:var(--brand);color:#fff;font:600 14px Inter;cursor:pointer\">Create account</button><p style=\"text-align:center;font:13px Inter;color:#6b7280;margin:16px 0 0\">Already have an account? <a href=\"#\" data-nav=\"login\" style=\"color:var(--brand);text-decoration:none;font-weight:600\">Sign in</a></p></div></div>';"
     },
     {
       "id": "dashboard",
@@ -119,7 +133,7 @@
     }
   ],
   "staleness": {
-    "flow": { "lastSyncedPromptCount": 2, "currentPromptCount": 2 },
+    "flow": { "lastSyncedPromptCount": 2, "currentPromptCount": 3 },
     "handoffScreen": { "lastSyncedPromptCount": 0, "currentPromptCount": 0 },
     "erd": { "lastSyncedPromptCount": 0, "currentPromptCount": 0 }
   },
