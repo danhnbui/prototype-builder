@@ -117,7 +117,13 @@ def main():
             check(0 <= out.index("<!DOCTYPE html>") < out.index("<!-- pb-shell") < 200,
                   "stamp sits right after the DOCTYPE (near the top)")
 
-    # ===== Task 2 appends shipped-shell wiring checks below this line =====
+    # 5 — the shipped shell carries the wiring + fills its const (Task 2)
+    shell = open(SHELL, encoding="utf-8").read()
+    check("{{PB_SHELL_VERSION}}" in shell, "shipped shell exposes the {{PB_SHELL_VERSION}} placeholder")
+    check("meta-version" in shell, "shipped shell renders the .meta-version badge")
+    built, _ = render.build_html(_minimal_registry(), shell, "7.7.7-shipped")
+    check('PB_SHELL_VERSION = "7.7.7-shipped"' in built,
+          "shipped shell's PB_SHELL_VERSION const receives the version")
 
     print()
     if _fail:
