@@ -120,6 +120,14 @@
       background: var(--brand);
       color: white;
     }
+    .meta-version {
+      margin-left: auto;                         /* push to the far-right of the flex strip */
+      font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+      font-size: 11px; font-weight: 600;
+      color: var(--neutral-40);
+      letter-spacing: 0.02em;
+      user-select: all;                          /* easy to copy when reporting an issue */
+    }
 
     /* ========================================================================
        META-PANEL — typography + layout for the 4 documentation tabs
@@ -2000,6 +2008,7 @@
        on the in-memory PB_DATA only and never write back to registry.json.
        ========================================================================= */
     const PB_REGISTRY = /*__PB_REGISTRY_START__*/ null /*__PB_REGISTRY_END__*/;
+    const PB_SHELL_VERSION = "{{PB_SHELL_VERSION}}";   /* filled by render.build_html; 'unknown' if unfilled */
 
     function pbEmptyData() {
       return {
@@ -2122,7 +2131,8 @@
           : '';
         return `<button class="meta-tab ${state.metaView === id ? 'active' : ''}"
                  onclick="setMetaView('${id}')">${label}${badge}</button>`;
-      }).join('');
+      }).join('') +
+        `<span class="meta-version" title="Rendered by the Product Builder shell v${PB_SHELL_VERSION}">pb v${PB_SHELL_VERSION}</span>`;
     }
 
     /* Returns the # of prompts elapsed since this tab's last sync, or 0 if fresh. */

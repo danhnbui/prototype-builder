@@ -18,6 +18,7 @@ What it does:
 Usage:  python3 render.py <registry.json> <shell.html> <out.html>
 """
 import json, sys, re, copy, os
+from datetime import datetime, timezone
 
 
 class RenderError(Exception):
@@ -68,12 +69,46 @@ def _escape_body(body):
     return body.replace("</", "<\\/")
 
 
-def build_html(reg, shell):
+def _version_from(path):
+    """Read a plugin.json's `version`. Returns the string, or 'unknown' for a
+    missing / unreadable / non-JSON / version-less file. Never raises — a broken
+    plugin.json must not take down a render (acceptance: stamp 'unknown')."""
+    try:
+        with open(path, encoding="utf-8") as f:
+            v = json.load(f).get("version")
+        return v if isinstance(v, str) and v.strip() else "unknown"
+    except Exception:
+        return "unknown"
+
+
+def plugin_version():
+    """The installed pb plugin SemVer, read from pb/.claude-plugin/plugin.json
+    relative to this file (the self-locating trick migrate_runner.py uses)."""
+    here = os.path.dirname(os.path.abspath(__file__))
+    return _version_from(os.path.join(here, "..", ".claude-plugin", "plugin.json"))
+
+
+def stamp(html, version):
+    """Insert a `<!-- pb-shell vX · rendered <ISO-8601 Z> -->` comment right after the
+    DOCTYPE so /pb:check-drift can detect a stale render. Kept OUT of build_html so the
+    pure render stays deterministic (this adds a timestamp)."""
+    ts = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    comment = "<!-- pb-shell v%s · rendered %s -->" % (version, ts)
+    html = re.sub(r"<!-- pb-shell v[^>]*-->\n?", "", html, count=1)  # idempotent: drop any prior stamp
+    marker = "<!DOCTYPE html>"
+    if marker in html:
+        return html.replace(marker, marker + "\n" + comment, 1)
+    return comment + "\n" + html
+
+
+def build_html(reg, shell, version="unknown"):
     """Render a registry dict + shell HTML string into the populated prototype HTML.
 
     Pure: no file I/O, no globals. This is the single source of render truth — the
     CLI (render_file) and the preview dev server (serve.py) both go through here, so
-    a live preview is byte-identical to what `/pb:build --render` writes to disk.
+    the live preview uses the same render logic as `/pb:build --render`. (render_file
+    adds a stamp() drift-comment to the on-disk artifact only, so the disk file differs
+    from the in-memory preview by exactly that one comment.)
 
     Returns (html, missing) where `missing` lists renderFn names that had no `render`
     body (rendered as empty). Raises RenderError if the shell lacks an anchor.
@@ -116,15 +151,21 @@ def build_html(reg, shell):
     if anchor not in shell:
         raise RenderError("shell is missing the PB_DATA adapter anchor.")
     shell = shell.replace(anchor, anchor + bodies, 1)
+
+    # Fill the shell's version placeholder (no-op on a shell that lacks it — never blocks).
+    shell = shell.replace("{{PB_SHELL_VERSION}}", version)
     return shell, missing
 
 
 def render_file(reg_path, shell_path, out_path):
-    """Read registry + shell from disk, render, and write out_path. Returns (reg, html, missing)."""
+    """Read registry + shell from disk, render, stamp, and write out_path.
+    Returns (reg, html, missing). `html` is the stamped, on-disk form."""
     reg = json.load(open(reg_path, encoding="utf-8"))
     shell = open(shell_path, encoding="utf-8").read()
     reg = load_bodies(reg, os.path.dirname(os.path.abspath(reg_path)))
-    html, missing = build_html(reg, shell)
+    version = plugin_version()
+    html, missing = build_html(reg, shell, version)
+    html = stamp(html, version)
     open(out_path, "w", encoding="utf-8").write(html)
     return reg, html, missing
 

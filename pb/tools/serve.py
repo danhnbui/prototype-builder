@@ -8,7 +8,8 @@ browser refresh after every tweak. This server closes that gap:
 
   * watches  registry.json (+ the shell template + render.py),
   * renders  through the SAME build_html() path render.py uses (rule #2: one render
-             truth — the preview is byte-identical to what `/pb:build --render` writes),
+             truth — the preview uses the same render logic as `/pb:build --render`; the
+             on-disk artifact additionally carries a stamp() drift comment the preview omits),
   * reloads  every connected browser over Server-Sent Events the instant a watched
              file changes.
 
@@ -39,7 +40,8 @@ def log(msg):
 
 
 # The live-reload client. Injected before </body> in the served HTML only — never written
-# to disk, so a --write'd prototype.html stays identical to a plain `/pb:build --render`.
+# to disk, so a --write'd prototype.html stays free of the reload client, like a plain
+# `/pb:build --render` (both are stamped on disk for drift detection).
 LIVE_RELOAD = """<script>
 /* pb-serve live-reload — injected by serve.py, not part of the render */
 (function () {
@@ -129,11 +131,12 @@ def render_current(state):
         with open(state.shell_path, encoding="utf-8") as f:
             shell = f.read()
         reg = render.load_bodies(reg, state.base_dir)  # resolve renderSrc body files (v1.4)
-        html, _missing = render.build_html(reg, shell)
+        version = render.plugin_version()
+        html, _missing = render.build_html(reg, shell, version)
         if state.write and state.out_path:
             try:
                 with open(state.out_path, "w", encoding="utf-8") as f:
-                    f.write(html)
+                    f.write(render.stamp(html, version))  # disk artifact gets the drift stamp
             except OSError as e:
                 log("warn: could not write %s (%s)" % (state.out_path, e))
     except FileNotFoundError as e:
@@ -356,7 +359,7 @@ def main():
         log("  registry  %s  ·  %s" % (rel(reg_path), summary))
     else:
         log("  registry  %s" % rel(reg_path))
-    log("  shell     %s" % rel(shell_path))
+    log("  shell     %s  ·  pb v%s" % (rel(shell_path), render.plugin_version()))
     log("  preview   %s" % url)
     log("  watching  registry.json, shell, render.py, render/**/*.js — saving any reloads the browser")
     log("  to disk   %s" % ("ON → %s" % rel(out_path) if args.write

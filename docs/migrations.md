@@ -135,7 +135,6 @@ avoid re-debating them:
 
 | Non-goal | Why deferred |
 |---|---|
-| **Shell-drift detection** via a template version marker | Requires stamping the shell template; design pending |
 | **`init --import` auto-running migrate** | Needs UX decision on silent vs. interactive migration at import time |
 | **Richer lossy `down()` reversal** | Current `down()` is best-effort — it removes additive fields but does not strip structured data added in a newer schema (v1.2 code ignores unknown keys, so the registry remains usable) |
 

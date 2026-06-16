@@ -87,7 +87,7 @@ If `/pb:init` says Python isn't installed, it will tell you exactly how to fix i
 
 - [prototype-builder.md](prototype-builder.md) — the playbook (registry contract, render inventory, governance).
 - [CLAUDE.md](CLAUDE.md) — the router (the three loop rules + memory layout).
-- [docs/architecture.md](docs/architecture.md) · [docs/data-flow.md](docs/data-flow.md)
+- [docs/architecture.md](docs/architecture.md) · [docs/data-flow.md](docs/data-flow.md) · [docs/upgrading.md](docs/upgrading.md)
 - [changelog.md](changelog.md)
 
 Design-system-agnostic: no hardcoded design system anywhere — set your tokens, components, and icon

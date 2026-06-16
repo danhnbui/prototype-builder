@@ -123,6 +123,11 @@ def run():
             # 1. five tabs
             check(page.locator(".meta-tab").count() == 5, "5 doc tabs render")
 
+            # 1b. build_html fills {{PB_SHELL_VERSION}} in the meta-nav; serve.py passes the version in
+            ver = page.locator(".meta-version").inner_text()
+            check(re.match(r"pb v\d", ver) is not None,
+                  f"meta-nav shows the shell version badge ({ver!r})")
+
             # 2. registry token reaches :root
             brand = page.evaluate(
                 "getComputedStyle(document.documentElement).getPropertyValue('--brand').trim()")
