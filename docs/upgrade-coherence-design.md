@@ -1,6 +1,6 @@
 # Design — Upgrade Coherence (shell-drift detection + upgrade guide)
 
-> Date: 2026-06-16 · Status: implemented 2026-06-16 — see docs/superpowers/plans/2026-06-16-upgrade-coherence.md.
+> Date: 2026-06-16 · Status: implemented 2026-06-16.
 > Origin: a real upgrade (pb 1.3.1 → 1.4.1) where the plugin installed and the registry could be
 > migrated, yet the rendered prototype kept showing the **old shell UI** with no signal why.
 
