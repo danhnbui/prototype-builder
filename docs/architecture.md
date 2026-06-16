@@ -23,7 +23,7 @@ prototype-builder v.2/
 │  └─ marketplace.json          # marketplace "product-builder" → plugin pb (source ./pb)
 ├─ pb/                          # the plugin
 │  ├─ .claude-plugin/
-│  │  └─ plugin.json            # name "pb", version 1.4.1
+│  │  └─ plugin.json            # name "pb", version 1.4.2
 │  ├─ commands/                 # the 12 /pb:* command bodies (*.md)
 │  ├─ tools/
 │  │  └─ render.py              # deterministic registry.json → prototype.html generator

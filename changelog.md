@@ -4,6 +4,33 @@ All notable changes to Product Builder. Format follows [Keep a Changelog](https:
 
 ## [Unreleased]
 
+## [1.4.2] — 2026-06-16
+
+### Shell version coherence — stamping + drift detection
+
+*The rendered shell now carries the plugin version everywhere it's served or produced, so a stale render
+can't hide silently. Advisory only — nothing blocks a build or preview.*
+
+**Version-stamped shell**
+- `render.py` reads the plugin SemVer from `pb/.claude-plugin/plugin.json` and fills a new
+  `{{PB_SHELL_VERSION}}` placeholder — driving a small `pb vX.Y.Z` badge in the meta-nav corner.
+- `render_file` (and `serve.py --write`) write a `<!-- pb-shell vX.Y.Z · rendered <ISO-8601> -->` stamp near
+  the top of `prototype.html`. `build_html` stays pure/deterministic: the timestamp lives only on the disk
+  artifact, never the in-memory preview.
+- `/pb:preview`'s startup banner shows the rendering version (`· pb vX.Y.Z`).
+- A bad/unreadable `plugin.json` degrades to `pb vunknown` rather than crashing a render.
+
+**Drift detection (advisory, read-only)**
+- `/pb:check-drift` gains a **shell-coherence** step: it compares `prototype.html`'s stamp to the installed
+  plugin version and warns on a mismatch (`⚠ Shell drift…`) or a missing stamp — **never blocks**, never writes.
+
+**Upgrade guide**
+- New `docs/upgrading.md` — the **three-layer model** (plugin code · registry schema · rendered output), the
+  canonical upgrade sequence, the author dev-loop, and a symptom → layer → fix table. Linked from the README;
+  the matching "shell-drift detection" non-goal retired from `docs/migrations.md`.
+
+**Schema:** unchanged (`CURRENT_SCHEMA = 4`) — no migration required.
+
 ## [1.4.1] — 2026-06-10
 
 ### v1.4 refit — quality, governance, portability
