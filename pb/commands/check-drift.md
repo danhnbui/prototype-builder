@@ -31,6 +31,24 @@ excerpt · a one-line reason.
 
 If `--save` is in `$ARGUMENTS`, also write the report to `memory/drift-reports/<YYYY-MM-DD-HHMMSS>.md`.
 
+## 4 · Shell coherence (advisory · read-only)
+
+A separate, advisory check that does **not** touch the trio and **never** blocks. It catches the case
+that motivated it: `prototype.html` left rendered by an **older plugin shell** than the one now installed
+(the silent stale render).
+
+- Read `prototype.html` next to `registry.json`. Near the top, find the stamp comment
+  `<!-- pb-shell vX.Y.Z · rendered <ISO-8601> -->` and parse the version with `<!-- pb-shell v(\S+) ·`.
+- Read the installed plugin version from `${CLAUDE_PLUGIN_ROOT}/.claude-plugin/plugin.json` (`version`).
+  Outside a plugin checkout, fall back to `pb/.claude-plugin/plugin.json`.
+- Compare and report exactly one line:
+  - **Match** → `✅ Shell coherent — prototype.html rendered by pb vX.Y.Z (current).`
+  - **Mismatch** → `⚠ Shell drift: prototype.html rendered by pb vX.Y.Z; current plugin is vA.B.C — re-render (/pb:build --render) or restart /pb:preview.`
+  - **No stamp** (an older or `serve.py --write`-only artifact) → `⚠ Shell unstamped: prototype.html has no pb-shell stamp — re-render with the current plugin to enable drift detection.`
+  - **No `prototype.html`** → skip silently (nothing rendered yet).
+
+Report this alongside the trio drift report. It is **advisory**: never edit `prototype.html`, never block.
+
 ## NEVER
 - NEVER write to `registry.json` / `prototype.html` — this is a read-only audit.
 - NEVER auto-fix drift — surface the fixes; the user decides.
