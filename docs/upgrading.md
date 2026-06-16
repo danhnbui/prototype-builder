@@ -48,6 +48,6 @@ current version.
 | New UI not showing in preview | 3 stale | Restart `/pb:preview`; or `/pb:build --render` then reload the page. |
 | `⚠ Schema gap` banner on build | 2 behind 1 | `/pb:migrate --apply`. |
 | `⚠ Shell drift` from `/pb:check-drift` | 3 behind 1 | Re-render (`/pb:build --render`) or restart `/pb:preview`. |
-| `⚠ Shell unstamped` | 3 produced by an old/`--write`-only path | Re-render once with the current plugin. |
+| `⚠ Shell unstamped` | 3 rendered by a plugin older than this feature | Re-render once with the current plugin. |
 | Commands still behave like the old version | 1 not loaded | Reload/restart the session after `/plugin`. |
 | Badge shows `pb vunknown` | `plugin.json` unreadable | Confirm `pb/.claude-plugin/plugin.json` has a string `version`. |

@@ -8,7 +8,8 @@ browser refresh after every tweak. This server closes that gap:
 
   * watches  registry.json (+ the shell template + render.py),
   * renders  through the SAME build_html() path render.py uses (rule #2: one render
-             truth — the preview is byte-identical to what `/pb:build --render` writes),
+             truth — the preview uses the same render logic as `/pb:build --render`; the
+             on-disk artifact additionally carries a stamp() drift comment the preview omits),
   * reloads  every connected browser over Server-Sent Events the instant a watched
              file changes.
 
@@ -39,7 +40,8 @@ def log(msg):
 
 
 # The live-reload client. Injected before </body> in the served HTML only — never written
-# to disk, so a --write'd prototype.html stays identical to a plain `/pb:build --render`.
+# to disk, so a --write'd prototype.html stays free of the reload client, like a plain
+# `/pb:build --render` (both are stamped on disk for drift detection).
 LIVE_RELOAD = """<script>
 /* pb-serve live-reload — injected by serve.py, not part of the render */
 (function () {

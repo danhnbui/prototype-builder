@@ -44,7 +44,7 @@ that motivated it: `prototype.html` left rendered by an **older plugin shell** t
 - Compare and report exactly one line:
   - **Match** → `✅ Shell coherent — prototype.html rendered by pb vX.Y.Z (current).`
   - **Mismatch** → `⚠ Shell drift: prototype.html rendered by pb vX.Y.Z; current plugin is vA.B.C — re-render (/pb:build --render) or restart /pb:preview.`
-  - **No stamp** (an older or `serve.py --write`-only artifact) → `⚠ Shell unstamped: prototype.html has no pb-shell stamp — re-render with the current plugin to enable drift detection.`
+  - **No stamp** (an artifact rendered by a plugin older than this feature) → `⚠ Shell unstamped: prototype.html has no pb-shell stamp — re-render with the current plugin to enable drift detection.`
   - **No `prototype.html`** → skip silently (nothing rendered yet).
 
 Report this alongside the trio drift report. It is **advisory**: never edit `prototype.html`, never block.
