@@ -899,14 +899,12 @@
     /* Prototype structure panel — push-content sibling (flex row with proto-main) */
     .proto-struct-panel {
       flex: 0 0 0px; width: 0; align-self: stretch;
-      background: #fff; border-left:0 solid var(--border);
-      transition: flex-basis .25s ease, width .25s ease, border-left-width .25s step-end;
+      background: #fff;
+      transition: flex-basis .25s ease, width .25s ease;
       display:flex; flex-direction:column;
     }
     .proto-struct-panel.is-open {
       flex: 0 0 280px; width: 280px;
-      border-left-width: 1px;
-      box-shadow: -4px 0 20px rgba(0,0,0,0.06);
     }
     .proto-struct-panel-body { flex:1 1 auto; padding:16px; width:280px; }
     .pb-aside-section { margin-bottom: 22px; }
