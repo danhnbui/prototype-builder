@@ -200,7 +200,7 @@
       font-family: var(--font-heading);
       font-size: var(--font-size-base); font-weight: var(--font-weight-bold);
       color: var(--text-active-primary);
-      margin: 0 0 10px; line-height: var(--line-height-base);
+      margin: 28px 0 10px; line-height: var(--line-height-base);
     }
     .meta-label {
       font-size: var(--font-size-xs); font-weight: var(--font-weight-bold);
@@ -217,13 +217,19 @@
       border: 0; border-top: 1px solid var(--border);
       margin: 24px 0 32px;
     }
-    .meta-section { margin-bottom: 36px; }
+    .meta-section { margin-bottom: 48px; }
     .meta-card {
       background: white;
       border: 1px solid var(--border);
       border-radius: var(--radius-medium);
       padding: 24px;
     }
+    .meta-callout {
+      border-left: 3px solid var(--brand); background: var(--brand-soft);
+      padding: 14px 16px; border-radius: 0 var(--radius-small) var(--radius-small) 0;
+      margin-bottom: 16px;
+    }
+    .meta-callout:last-child { margin-bottom: 0; }
     .meta-p {
       font-size: var(--font-size-s);
       color: var(--text-active-primary);
@@ -872,7 +878,7 @@
        viewport with no body scroll; the split columns stretch to full height and scroll
        internally if needed. */
     .pb-page--viewport { height: calc(100vh - 44px); overflow: hidden; }
-    .pb-content--fill { flex: 1 1 auto; min-height: 0; overflow: hidden; }
+    .pb-content--fill { flex: 1 1 auto; min-height: 0; overflow: hidden; position: relative; }
     .pb-content--fill.pb-content--split { align-items: stretch; grid-template-rows: minmax(0, 1fr); }
     .pb-content--fill .pb-aside { position: static; top: auto; max-height: none; height: 100%; align-self: stretch; }
     .pb-aside {
@@ -890,26 +896,16 @@
       font-size: var(--font-size-s); line-height: var(--line-height-p-s);
       text-align: center; padding: 28px 16px;
     }
-    /* Prototype structure slide-in panel */
+    /* Prototype structure slide-in panel — scoped inside .pb-content--fill */
     .proto-struct-panel {
-      position:fixed; top:44px; right:0; height:calc(100vh - 44px); width:280px;
+      position:absolute; top:0; right:0; height:100%; width:280px;
       background:#fff; border-left:1px solid var(--border);
-      box-shadow:-4px 0 20px rgba(0,0,0,0.10); z-index:200;
+      box-shadow:-4px 0 20px rgba(0,0,0,0.10); z-index:10;
       transform:translateX(100%); transition:transform .25s ease;
       display:flex; flex-direction:column; overflow:hidden;
     }
     .proto-struct-panel.is-open { transform:translateX(0); }
-    .proto-struct-panel-head {
-      display:flex; align-items:center; justify-content:space-between;
-      padding:14px 16px; border-bottom:1px solid var(--border); flex-shrink:0;
-    }
     .proto-struct-panel-body { overflow-y:auto; flex:1; padding:16px; }
-    .proto-struct-close {
-      width:28px; height:28px; border:0; background:transparent; cursor:pointer;
-      font-size:var(--font-size-l); color:var(--text-tertiary);
-      display:flex; align-items:center; justify-content:center; border-radius:var(--radius-small);
-    }
-    .proto-struct-close:hover { background:var(--neutral-10); color:var(--text-active-primary); }
     .pb-aside-section { margin-bottom: 22px; }
     .pb-aside-section:last-child { margin-bottom: 0; }
     .pb-entity-chips { display: flex; flex-wrap: wrap; gap: 8px; }
@@ -946,10 +942,14 @@
     .pb-mock-table { font-size: var(--font-size-xs); }
     .pb-mock-table th, .pb-mock-table td { white-space: nowrap; }
 
-    /* UX Design — flow main bar (flow dropdown + legend) and aside dims inputs */
+    /* UX Design — flow main bar (flow dropdown + legend) — absolutely positioned at top of canvas */
     .flow-main-bar {
+      position: absolute; top: 0; left: 0; right: 0; z-index: 10;
       display: flex; align-items: center; justify-content: space-between; gap: 12px;
-      margin-bottom: 12px;
+      padding: 10px 14px;
+      background: rgba(255,255,255,0.92); backdrop-filter: blur(4px);
+      border-bottom: 1px solid var(--border);
+      border-radius: var(--radius-medium) var(--radius-medium) 0 0;
     }
     .pb-flow-select {
       font: var(--font-weight-medium) var(--font-size-s)/var(--line-height-s) var(--font-body);
@@ -1130,7 +1130,13 @@
       background: var(--bg-soft);
       min-height: 80px;
       display: flex; align-items: center; justify-content: center;
-      pointer-events: none;
+      pointer-events: auto;
+    }
+    .handoff-level-badge {
+      font-size: var(--font-size-xxs); font-weight: var(--font-weight-bold);
+      text-transform: uppercase; letter-spacing: .5px; padding: 2px 6px;
+      border-radius: var(--radius-full); border: 1px solid var(--border);
+      color: var(--text-tertiary); flex-shrink: 0;
     }
     .handoff-card-hint {
       margin-top: 12px;
@@ -1458,7 +1464,7 @@
       max-height: calc(100vh - 200px);
       overflow-y: auto;
     }
-    .flow-doc-side-head { margin-bottom: 14px; padding-bottom: 14px; border-bottom: 1px solid var(--border); }
+    .flow-doc-side-head { display: flex; align-items: center; gap: 6px; margin-bottom: 14px; padding-bottom: 14px; border-bottom: 1px solid var(--border); }
     .flow-doc-side-title { font-family: var(--font-heading); font-size: var(--font-size-base); font-weight: var(--font-weight-bold); letter-spacing: -0.01em; color: var(--text-active-primary); margin: 6px 0 4px; line-height: var(--line-height-p-base); }
     .flow-doc-side-sub { font-size: var(--font-size-xs); color: var(--text-active-secondary); margin: 0; line-height: var(--line-height-p-xs); }
     .flow-doc-pill { display: inline-block; font: var(--font-weight-bold) var(--font-size-xxs)/var(--line-height-xxs) var(--font-body); text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-tertiary); background: var(--neutral-10); padding: 5px 8px; border-radius: 4px; }
@@ -1510,10 +1516,13 @@
     }
     .flow-doc-section .mermaid svg { display: block; }
     .flow-doc-summary { font-size: var(--font-size-s); color: var(--text-active-secondary); margin: 14px 0 0; line-height: var(--line-height-p-s); padding: 12px 16px; background: white; border: 1px solid var(--border); border-left: 3px solid #3b82f6; border-radius: 0 6px 6px 0; }
-    .flow-side-tabs { display: flex; gap: 4px; margin-bottom: 14px; border-bottom: 1px solid var(--border); padding-bottom: 0; }
-    .flow-side-tab { flex: 1; padding: 7px 10px; font: var(--font-weight-bold) var(--font-size-s)/var(--line-height-s) var(--font-body); color: var(--text-active-secondary); background: none; border: none; border-bottom: 2px solid transparent; margin-bottom: -1px; cursor: pointer; border-radius: 0; transition: color .15s, border-color .15s; text-align: center; }
-    .flow-side-tab:hover { color: var(--text-active-primary); }
-    .flow-side-tab.active { color: var(--pg-brand-primary, #1c4ed8); border-bottom-color: var(--pg-brand-primary, #1c4ed8); }
+    .flow-side-tabs { display: flex; gap: 4px; padding: 0 0 14px; }
+    .flow-side-tab { padding: 4px 12px; border-radius: var(--radius-full);
+      font-size: var(--font-size-xs); font-weight: var(--font-weight-medium);
+      border: 1px solid var(--border); background: transparent; cursor: pointer;
+      color: var(--text-active-secondary); transition: all .12s; }
+    .flow-side-tab:hover { border-color: var(--brand); color: var(--brand); }
+    .flow-side-tab.active { background: var(--brand); color: #fff; border-color: var(--brand); }
     .flow-side-panel[hidden] { display: none; }
     .flow-doc-stories { padding-left: 22px; margin: 0; }
     .flow-doc-stories > li { margin-bottom: 18px; line-height: var(--line-height-copy); }
@@ -1972,6 +1981,16 @@
     /* Device switcher as a connected segmented tab group (matches the Browser | App toggle). */
     .proto-toolbar { display:inline-flex; align-items:center; border:1px solid var(--border);
       border-radius:8px; overflow:hidden; background:#fff; }
+    /* Standalone structure toggle — sits after the device group with a visual separator. */
+    .proto-struct-btn {
+      display:inline-flex; align-items:center; justify-content:center; width:36px; height:32px;
+      border:1px solid var(--border); border-radius:8px; background:#fff;
+      color:var(--text-active-secondary); cursor:pointer; transition:background .12s, color .12s, border-color .12s;
+      flex-shrink:0;
+    }
+    .proto-struct-btn:hover { color:var(--text-active-primary); border-color:var(--brand); }
+    .proto-struct-btn.is-active { background:var(--brand); color:#fff; border-color:var(--brand); }
+    .proto-header-divider { width:1px; height:20px; background:var(--border); flex-shrink:0; }
     .proto-device-btn { display:inline-flex; align-items:center; justify-content:center; width:44px; height:32px;
       border:0; border-radius:0; background:transparent; color:var(--text-active-secondary);
       cursor:pointer; transition:background .12s, color .12s; }
@@ -2037,11 +2056,14 @@
     .flow-doc-checks li { font-size: var(--font-size-xs); color:var(--text-active-secondary); }
     /* Data — one styled table per entity (Table view) */
     .erd-tables { display:flex; flex-direction:column; gap:22px; }
-    .erd-entity-title { margin:0 0 8px; font: var(--font-weight-bold) var(--font-size-s)/var(--line-height-s) var(--font-body); color:var(--text-active-primary); }
+    .erd-entity-title { margin:0 0 8px; font-family: var(--font-heading); font-size: var(--font-size-base); font-weight: var(--font-weight-bold); color:var(--text-active-primary); }
     .erd-entity-table { width:100%; border-collapse:collapse; font-size: var(--font-size-s); border:1px solid var(--border); border-radius:8px; overflow:hidden; }
     .erd-entity-table th { text-align:left; font: var(--font-weight-bold) var(--font-size-xs)/var(--line-height-xs) var(--font-body); text-transform:uppercase; letter-spacing:.04em; color:var(--text-tertiary); background:var(--neutral-10, #f8fafc); padding:9px 12px; }
     .erd-entity-table td { border-top:1px solid var(--border); padding:9px 12px; color:var(--text-active-primary); vertical-align:top; }
-    .erd-entity-table td code { font-size: var(--font-size-xs); background:var(--neutral-10, #f1f5f9); padding:1px 6px; border-radius:4px; color:var(--text-active-secondary); }
+    .erd-entity-table tbody tr:nth-child(even) td { background: var(--neutral-5, #f6f7f9); }
+    .erd-type-chip { font-size: var(--font-size-xs); font-family: 'SF Mono', Menlo, monospace;
+      background: var(--bg-soft); border: 1px solid var(--border); border-radius: var(--radius-small);
+      padding: 1px 5px; color: var(--text-active-secondary); }
     /* v1.5 — Data single-column toolbar, data-set variants, fixed column alignment, legend */
     .erd-toolbar { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:16px; }
     .erd-entity-head { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-bottom:8px; }
@@ -2885,7 +2907,8 @@
           <button class="proto-shell-btn ${shell === 'browser' ? 'active' : ''}" onclick="setProtoShell('browser')">Browser</button>
           <button class="proto-shell-btn ${shell === 'app' ? 'active' : ''}" onclick="setProtoShell('app')">App</button>
         </div>`;
-      const structIcon = `<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M15 3v18"/></svg>`;
+      const structIcon = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M15 3v18"/></svg>`;
+      const isStructOpen = document.getElementById('proto-struct-panel') && document.getElementById('proto-struct-panel').classList.contains('is-open');
       const switcher = `<div class="proto-toolbar" role="tablist" aria-label="Preview device">`
         + PROTO_DEVICES.map(d => {
             const ok = supported.indexOf(d.id) !== -1;
@@ -2894,11 +2917,11 @@
                title="${d.label} · ${d.w}×${d.h}${ok ? '' : ' — not supported by this project'}" ${ok ? '' : 'disabled'}
                ${ok ? `onclick="setProtoDevice('${d.id}')"` : ''}>${protoDeviceIcon(d.id)}</button>`;
           }).join('')
-        + `<button class="proto-device-btn" onclick="toggleProtoStructPanel()" title="Structure" aria-label="Structure tree">${structIcon}</button>`
         + `</div>`;
+      const structBtn = `<div class="proto-header-divider"></div><button class="proto-struct-btn ${isStructOpen ? 'is-active' : ''}" onclick="toggleProtoStructPanel()" title="Structure tree" aria-label="Structure tree">${structIcon}</button>`;
       const headerWithTools = pbPageHeader({
         title: 'Prototype', infoKey: 'prototype',
-        cta: `<div class="proto-header-tools">${shellToggle}${switcher}</div>`,
+        cta: `<div class="proto-header-tools">${shellToggle}${switcher}${structBtn}</div>`,
       });
 
       const body = (typeof window[sel.renderFn] === 'function')
@@ -2911,7 +2934,7 @@
         <div class="pb-page pb-page--viewport">
           ${headerWithTools}
           <div class="pb-content pb-content--fill">
-            <div class="pb-main proto-main">
+            <div class="pb-main proto-main" id="proto-main" onclick="pbProtoMainClick(event)">
               <div class="proto-stage" id="proto-stage">
                 <div class="proto-fit" id="proto-fit">
                   <div class="proto-frame proto-frame--${device} proto-shell--${shell}" id="proto-frame-wrap" style="width:${dim.w}px">
@@ -2921,13 +2944,9 @@
                 </div>
               </div>
             </div>
-          </div>
-          <div id="proto-struct-panel" class="proto-struct-panel">
-            <div class="proto-struct-panel-head">
-              <p class="pb-dialog-h" style="margin:0">Structure</p>
-              <button class="proto-struct-close" onclick="toggleProtoStructPanel()" aria-label="Close structure panel">×</button>
+            <div id="proto-struct-panel" class="proto-struct-panel">
+              <div class="proto-struct-panel-body">${pbRenderStructureTree(screens)}</div>
             </div>
-            <div class="proto-struct-panel-body">${pbRenderStructureTree(screens)}</div>
           </div>
         </div>`;
       wireProtoNav();
@@ -3074,6 +3093,12 @@
     function toggleProtoStructPanel() {
       const p = document.getElementById('proto-struct-panel');
       if (p) p.classList.toggle('is-open');
+    }
+    function pbProtoMainClick(e) {
+      const p = document.getElementById('proto-struct-panel');
+      if (p && p.classList.contains('is-open') && !p.contains(e.target)) {
+        p.classList.remove('is-open');
+      }
     }
     function protoBack() {
       const h = state.protoHistory || [];
@@ -3304,9 +3329,9 @@
           <div class="meta-h2">2.1 Overview</div>
 
           <div class="meta-h3">Objectives</div>
-          <div class="meta-card">${objectiveBody}</div>
+          ${objectiveBody}
 
-          <div class="meta-h3" style="margin-top:24px">Principles</div>
+          <div class="meta-h3">Principles</div>
           ${principles}
         </div>
       `;
@@ -3345,8 +3370,8 @@
         <div class="meta-section">
           <div class="meta-h2">2.3 UI Logic Trade-offs</div>
           ${t.map((to, i) => `
-            <div class="meta-card" style="margin-bottom:12px">
-              <div class="meta-h3">Trade-off ${i+1} — ${pbEscape(to.title || '')}</div>
+            <div class="meta-callout">
+              <div class="meta-h3" style="margin-top:0">Trade-off ${i+1} — ${pbEscape(to.title || '')}</div>
               ${to.question ? `<p class="meta-p"><strong>Question:</strong> ${pbEscape(to.question)}</p>` : ''}
               ${(function(){
                 const opts = Array.isArray(to.options) ? to.options
@@ -3369,12 +3394,10 @@
       return `
         <div class="meta-section">
           <div class="meta-h2">2.4 Others</div>
-          <div class="meta-card">
-            ${o
-              ? `<div class="meta-p">${o}</div>`
-              : `<p class="meta-p" style="color:var(--text-tertiary);font-style:italic">Reserved per-project. Edit <code>PB_DATA.others</code> in the script to populate.</p>`
-            }
-          </div>
+          ${o
+            ? `<div class="meta-p">${o}</div>`
+            : `<p class="meta-p" style="color:var(--text-tertiary);font-style:italic">Reserved per-project. Edit <code>PB_DATA.others</code> in the script to populate.</p>`
+          }
         </div>
       `;
     }
@@ -3557,11 +3580,11 @@
 
       const main = `
         <div class="pb-main flow-main-col">
-          <div class="flow-main-bar">
-            <div class="flow-main-bar-left">${dropdown}</div>
-            ${legendBtn}
-          </div>
           <div class="flow-canvas flow-canvas--fill" id="flow-canvas">
+            <div class="flow-main-bar">
+              <div class="flow-main-bar-left">${dropdown}</div>
+              ${legendBtn}
+            </div>
             <div class="flow-viewport" id="flow-viewport">
               <div class="flow-stage" id="flow-stage">${stage}</div>
             </div>
@@ -3584,14 +3607,14 @@
           <div class="flow-side-panel" data-tab="stories">
             <div class="flow-doc-side-head">
               <h2 class="flow-doc-side-title">User stories</h2>
-              <p class="flow-doc-side-sub">Generated from the PRD + prototype — each maps to a path on the canvas.</p>
+              <button class="pb-info-btn" title="Generated from the PRD + prototype — each maps to a path on the canvas. Hover a story to highlight its flow path." aria-label="About user stories" onclick="event.stopPropagation()">?</button>
             </div>
             ${storiesList}
           </div>
           <div class="flow-side-panel" data-tab="tests" hidden>
             <div class="flow-doc-side-head">
               <h2 class="flow-doc-side-title">Test cases</h2>
-              <p class="flow-doc-side-sub">QA scenarios per story across UX · UI · Function · Business · System-edge — the prototype's test checklist.</p>
+              <button class="pb-info-btn" title="QA scenarios per story across UX · UI · Function · Business · System-edge — the prototype&apos;s test checklist." aria-label="About test cases" onclick="event.stopPropagation()">?</button>
             </div>
             ${warnBlock}
             ${testsList}
@@ -4014,11 +4037,12 @@
         const props = pbActiveProps(org);
         const layout = org.codeLayout === 'side-by-side' ? 'side-by-side' : 'stacked';
         const selected = state.handoffDrawerOpenFor === org.id;
+        const levelBadge = org.level ? `<span class="handoff-level-badge">${pbEscape(org.level)}</span>` : '';
         return `
           <div class="handoff-card ${selected ? 'is-selected' : ''}" onclick="openHandoffDrawer('${pbEscape(org.id)}')">
             <div class="handoff-card-header">
               <span class="handoff-card-title">${i+1} · ${pbEscape(org.name)}</span>
-              <span class="handoff-card-id">${pbEscape(org.scope || 'local')}${org.level ? ' · ' + pbEscape(org.level) : ''} · ${pbEscape(org.id)}</span>
+              ${levelBadge}
               <div class="handoff-card-header-actions" onclick="event.stopPropagation()">${pbRenderHandoffCode(org)}</div>
             </div>
             ${org.meta ? `<p class="handoff-card-meta">${pbEscape(org.meta)}</p>` : ''}
@@ -4032,23 +4056,17 @@
                 </label>`).join('')}
             </div>
             <div class="handoff-card-body handoff-card-body--${layout}">
-              ${pbRenderComponentDemo(org, props)}
+              <div onclick="event.stopPropagation()">${pbRenderComponentDemo(org, props)}</div>
             </div>
           </div>`;
       };
-      // Group by atomic level when any component declares one; otherwise a flat list.
-      const LEVELS = ['atom', 'molecule', 'organism'];
-      if (!shown.some(o => o.level)) {
-        return `<div class="handoff-card-list">${shown.map(cardHtml).join('')}</div>`;
-      }
-      const buckets = {};
-      shown.forEach(o => { const k = LEVELS.indexOf(o.level) >= 0 ? o.level : 'other'; (buckets[k] = buckets[k] || []).push(o); });
-      const labels = { atom: 'Atoms', molecule: 'Molecules', organism: 'Organisms', other: 'Other' };
-      return LEVELS.concat(['other']).filter(k => buckets[k] && buckets[k].length).map(k => `
-        <div class="pb-level-group">
-          <div class="pb-level-head">${labels[k]}<span class="pb-level-count">${buckets[k].length}</span></div>
-          <div class="handoff-card-list">${buckets[k].map(cardHtml).join('')}</div>
-        </div>`).join('');
+      // Sort by level order (atom → molecule → organism), then flat list.
+      const LEVEL_ORDER = ['atom', 'molecule', 'organism'];
+      const sorted = shown.slice().sort((a, b) => {
+        const ia = LEVEL_ORDER.indexOf(a.level), ib = LEVEL_ORDER.indexOf(b.level);
+        return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib);
+      });
+      return `<div class="handoff-card-list">${sorted.map(cardHtml).join('')}</div>`;
     }
 
     // Component demo (v1.5): a single live preview of the currently-selected variant. The
@@ -4140,7 +4158,6 @@
               <h2 class="handoff-drawer-title">${pbEscape(org.name)}</h2>
               ${org.meta ? `<p class="handoff-drawer-sub">${pbEscape(org.meta)}</p>` : ''}
             </div>
-            <button class="handoff-drawer-close" onclick="closeHandoffDrawer()" aria-label="Close drawer">×</button>
           </div>
           <div class="handoff-drawer-segments">
             ${HANDOFF_TABS.map(([tid, label]) =>
@@ -4169,12 +4186,11 @@
 
     function pbRenderHandoffAnatomy(org) {
       const a = org.anatomy;
-      if (!a) return '<p class="handoff-spec-note">Anatomy not authored for this component yet.</p>';
+      if (!a) return pbAutoAnatomy(org);
       // Prose form: components often author anatomy as a plain string (or {description}).
-      // Render it as text with a live preview, rather than falling through to "not authored".
       if (typeof a === 'string' || !a.parts || !a.parts.length) {
         const text = typeof a === 'string' ? a : (a.description || '');
-        if (!text) return '<p class="handoff-spec-note">Anatomy not authored for this component yet.</p>';
+        if (!text) return pbAutoAnatomy(org);
         const p = (typeof a === 'object' && a.renderProps) || pbActiveProps(org);
         const prev = typeof window[org.renderFn] === 'function' ? window[org.renderFn](p) : '';
         return `${prev ? `<div class="anatomy-stage"><div class="anatomy-render">${prev}</div></div>` : ''}
@@ -4200,13 +4216,78 @@
         </table>`;
     }
 
+    function pbAutoAnatomy(org) {
+      const props = pbActiveProps(org);
+      const html = (typeof window[org.renderFn] === 'function') ? window[org.renderFn](props) : '';
+      if (!html) return '<p class="handoff-spec-note">No render body to auto-derive anatomy from.</p>';
+      const tmp = document.createElement('div');
+      tmp.innerHTML = html;
+      // Build tokenMap: cssClass → [tokens] from <style> tags in the render body
+      const tokenMap = {};
+      tmp.querySelectorAll('style').forEach(function(s) {
+        const text = s.textContent;
+        const ruleRe = /\.([a-zA-Z0-9_-]+)[^{]*\{([^}]*)\}/g;
+        let m;
+        while ((m = ruleRe.exec(text)) !== null) {
+          const cls = m[1], body = m[2];
+          const tokens = [];
+          const varRe = /var\(--([\w-]+)\)/g;
+          let v;
+          while ((v = varRe.exec(body)) !== null) {
+            const t = '--' + v[1];
+            if (tokens.indexOf(t) < 0) tokens.push(t);
+          }
+          if (tokens.length) {
+            if (!tokenMap[cls]) tokenMap[cls] = [];
+            tokens.forEach(function(t) { if (tokenMap[cls].indexOf(t) < 0) tokenMap[cls].push(t); });
+          }
+        }
+      });
+      // Walk DOM tree (max depth 4, skip style/script)
+      const elements = [];
+      const nestedIds = (PB_DATA.handoff.organisms || []).map(function(o) { return o.id; });
+      function walk(el, depth) {
+        if (depth > 4 || el.nodeType !== 1) return;
+        if (el.tagName === 'STYLE' || el.tagName === 'SCRIPT') return;
+        const classes = Array.from(el.classList);
+        const tokens = [];
+        classes.forEach(function(cls) {
+          (tokenMap[cls] || []).forEach(function(t) { if (tokens.indexOf(t) < 0) tokens.push(t); });
+        });
+        const desc = classes.length > 0 ? classes[0] : el.tagName.toLowerCase();
+        const isNested = classes.some(function(c) { return nestedIds.indexOf(c) >= 0; });
+        elements.push({ depth: depth, desc: desc, tokens: tokens, isNested: isNested });
+        Array.from(el.children).forEach(function(child) { walk(child, depth + 1); });
+      }
+      Array.from(tmp.children).forEach(function(child) {
+        if (child.tagName !== 'STYLE') walk(child, 0);
+      });
+      if (!elements.length) return `<div class="anatomy-stage"><div class="anatomy-render">${html}</div></div><p class="handoff-spec-note">No elements found.</p>`;
+      const prev = `<div class="anatomy-stage"><div class="anatomy-render">${html}</div></div>`;
+      const rows = elements.map(function(el, i) {
+        const tokenHtml = el.tokens.length
+          ? el.tokens.map(function(t) { return `<code style="font-size:10px;background:var(--neutral-10);padding:1px 4px;border-radius:3px;font-family:'SF Mono',monospace">${pbEscape(t)}</code>`; }).join(' ')
+          : '<span style="color:var(--text-tertiary)">—</span>';
+        const name = el.isNested
+          ? `${pbEscape(el.desc)} <em style="color:var(--brand);font-size:var(--font-size-xs)">↗ nested component</em>`
+          : pbEscape(el.desc);
+        return `<tr><td><span class="anatomy-badge">${i+1}</span></td><td>${name}</td><td>${tokenHtml}</td></tr>`;
+      }).join('');
+      return `${prev}
+        <p class="handoff-spec-note" style="margin-top:10px;color:var(--text-tertiary)">Auto-derived — add <code>anatomy.parts[]</code> to override.</p>
+        <table class="anatomy-table" style="margin-top:10px">
+          <thead><tr><th>#</th><th>Element</th><th>Tokens</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>`;
+    }
+
     function pbRenderHandoffSpec(org) {
       const s = org.spec;
-      if (!s) return '<p class="handoff-spec-note">Specification not authored for this component yet.</p>';
+      if (!s) return pbAutoSpec(org);
       // Prose form: spec authored as a plain string (or {description}) → render as text + preview.
       if (typeof s === 'string' || !s.stack || !s.stack.length) {
         const text = typeof s === 'string' ? s : (s.description || '');
-        if (!text) return '<p class="handoff-spec-note">Specification not authored for this component yet.</p>';
+        if (!text) return pbAutoSpec(org);
         const p = (typeof s === 'object' && s.renderProps) || pbActiveProps(org);
         const prev = typeof window[org.renderFn] === 'function' ? window[org.renderFn](p) : '';
         return `${prev ? `<div class="spec-stage"><div class="spec-render">${prev}</div></div>` : ''}
@@ -4216,12 +4297,66 @@
         ? window[org.renderFn](s.renderProps || {}) : '';
       const legend = `<div class="spec-legend">${(s.legend || []).map(a =>
         `<span class="spec-legend-item"><span class="spec-swatch" style="background:${pbEscape(a.color)}"></span>${pbEscape(a.label)}</span>`).join('')}</div>`;
-      /* The redline annotations (bands · lines · chips) are injected post-render
-         by pbPlaceSpecAnnotations(), which measures the live component. */
       return `${legend}
         <div class="spec-stage" data-spec-for="${pbEscape(org.id)}">
           <div class="spec-render">${preview}</div>
         </div>`;
+    }
+
+    function pbAutoSpec(org) {
+      const props = pbActiveProps(org);
+      const html = (typeof window[org.renderFn] === 'function') ? window[org.renderFn](props) : '';
+      const preview = html ? `<div class="spec-stage"><div class="spec-render">${html}</div></div>` : '';
+      // Find the live preview element in the card to measure computed styles
+      const previewEl = document.querySelector('.handoff-card-preview[data-component-preview="' + org.id + '"]');
+      const root = previewEl && previewEl.firstElementChild;
+      if (!root) return preview + '<p class="handoff-spec-note" style="margin-top:12px">Render the card to measure — click the component card first.</p>';
+      const cs = window.getComputedStyle(root);
+      const spacingMap = {
+        '0px':'--space-0','4px':'--space-1','8px':'--space-2','12px':'--space-3',
+        '16px':'--space-4','20px':'--space-5','24px':'--space-6','32px':'--space-8','48px':'--space-12',
+      };
+      function tok(v) { return spacingMap[v] ? spacingMap[v] : ''; }
+      const rows = [
+        ['Padding', cs.paddingTop + ' ' + cs.paddingRight + ' ' + cs.paddingBottom + ' ' + cs.paddingLeft, ''],
+        ['Padding top', cs.paddingTop, tok(cs.paddingTop)],
+        ['Padding right', cs.paddingRight, tok(cs.paddingRight)],
+        ['Padding bottom', cs.paddingBottom, tok(cs.paddingBottom)],
+        ['Padding left', cs.paddingLeft, tok(cs.paddingLeft)],
+        ['Margin top', cs.marginTop, tok(cs.marginTop)],
+        ['Margin bottom', cs.marginBottom, tok(cs.marginBottom)],
+        ['Gap', cs.gap && cs.gap !== 'normal' ? cs.gap : '', cs.gap && cs.gap !== 'normal' ? tok(cs.gap) : ''],
+        ['Border radius', cs.borderRadius, ''],
+        ['Width', cs.width, ''],
+        ['Height', cs.height, ''],
+      ].filter(function(r) { return r[1] && r[1] !== '0px' && r[1] !== 'normal' && r[1] !== 'auto' && r[1] !== 'none' && r[1] !== ''; });
+      const pt = parseInt(cs.paddingTop)||0, pr = parseInt(cs.paddingRight)||0,
+            pb2 = parseInt(cs.paddingBottom)||0, pl = parseInt(cs.paddingLeft)||0,
+            mt = parseInt(cs.marginTop)||0, mb = parseInt(cs.marginBottom)||0;
+      const boxDiagram = `<div style="margin:16px 0 12px;padding:12px;background:var(--neutral-5);border:1px solid var(--border);border-radius:8px;display:inline-block;font-family:'SF Mono',Menlo,monospace;font-size:10px;line-height:1.5">
+        <div style="font-size:var(--font-size-xxs);font-weight:var(--font-weight-bold);text-transform:uppercase;letter-spacing:.05em;color:var(--text-tertiary);margin-bottom:8px">Box model</div>
+        ${mt ? `<div style="background:rgba(255,165,0,0.18);border:1px dashed #b45309;border-radius:4px 4px 0 0;padding:3px 12px;text-align:center;color:#b45309;margin-bottom:-1px">↑ margin-top: ${cs.marginTop}</div>` : ''}
+        <div style="display:inline-flex;align-items:stretch;background:rgba(0,128,0,0.10);border:1px solid #16a34a;border-radius:${mt?'0':'4px'} ${mt?'0':'4px'} ${mb?'0':'4px'} ${mb?'0':'4px'}">
+          ${pl ? `<span style="padding:10px 6px;color:#166534;background:rgba(0,128,0,0.08);font-size:9px;writing-mode:vertical-lr;text-orientation:mixed;text-align:center">← ${cs.paddingLeft}</span>` : ''}
+          <div style="display:flex;flex-direction:column;align-items:stretch">
+            ${pt ? `<div style="background:rgba(0,128,0,0.08);padding:3px 16px;text-align:center;color:#166534;font-size:9px;border-bottom:1px dashed #16a34a">padding-top: ${cs.paddingTop}</div>` : ''}
+            <div style="background:rgba(100,149,237,0.15);border:1px dashed #2196f3;border-radius:4px;padding:12px 20px;text-align:center;color:#1e3a8a;min-width:80px;margin:4px">content</div>
+            ${pb2 ? `<div style="background:rgba(0,128,0,0.08);padding:3px 16px;text-align:center;color:#166534;font-size:9px;border-top:1px dashed #16a34a">padding-bottom: ${cs.paddingBottom}</div>` : ''}
+          </div>
+          ${pr ? `<span style="padding:10px 6px;color:#166534;background:rgba(0,128,0,0.08);font-size:9px;writing-mode:vertical-rl;text-orientation:mixed;text-align:center">${cs.paddingRight} →</span>` : ''}
+        </div>
+        ${mb ? `<div style="background:rgba(255,165,0,0.18);border:1px dashed #b45309;border-radius:0 0 4px 4px;padding:3px 12px;text-align:center;color:#b45309;margin-top:-1px">margin-bottom: ${cs.marginBottom} ↓</div>` : ''}
+      </div>`;
+      const tableRows = rows.map(function(r) {
+        return `<tr><td style="color:var(--text-active-secondary);font-size:var(--font-size-xs);padding:7px 10px">${pbEscape(r[0])}</td><td style="padding:7px 10px"><code style="font-size:var(--font-size-xs)">${pbEscape(r[1])}</code></td><td style="padding:7px 10px;color:var(--brand);font-size:var(--font-size-xs);font-family:'SF Mono',monospace">${pbEscape(r[2])}</td></tr>`;
+      }).join('');
+      return `${preview}
+        ${boxDiagram}
+        ${tableRows ? `<table class="anatomy-table" style="margin-top:4px">
+          <thead><tr><th>Property</th><th>Computed</th><th>Token</th></tr></thead>
+          <tbody>${tableRows}</tbody>
+        </table>` : ''}
+        <p class="handoff-spec-note" style="margin-top:10px;color:var(--text-tertiary)">Auto-measured — add <code>spec.stack[]</code> to customize.</p>`;
     }
 
     function pbRenderHandoffUiLogic(org) {
@@ -4739,7 +4874,7 @@
                 <thead><tr><th>Field</th><th>Type</th><th>${pbEscape(exHead)}</th><th>Notes</th></tr></thead>
                 <tbody>${byEntity[ent].map(r => {
                   const ex = v === 'schema' ? (r.example || '') : pbErdExampleFor(e, ent, r.field, v);
-                  return `<tr><td>${pbEscape(r.field||'')}</td><td><code>${pbEscape(r.type||'')}</code></td><td>${pbEscape(ex || '—')}</td><td>${pbEscape(r.notes||'')}</td></tr>`;
+                  return `<tr><td>${pbEscape(r.field||'')}</td><td><code class="erd-type-chip">${pbEscape(r.type||'')}</code></td><td>${pbEscape(ex || '—')}</td><td>${pbEscape(r.notes||'')}</td></tr>`;
                 }).join('')}</tbody>
               </table>
             </div>`;
