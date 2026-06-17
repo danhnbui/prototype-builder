@@ -2979,24 +2979,27 @@
     }
     // Device chrome — browser (tabs + nav bar) or app (titlebar / bezel notch).
     function protoChrome(shell, device, sel, meta) {
-      const url = `${(meta.name || 'prototype')} · ${(sel.name || sel.id)}`;
+      const title = `${(meta.name || 'prototype')} · ${(sel.name || sel.id)}`;
+      const slug = (meta.name || 'app').toLowerCase().replace(/[^a-z0-9\s]/g, '').trim().split(/\s+/)[0];
+      const path = (sel.id || '').replace(/-/g, '/');
+      const displayUrl = `https://${slug}.app/${path}`;
       if (shell === 'browser') {
         const extra = (state.protoTabs || []).map((t, i) =>
           `<span class="proto-tab">${pbEscape(t)}<span class="proto-tab-x" title="Close tab" onclick="protoCloseTab(${i})">×</span></span>`).join('');
         const canBack = (state.protoHistory || []).length > 0;
         return `<div class="proto-tabbar">
-            <span class="proto-tab active">${pbEscape(url)}</span>
+            <span class="proto-tab active">${pbEscape(title)}</span>
             ${extra}
             <button class="proto-newtab" title="New tab" aria-label="Open a new tab" onclick="protoNewTab()">+</button>
           </div>
           <div class="proto-navbar">
             <button class="proto-navbtn" title="Back" aria-label="Back" onclick="protoBack()" ${canBack ? '' : 'disabled'}>‹</button>
             <button class="proto-navbtn" title="Reload" aria-label="Reload" onclick="protoReload()">⟳</button>
-            <div class="proto-urlbar">${pbEscape(url)}</div>
+            <div class="proto-urlbar">${pbEscape(displayUrl)}</div>
           </div>`;
       }
       if (device === 'tablet' || device === 'mobile') return protoStatusBar();
-      return `<div class="proto-appbar"><span class="proto-appbar-title">${pbEscape(url)}</span></div>`;
+      return `<div class="proto-appbar"><span class="proto-appbar-title">${pbEscape(title)}</span></div>`;
     }
     // Device status bar (replaces the notch) — clock + signal/wifi/battery. The foreground color is
     // chosen for high contrast against the screen's background (see pbSetStatusBarContrast).
