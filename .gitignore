@@ -20,5 +20,6 @@ dist/
 /registry.json
 /prototype.html
 /memory/
+/render/
 /design-system/
 /.pb-backups/

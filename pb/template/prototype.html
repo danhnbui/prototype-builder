@@ -191,16 +191,21 @@
     }
     .meta-h1 {
       font-family: var(--font-heading);
-      font-size: var(--font-size-xxxl); font-weight: var(--font-weight-bold);
+      font-size: var(--font-size-xl); font-weight: var(--font-weight-bold);
       color: var(--text-active-primary);
       margin: 0 0 8px;
-      line-height: var(--line-height-xxxl);
+      line-height: var(--line-height-xl);
     }
     .meta-h3 {
       font-family: var(--font-heading);
-      font-size: var(--font-size-l); font-weight: var(--font-weight-bold);
+      font-size: var(--font-size-base); font-weight: var(--font-weight-bold);
       color: var(--text-active-primary);
-      margin: 0 0 12px;
+      margin: 0 0 10px; line-height: var(--line-height-base);
+    }
+    .meta-label {
+      font-size: var(--font-size-xs); font-weight: var(--font-weight-bold);
+      text-transform: uppercase; letter-spacing: 0.5px;
+      color: var(--text-tertiary); margin: 0 0 6px;
     }
     .meta-sub {
       font-size: var(--font-size-base);
@@ -286,7 +291,7 @@
        ======================================================================== */
     .meta-h2 {
       font-family: var(--font-heading);
-      font-size: var(--font-size-xxl); font-weight: var(--font-weight-bold);
+      font-size: var(--font-size-l); font-weight: var(--font-weight-bold);
       color: var(--text-active-primary);
       margin: 0 0 16px;
       padding-bottom: 8px;
@@ -489,7 +494,7 @@
       display: flex; align-items: center; justify-content: center; gap: 6px;
       width: 100%;
       padding: 9px 14px;
-      border: 1px solid var(--border-strong);
+      border: 1px solid var(--border);
       border-radius: var(--radius-small);
       background: var(--neutral-0);
       font-size: var(--font-size-xs); font-weight: var(--font-weight-medium); font-family: var(--font-heading);
@@ -751,7 +756,7 @@
       margin: 40px auto;
       padding: 48px 40px;
       background: white;
-      border: 1px dashed var(--border-strong);
+      border: 1px dashed var(--border);
       border-radius: var(--radius-medium);
       text-align: center;
     }
@@ -839,9 +844,9 @@
     .pb-page-titlerow { display: flex; align-items: center; gap: 10px; margin: 8px 0; }
     .pb-page-title {
       font-family: var(--font-heading);
-      font-size: var(--font-size-xxl); font-weight: var(--font-weight-bold);
+      font-size: var(--font-size-xl); font-weight: var(--font-weight-bold);
       color: var(--text-active-primary);
-      margin: 0; line-height: var(--line-height-xxl); letter-spacing: -0.01em;
+      margin: 0; line-height: var(--line-height-xl); letter-spacing: -0.01em;
     }
     .pb-info-btn {
       flex-shrink: 0;
@@ -885,6 +890,26 @@
       font-size: var(--font-size-s); line-height: var(--line-height-p-s);
       text-align: center; padding: 28px 16px;
     }
+    /* Prototype structure slide-in panel */
+    .proto-struct-panel {
+      position:fixed; top:44px; right:0; height:calc(100vh - 44px); width:280px;
+      background:#fff; border-left:1px solid var(--border);
+      box-shadow:-4px 0 20px rgba(0,0,0,0.10); z-index:200;
+      transform:translateX(100%); transition:transform .25s ease;
+      display:flex; flex-direction:column; overflow:hidden;
+    }
+    .proto-struct-panel.is-open { transform:translateX(0); }
+    .proto-struct-panel-head {
+      display:flex; align-items:center; justify-content:space-between;
+      padding:14px 16px; border-bottom:1px solid var(--border); flex-shrink:0;
+    }
+    .proto-struct-panel-body { overflow-y:auto; flex:1; padding:16px; }
+    .proto-struct-close {
+      width:28px; height:28px; border:0; background:transparent; cursor:pointer;
+      font-size:var(--font-size-l); color:var(--text-tertiary);
+      display:flex; align-items:center; justify-content:center; border-radius:var(--radius-small);
+    }
+    .proto-struct-close:hover { background:var(--neutral-10); color:var(--text-active-primary); }
     .pb-aside-section { margin-bottom: 22px; }
     .pb-aside-section:last-child { margin-bottom: 0; }
     .pb-entity-chips { display: flex; flex-wrap: wrap; gap: 8px; }
@@ -928,7 +953,7 @@
     }
     .pb-flow-select {
       font: var(--font-weight-medium) var(--font-size-s)/var(--line-height-s) var(--font-body);
-      padding: 7px 10px; border: 1px solid var(--border-strong); border-radius: 8px;
+      padding: 7px 10px; border: 1px solid var(--border); border-radius: 8px;
       background: white; color: var(--text-active-primary); cursor: pointer;
     }
     .pb-flow-name { font-family: var(--font-heading); font-weight: var(--font-weight-bold); font-size: var(--font-size-s); color: var(--text-active-primary); }
@@ -1009,7 +1034,7 @@
     .pb-ds-bar--empty { border-style: dashed; color: var(--text-active-secondary); cursor: pointer; }
     .pb-ds-bar--empty:hover { border-color: var(--brand); color: var(--brand); }
     .pb-ds-name { font-weight: var(--font-weight-bold); font-family: var(--font-heading); }
-    .pb-ds-sep { color: var(--border-strong); }
+    .pb-ds-sep { color: var(--border); }
     .pb-ds-link {
       color: var(--brand); text-decoration: none; font-weight: var(--font-weight-medium);
       display: inline-flex; gap: 5px; align-items: center;
@@ -1070,7 +1095,7 @@
       cursor: pointer;
       transition: border-color 0.12s, box-shadow 0.12s, transform 0.06s;
     }
-    .handoff-card:hover { border-color: var(--border-strong); box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+    .handoff-card:hover { border-color: var(--border); box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
     .handoff-card:active { transform: translateY(1px); }
     .handoff-card-header {
       display: flex; align-items: center; gap: 12px;
@@ -1165,7 +1190,7 @@
     }
     .handoff-drawer-close {
       width: 32px; height: 32px;
-      border: 1px solid var(--border-strong);
+      border: 1px solid var(--border);
       background: white;
       border-radius: 6px;
       cursor: pointer;
@@ -1236,7 +1261,7 @@
     }
     .prop-select {
       height: 30px; padding: 0 26px 0 8px;
-      border: 1px solid var(--border-strong); border-radius: 6px;
+      border: 1px solid var(--border); border-radius: 6px;
       font: var(--font-weight-medium) var(--font-size-xs)/var(--line-height-xs) var(--font-body);
       background: #fff; color: var(--text-active-primary); cursor: pointer;
       appearance: none;
@@ -1260,7 +1285,7 @@
     .handoff-copy-code-btn {
       display: inline-flex; align-items: center; gap: 7px;
       font: var(--font-weight-bold) var(--font-size-xs)/var(--line-height-xs) var(--font-body); color: var(--text-active-secondary);
-      background: #fff; border: 1px solid var(--border-strong); border-radius: 8px;
+      background: #fff; border: 1px solid var(--border); border-radius: 8px;
       padding: 8px 13px; cursor: pointer; transition: border-color .12s, color .12s, background .12s;
     }
     .handoff-copy-code-btn:hover { border-color: var(--brand); color: var(--brand); background: var(--brand-soft); }
@@ -1510,7 +1535,7 @@
     .flow-doc-story-path { font-size: var(--font-size-xs); color: var(--text-active-secondary); margin-bottom: 6px; line-height: var(--line-height-p-xs); }
     .flow-doc-story-check { list-style: none; padding: 0; margin: 0; }
     .flow-doc-story-check li { font-size: var(--font-size-xs); color: var(--text-active-secondary); padding: 3px 0 3px 22px; position: relative; line-height: var(--line-height-p-xs); }
-    .flow-doc-story-check li::before { content: ''; position: absolute; left: 0; top: 6px; width: 13px; height: 13px; border: 1.5px solid var(--border-strong); border-radius: 3px; background: white; }
+    .flow-doc-story-check li::before { content: ''; position: absolute; left: 0; top: 6px; width: 13px; height: 13px; border: 1.5px solid var(--border); border-radius: 3px; background: white; }
     .flow-doc-validation { font-size: var(--font-size-xs); color: var(--text-active-secondary); margin: 14px 0 0; padding: 10px 14px; background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 6px; line-height: var(--line-height-p-xs); }
     .flow-doc-validation code { font-family: 'SF Mono', Menlo, monospace; background: white; padding: 1px 4px; border-radius: 3px; font-size: var(--font-size-xxs); }
     .flow-doc-legend { flex-shrink: 0; }
@@ -1518,7 +1543,7 @@
       display: inline-flex; align-items: center; gap: 6px;
       padding: 6px 10px 6px 8px;
       background: white;
-      border: 1px solid var(--border-strong);
+      border: 1px solid var(--border);
       border-radius: 999px;
       cursor: pointer;
       font: var(--font-weight-medium) var(--font-size-xs)/var(--line-height-xs) var(--font-body);
@@ -1703,7 +1728,7 @@
       position: absolute; top: 16px; right: 16px; z-index: 10;
       display: flex; flex-direction: column; gap: 2px;
       background: white;
-      border: 1px solid var(--border-strong);
+      border: 1px solid var(--border);
       border-radius: var(--radius-small);
       box-shadow: var(--shadow-sm);
       overflow: hidden;
@@ -1723,7 +1748,7 @@
     .flow-zoom-readout {
       position: absolute; bottom: 16px; right: 16px; z-index: 10;
       background: white;
-      border: 1px solid var(--border-strong);
+      border: 1px solid var(--border);
       border-radius: var(--radius-full);
       padding: 4px 12px;
       font-family: var(--font-heading); font-size: var(--font-size-xs); font-weight: var(--font-weight-bold);
@@ -1878,7 +1903,7 @@
     .variant-ctrl {
       height: 32px; padding: 0 14px;
       background: white;
-      border: 1px solid var(--border-strong);
+      border: 1px solid var(--border);
       border-radius: var(--radius-full);
       cursor: pointer;
       font-family: var(--font-heading);
@@ -1910,7 +1935,7 @@
       max-width: 560px;
       margin: 80px auto;
       background: white;
-      border: 1px dashed var(--border-strong);
+      border: 1px dashed var(--border);
       border-radius: var(--radius-large);
       padding: 40px;
       text-align: center;
@@ -1938,26 +1963,26 @@
        Toolbar (shell toggle + device switcher) now lives in the page-header CTA slot.
        4 fixed device sizes; the frame scales to fit the column via fitProtoFrame(). */
     .proto-header-tools { display:flex; align-items:center; gap:12px; flex-wrap:wrap; justify-content:flex-end; }
-    .proto-shell-toggle { display:inline-flex; border:1px solid var(--border-strong); border-radius:8px; overflow:hidden; background:#fff; }
+    .proto-shell-toggle { display:inline-flex; border:1px solid var(--border); border-radius:8px; overflow:hidden; background:#fff; }
     .proto-shell-btn { height:32px; display:inline-flex; align-items:center; border:0; background:transparent;
       padding:0 14px; font: var(--font-weight-bold) var(--font-size-xs)/var(--line-height-xs) var(--font-body);
       color:var(--text-active-secondary); cursor:pointer; transition:background .12s, color .12s; }
-    .proto-shell-btn + .proto-shell-btn { border-left:1px solid var(--border-strong); }
+    .proto-shell-btn + .proto-shell-btn { border-left:1px solid var(--border); }
     .proto-shell-btn.active { background:var(--brand); color:#fff; }
     /* Device switcher as a connected segmented tab group (matches the Browser | App toggle). */
-    .proto-toolbar { display:inline-flex; align-items:center; border:1px solid var(--border-strong);
+    .proto-toolbar { display:inline-flex; align-items:center; border:1px solid var(--border);
       border-radius:8px; overflow:hidden; background:#fff; }
     .proto-device-btn { display:inline-flex; align-items:center; justify-content:center; width:44px; height:32px;
       border:0; border-radius:0; background:transparent; color:var(--text-active-secondary);
       cursor:pointer; transition:background .12s, color .12s; }
-    .proto-device-btn + .proto-device-btn { border-left:1px solid var(--border-strong); }
+    .proto-device-btn + .proto-device-btn { border-left:1px solid var(--border); }
     .proto-device-btn:hover:not(:disabled):not(.is-disabled) { color:var(--text-active-primary); background:var(--neutral-5, #f6f7f9); }
     .proto-device-btn.active { background:var(--brand); color:#fff; }
     .proto-device-btn:disabled, .proto-device-btn.is-disabled { opacity:.38; cursor:not-allowed; }
     .proto-main { display:flex; min-height:0; }
-    .proto-stage { flex:1 1 auto; min-width:0; min-height:0; overflow:hidden; }
-    .proto-fit { height:100%; display:flex; justify-content:center; align-items:center; }
-    .proto-frame { background:#fff; border:1px solid var(--border-strong); border-radius:12px; overflow:hidden;
+    .proto-stage { flex:1 1 auto; min-width:0; min-height:0; overflow:visible; }
+    .proto-fit { height:100%; display:flex; justify-content:center; align-items:flex-start; padding:40px; }
+    .proto-frame { background:#fff; border:1px solid var(--border); border-radius:12px; overflow:hidden;
       box-shadow:0 10px 34px rgba(15,23,42,.12); transform-origin:center center; flex:0 0 auto; }
     .proto-frame--tablet { border:10px solid #1c1f22; border-radius:26px; }
     .proto-frame--mobile { border:12px solid #1c1f22; border-radius:38px; }
@@ -1974,7 +1999,7 @@
       font-size: var(--font-size-l); line-height: var(--line-height-l); cursor:pointer; flex-shrink:0; }
     .proto-newtab:hover { background:rgba(0,0,0,.06); color:var(--text-active-primary); }
     .proto-navbar { display:flex; align-items:center; gap:8px; height:42px; padding:0 12px; background:var(--neutral-10); border-bottom:1px solid var(--border); }
-    .proto-navbtn { width:28px; height:28px; border-radius:50%; border:1px solid var(--border); background:#fff;
+    .proto-navbtn { width:36px; height:36px; border-radius:50%; border:1px solid var(--border); background:#fff;
       color:var(--text-active-secondary); cursor:pointer; font-size: var(--font-size-base); line-height: var(--line-height-base); display:inline-flex; align-items:center; justify-content:center; flex-shrink:0; }
     .proto-navbtn:hover:not(:disabled) { border-color:var(--text-tertiary); color:var(--text-active-primary); }
     .proto-navbtn:disabled { opacity:.4; cursor:not-allowed; }
@@ -2003,7 +2028,7 @@
     .handoff-variants { display:flex; flex-wrap:wrap; gap:16px; align-items:flex-start; }
     .handoff-variant { display:flex; flex-direction:column; gap:6px; flex:1 1 220px; min-width:200px; }
     .handoff-variant-label { font: var(--font-weight-bold) var(--font-size-xs)/var(--line-height-xs) var(--font-body); letter-spacing:.04em; text-transform:uppercase; color:var(--text-tertiary); }
-    .handoff-variant-demo { padding:14px; border:1px dashed var(--border-strong); border-radius:8px; background:var(--neutral-0, #fff); }
+    .handoff-variant-demo { padding:14px; border:1px dashed var(--border); border-radius:8px; background:var(--neutral-0, #fff); }
     .meta-subtab-count { font-size: var(--font-size-xs); opacity:.55; margin-left:2px; }
     /* UX Design — sidebar scrolls internally (1 viewport); story/test lists */
     .flow-doc-side { overflow-y:auto; max-height:calc(100vh - 210px); }
@@ -2860,6 +2885,7 @@
           <button class="proto-shell-btn ${shell === 'browser' ? 'active' : ''}" onclick="setProtoShell('browser')">Browser</button>
           <button class="proto-shell-btn ${shell === 'app' ? 'active' : ''}" onclick="setProtoShell('app')">App</button>
         </div>`;
+      const structIcon = `<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M15 3v18"/></svg>`;
       const switcher = `<div class="proto-toolbar" role="tablist" aria-label="Preview device">`
         + PROTO_DEVICES.map(d => {
             const ok = supported.indexOf(d.id) !== -1;
@@ -2868,6 +2894,7 @@
                title="${d.label} · ${d.w}×${d.h}${ok ? '' : ' — not supported by this project'}" ${ok ? '' : 'disabled'}
                ${ok ? `onclick="setProtoDevice('${d.id}')"` : ''}>${protoDeviceIcon(d.id)}</button>`;
           }).join('')
+        + `<button class="proto-device-btn" onclick="toggleProtoStructPanel()" title="Structure" aria-label="Structure tree">${structIcon}</button>`
         + `</div>`;
       const headerWithTools = pbPageHeader({
         title: 'Prototype', infoKey: 'prototype',
@@ -2883,7 +2910,7 @@
       $('#app').innerHTML = `
         <div class="pb-page pb-page--viewport">
           ${headerWithTools}
-          <div class="pb-content pb-content--split pb-content--fill">
+          <div class="pb-content pb-content--fill">
             <div class="pb-main proto-main">
               <div class="proto-stage" id="proto-stage">
                 <div class="proto-fit" id="proto-fit">
@@ -2894,10 +2921,13 @@
                 </div>
               </div>
             </div>
-            <aside class="pb-aside">
-              <p class="pb-dialog-h">Structure</p>
-              ${pbRenderStructureTree(screens)}
-            </aside>
+          </div>
+          <div id="proto-struct-panel" class="proto-struct-panel">
+            <div class="proto-struct-panel-head">
+              <p class="pb-dialog-h" style="margin:0">Structure</p>
+              <button class="proto-struct-close" onclick="toggleProtoStructPanel()" aria-label="Close structure panel">×</button>
+            </div>
+            <div class="proto-struct-panel-body">${pbRenderStructureTree(screens)}</div>
           </div>
         </div>`;
       wireProtoNav();
@@ -2909,7 +2939,7 @@
       { id: 'monitor', label: 'Large monitor', w: 1920, h: 1080 },
       { id: 'laptop',  label: 'Laptop',        w: 1280, h: 832  },
       { id: 'tablet',  label: 'Tablet',        w: 834,  h: 1112 },
-      { id: 'mobile',  label: 'Mobile',        w: 390,  h: 844  },
+      { id: 'mobile',  label: 'Mobile',        w: 429,  h: 926  },
     ];
     // Normalize a meta.devices list to the 4-key model — legacy 'desktop' → monitor + laptop.
     function pbNormalizeDeviceList(list) {
@@ -3041,6 +3071,10 @@
     }
     function setProtoDevice(id) { state.protoDevice = id; renderPrototype(); }
     function setProtoShell(v) { state.protoShell = (v === 'app' ? 'app' : 'browser'); renderPrototype(); }
+    function toggleProtoStructPanel() {
+      const p = document.getElementById('proto-struct-panel');
+      if (p) p.classList.toggle('is-open');
+    }
     function protoBack() {
       const h = state.protoHistory || [];
       if (!h.length) return;
@@ -3218,10 +3252,9 @@
         if (h.classList.contains('meta-h2')) { cur = { head: h, children: [] }; groups.push(cur); }
         else { if (!cur) { cur = { head: null, children: [] }; groups.push(cur); } cur.children.push(h); }
       });
-      const dot = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="14" rx="2"/><path d="M8 21h8"/></svg>';
       const tocNode = (h, isChild) => isChild
         ? `<li class="pb-tree-node"><span class="pb-tree-node-label summary-toc-item" data-toc="${h.id}" onclick="pbSummaryTocClick(event,'${h.id}')">${pbEscape(h.textContent)}</span></li>`
-        : `<div class="pb-tree-screen-name summary-toc-item" data-toc="${h.id}" onclick="pbSummaryTocClick(event,'${h.id}')">${dot}<span>${pbEscape(h.textContent)}</span></div>`;
+        : `<div class="pb-tree-screen-name summary-toc-item" data-toc="${h.id}" onclick="pbSummaryTocClick(event,'${h.id}')"><span>${pbEscape(h.textContent)}</span></div>`;
       nav.innerHTML = '<div class="pb-tree summary-toc-tree">' + groups.map(g => {
         const parent = g.head ? tocNode(g.head, false) : '';
         const kids = g.children.length ? `<ul class="pb-tree-list">${g.children.map(c => tocNode(c, true)).join('')}</ul>` : '';
@@ -3281,9 +3314,11 @@
 
     function pbRenderUserInsights() {
       const u = (PB_DATA && PB_DATA.userInsights) || {};
-      const sub = (title, body) => body
-        ? `<div class="meta-h3">${title}</div><div class="meta-card"><p class="meta-p">${pbEscape(body)}</p></div>`
-        : `<div class="meta-h3">${title}</div><div class="meta-card"><p class="meta-p" style="color:var(--text-tertiary);font-style:italic">No ${title.toLowerCase()} recorded yet.</p></div>`;
+      const sub = (title, body) => `
+        <div style="margin-bottom:24px">
+          <p class="meta-label">${title}</p>
+          <p class="meta-p">${body ? pbEscape(body) : '<em style="color:var(--text-tertiary)">Not recorded yet.</em>'}</p>
+        </div>`;
       return `
         <div class="meta-section">
           <div class="meta-h2">2.2 User Insights</div>
