@@ -3332,12 +3332,14 @@
       return `
         <div class="meta-section">
           <div class="meta-h2">2.1 Overview</div>
-
-          <div class="meta-h3">Objectives</div>
-          ${objectiveBody}
-
-          <div class="meta-h3">Principles</div>
-          ${principles}
+          <div style="margin-bottom:24px">
+            <p class="meta-label">Objectives</p>
+            ${objectiveBody}
+          </div>
+          <div style="margin-bottom:24px">
+            <p class="meta-label">Principles</p>
+            ${principles}
+          </div>
         </div>
       `;
     }
@@ -3375,8 +3377,8 @@
         <div class="meta-section">
           <div class="meta-h2">2.3 UI Logic Trade-offs</div>
           ${t.map((to, i) => `
-            <div class="meta-callout">
-              <div class="meta-h3" style="margin-top:0">Trade-off ${i+1} — ${pbEscape(to.title || '')}</div>
+            <div style="margin-bottom:24px">
+              <p class="meta-label">Trade-off ${i+1} — ${pbEscape(to.title || '')}</p>
               ${to.question ? `<p class="meta-p"><strong>Question:</strong> ${pbEscape(to.question)}</p>` : ''}
               ${(function(){
                 const opts = Array.isArray(to.options) ? to.options
@@ -3387,7 +3389,7 @@
               })()}
               ${to.decision ? `<p class="meta-p"><strong>Decision:</strong> ${pbEscape(to.decision)}</p>` : ''}
               ${to.why ? `<p class="meta-p"><strong>Why:</strong> ${pbEscape(to.why)}</p>` : ''}
-              ${to.tabsAffected ? `<p class="meta-p" style="color:var(--text-tertiary);font-size: var(--font-size-xs)">Affects: ${pbEscape(to.tabsAffected)}</p>` : ''}
+              ${to.tabsAffected ? `<p class="meta-p" style="color:var(--text-tertiary);font-size:var(--font-size-xs)">Affects: ${pbEscape(to.tabsAffected)}</p>` : ''}
             </div>
           `).join('')}
         </div>
@@ -3399,10 +3401,13 @@
       return `
         <div class="meta-section">
           <div class="meta-h2">2.4 Others</div>
-          ${o
-            ? `<div class="meta-p">${o}</div>`
-            : `<p class="meta-p" style="color:var(--text-tertiary);font-style:italic">Reserved per-project. Edit <code>PB_DATA.others</code> in the script to populate.</p>`
-          }
+          <div style="margin-bottom:24px">
+            <p class="meta-label">Notes</p>
+            ${o
+              ? `<div class="meta-p">${o}</div>`
+              : `<p class="meta-p"><em style="color:var(--text-tertiary)">Not recorded yet.</em></p>`
+            }
+          </div>
         </div>
       `;
     }
