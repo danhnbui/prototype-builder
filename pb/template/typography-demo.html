@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Typography Scale — Product Builder</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --brand:       #1c4ed8;
+      --brand-soft:  #eef2ff;
+
+      --neutral-0:  #ffffff;
+      --neutral-5:  #f8f9fb;
+      --neutral-10: #eff1f5;
+      --neutral-20: #c1c9d2;
+      --neutral-40: #8a94a0;
+      --neutral-60: #5e6873;
+      --neutral-80: #2d343c;
+      --neutral-90: #1c1f22;
+
+      --bg:             var(--neutral-5);
+      --text-primary:   var(--neutral-90);
+      --text-secondary: var(--neutral-60);
+      --text-tertiary:  var(--neutral-40);
+      --border:         var(--neutral-20);
+
+      --font: 'Inter', system-ui, -apple-system, sans-serif;
+
+      --font-size-xxs:  10px;
+      --font-size-xs:   12px;
+      --font-size-s:    14px;
+      --font-size-base: 16px;
+      --font-size-l:    18px;
+      --font-size-xl:   20px;
+      --font-size-xxl:  24px;
+      --font-size-xxxl: 32px;
+
+      --font-weight-medium: 500;
+      --font-weight-bold:   700;
+
+      --line-height-xxs:  12px;
+      --line-height-xs:   16px;
+      --line-height-s:    16px;
+      --line-height-base: 20px;
+      --line-height-l:    24px;
+      --line-height-xl:   24px;
+      --line-height-xxl:  32px;
+      --line-height-xxxl: 40px;
+
+      --line-height-p-xxs:  16px;
+      --line-height-p-xs:   20px;
+      --line-height-p-s:    20px;
+      --line-height-p-base: 24px;
+      --line-height-p-l:    28px;
+      --line-height-p-xl:   32px;
+      --line-height-p-xxl:  36px;
+      --line-height-p-xxxl: 48px;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; }
+
+    body {
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--text-primary);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .page {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 48px 40px 80px;
+    }
+
+    .page-title {
+      font-size: var(--font-size-xxl);
+      font-weight: var(--font-weight-bold);
+      line-height: var(--line-height-xxl);
+      margin: 0 0 4px;
+    }
+
+    .page-sub {
+      font-size: var(--font-size-s);
+      line-height: var(--line-height-p-s);
+      color: var(--text-secondary);
+      margin: 0 0 40px;
+    }
+
+    /* ── Toolbar ── */
+    .toolbar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 20px;
+    }
+
+    .toggle-btn {
+      height: 32px;
+      padding: 0 14px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: white;
+      font-family: var(--font);
+      font-size: var(--font-size-xs);
+      font-weight: var(--font-weight-medium);
+      line-height: var(--line-height-xs);
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: background .15s, color .15s, border-color .15s;
+    }
+    .toggle-btn:hover  { border-color: var(--brand); color: var(--brand); }
+    .toggle-btn.active { background: var(--brand); color: white; border-color: var(--brand); }
+
+    /* ── Table ── */
+    .token-table {
+      width: 100%;
+      border-collapse: collapse;
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+
+    .token-table th {
+      font-size: var(--font-size-xxs);
+      font-weight: var(--font-weight-bold);
+      line-height: var(--line-height-xxs);
+      color: var(--text-tertiary);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      text-align: left;
+      padding: 12px 24px;
+      background: var(--neutral-5);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .token-table td {
+      padding: 20px 24px;
+      border-bottom: 1px solid var(--neutral-10);
+      vertical-align: top;
+    }
+
+    .token-table tr:last-child td { border-bottom: 0; }
+
+    /* ── Token cell ── */
+    .td-token { width: 200px; vertical-align: middle; }
+
+    .token-name {
+      font-family: 'SF Mono', 'Menlo', monospace;
+      font-size: var(--font-size-xs);
+      line-height: var(--line-height-xs);
+      color: var(--brand);
+    }
+
+    .token-value {
+      font-family: 'SF Mono', 'Menlo', monospace;
+      font-size: var(--font-size-xxs);
+      line-height: var(--line-height-xxs);
+      color: var(--text-tertiary);
+      margin-top: 4px;
+    }
+
+    /* ── Sample cells ── */
+    .td-normal    { width: 340px; vertical-align: middle; }
+    .td-paragraph { vertical-align: top; }
+
+    .lh-badge {
+      display: inline-block;
+      font-family: 'SF Mono', 'Menlo', monospace;
+      font-size: var(--font-size-xxs);
+      line-height: var(--line-height-xxs);
+      color: var(--text-secondary);
+      background: var(--neutral-10);
+      border-radius: 4px;
+      padding: 2px 6px;
+      margin-bottom: 8px;
+    }
+
+    .sample-normal {
+      font-weight: var(--font-weight-medium);
+      color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .sample-normal .lh-badge { margin-bottom: 0; flex-shrink: 0; }
+
+    .sample-para {
+      font-weight: var(--font-weight-medium);
+      color: var(--text-primary);
+      margin: 0;
+      max-width: 520px;
+    }
+
+    /* Per-row font + line-height bindings */
+    .row-xxs  .sample-normal,
+    .row-xxs  .sample-para   { font-size: var(--font-size-xxs); }
+    .row-xxs  .sample-normal { line-height: var(--line-height-xxs); }
+    .row-xxs  .sample-para   { line-height: var(--line-height-p-xxs); }
+
+    .row-xs   .sample-normal,
+    .row-xs   .sample-para   { font-size: var(--font-size-xs); }
+    .row-xs   .sample-normal { line-height: var(--line-height-xs); }
+    .row-xs   .sample-para   { line-height: var(--line-height-p-xs); }
+
+    .row-s    .sample-normal,
+    .row-s    .sample-para   { font-size: var(--font-size-s); }
+    .row-s    .sample-normal { line-height: var(--line-height-s); }
+    .row-s    .sample-para   { line-height: var(--line-height-p-s); }
+
+    .row-base .sample-normal,
+    .row-base .sample-para   { font-size: var(--font-size-base); }
+    .row-base .sample-normal { line-height: var(--line-height-base); }
+    .row-base .sample-para   { line-height: var(--line-height-p-base); }
+
+    .row-l    .sample-normal,
+    .row-l    .sample-para   { font-size: var(--font-size-l); }
+    .row-l    .sample-normal { line-height: var(--line-height-l); }
+    .row-l    .sample-para   { line-height: var(--line-height-p-l); }
+
+    .row-xl   .sample-normal,
+    .row-xl   .sample-para   { font-size: var(--font-size-xl); }
+    .row-xl   .sample-normal { line-height: var(--line-height-xl); }
+    .row-xl   .sample-para   { line-height: var(--line-height-p-xl); }
+
+    .row-xxl  .sample-normal,
+    .row-xxl  .sample-para   { font-size: var(--font-size-xxl); }
+    .row-xxl  .sample-normal { line-height: var(--line-height-xxl); }
+    .row-xxl  .sample-para   { line-height: var(--line-height-p-xxl); }
+
+    .row-xxxl .sample-normal,
+    .row-xxxl .sample-para   { font-size: var(--font-size-xxxl); }
+    .row-xxxl .sample-normal { line-height: var(--line-height-xxxl); }
+    .row-xxxl .sample-para   { line-height: var(--line-height-p-xxxl); }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <h1 class="page-title">Typography Scale</h1>
+    <p class="page-sub">Product Builder shell — font sizes with normal line-heights (×1.25 ÷4) for UI labels, and paragraph line-heights (×1.5 ÷4) for long-form text.</p>
+
+    <div class="toolbar">
+      <button class="toggle-btn active" onclick="setView('both')"   id="btn-both">Both</button>
+      <button class="toggle-btn"        onclick="setView('normal')" id="btn-normal">Normal only</button>
+      <button class="toggle-btn"        onclick="setView('para')"   id="btn-para">Paragraph only</button>
+    </div>
+
+    <table class="token-table">
+      <thead>
+        <tr>
+          <th>Token</th>
+          <th class="col-normal">Normal LH <span style="font-weight:500;text-transform:none;letter-spacing:0">(×1.25 ÷4) — UI labels, buttons, badges</span></th>
+          <th class="col-para">Paragraph LH <span style="font-weight:500;text-transform:none;letter-spacing:0">(×1.5 ÷4) — body copy, descriptions, long-form</span></th>
+        </tr>
+      </thead>
+      <tbody>
+
+        <tr class="row-xxs">
+          <td class="td-token">
+            <div class="token-name">--font-size-xxs</div>
+            <div class="token-value">10px</div>
+          </td>
+          <td class="td-normal col-normal">
+            <div class="sample-normal">
+              <span>Caption label · Badge text · Timestamp</span>
+              <span class="lh-badge">LH 12px</span>
+            </div>
+          </td>
+          <td class="td-paragraph col-para">
+            <span class="lh-badge">LH 16px</span>
+            <p class="sample-para">Good typography starts with the right line-height. Too tight and lines feel cramped, making it hard for the eye to track from one line to the next. Too loose and the text feels disconnected, breaking the reading flow entirely. Finding the right rhythm makes reading feel effortless.</p>
+          </td>
+        </tr>
+
+        <tr class="row-xs">
+          <td class="td-token">
+            <div class="token-name">--font-size-xs</div>
+            <div class="token-value">12px</div>
+          </td>
+          <td class="td-normal col-normal">
+            <div class="sample-normal">
+              <span>Helper text · Tag · Secondary label</span>
+              <span class="lh-badge">LH 16px</span>
+            </div>
+          </td>
+          <td class="td-paragraph col-para">
+            <span class="lh-badge">LH 20px</span>
+            <p class="sample-para">Good typography starts with the right line-height. Too tight and lines feel cramped, making it hard for the eye to track from one line to the next. Too loose and the text feels disconnected, breaking the reading flow entirely. Finding the right rhythm makes reading feel effortless.</p>
+          </td>
+        </tr>
+
+        <tr class="row-s">
+          <td class="td-token">
+            <div class="token-name">--font-size-s</div>
+            <div class="token-value">14px</div>
+          </td>
+          <td class="td-normal col-normal">
+            <div class="sample-normal">
+              <span>Secondary body · Form label · Nav item</span>
+              <span class="lh-badge">LH 16px</span>
+            </div>
+          </td>
+          <td class="td-paragraph col-para">
+            <span class="lh-badge">LH 20px</span>
+            <p class="sample-para">Good typography starts with the right line-height. Too tight and lines feel cramped, making it hard for the eye to track from one line to the next. Too loose and the text feels disconnected, breaking the reading flow entirely. Finding the right rhythm makes reading feel effortless.</p>
+          </td>
+        </tr>
+
+        <tr class="row-base">
+          <td class="td-token">
+            <div class="token-name">--font-size-base</div>
+            <div class="token-value">16px · base</div>
+          </td>
+          <td class="td-normal col-normal">
+            <div class="sample-normal">
+              <span>Primary body · Button · Input</span>
+              <span class="lh-badge">LH 20px</span>
+            </div>
+          </td>
+          <td class="td-paragraph col-para">
+            <span class="lh-badge">LH 24px</span>
+            <p class="sample-para">Good typography starts with the right line-height. Too tight and lines feel cramped, making it hard for the eye to track from one line to the next. Too loose and the text feels disconnected, breaking the reading flow entirely. Finding the right rhythm makes reading feel effortless.</p>
+          </td>
+        </tr>
+
+        <tr class="row-l">
+          <td class="td-token">
+            <div class="token-name">--font-size-l</div>
+            <div class="token-value">18px</div>
+          </td>
+          <td class="td-normal col-normal">
+            <div class="sample-normal">
+              <span>Section heading · Card title</span>
+              <span class="lh-badge">LH 24px</span>
+            </div>
+          </td>
+          <td class="td-paragraph col-para">
+            <span class="lh-badge">LH 28px</span>
+            <p class="sample-para">Good typography starts with the right line-height. Too tight and lines feel cramped, making it hard for the eye to track. Too loose and the text feels disconnected. Finding the right rhythm makes reading feel effortless and natural.</p>
+          </td>
+        </tr>
+
+        <tr class="row-xl">
+          <td class="td-token">
+            <div class="token-name">--font-size-xl</div>
+            <div class="token-value">20px</div>
+          </td>
+          <td class="td-normal col-normal">
+            <div class="sample-normal">
+              <span>Page sub-heading · Modal title</span>
+              <span class="lh-badge">LH 24px</span>
+            </div>
+          </td>
+          <td class="td-paragraph col-para">
+            <span class="lh-badge">LH 32px</span>
+            <p class="sample-para">Good typography starts with the right line-height. Too tight and lines feel cramped. Too loose and the text feels disconnected. The right rhythm makes reading feel effortless.</p>
+          </td>
+        </tr>
+
+        <tr class="row-xxl">
+          <td class="td-token">
+            <div class="token-name">--font-size-xxl</div>
+            <div class="token-value">24px</div>
+          </td>
+          <td class="td-normal col-normal">
+            <div class="sample-normal">
+              <span>Page title · H1 heading</span>
+              <span class="lh-badge">LH 32px</span>
+            </div>
+          </td>
+          <td class="td-paragraph col-para">
+            <span class="lh-badge">LH 36px</span>
+            <p class="sample-para">Good typography starts with the right line-height. Too tight and lines feel cramped. Too loose and the text feels disconnected.</p>
+          </td>
+        </tr>
+
+        <tr class="row-xxxl">
+          <td class="td-token">
+            <div class="token-name">--font-size-xxxl</div>
+            <div class="token-value">32px</div>
+          </td>
+          <td class="td-normal col-normal">
+            <div class="sample-normal">
+              <span>Hero heading · Display</span>
+              <span class="lh-badge">LH 40px</span>
+            </div>
+          </td>
+          <td class="td-paragraph col-para">
+            <span class="lh-badge">LH 48px</span>
+            <p class="sample-para">Good typography starts with the right line-height. Too tight feels cramped. Too loose feels disconnected.</p>
+          </td>
+        </tr>
+
+      </tbody>
+    </table>
+  </div>
+
+  <script>
+    function setView(v) {
+      document.querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active'));
+      document.getElementById('btn-' + v).classList.add('active');
+      document.querySelectorAll('.col-normal').forEach(el => el.style.display = v === 'para'   ? 'none' : '');
+      document.querySelectorAll('.col-para').forEach(el   => el.style.display = v === 'normal' ? 'none' : '');
+    }
+  </script>
+</body>
+</html>

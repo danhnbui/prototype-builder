@@ -122,7 +122,8 @@ def build_html(reg, shell, version="unknown"):
             if not fn:
                 continue
             if "render" in item and item["render"]:
-                parts.append('    window[%s] = function(props){\n%s\n    };' % (json.dumps(fn), _escape_body(item["render"])))
+                escaped = _escape_body(item["render"])
+                parts.append('%s\n    window[%s] = %s;' % (escaped, json.dumps(fn), fn))
             else:
                 missing.append(fn)
     bodies = ""
