@@ -899,7 +899,7 @@
     /* Prototype structure panel — push-content sibling (flex row with proto-main) */
     .proto-struct-panel {
       flex: 0 0 0px; width: 0; align-self: stretch;
-      background:#fff; border-left:0 solid var(--border);
+      background: var(--neutral-5, #f6f7f9); border-left:0 solid var(--border);
       transition: flex-basis .25s ease, width .25s ease, border-left-width .25s step-end;
       display:flex; flex-direction:column;
     }
@@ -908,7 +908,11 @@
       border-left-width: 1px;
       box-shadow: -4px 0 20px rgba(0,0,0,0.06);
     }
-    .proto-struct-panel-body { flex:1 1 auto; min-height:0; overflow-y:auto; padding:16px; width:280px; }
+    .proto-struct-panel-body { flex:1 1 auto; min-height:0; overflow-y:auto; padding:12px; width:280px; }
+    .proto-struct-panel-body .pb-tree {
+      background: #fff; border: 1px solid var(--border);
+      border-radius: var(--radius-medium, 8px); padding: 12px;
+    }
     .pb-aside-section { margin-bottom: 22px; }
     .pb-aside-section:last-child { margin-bottom: 0; }
     .pb-entity-chips { display: flex; flex-wrap: wrap; gap: 8px; }
