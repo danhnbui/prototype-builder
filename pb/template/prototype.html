@@ -878,8 +878,8 @@
        viewport with no body scroll; the split columns stretch to full height and scroll
        internally if needed. */
     .pb-page--viewport { height: calc(100vh - 44px); overflow: hidden; }
-    .pb-content--fill { flex: 1 1 auto; min-height: 0; overflow: hidden; position: relative; }
-    .pb-content--fill.pb-content--split { align-items: stretch; grid-template-rows: minmax(0, 1fr); }
+    .pb-content--fill { flex: 1 1 auto; min-height: 0; overflow: hidden; display: flex; flex-direction: row; }
+    .pb-content--fill.pb-content--split { display: grid; align-items: stretch; grid-template-rows: minmax(0, 1fr); }
     .pb-content--fill .pb-aside { position: static; top: auto; max-height: none; height: 100%; align-self: stretch; }
     .pb-aside {
       position: sticky; top: 24px;
@@ -896,16 +896,20 @@
       font-size: var(--font-size-s); line-height: var(--line-height-p-s);
       text-align: center; padding: 28px 16px;
     }
-    /* Prototype structure slide-in panel — scoped inside .pb-content--fill */
+    /* Prototype structure panel — push-content sibling (flex row with proto-main) */
     .proto-struct-panel {
-      position:absolute; top:0; right:0; height:100%; width:280px;
-      background:#fff; border-left:1px solid var(--border);
-      box-shadow:-4px 0 20px rgba(0,0,0,0.10); z-index:10;
-      transform:translateX(100%); transition:transform .25s ease;
-      display:flex; flex-direction:column; overflow:hidden;
+      flex: 0 0 0px; width: 0; height: 100%;
+      background:#fff; border-left:0 solid var(--border);
+      overflow: hidden;
+      transition: flex-basis .25s ease, width .25s ease, border-left-width .25s step-end;
+      display:flex; flex-direction:column;
     }
-    .proto-struct-panel.is-open { transform:translateX(0); }
-    .proto-struct-panel-body { overflow-y:auto; flex:1; padding:16px; }
+    .proto-struct-panel.is-open {
+      flex: 0 0 280px; width: 280px;
+      border-left-width: 1px;
+      box-shadow: -4px 0 20px rgba(0,0,0,0.06);
+    }
+    .proto-struct-panel-body { overflow-y:auto; flex:1; padding:16px; width:280px; }
     .pb-aside-section { margin-bottom: 22px; }
     .pb-aside-section:last-child { margin-bottom: 0; }
     .pb-entity-chips { display: flex; flex-wrap: wrap; gap: 8px; }
@@ -1998,9 +2002,9 @@
     .proto-device-btn:hover:not(:disabled):not(.is-disabled) { color:var(--text-active-primary); background:var(--neutral-5, #f6f7f9); }
     .proto-device-btn.active { background:var(--brand); color:#fff; }
     .proto-device-btn:disabled, .proto-device-btn.is-disabled { opacity:.38; cursor:not-allowed; }
-    .proto-main { display:flex; min-height:0; }
+    .proto-main { display:flex; min-height:0; flex:1 1 auto; min-width:0; height:100%; }
     .proto-stage { flex:1 1 auto; min-width:0; min-height:0; overflow:visible; }
-    .proto-fit { height:100%; display:flex; justify-content:center; align-items:flex-start; padding:40px; }
+    .proto-fit { height:100%; display:flex; justify-content:center; align-items:flex-start; }
     .proto-frame { background:#fff; border:1px solid var(--border); border-radius:12px; overflow:hidden;
       box-shadow:0 10px 34px rgba(15,23,42,.12); transform-origin:center center; flex:0 0 auto; }
     .proto-frame--tablet { border:10px solid #1c1f22; border-radius:26px; }
@@ -2918,7 +2922,7 @@
                ${ok ? `onclick="setProtoDevice('${d.id}')"` : ''}>${protoDeviceIcon(d.id)}</button>`;
           }).join('')
         + `</div>`;
-      const structBtn = `<div class="proto-header-divider"></div><button class="proto-struct-btn ${isStructOpen ? 'is-active' : ''}" onclick="toggleProtoStructPanel()" title="Structure tree" aria-label="Structure tree">${structIcon}</button>`;
+      const structBtn = `<button class="proto-struct-btn ${isStructOpen ? 'is-active' : ''}" onclick="toggleProtoStructPanel()" title="Structure tree" aria-label="Structure tree">${structIcon}</button>`;
       const headerWithTools = pbPageHeader({
         title: 'Prototype', infoKey: 'prototype',
         cta: `<div class="proto-header-tools">${shellToggle}${switcher}${structBtn}</div>`,
