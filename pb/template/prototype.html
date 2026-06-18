@@ -186,15 +186,15 @@
       font-family: var(--font-heading);
       font-size: var(--font-size-xs); font-weight: var(--font-weight-bold);
       text-transform: uppercase;
-      letter-spacing: 0.4px;
+      letter-spacing: 0.05em;
       margin-bottom: 16px;
     }
     .meta-h1 {
       font-family: var(--font-heading);
-      font-size: var(--font-size-xl); font-weight: var(--font-weight-bold);
+      font-size: var(--font-size-xxl); font-weight: var(--font-weight-bold);
       color: var(--text-active-primary);
       margin: 0 0 8px;
-      line-height: var(--line-height-xl);
+      line-height: var(--line-height-xxl);
     }
     .meta-h3 {
       font-family: var(--font-heading);
@@ -203,9 +203,8 @@
       margin: 28px 0 10px; line-height: var(--line-height-base);
     }
     .meta-label {
-      font-size: var(--font-size-xs); font-weight: var(--font-weight-bold);
-      text-transform: uppercase; letter-spacing: 0.5px;
-      color: var(--text-tertiary); margin: 0 0 6px;
+      font-size: var(--font-size-base); font-weight: var(--font-weight-bold);
+      color: var(--text-active-primary); margin: 0 0 6px;
     }
     .meta-sub {
       font-size: var(--font-size-base);
@@ -231,7 +230,7 @@
     }
     .meta-callout:last-child { margin-bottom: 0; }
     .meta-p {
-      font-size: var(--font-size-s);
+      font-size: var(--font-size-s); font-weight: var(--font-weight-medium);
       color: var(--text-active-primary);
       line-height: var(--line-height-p-s);
       margin: 0 0 12px;
@@ -256,7 +255,7 @@
       font-size: var(--font-size-s); font-weight: var(--font-weight-bold);
     }
     .meta-principle-text {
-      font-size: var(--font-size-s); line-height: var(--line-height-p-s);
+      font-size: var(--font-size-s); font-weight: var(--font-weight-medium); line-height: var(--line-height-p-s);
       color: var(--text-active-primary);
     }
     .meta-table {
@@ -282,7 +281,7 @@
       background: var(--bg-soft);
       font-size: var(--font-size-xs);
       text-transform: uppercase;
-      letter-spacing: 0.4px;
+      letter-spacing: 0.05em;
     }
     .meta-table code {
       font-family: 'SF Mono', Menlo, monospace;
@@ -446,7 +445,7 @@
       font-size: var(--font-size-xs); font-weight: var(--font-weight-bold);
       color: var(--text-active-secondary);
       text-transform: uppercase;
-      letter-spacing: 0.4px;
+      letter-spacing: 0.05em;
       margin-bottom: 6px;
     }
     .handoff-spec-row {
@@ -685,7 +684,7 @@
     .copy-popover-cmd-label {
       font: var(--font-weight-bold) var(--font-size-xs)/var(--line-height-xs) var(--font-body);
       text-transform: uppercase;
-      letter-spacing: 0.07em;
+      letter-spacing: 0.05em;
       color: var(--text-tertiary);
       margin: 0 0 6px;
       display: flex; align-items: center; gap: 6px;
@@ -850,9 +849,9 @@
     .pb-page-titlerow { display: flex; align-items: center; gap: 10px; margin: 8px 0; }
     .pb-page-title {
       font-family: var(--font-heading);
-      font-size: var(--font-size-xl); font-weight: var(--font-weight-bold);
+      font-size: var(--font-size-xxl); font-weight: var(--font-weight-bold);
       color: var(--text-active-primary);
-      margin: 0; line-height: var(--line-height-xl); letter-spacing: -0.01em;
+      margin: 0; line-height: var(--line-height-xxl); letter-spacing: -0.01em;
     }
     .pb-info-btn {
       flex-shrink: 0;
@@ -900,11 +899,12 @@
     .proto-struct-panel {
       flex: 0 0 0px; width: 0; align-self: stretch;
       background: #fff; overflow: hidden;
-      transition: flex-basis .25s ease, width .25s ease;
+      transition: flex-basis .25s ease, width .25s ease, margin-left .25s ease;
       display:flex; flex-direction:column;
     }
     .proto-struct-panel.is-open {
       flex: 0 0 280px; width: 280px;
+      margin-left: 24px;
       border: 1px solid var(--border); border-radius: var(--radius-medium, 8px);
     }
     .proto-struct-panel-body { flex:1 1 auto; padding:16px; width:280px; }
@@ -963,7 +963,7 @@
     /* UX Design — QA test-case category chips + coverage-gap callout */
     .pb-qa-cat {
       display: inline-block; font: var(--font-weight-bold) var(--font-size-xxs)/var(--line-height-p-xxs) var(--font-body);
-      text-transform: uppercase; letter-spacing: .04em;
+      text-transform: uppercase; letter-spacing: 0.05em;
       padding: 2px 6px; border-radius: 4px; vertical-align: middle;
     }
     .pb-qa-cat--ux          { background: #ede9fe; color: #6d28d9; }
@@ -1008,7 +1008,7 @@
     .pb-dialog-section:last-child { margin-bottom: 0; }
     .pb-dialog-h {
       font-family: var(--font-heading); font-size: var(--font-size-xs); font-weight: var(--font-weight-bold);
-      text-transform: uppercase; letter-spacing: .5px;
+      text-transform: uppercase; letter-spacing: 0.05em;
       color: var(--text-tertiary); margin: 0 0 10px;
     }
     .pb-dialog-list { margin: 0; padding-left: 18px; font-size: var(--font-size-s); color: var(--text-active-primary); line-height: var(--line-height-p-s); }
@@ -1080,7 +1080,7 @@
     .pb-level-head {
       display: flex; align-items: center; gap: 8px;
       font-family: var(--font-heading); font-size: var(--font-size-xs); font-weight: var(--font-weight-bold);
-      text-transform: uppercase; letter-spacing: .5px;
+      text-transform: uppercase; letter-spacing: 0.05em;
       color: var(--text-tertiary); margin: 0 0 12px;
     }
     .pb-level-count {
@@ -1136,7 +1136,7 @@
     }
     .handoff-level-badge {
       font-size: var(--font-size-xxs); font-weight: var(--font-weight-bold);
-      text-transform: uppercase; letter-spacing: .5px; padding: 2px 6px;
+      text-transform: uppercase; letter-spacing: 0.05em; padding: 2px 6px;
       border-radius: var(--radius-full); border: 1px solid var(--border);
       color: var(--text-tertiary); flex-shrink: 0;
     }
@@ -1288,7 +1288,7 @@
     .handoff-card-body--stacked .handoff-code { margin-top: 2px; }
     .handoff-code-lang {
       font: var(--font-weight-bold) var(--font-size-xxs)/var(--line-height-xxs) var(--font-body); text-transform: uppercase;
-      letter-spacing: 0.06em; color: var(--text-tertiary);
+      letter-spacing: 0.05em; color: var(--text-tertiary);
     }
     .handoff-copy-code-btn {
       display: inline-flex; align-items: center; gap: 7px;
@@ -1353,7 +1353,7 @@
     .anatomy-badge--pin.is-highlit { box-shadow: 0 0 0 2px #fff, 0 0 0 4px #facc15; }
     .req-pill {
       font: var(--font-weight-bold) var(--font-size-xxs)/var(--line-height-xxs) var(--font-body); padding: 3px 7px; border-radius: 999px;
-      text-transform: uppercase; letter-spacing: 0.04em;
+      text-transform: uppercase; letter-spacing: 0.05em;
     }
     .req-pill--req { background: #ede9fe; color: #5b21b6; }
     .req-pill--opt { background: var(--neutral-10); color: var(--text-tertiary); }
@@ -1416,7 +1416,7 @@
     .usage-demo-tag {
       position: absolute; top: 8px; left: 10px;
       font: var(--font-weight-bold) var(--font-size-xxs)/var(--line-height-xxs) var(--font-body); text-transform: uppercase;
-      letter-spacing: 0.06em; color: var(--text-tertiary);
+      letter-spacing: 0.05em; color: var(--text-tertiary);
     }
     .usage-demo-render { display: flex; justify-content: center; }
     .usage-topics { display: flex; flex-direction: column; gap: 10px; }
@@ -1469,7 +1469,7 @@
     .flow-doc-side-head { display: flex; align-items: center; gap: 6px; margin-bottom: 14px; padding-bottom: 14px; border-bottom: 1px solid var(--border); }
     .flow-doc-side-title { font-family: var(--font-heading); font-size: var(--font-size-base); font-weight: var(--font-weight-bold); letter-spacing: -0.01em; color: var(--text-active-primary); margin: 6px 0 4px; line-height: var(--line-height-p-base); }
     .flow-doc-side-sub { font-size: var(--font-size-xs); color: var(--text-active-secondary); margin: 0; line-height: var(--line-height-p-xs); }
-    .flow-doc-pill { display: inline-block; font: var(--font-weight-bold) var(--font-size-xxs)/var(--line-height-xxs) var(--font-body); text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-tertiary); background: var(--neutral-10); padding: 5px 8px; border-radius: 4px; }
+    .flow-doc-pill { display: inline-block; font: var(--font-weight-bold) var(--font-size-xxs)/var(--line-height-xxs) var(--font-body); text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-tertiary); background: var(--neutral-10); padding: 5px 8px; border-radius: 4px; }
     .flow-doc-main { display: flex; flex-direction: column; min-width: 0; }
     .flow-doc-main-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 12px; }
     .flow-doc-main-title { font-family: var(--font-heading); font-size: var(--font-size-l); font-weight: var(--font-weight-bold); letter-spacing: -0.01em; color: var(--text-active-primary); margin: 6px 0 4px; line-height: var(--line-height-p-l); }
@@ -1618,7 +1618,7 @@
       display:flex; align-items:center; justify-content:space-between;
       margin:0 0 8px;
     }
-    .fp-section-label { font: var(--font-weight-bold) var(--font-size-xs)/var(--line-height-xs) var(--font-body); text-transform:uppercase; letter-spacing:.07em; color:var(--text-tertiary); }
+    .fp-section-label { font: var(--font-weight-bold) var(--font-size-xs)/var(--line-height-xs) var(--font-body); text-transform:uppercase; letter-spacing:0.05em; color:var(--text-tertiary); }
     .fp-select-all { font: var(--font-weight-medium) var(--font-size-xs)/var(--line-height-xs) var(--font-body); color:var(--pg-brand-primary,#1c4ed8); background:none; border:none; cursor:pointer; padding:2px 0; }
     .fp-select-all:hover { text-decoration:underline; }
     .fp-list { list-style:none; padding:0; margin:0 0 18px; border:1px solid var(--border); border-radius:8px; overflow:hidden; }
@@ -1854,7 +1854,7 @@
       background: #1c1f22; color: white;
       padding: 6px 12px;
       font-family: var(--font-heading); font-weight: var(--font-weight-bold);
-      letter-spacing: 0.4px; font-size: var(--font-size-xs);
+      letter-spacing: 0.05em; font-size: var(--font-size-xs);
     }
     .erd-legend-entity-row {
       display: flex; justify-content: space-between;
@@ -1875,7 +1875,7 @@
     .erd-legend-rels-title {
       font-family: var(--font-heading);
       font-size: var(--font-size-xs); font-weight: var(--font-weight-bold);
-      text-transform: uppercase; letter-spacing: 0.32px;
+      text-transform: uppercase; letter-spacing: 0.05em;
       color: var(--text-tertiary);
       margin-bottom: 2px;
     }
@@ -2048,7 +2048,7 @@
     /* UI Design — component state-variant demos + sub-tab count */
     .handoff-variants { display:flex; flex-wrap:wrap; gap:16px; align-items:flex-start; }
     .handoff-variant { display:flex; flex-direction:column; gap:6px; flex:1 1 220px; min-width:200px; }
-    .handoff-variant-label { font: var(--font-weight-bold) var(--font-size-xs)/var(--line-height-xs) var(--font-body); letter-spacing:.04em; text-transform:uppercase; color:var(--text-tertiary); }
+    .handoff-variant-label { font: var(--font-weight-bold) var(--font-size-xs)/var(--line-height-xs) var(--font-body); letter-spacing:0.05em; text-transform:uppercase; color:var(--text-tertiary); }
     .handoff-variant-demo { padding:14px; border:1px dashed var(--border); border-radius:8px; background:var(--neutral-0, #fff); }
     .meta-subtab-count { font-size: var(--font-size-xs); opacity:.55; margin-left:2px; }
     /* UX Design — sidebar scrolls internally (1 viewport); story/test lists */
@@ -2060,7 +2060,7 @@
     .erd-tables { display:flex; flex-direction:column; gap:22px; }
     .erd-entity-title { margin:0 0 8px; font-family: var(--font-heading); font-size: var(--font-size-base); font-weight: var(--font-weight-bold); color:var(--text-active-primary); }
     .erd-entity-table { width:100%; border-collapse:collapse; font-size: var(--font-size-s); border:1px solid var(--border); border-radius:8px; overflow:hidden; }
-    .erd-entity-table th { text-align:left; font: var(--font-weight-bold) var(--font-size-xs)/var(--line-height-xs) var(--font-body); text-transform:uppercase; letter-spacing:.04em; color:var(--text-tertiary); background:var(--neutral-10, #f8fafc); padding:9px 12px; }
+    .erd-entity-table th { text-align:left; font: var(--font-weight-bold) var(--font-size-xs)/var(--line-height-xs) var(--font-body); text-transform:uppercase; letter-spacing:0.05em; color:var(--text-tertiary); background:var(--neutral-10, #f8fafc); padding:9px 12px; }
     .erd-entity-table td { border-top:1px solid var(--border); padding:9px 12px; color:var(--text-active-primary); vertical-align:top; }
     .erd-entity-table tbody tr:nth-child(even) td { background: var(--neutral-5, #f6f7f9); }
     .erd-type-chip { font-size: var(--font-size-xs); font-family: 'SF Mono', Menlo, monospace;
@@ -4344,7 +4344,7 @@
             pb2 = parseInt(cs.paddingBottom)||0, pl = parseInt(cs.paddingLeft)||0,
             mt = parseInt(cs.marginTop)||0, mb = parseInt(cs.marginBottom)||0;
       const boxDiagram = `<div style="margin:16px 0 12px;padding:12px;background:var(--neutral-5);border:1px solid var(--border);border-radius:8px;display:inline-block;font-family:'SF Mono',Menlo,monospace;font-size:10px;line-height:1.5">
-        <div style="font-size:var(--font-size-xxs);font-weight:var(--font-weight-bold);text-transform:uppercase;letter-spacing:.05em;color:var(--text-tertiary);margin-bottom:8px">Box model</div>
+        <div style="font-size:var(--font-size-xxs);font-weight:var(--font-weight-bold);text-transform:uppercase;letter-spacing:0.05em;color:var(--text-tertiary);margin-bottom:8px">Box model</div>
         ${mt ? `<div style="background:rgba(255,165,0,0.18);border:1px dashed #b45309;border-radius:4px 4px 0 0;padding:3px 12px;text-align:center;color:#b45309;margin-bottom:-1px">↑ margin-top: ${cs.marginTop}</div>` : ''}
         <div style="display:inline-flex;align-items:stretch;background:rgba(0,128,0,0.10);border:1px solid #16a34a;border-radius:${mt?'0':'4px'} ${mt?'0':'4px'} ${mb?'0':'4px'} ${mb?'0':'4px'}">
           ${pl ? `<span style="padding:10px 6px;color:#166534;background:rgba(0,128,0,0.08);font-size:9px;writing-mode:vertical-lr;text-orientation:mixed;text-align:center">← ${cs.paddingLeft}</span>` : ''}
@@ -4632,7 +4632,7 @@
         </div>
         ${selectedScreen.logicNotes && selectedScreen.logicNotes.length ? `
           <div class="handoff-logic-notes" style="margin-top:12px">
-            <div class="meta-h3" style="font-size: var(--font-size-s);margin-bottom:8px">Logic notes</div>
+            <div class="handoff-spec-section-title" style="margin-bottom:8px">Logic notes</div>
             <ul>${selectedScreen.logicNotes.map(n => `<li>${pbEscape(n)}</li>`).join('')}</ul>
           </div>
         ` : ''}
