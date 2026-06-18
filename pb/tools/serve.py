@@ -247,10 +247,14 @@ class Handler(BaseHTTPRequestHandler):
 
     def serve_static(self, path):
         """Fall back to files next to the registry (e.g. local assets a render references)."""
-        root = Path(os.path.abspath(self.state.reg_path)).parent
-        candidate = (root / path.lstrip("/")).resolve()
-        if not candidate.is_relative_to(root):
+        root = Path(self.state.reg_path).resolve().parent
+        try:
+            # relative_to() raises ValueError on traversal; resolve() expands symlinks first
+            rel = (root / path.lstrip("/")).resolve().relative_to(root)
+        except ValueError:
             return self._send(b"403 forbidden", ctype="text/plain", status=403)
+        # Rebuild from root so the remainder of the function operates on a clean path
+        candidate = root / rel
         if candidate.is_dir():
             candidate = candidate / "index.html"
         if not candidate.is_file():
