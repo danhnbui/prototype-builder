@@ -1530,8 +1530,7 @@
     .flow-doc-stories > li { margin-bottom: 18px; line-height: var(--line-height-copy); }
     .flow-doc-stories > li:last-child { margin-bottom: 0; }
     /* 2.2/2 — interactive story rows + canvas fills one viewport + flow dim/highlight */
-    .flow-doc-stories--interactive > li { cursor: default; border-radius: 8px; padding: 8px 10px; margin-left: -10px; transition: background .12s, box-shadow .12s; }
-    .flow-doc-stories--interactive > li:hover { background: var(--brand-soft); box-shadow: inset 2px 0 0 var(--brand); }
+    .flow-doc-stories--interactive > li { cursor: default; }
     .flow-main-col { display: flex; flex-direction: column; min-height: 0; }
     .flow-canvas--fill { max-width: none !important; flex: 1 1 auto; min-height: 0; height: auto; }
     .flow-stage.flow-dim .node { opacity: .2; transition: opacity .15s; }
@@ -1582,12 +1581,12 @@
     .legend-popover-row { display: grid; grid-template-columns: 34px 1fr; gap: 12px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border); }
     .legend-popover-row:last-of-type { border-bottom: 0; }
     .legend-popover-shape { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 22px; font-family: 'SF Mono', Menlo, monospace; font-size: var(--font-size-xs); font-weight: var(--font-weight-bold); color: #1f2937; }
-    .legend-popover-shape.shape-start, .legend-popover-shape.shape-end { background: #0f172a; color: white; border-radius: 11px; }
-    .legend-popover-shape.shape-action { background: #F3E8FF; color: #581c87; border: 1px solid #C084FC; border-radius: 4px; }
-    .legend-popover-shape.shape-decision { background: #DBEAFE; color: #1e3a8a; border: 1px solid #60A5FA; transform: rotate(45deg) scale(0.78); border-radius: 2px; }
-    .legend-popover-shape.shape-input { background: #FCE7F3; color: #831843; border: 1px solid #EC4899; transform: skewX(-14deg); border-radius: 2px; }
-    .legend-popover-shape.shape-subprocess { background: #EDE9FE; color: #4c1d95; border: 2px solid #7C3AED; border-radius: 4px; }
-    .legend-popover-shape.shape-cylinder { background: #fff7ed; color: #7c2d12; border: 1px solid #ea580c; border-radius: 11px 11px 4px 4px; }
+    .legend-popover-shape.shape-start, .legend-popover-shape.shape-end { background: #1c1f22; color: white; border-radius: 11px; }
+    .legend-popover-shape.shape-action { background: #2196F3; color: white; border: 1px solid #1565C0; border-radius: 16px; }
+    .legend-popover-shape.shape-decision { background: #F6C000; color: #1f2937; border: 1px solid #D99E00; transform: rotate(45deg) scale(0.78); border-radius: 2px; }
+    .legend-popover-shape.shape-input { background: #7C3AED; color: white; border: 1px solid #6D28D9; transform: skewX(-14deg); border-radius: 2px; }
+    .legend-popover-shape.shape-subprocess { background: #E5E7EB; color: #1f2937; border: 2px solid #9CA3AF; border-radius: 4px; }
+    .legend-popover-shape.shape-cylinder { background: #E5E7EB; color: #1f2937; border: 1px solid #9CA3AF; border-radius: 11px 11px 4px 4px; }
     .legend-popover-text { font-size: var(--font-size-xs); line-height: var(--line-height-p-xs); color: var(--text-active-primary); }
     .legend-popover-text .legend-popover-name { font-weight: var(--font-weight-bold); }
     .legend-popover-text .legend-popover-desc { color: var(--text-active-secondary); font-size: var(--font-size-xs); margin-top: 1px; }
@@ -1736,7 +1735,7 @@
     .flow-stage-flow svg { width: auto !important; height: auto !important; max-width: 100%; display: block; margin: 0 auto; }
     /* v0.3.14 — Wireflow: clickable screen-name nodes + numbered note badges. */
     .flow-zoom-controls {
-      position: absolute; top: 16px; right: 16px; z-index: 10;
+      position: absolute; bottom: 48px; right: 16px; z-index: 10;
       display: flex; flex-direction: column; gap: 2px;
       background: white;
       border: 1px solid var(--border);
@@ -2472,7 +2471,7 @@
       document.querySelectorAll('.flow-side-panel').forEach(p => {
         p.hidden = (p.dataset.tab !== tab);
       });
-      document.querySelectorAll('.flow-side-tab').forEach(b => {
+      document.querySelectorAll('[data-tab].proto-shell-btn').forEach(b => {
         b.classList.toggle('active', b.dataset.tab === tab);
       });
     }
@@ -2943,7 +2942,7 @@
       const structBtn = `<button class="proto-struct-btn ${isStructOpen ? 'is-active' : ''}" onclick="toggleProtoStructPanel()" title="Structure tree" aria-label="Structure tree">${structIcon}</button>`;
       const headerWithTools = pbPageHeader({
         title: 'Prototype', infoKey: 'prototype',
-        cta: `<div class="proto-header-tools">${shellToggle}${switcher}${structBtn}</div>`,
+        cta: `<div class="proto-header-tools">${shellToggle}${switcher}<span class="proto-header-divider"></span>${structBtn}</div>`,
       });
 
       const body = (typeof window[sel.renderFn] === 'function')
@@ -3630,22 +3629,14 @@
 
       const aside = `
         <aside class="pb-aside">
-          <div class="flow-side-tabs">
-            <button class="flow-side-tab active" data-tab="stories" onclick="setFlowSideTab('stories')">User stories</button>
-            <button class="flow-side-tab"        data-tab="tests"   onclick="setFlowSideTab('tests')">Test cases</button>
+          <div class="proto-shell-toggle" role="group" aria-label="Flow view" style="margin-bottom:14px;width:100%">
+            <button class="proto-shell-btn active" data-tab="stories" onclick="setFlowSideTab('stories')" style="flex:1;justify-content:center">User stories</button>
+            <button class="proto-shell-btn"        data-tab="tests"   onclick="setFlowSideTab('tests')"   style="flex:1;justify-content:center">Test cases</button>
           </div>
           <div class="flow-side-panel" data-tab="stories">
-            <div class="flow-doc-side-head">
-              <h2 class="flow-doc-side-title">User stories</h2>
-              <button class="pb-info-btn" title="Generated from the PRD + prototype — each maps to a path on the canvas. Hover a story to highlight its flow path." aria-label="About user stories" onclick="event.stopPropagation()">?</button>
-            </div>
             ${storiesList}
           </div>
           <div class="flow-side-panel" data-tab="tests" hidden>
-            <div class="flow-doc-side-head">
-              <h2 class="flow-doc-side-title">Test cases</h2>
-              <button class="pb-info-btn" title="QA scenarios per story across UX · UI · Function · Business · System-edge — the prototype&apos;s test checklist." aria-label="About test cases" onclick="event.stopPropagation()">?</button>
-            </div>
             ${warnBlock}
             ${testsList}
           </div>
@@ -3732,7 +3723,7 @@
             const h  = parseFloat(rect.getAttribute('height')) || 0;
             const rx = parseFloat(rect.getAttribute('rx')) || 0;
             if (rx > 0 && rx >= h / 2 - 2) key = 'startEnd';       // stadium ([ ])
-            else { key = 'action'; rect.setAttribute('rx', '14'); rect.setAttribute('ry', '14'); }
+            else { key = 'action'; rect.setAttribute('rx', '16'); rect.setAttribute('ry', '16'); }
           }
         } else if (path) key = 'sub'; // cylinder / other
         if (!key) return;
@@ -3821,13 +3812,26 @@
         const S = geom[from], T = geom[to];
         if (!S || !T) return;
         const r = pbOrthoRoute(S, T);
-        p.setAttribute('d', r.d);
         const lt = (textByPath[i] || '').toLowerCase();
         const key = lt === 'yes' ? 'yes' : lt === 'no' ? 'no' : 'def';
+        // Hide unlabeled back-edges (black lines routing backward) — keep Yes/No decision branches
+        if (T.cx - S.cx < 0 && key === 'def') {
+          p.style.display = 'none';
+          (labelsByPath[i] || []).forEach(lab => { lab.style.display = 'none'; });
+          return;
+        }
+        p.setAttribute('d', r.d);
         p.style.stroke = PB_FLOW_EDGE_COLORS[key]; p.style.strokeWidth = '2';
         p.style.fill = 'none'; p.style.strokeDasharray = 'none';
         p.setAttribute('marker-end', mk[key]);
-        (labelsByPath[i] || []).forEach(lab => lab.setAttribute('transform', `translate(${r.lx},${r.ly})`));
+        (labelsByPath[i] || []).forEach(lab => {
+          lab.setAttribute('transform', `translate(${r.lx},${r.ly})`);
+          lab.querySelectorAll('text, tspan, foreignObject div, span').forEach(t => {
+            t.style.fill = PB_FLOW_EDGE_COLORS[key];
+            t.style.color = PB_FLOW_EDGE_COLORS[key];
+            t.style.fontWeight = '700';
+          });
+        });
       });
       // Back-edges route below the nodes, often past Mermaid's original viewBox (which clips,
       // since the SVG is overflow:hidden) — grow the viewBox to fit the full rerouted geometry.
