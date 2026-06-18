@@ -15,6 +15,15 @@ warnings; and an ERD mock-data viewer for checking empty / sparse / overflow edg
 
 ## Install (it's a Claude Code plugin)
 
+**From GitHub (recommended):**
+
+```
+/plugin marketplace add danhnbui/prototype-builder
+/plugin install pb@product-builder
+```
+
+**Local development (if you have the repo cloned):**
+
 ```
 /plugin marketplace add ./
 /plugin install pb@product-builder
