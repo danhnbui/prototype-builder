@@ -3715,7 +3715,15 @@
         const path   = node.querySelector('path');
         const lines  = node.querySelectorAll('line').length;
         let key = null;
-        if (poly)        key = pbIsDiamond(poly) ? 'decision' : 'input';
+        if (poly) {
+          key = pbIsDiamond(poly) ? 'decision' : 'input';
+          // Subprocess [[...]] renders as a 10-point double-rectangle polygon — strip the outer bracket
+          // points so only the clean inner rect remains (removes the vertical "lines" on both sides).
+          if (key === 'input') {
+            const pts = (poly.getAttribute('points') || '').trim().split(/\s+/);
+            if (pts.length >= 8) poly.setAttribute('points', pts.slice(0, 4).join(' '));
+          }
+        }
         else if (circle) key = 'startEnd';
         else if (rect) {
           if (lines >= 2) key = 'sub'; // subroutine [[ ]]
@@ -3731,6 +3739,7 @@
         node.querySelectorAll('rect, polygon, circle, ellipse, path').forEach(el => {
           el.style.fill = c.fill; el.style.stroke = c.stroke;
         });
+        node.querySelectorAll('line').forEach(el => { el.style.display = 'none'; });
         node.querySelectorAll('.nodeLabel, .nodeLabel *, foreignObject div, text, text tspan').forEach(t => {
           t.style.color = c.text; t.style.fill = c.text;
         });
@@ -3826,10 +3835,12 @@
         p.setAttribute('marker-end', mk[key]);
         (labelsByPath[i] || []).forEach(lab => {
           lab.setAttribute('transform', `translate(${r.lx},${r.ly})`);
+          lab.querySelectorAll('rect').forEach(r2 => { r2.style.fill = 'transparent'; r2.setAttribute('fill', 'transparent'); });
           lab.querySelectorAll('text, tspan, foreignObject div, span').forEach(t => {
             t.style.fill = PB_FLOW_EDGE_COLORS[key];
             t.style.color = PB_FLOW_EDGE_COLORS[key];
             t.style.fontWeight = '700';
+            t.style.backgroundColor = 'transparent';
           });
         });
       });
