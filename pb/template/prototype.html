@@ -2348,6 +2348,26 @@
       '/pb:migrate':     'Run versioned schema migrations. Dry-run by default; use --apply to execute.',
     };
 
+    const CHAT_PROMPTS = {
+      '/pb:init':        'Run /pb:init to scaffold this project — PRD intake, set the Stack + DS locks, seed registry.json + memory/.',
+      '/pb:specify':     'Run /pb:specify to produce the spec/PRD — prototype-shaped user stories with JTBD and the tabs each affects.',
+      '/pb:clarify':     'Run /pb:clarify to capture user insights + UI-logic trade-offs into the Project Summary and decisions.md.',
+      '/pb:plan':        'Run /pb:plan to produce the implementation plan + a per-tab task breakdown (each task: acceptance + skill).',
+      '/pb:build':       'Run /pb:build to apply a targeted registry.json patch (trio-gated); add --render to regenerate prototype.html.',
+      '/pb:preview':     'Run /pb:preview to start the live dev server — it watches registry.json + render/*.js and reloads the browser.',
+      '/pb:sync-flow':   'Run /pb:sync-flow to (re)generate the UX Design tab — a Mermaid wireflow plus a QA test checklist.',
+      '/pb:sync-erd':    'Run /pb:sync-erd to (re)generate the Data tab — a field/type/example table plus a Mermaid erDiagram (PK/FK/cardinality guardrails).',
+      '/pb:check-drift': 'Run /pb:check-drift to audit the trio (screens, components, logic) against the constitution (report-only, no writes).',
+      '/pb:hand-off':    'Run /pb:hand-off --people for a view-only self-documenting prototype.html, or --context for a portable bundle.',
+      '/pb:validate':    'Run /pb:validate to scaffold a runnable reference build from prototype.html.',
+      '/pb:migrate':     'Run /pb:migrate to apply a versioned registry schema migration (dry-run by default; --apply to execute).',
+    };
+    function chatPromptFor(slashCommand) {
+      if (CHAT_PROMPTS[slashCommand]) return CHAT_PROMPTS[slashCommand];
+      const bare = slashCommand.replace(/^\//, '');
+      return `Run ${bare} in this Claude Code session.`;
+    }
+
     function copyCommandToClipboard(command) {
       if (navigator.clipboard && window.isSecureContext) {
         return navigator.clipboard.writeText(command).catch(() => copyCommandFallback(command));
@@ -4066,7 +4086,7 @@
                 </label>`).join('')}
             </div>
             <div class="handoff-card-body handoff-card-body--${layout}">
-              <div onclick="event.stopPropagation()">${pbRenderComponentDemo(org, props)}</div>
+              <div>${pbRenderComponentDemo(org, props)}</div>
             </div>
           </div>`;
       };

@@ -123,7 +123,12 @@ def build_html(reg, shell, version="unknown"):
                 continue
             if "render" in item and item["render"]:
                 escaped = _escape_body(item["render"])
-                parts.append('%s\n    window[%s] = %s;' % (escaped, json.dumps(fn), fn))
+                if escaped.lstrip().startswith('function '):
+                    # File-based body already has a full function declaration — emit + register
+                    parts.append('%s\n    window[%s] = %s;' % (escaped, json.dumps(fn), fn))
+                else:
+                    # Legacy inline body (bare function body) — wrap it
+                    parts.append('    window[%s] = function(props){\n%s\n    };' % (json.dumps(fn), escaped))
             else:
                 missing.append(fn)
     bodies = ""
