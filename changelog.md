@@ -4,6 +4,47 @@ All notable changes to Product Builder. Format follows [Keep a Changelog](https:
 
 ## [Unreleased]
 
+### CI/CD + security hardening — 2026-06-19
+
+*Infrastructure only — no user-facing changes, no schema bump, no migration required.*
+
+**CI fixes (`.github/workflows/ci.yml`)**
+- Push trigger restricted to `main`; PRs cover feature branches — eliminates the double-run on open PRs (was `branches: ["**"]`).
+- Concurrency group fixed to `head_ref || ref` so runs from the same PR branch collapse correctly.
+- Runner pinned to `ubuntu-24.04` (was `ubuntu-latest`; drifts on image updates).
+- Playwright pinned to `1.60.0` (was floating `pip install playwright`). Version defined once at job level so the browser-cache key and the install pin stay in sync.
+- Playwright Chromium browser cache added (keyed on OS + version).
+
+What the CI suite checks (budget: wall-clock ≤ 6 min, no release ships red):
+
+`unit` job (Python, stdlib-only):
+- Migrations selftest — schema migration logic is internally consistent
+- Shell hygiene lint — no duplicate steps, no dead code, no v0.4 strings
+- Skill-reference lint — no dangling skill refs, commands are portable
+- Render determinism — golden registry rendered twice, SHA-256 of both outputs must match
+- Render-time budget — full render of 50 components / 20 screens must complete in ≤ 100 ms
+- `check.py --strict` clean on the golden — registry passes all structural + naming-contract checks
+- `check.py` catches every seeded violation — the validator rejects all known bad patterns
+
+`e2e` job (Playwright Chromium, dev/CI-only, never shipped):
+- Browser smoke across all 5 tabs: Prototype, UI Design, UX Design, Data, Project Summary
+- Validates: token rendering, form validation, tab navigation, view-only hand-off mode, zero console errors
+
+**CD: GitHub Release on version tag (`.github/workflows/release.yml`)**
+- New workflow fires on `v*` tags only (the tag push is the human approval gate).
+- Verifies the pushed tag matches `plugin.json` version before creating the release — a mismatched tag fails loud.
+- Uses `gh release create --generate-notes --verify-tag` (no third-party action).
+
+**Plugin publishing (`.claude-plugin/`)**
+- `plugin.json` created (was missing; required for the release version-coherence check). Version `1.4.2`, name `pb`.
+- `marketplace.json` unchanged — was already correct.
+- README install section updated: GitHub-based remote install (`/plugin marketplace add danhnbui/prototype-builder`) added as the primary path; local install kept as a development option.
+
+**Security: CodeQL alert remediation (`pb/tools/serve.py`)**
+- CWE-22 path traversal (High, ×3): `serve_static` now uses `relative_to()` inside a try/except (raises `ValueError` on traversal) followed by a path rebuild from `root` — fully breaks the taint chain from user input. CodeQL did not recognize the previous `is_relative_to()` boolean guard.
+- CWE-113 HTTP response splitting (Medium, ×1): `_send` strips `\r` and `\n` from the `Content-Type` header value before writing.
+- Server was already bound to `127.0.0.1` by default; no change needed.
+
 ## [1.4.2] — 2026-06-16
 
 ### Shell version coherence — stamping + drift detection
