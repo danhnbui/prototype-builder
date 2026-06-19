@@ -1352,6 +1352,20 @@
     .anatomy-table tr:last-child td { border-bottom: 0; }
     .anatomy-table tr.is-highlit td { background: #fef9c3; }
     .anatomy-badge--pin.is-highlit { box-shadow: 0 0 0 2px #fff, 0 0 0 4px #facc15; }
+    .anatomy-auto-table { margin-top: 10px; }
+    .anatomy-el-name { font-size: var(--font-size-xs); font-weight: var(--font-weight-medium); color: var(--text-active-primary); max-width: 140px; }
+    .anatomy-el-tokens { }
+    .anatomy-token-chip {
+      display: inline-block; font-size: var(--font-size-xxs); font-family: 'SF Mono', Menlo, monospace;
+      background: var(--bg-soft); border: 1px solid var(--border); border-radius: var(--radius-small);
+      padding: 1px 5px; color: var(--text-active-secondary); white-space: nowrap; margin: 1px 2px;
+    }
+    .anatomy-component-link {
+      color: var(--fill-active-primary); text-decoration: none;
+      font-size: var(--font-size-xs); font-weight: var(--font-weight-medium);
+    }
+    .anatomy-component-link:hover { text-decoration: underline; }
+    .anatomy-token-note { color: var(--text-tertiary); font-size: var(--font-size-xs); }
     .req-pill {
       font: var(--font-weight-bold) var(--font-size-xxs)/var(--line-height-xxs) var(--font-body); padding: 3px 7px; border-radius: 999px;
       text-transform: uppercase; letter-spacing: 0.05em;
@@ -4471,6 +4485,8 @@
       var stage = document.querySelector('.anatomy-stage[data-anatomy-auto]');
       if (!stage) return;
       stage.querySelectorAll('.anatomy-pin-auto').forEach(function(e) { e.remove(); });
+      var prevTable = stage.parentNode && stage.parentNode.querySelector('.anatomy-auto-table');
+      if (prevTable) prevTable.remove();
       var container = stage.querySelector('.anatomy-render');
       if (!container) return;
       var stageRect = stage.getBoundingClientRect();
@@ -4481,6 +4497,64 @@
         if (c.tagName !== 'STYLE' && c.tagName !== 'SCRIPT') { root = c; break; }
       }
       if (!root) return;
+      // Build className→tokens map from <style> tag inside render
+      var tokenMap = {};
+      var styleEl = container.querySelector('style');
+      if (styleEl) {
+        var css = styleEl.textContent;
+        var ruleRe = /([^{}]+)\{([^}]+)\}/g;
+        var rm;
+        while ((rm = ruleRe.exec(css)) !== null) {
+          var selector = rm[1].trim();
+          var body = rm[2];
+          var ruleTokens = [];
+          var varRe = /var\((--[^,)]+)/g;
+          var vm;
+          while ((vm = varRe.exec(body)) !== null) {
+            var tn = vm[1].trim();
+            if (ruleTokens.indexOf(tn) === -1) ruleTokens.push(tn);
+          }
+          if (ruleTokens.length) {
+            var classes = selector.match(/\.[a-zA-Z0-9_-]+/g) || [];
+            classes.forEach(function(cls) {
+              var key = cls.slice(1);
+              if (!tokenMap[key]) tokenMap[key] = [];
+              ruleTokens.forEach(function(t) { if (tokenMap[key].indexOf(t) === -1) tokenMap[key].push(t); });
+            });
+          }
+        }
+      }
+      // Parse numbered element names from adjacent prose paragraph
+      var proseEl = stage.nextElementSibling;
+      if (proseEl && !proseEl.classList.contains('handoff-spec-prose')) proseEl = null;
+      var proseNames = [];
+      if (proseEl) {
+        var pRe = /(\d+)[.)]\s+([\s\S]+?)(?=\s*\d+[.)]|$)/g;
+        var pm;
+        while ((pm = pRe.exec(proseEl.textContent)) !== null) {
+          proseNames[parseInt(pm[1]) - 1] = pm[2].trim().split(/\n/)[0].trim();
+        }
+      }
+      // Known organisms for nested component detection
+      var orgs = (PB_DATA.handoff && PB_DATA.handoff.organisms) || [];
+      function findOrg(el) {
+        for (var k = 0; k < orgs.length; k++) {
+          if (el.classList.contains(orgs[k].id)) return orgs[k];
+        }
+        return null;
+      }
+      function autoDesc(el) {
+        var cls = Array.from(el.classList)[0] || '';
+        var label = cls.replace(/^[a-z0-9]+-/, '').replace(/-/g, ' ');
+        return (label.charAt(0).toUpperCase() + label.slice(1)) || el.tagName.toLowerCase();
+      }
+      function getTokenChips(el) {
+        var tokens = [];
+        Array.from(el.classList).forEach(function(cls) {
+          if (tokenMap[cls]) tokenMap[cls].forEach(function(t) { if (tokens.indexOf(t) === -1) tokens.push(t); });
+        });
+        return tokens;
+      }
       // Badge direct children of the root (its visual "parts"); fall back to root itself
       var targets = Array.from(root.children).filter(function(el) {
         if (el.tagName === 'STYLE' || el.tagName === 'SCRIPT') return false;
@@ -4498,6 +4572,33 @@
         badge.style.left = (r.left - stageRect.left - 9) + 'px';
         stage.appendChild(badge);
       });
+      // Build breakdown table
+      var rows = targets.map(function(el, idx) {
+        var n = idx + 1;
+        var nested = findOrg(el);
+        var nameTd, tokensTd;
+        if (nested) {
+          nameTd = '<a class="anatomy-component-link" href="#" onclick="event.preventDefault();openHandoffDrawer(\'' + pbEscape(nested.id) + '\')">' + pbEscape(nested.name || nested.id) + ' ↗</a>';
+          tokensTd = '<span class="anatomy-token-note">see component</span>';
+        } else {
+          nameTd = pbEscape(proseNames[idx] || autoDesc(el));
+          var chips = getTokenChips(el);
+          tokensTd = chips.length
+            ? chips.map(function(t) { return '<code class="anatomy-token-chip">' + pbEscape(t) + '</code>'; }).join('')
+            : '<span class="anatomy-token-note">—</span>';
+        }
+        return '<tr><td><span class="anatomy-badge">' + n + '</span></td>' +
+               '<td class="anatomy-el-name">' + nameTd + '</td>' +
+               '<td class="anatomy-el-tokens">' + tokensTd + '</td></tr>';
+      }).join('');
+      if (!rows) return;
+      if (proseEl) proseEl.style.display = 'none';
+      var wrapper = document.createElement('div');
+      wrapper.className = 'anatomy-auto-table';
+      wrapper.innerHTML = '<table class="anatomy-table"><thead><tr>' +
+        '<th>#</th><th>Element</th><th>Tokens used</th>' +
+        '</tr></thead><tbody>' + rows + '</tbody></table>';
+      stage.parentNode.insertBefore(wrapper, stage.nextSibling);
     }
 
     /* v0.3.17 — Specification redline: measure the live component and inject
