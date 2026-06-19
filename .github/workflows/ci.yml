@@ -5,20 +5,20 @@ name: ci
 
 on:
   push:
-    branches: ["**"]
+    branches: [main]          # push CI on main only; PRs cover feature branches
   pull_request:
 
 permissions:
   contents: read
 
 concurrency:
-  group: ci-${{ github.ref }}
+  group: ci-${{ github.workflow }}-${{ github.head_ref || github.ref }}
   cancel-in-progress: true
 
 jobs:
   unit:
     name: unit (python, stdlib-only)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 6
     steps:
       - uses: actions/checkout@v4
@@ -55,16 +55,23 @@ jobs:
 
   e2e:
     name: e2e (playwright chromium, dev-only)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 6
+    env:
+      PLAYWRIGHT_VERSION: "1.60.0"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ env.PLAYWRIGHT_VERSION }}
       - name: Install Playwright (dev/CI-only — never shipped to users)
         run: |
-          pip install playwright
+          pip install "playwright==${PLAYWRIGHT_VERSION}"
           python3 -m playwright install --with-deps chromium
       - name: Browser smoke (5 tabs, tokens, validation, navigation, view-only, console)
         run: python3 tests/e2e_smoke.py

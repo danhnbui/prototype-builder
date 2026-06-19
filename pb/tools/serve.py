@@ -29,6 +29,7 @@ Usage:
 """
 import argparse, glob, json, mimetypes, os, socket, sys, threading, time, traceback, webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
 from html import escape as _esc
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))  # import sibling render.py
@@ -197,7 +198,7 @@ class Handler(BaseHTTPRequestHandler):
 
     def _send(self, body, ctype="text/html; charset=utf-8", status=200):
         self.send_response(status)
-        self.send_header("Content-Type", ctype)
+        self.send_header("Content-Type", ctype.replace("\r", "").replace("\n", ""))
         self.send_header("Content-Length", str(len(body)))
         self.send_header("Cache-Control", "no-store")
         self.end_headers()
@@ -246,20 +247,23 @@ class Handler(BaseHTTPRequestHandler):
 
     def serve_static(self, path):
         """Fall back to files next to the registry (e.g. local assets a render references)."""
-        root = os.path.dirname(os.path.abspath(self.state.reg_path)) or "/"
-        full = os.path.normpath(os.path.join(root, path.lstrip("/")))
-        if full != root and not full.startswith(root + os.sep):
+        root = Path(self.state.reg_path).resolve().parent
+        try:
+            # relative_to() raises ValueError on traversal; resolve() expands symlinks first
+            rel = (root / path.lstrip("/")).resolve().relative_to(root)
+        except ValueError:
             return self._send(b"403 forbidden", ctype="text/plain", status=403)
-        if os.path.isdir(full):
-            full = os.path.join(full, "index.html")
-        if not os.path.isfile(full):
+        # Rebuild from root so the remainder of the function operates on a clean path
+        candidate = root / rel
+        if candidate.is_dir():
+            candidate = candidate / "index.html"
+        if not candidate.is_file():
             return self._send(b"404 not found", ctype="text/plain", status=404)
         try:
-            with open(full, "rb") as f:
-                data = f.read()
+            data = candidate.read_bytes()
         except OSError:
             return self._send(b"404 not found", ctype="text/plain", status=404)
-        ctype = mimetypes.guess_type(full)[0] or "application/octet-stream"
+        ctype = mimetypes.guess_type(str(candidate))[0] or "application/octet-stream"
         self._send(data, ctype=ctype)
 
 
