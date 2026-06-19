@@ -1320,6 +1320,7 @@
       background: var(--bg-soft); padding: 34px 30px 34px 64px;
       margin-bottom: 18px;
     }
+    .anatomy-stage[data-anatomy-auto] { padding: 24px; }
     .anatomy-badge {
       display: inline-flex; align-items: center; justify-content: center;
       width: 20px; height: 20px; border-radius: 50%;
@@ -4238,7 +4239,7 @@
         if (!text) return pbAutoAnatomy(org);
         const p = (typeof a === 'object' && a.renderProps) || pbActiveProps(org);
         const prev = typeof window[org.renderFn] === 'function' ? window[org.renderFn](p) : '';
-        return `${prev ? `<div class="anatomy-stage"><div class="anatomy-render">${prev}</div></div>` : ''}
+        return `${prev ? `<div class="anatomy-stage" data-anatomy-auto="1"><div class="anatomy-render">${prev}</div></div>` : ''}
           <p class="handoff-spec-prose">${pbEscape(text)}</p>`;
       }
       const preview = typeof window[org.renderFn] === 'function'
@@ -4288,7 +4289,7 @@
           }
         }
       });
-      // Walk DOM tree (max depth 4, skip style/script)
+      // Walk DOM tree (max depth 4, skip style/script) — tag each element with data-anatomy-n
       const elements = [];
       const nestedIds = (PB_DATA.handoff.organisms || []).map(function(o) { return o.id; });
       function walk(el, depth) {
@@ -4301,6 +4302,8 @@
         });
         const desc = classes.length > 0 ? classes[0] : el.tagName.toLowerCase();
         const isNested = classes.some(function(c) { return nestedIds.indexOf(c) >= 0; });
+        const n = elements.length + 1;
+        el.setAttribute('data-anatomy-n', n);
         elements.push({ depth: depth, desc: desc, tokens: tokens, isNested: isNested });
         Array.from(el.children).forEach(function(child) { walk(child, depth + 1); });
       }
@@ -4308,7 +4311,7 @@
         if (child.tagName !== 'STYLE') walk(child, 0);
       });
       if (!elements.length) return `<div class="anatomy-stage"><div class="anatomy-render">${html}</div></div><p class="handoff-spec-note">No elements found.</p>`;
-      const prev = `<div class="anatomy-stage"><div class="anatomy-render">${html}</div></div>`;
+      const prev = `<div class="anatomy-stage" data-anatomy-for="${pbEscape(org.id)}" data-anatomy-auto="1"><div class="anatomy-render">${tmp.innerHTML}</div></div>`;
       const rows = elements.map(function(el, i) {
         const tokenHtml = el.tokens.length
           ? el.tokens.map(function(t) { return `<code style="font-size:10px;background:var(--neutral-10);padding:1px 4px;border-radius:3px;font-family:'SF Mono',monospace">${pbEscape(t)}</code>`; }).join(' ')
@@ -4464,6 +4467,39 @@
         stage.appendChild(badge);
       });
     }
+    function pbPlaceAutoAnatomyPins() {
+      var stage = document.querySelector('.anatomy-stage[data-anatomy-auto]');
+      if (!stage) return;
+      stage.querySelectorAll('.anatomy-pin-auto').forEach(function(e) { e.remove(); });
+      var container = stage.querySelector('.anatomy-render');
+      if (!container) return;
+      var stageRect = stage.getBoundingClientRect();
+      // Find root component element (first non-style child of render)
+      var root = null;
+      for (var i = 0; i < container.children.length; i++) {
+        var c = container.children[i];
+        if (c.tagName !== 'STYLE' && c.tagName !== 'SCRIPT') { root = c; break; }
+      }
+      if (!root) return;
+      // Badge direct children of the root (its visual "parts"); fall back to root itself
+      var targets = Array.from(root.children).filter(function(el) {
+        if (el.tagName === 'STYLE' || el.tagName === 'SCRIPT') return false;
+        var r = el.getBoundingClientRect();
+        return r.width > 0 || r.height > 0;
+      });
+      if (!targets.length) targets = [root];
+      // Place in-element badges at top-left corner of each target
+      targets.forEach(function(el, idx) {
+        var r = el.getBoundingClientRect();
+        var badge = document.createElement('span');
+        badge.className = 'anatomy-badge anatomy-badge--pin anatomy-pin-auto';
+        badge.textContent = idx + 1;
+        badge.style.top = (r.top - stageRect.top - 9) + 'px';
+        badge.style.left = (r.left - stageRect.left - 9) + 'px';
+        stage.appendChild(badge);
+      });
+    }
+
     /* v0.3.17 — Specification redline: measure the live component and inject
        dimension lines (line + end-cap ticks), the value chip placed directly
        beside the line — no leader lines. Element heights run down the LEFT of
@@ -4607,7 +4643,7 @@
     /* Patch renderHandoff so bounds + anatomy badges + spec redline recompute every draw. */
     (function patchRenderHandoff(){
       const orig = window.renderHandoff;
-      const after = function(){ recomputeHandoffBounds(); pbPlaceAnatomyBadges(); pbPlaceSpecAnnotations(); };
+      const after = function(){ recomputeHandoffBounds(); pbPlaceAnatomyBadges(); pbPlaceAutoAnatomyPins(); pbPlaceSpecAnnotations(); };
       window.renderHandoff = function() {
         /* Preserve the left card-list scroll across re-renders so opening a
            component / switching a dropdown doesn't jump it back to the top.
