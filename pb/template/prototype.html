@@ -1353,6 +1353,8 @@
     .anatomy-table tr.is-highlit td { background: #fef9c3; }
     .anatomy-badge--pin.is-highlit { box-shadow: 0 0 0 2px #fff, 0 0 0 4px #facc15; }
     .anatomy-auto-table { margin-top: 10px; }
+    .anatomy-container-row td { background: var(--neutral-5); }
+    .anatomy-container-row .anatomy-el-name { color: var(--text-tertiary); font-style: italic; }
     .anatomy-el-name { font-size: var(--font-size-xs); font-weight: var(--font-weight-medium); color: var(--text-active-primary); max-width: 140px; }
     .anatomy-el-tokens { }
     .anatomy-token-chip {
@@ -4573,7 +4575,14 @@
         stage.appendChild(badge);
       });
       // Build breakdown table
-      var rows = targets.map(function(el, idx) {
+      // Container row: tokens on the root component element itself (spacing, border, color, etc.)
+      var rootChips = getTokenChips(root);
+      var containerRow = rootChips.length
+        ? '<tr class="anatomy-container-row"><td><span class="anatomy-token-note">—</span></td>' +
+          '<td class="anatomy-el-name">Container</td>' +
+          '<td class="anatomy-el-tokens">' + rootChips.map(function(t) { return '<code class="anatomy-token-chip">' + pbEscape(t) + '</code>'; }).join('') + '</td></tr>'
+        : '';
+      var childRows = targets.map(function(el, idx) {
         var n = idx + 1;
         var nested = findOrg(el);
         var nameTd, tokensTd;
@@ -4591,6 +4600,7 @@
                '<td class="anatomy-el-name">' + nameTd + '</td>' +
                '<td class="anatomy-el-tokens">' + tokensTd + '</td></tr>';
       }).join('');
+      var rows = containerRow + childRows;
       if (!rows) return;
       if (proseEl) proseEl.style.display = 'none';
       var wrapper = document.createElement('div');
