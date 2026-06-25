@@ -9,8 +9,8 @@ never `prototype.html` by hand. Honors the three token levers from the project r
 
 ## Pre-write schema check
 Apply the **Schema compatibility** check from `CLAUDE.md` before writing any registry slice. If
-`meta.schemaVersion` is below `CURRENT_SCHEMA`, print the banner and suggest `/pb:migrate`. Stop
-(do not write) if the current write touches a slice a pending migration changes.
+`meta.schemaVersion` is below `CURRENT_SCHEMA`, print the banner and suggest `/pb:update-version`. Stop
+(do not write) if the current write touches a slice a pending version update changes.
 
 ## 0 · Flags
 - `--render` — after applying the patch (or on its own), regenerate `prototype.html` from

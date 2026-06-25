@@ -9,7 +9,7 @@ one correct upgrade order.
 | # | Layer | What it is | Moves when |
 |---|---|---|---|
 | 1 | **Plugin code** | the shell template (`pb/template/prototype.html`) + `serve.py` + `render.py` | you install/upgrade the plugin via `/plugin` |
-| 2 | **Registry** | `meta.schemaVersion` in `registry.json` | you run `/pb:migrate --apply` |
+| 2 | **Registry** | `meta.schemaVersion` in `registry.json` | you run `/pb:update-version --apply` |
 | 3 | **Rendered output** | `prototype.html` + the live `/pb:preview` | you re-render with the **current** plugin |
 
 The trap: layer 1 can move while layer 3 stays stale — your prototype keeps showing the **old shell UI**
@@ -25,7 +25,7 @@ with no signal why. The rendered shell is **version-stamped** so this is visible
 1. **Upgrade the plugin** via `/plugin`. If a same-name marketplace collision blocks the new version:
    uninstall the old plugin → remove the old marketplace → add the desired source → install.
 2. **Reload / restart the session** so the new command versions load.
-3. **`/pb:migrate --apply`** to bring `registry.json` up to the current schema (run the default dry-run
+3. **`/pb:update-version --apply`** to bring `registry.json` up to the current schema (run the default dry-run
    first to read the plan).
 4. **Restart `/pb:preview`** so the live render uses the new shell. (A preview started inside a session
    that you then reload is killed with it — see the stability tip.)
@@ -46,7 +46,7 @@ current version.
 | Symptom | Likely layer | Fix |
 |---|---|---|
 | New UI not showing in preview | 3 stale | Restart `/pb:preview`; or `/pb:build --render` then reload the page. |
-| `⚠ Schema gap` banner on build | 2 behind 1 | `/pb:migrate --apply`. |
+| `⚠ Schema gap` banner on build | 2 behind 1 | `/pb:update-version --apply`. |
 | `⚠ Shell drift` from `/pb:check-drift` | 3 behind 1 | Re-render (`/pb:build --render`) or restart `/pb:preview`. |
 | `⚠ Shell unstamped` | 3 rendered by a plugin older than this feature | Re-render once with the current plugin. |
 | Commands still behave like the old version | 1 not loaded | Reload/restart the session after `/plugin`. |

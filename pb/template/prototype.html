@@ -2361,7 +2361,7 @@
       '/pb:check-drift': 'Audit the trio against the constitution. Read-only — no writes.',
       '/pb:hand-off':    '--people for a view-only prototype, --context for a portable bundle.',
       '/pb:validate':    'Wrap prototype.html in a runnable Vite/Next reference build.',
-      '/pb:migrate':     'Run versioned schema migrations. Dry-run by default; use --apply to execute.',
+      '/pb:update-version': 'Run versioned schema updates. Dry-run by default; use --apply to execute.',
     };
 
     const CHAT_PROMPTS = {
@@ -2376,7 +2376,7 @@
       '/pb:check-drift': 'Run /pb:check-drift to audit the trio (screens, components, logic) against the constitution (report-only, no writes).',
       '/pb:hand-off':    'Run /pb:hand-off --people for a view-only self-documenting prototype.html, or --context for a portable bundle.',
       '/pb:validate':    'Run /pb:validate to scaffold a runnable reference build from prototype.html.',
-      '/pb:migrate':     'Run /pb:migrate to apply a versioned registry schema migration (dry-run by default; --apply to execute).',
+      '/pb:update-version': 'Run /pb:update-version to apply a versioned registry schema update (dry-run by default; --apply to execute).',
     };
     function chatPromptFor(slashCommand) {
       if (CHAT_PROMPTS[slashCommand]) return CHAT_PROMPTS[slashCommand];

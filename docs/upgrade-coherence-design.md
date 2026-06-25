@@ -2,7 +2,7 @@
 
 > Date: 2026-06-16 · Status: implemented 2026-06-16.
 > Origin: a real upgrade (pb 1.3.1 → 1.4.1) where the plugin installed and the registry could be
-> migrated, yet the rendered prototype kept showing the **old shell UI** with no signal why.
+> version-updated, yet the rendered prototype kept showing the **old shell UI** with no signal why.
 
 ## Problem
 
@@ -10,11 +10,11 @@ A pb prototype has **three version layers that must stay coherent**, and today n
 visible or checks it — so a stale render passes silently:
 
 1. **Plugin code** — the shell template (`pb/template/prototype.html`) + `serve.py` + `render.py`. Moves on plugin install/upgrade.
-2. **Registry** — `meta.schemaVersion` in `registry.json`. Moves on `/pb:migrate --apply`.
+2. **Registry** — `meta.schemaVersion` in `registry.json`. Moves on `/pb:update-version --apply`.
 3. **Rendered output** — `prototype.html` + the live `/pb:preview`. Moves **only** when re-rendered by the *current* plugin.
 
 The two observed symptoms map to this model:
-- "the plugin version didn't fully migrate" → layers 1↔2 coordination (host-controlled `/plugin` + `/pb:migrate`).
+- "the plugin version didn't fully update" → layers 1↔2 coordination (host-controlled `/plugin` + `/pb:update-version`).
 - "the new UI didn't render in preview" → **layer 3 went stale silently** — the preview was served by an older `serve.py`/template and nothing said so.
 
 ## Goals
@@ -61,7 +61,7 @@ filled by `build_html`. No hand-maintained marker — it tracks `plugin.json` on
 - The **three-layer model** (above) as the mental model.
 - The **canonical upgrade sequence**: (1) upgrade the plugin via `/plugin` (incl. resolving a same-name
   marketplace collision: uninstall → remove old marketplace → add the desired source → install); (2)
-  **reload/restart the session** so commands load the new version; (3) `/pb:migrate --apply` to bring
+  **reload/restart the session** so commands load the new version; (3) `/pb:update-version --apply` to bring
   `registry.json` to the current schema; (4) **restart `/pb:preview`** so the live render uses the new shell.
 - The **author dev-loop**: edit files → `/reload-plugins`; keep `plugin.json` `version` stable while
   iterating (so reload picks up edits without a re-cache); bump only on release.
@@ -78,7 +78,7 @@ filled by `build_html`. No hand-maintained marker — it tracks `plugin.json` on
 | `pb/template/prototype.html` | Add a `{{PB_SHELL_VERSION}}` placeholder + a small version-badge element. |
 | `pb/commands/check-drift.md` | Add the shell-coherence check step (read stamp vs `plugin.json`; warn). |
 | `docs/upgrading.md` | New guide (section C). |
-| `docs/migrations.md` | Remove "shell-drift detection" from the Phase 3–4 deferred non-goals. |
+| `docs/version-updates.md` | Remove "shell-drift detection" from the Phase 3–4 deferred non-goals. |
 | `README.md` | Cross-link the upgrade guide. |
 
 ## Testing / acceptance

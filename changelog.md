@@ -4,6 +4,36 @@ All notable changes to Product Builder. Format follows [Keep a Changelog](https:
 
 ## [Unreleased]
 
+### Rename "migration" → "version update" — 2026-06-25
+
+*User-facing terminology change. The `/pb:migrate` command is renamed to `/pb:update-version`, and
+all docs + command prose now say "version update" / "update the version" instead of "migration" /
+"migrate". No behavior change — the engine, its rules, and the registry contract are untouched.*
+
+- Command `/pb:migrate` → **`/pb:update-version`** (`pb/commands/migrate.md` → `update-version.md`).
+- Doc `docs/migrations.md` → **`docs/version-updates.md`**.
+- Runner output banners reworded ("Version update plan / complete / failed …"); shell command hints
+  (`pb/template/prototype.html`) and the `plugin.json` description updated.
+- **Engine preserved.** Internal module/file names (`pb/migrations/`, `manifest.py`,
+  `migrate_runner.py`, the `000N_*` steps), function names, and `registry.json`'s `schemaVersion` key
+  are intentionally kept — no import, invocation path, or stored registry breaks. The version-update
+  command and its rules are fully intact.
+- Released changelog sections below are left as the historical record (they shipped under the old
+  `/pb:migrate` name).
+
+### Remove the test suite + CI — 2026-06-25
+
+*Repo-cleanup: the regression suite and the CI workflow that ran it are removed. No
+user-facing change — these were dev/CI-only and never shipped in the plugin (`./pb`).*
+
+- Deleted `tests/` (shell-lint, skill-refs-lint, render-budget, check-violations, e2e-smoke,
+  shell-version) and the committed `fixtures/` (golden registry + render bodies, violations.json).
+- Deleted the version-update selftest (`pb/migrations/selftest.py` + `pb/migrations/_selftest/`).
+  The runtime version-update engine (`manifest.py`, `migrate_runner.py`, the `000N_*` steps) is unchanged.
+- Removed `.github/workflows/ci.yml`. The release/CD workflow (`release.yml`) is unchanged.
+- `docs/version-updates.md` "Authoring a version update" now verifies via `/pb:update-version` dry-run
+  instead of the deleted selftest.
+
 ### CI/CD + security hardening — 2026-06-19
 
 *Infrastructure only — no user-facing changes, no schema bump, no migration required.*

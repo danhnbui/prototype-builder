@@ -9,8 +9,8 @@ auto-fires and runs no drift check (trio principles don't constrain flow represe
 
 ## Pre-write schema check
 Apply the **Schema compatibility** check from `CLAUDE.md` before writing to the registry. If
-`meta.schemaVersion` is below `CURRENT_SCHEMA`, print the banner and suggest `/pb:migrate`. Stop
-(do not write) if the current write touches a slice a pending migration changes.
+`meta.schemaVersion` is below `CURRENT_SCHEMA`, print the banner and suggest `/pb:update-version`. Stop
+(do not write) if the current write touches a slice a pending version update changes.
 
 ## 1 · Read inputs
 `memory/spec.md` (user stories, JTBDs, acceptance scenarios) + `memory/plan.md` (per-story approach,

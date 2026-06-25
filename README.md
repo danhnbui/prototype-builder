@@ -67,7 +67,7 @@ If `/pb:init` says Python isn't installed, it will tell you exactly how to fix i
 | `/pb:check-drift` | Read-only drift audit of the trio vs the constitution |
 | `/pb:hand-off` | `--people` (view-only) · `--context` (portable bundle) |
 | `/pb:validate` | Wrap `prototype.html` in a runnable reference build (Vite/Next) — serves the single file, not a component export |
-| `/pb:migrate` | Schema migration: dry-run / `--apply` / `--rollback` / `--to <N>` |
+| `/pb:update-version` | Schema version update: dry-run / `--apply` / `--rollback` / `--to <N>` |
 
 ## Quickstart
 

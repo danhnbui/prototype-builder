@@ -158,12 +158,12 @@ Each project picks its design system at `/pb:init` (the DS Lock) and describes i
 | Build loop | `build` · `build-check-design-system` *(sub)* · `build-figma-handoff` *(sub)* |
 | Decoupled syncs / audit | `sync-flow` · `sync-erd` · `check-drift` |
 | Exits | `hand-off` (`--people` / `--context`) · `validate` |
-| Schema | `migrate` (dry-run / `--apply` / `--rollback` / `--to <N>`) |
+| Schema | `update-version` (dry-run / `--apply` / `--rollback` / `--to <N>`) |
 
 Write-path commands (`build`, `sync-flow`, `sync-erd`, `init --import`) carry a **soft compat
 gate**: before patching the registry, they check `meta.schemaVersion` against `CURRENT_SCHEMA`
-(from `pb/migrations/manifest.py`). A gap prints a one-line banner and suggests `/pb:migrate`;
-a write that would touch a migration-pending slice is blocked until migrate runs. Read-only
+(from `pb/migrations/manifest.py`). A gap prints a one-line banner and suggests `/pb:update-version`;
+a write that would touch an update-pending slice is blocked until the version update runs. Read-only
 commands (`check-drift`, `preview`) and exits do not carry the gate.
 
 ## Component / data diagram

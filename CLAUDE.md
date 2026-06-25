@@ -22,7 +22,7 @@ the playbook, [prototype-builder.md](prototype-builder.md) (authored in Phase 2)
 | `/pb:check-drift` | Read-only drift audit of the trio vs `constitution.md` | P5 |
 | `/pb:hand-off` | `--people` (view-only self-documenting `prototype.html` + cover) · `--context` (portable bundle) | P6 |
 | `/pb:validate` | Wrap `prototype.html` in a runnable reference build (Vite/Next) — serves the single file, not a component export | P6 |
-| `/pb:migrate` | Versioned schema migration: dry-run / `--apply` / `--rollback` / `--to <N>` | P6 |
+| `/pb:update-version` | Versioned schema update: dry-run / `--apply` / `--rollback` / `--to <N>` | P6 |
 
 > Shipped as a Claude Code **plugin** (`pb@product-builder`, defined in `./.claude-plugin/marketplace.json` + `./pb/`) — commands invoke as `/pb:*`. After install, **restart Claude Code** to load them. (G1 decision: plugin ✓)
 
@@ -100,9 +100,9 @@ this check before patching `registry.json`:
 1. Read `meta.schemaVersion` from `registry.json` (absent → treat as schema 2).
 2. Read `CURRENT_SCHEMA` from `pb/migrations/manifest.py` (currently **4**).
 3. If `schemaVersion < CURRENT_SCHEMA`: print a one-line banner —
-   `⚠ Schema gap (v<from> → v<to>): <pending migration's describe() text>. Run /pb:migrate.`
-4. Proceed — **unless** the current write touches a slice a pending migration changes,
-   in which case **stop** and print: `Blocked: run /pb:migrate --apply first, then retry.`
+   `⚠ Schema gap (v<from> → v<to>): <pending version update's describe() text>. Run /pb:update-version.`
+4. Proceed — **unless** the current write touches a slice a pending version update changes,
+   in which case **stop** and print: `Blocked: run /pb:update-version --apply first, then retry.`
 
 This is the canonical text. Write-path commands reference this section rather than re-stating it.
 Read-only commands (`/pb:check-drift`, `/pb:preview`) and exits do **not** carry this check.
