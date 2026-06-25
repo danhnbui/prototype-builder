@@ -33,6 +33,22 @@ user-facing change — these were dev/CI-only and never shipped in the plugin (`
 - Removed `.github/workflows/ci.yml`. The release/CD workflow (`release.yml`) is unchanged.
 - `docs/version-updates.md` "Authoring a version update" now verifies via `/pb:update-version` dry-run
   instead of the deleted selftest.
+### Force reuse of nested global components — 2026-06-25 (v1.4.3)
+
+*Hand-off + validator feature. Schema-stable (4) — no migration required.*
+
+- **`anatomy.parts[].orgId`** — a component anatomy part that IS a reused global (`badge`, `button`, …)
+  now declares it via `orgId`, mirroring `screens[].elements[].orgId`. Makes nested reuse explicit and
+  machine-checkable (the hand-off can't infer it from render code).
+- **`/pb:build-figma-handoff`** — Step 6 now branches on `part.orgId`: a declared nested global is
+  inserted as an **instance** of its `dsMatch.componentKey` (per parent variant) and recorded under
+  `figma-transfer.components[<parent>].nestedInstances[<orgId>]`, never redrawn locally. New **G-FP6
+  invariant #7** ("nested globals = instances") + a NEVER rule enforce it.
+- **`tools/check.py`** — new rules: **R-NEST** (a part `orgId` must resolve + be `scope:global`),
+  **R-NEST-HINT** (warns on a part that looks like a global but declares no `orgId` — drift detector),
+  and a **`--figma` mode** (`check.py --figma registry.json figma-transfer.json` → **R-NEST-FIGMA**)
+  that verifies every declared nesting has a recorded instance whose key matches the global's DS match.
+  Runs offline over the two committed contracts, so CI asserts it without the Figma plugin.
 
 ### CI/CD + security hardening — 2026-06-19
 

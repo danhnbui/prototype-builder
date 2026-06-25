@@ -84,6 +84,7 @@ def check(reg, strict=False, base_dir=None):
     tokens = reg.get("tokens") if isinstance(reg.get("tokens"), dict) else {}
 
     comp_ids = set()
+    comp_by_id = {}
 
     # ── components: kebab id, uniqueness, renderFn, render-body scans ─────────
     seen_comp = {}
@@ -102,8 +103,46 @@ def check(reg, strict=False, base_dir=None):
         else:
             seen_comp[cid] = i
         comp_ids.add(cid)
+        comp_by_id.setdefault(cid, c)
         _check_renderfn(add, c, "renderCmp", where)
         _scan_body(add, _resolve_body(add, c, where, base_dir), where, hex_px_sev)
+
+    # ── anatomy nesting: declared globals must be instanced (R-NEST / R-NEST-HINT) ──
+    # Mirrors screens[].elements[].orgId (R-ORGID): a component anatomy part that IS a
+    # reused global declares it via `orgId`, so the Figma hand-off nests an INSTANCE of
+    # the global instead of baking a copy (constitution Principle 10). The hand-off can't
+    # infer reuse from the render JS, so the registry must make it explicit. The matching
+    # terms are DERIVED from the registry's actual global ids — no hardcoded names.
+    global_ids = {cid for cid, c in comp_by_id.items()
+                  if isinstance(c, dict) and c.get("scope") == "global"}
+    for i, c in enumerate(components):
+        if not isinstance(c, dict):
+            continue
+        cid = c.get("id", "")
+        parts = ((c.get("anatomy") or {}).get("parts")) or []
+        for p in parts:
+            if not isinstance(p, dict):
+                continue
+            where = f"components[{i}] id={cid!r} part#{p.get('n')}"
+            org = p.get("orgId")
+            if org is not None:
+                target = comp_by_id.get(org)
+                if target is None:
+                    add(ERROR, "R-NEST", where,
+                        f"part orgId {org!r} resolves to no component")
+                elif target.get("scope") != "global":
+                    add(ERROR, "R-NEST", where,
+                        f"part orgId {org!r} is scope={target.get('scope')!r}; only "
+                        f"scope:'global' components may be nested as reused instances")
+            elif c.get("scope") != "global":
+                # drift detector: a part that LOOKS like a global but doesn't declare it
+                nm = str(p.get("name", "")).lower()
+                hit = next((g for g in global_ids if g in nm), None)
+                if hit:
+                    add(WARN, "R-NEST-HINT", where,
+                        f"part name {p.get('name')!r} looks like it nests global {hit!r} "
+                        f"but has no orgId — add \"orgId\":\"{hit}\" to force instance reuse "
+                        f"in the Figma hand-off")
 
     # ── screens: kebab id, uniqueness, renderFn, orgId refs, render-body ──────
     seen_screen = {}
@@ -160,6 +199,56 @@ def check(reg, strict=False, base_dir=None):
     return findings
 
 
+def check_nesting_figma(reg, transfer):
+    """Verify every anatomy part that declares a nested global (`orgId`) has a recorded
+    INSTANCE in figma-transfer.json — proof the hand-off reused the global instead of
+    baking a local copy (G-FP6 invariant #7 / constitution Principle 10). Runs over the
+    two committed contracts, so CI asserts it without needing the Figma plugin.
+
+    Returns a list of Finding (R-NEST-FIGMA)."""
+    findings = []
+
+    def add(sev, code, where, msg):
+        findings.append(Finding(sev, code, where, msg))
+
+    components = reg.get("components") if isinstance(reg.get("components"), list) else []
+    comp_by_id = {}
+    for c in components:
+        if isinstance(c, dict):
+            comp_by_id.setdefault(c.get("id", ""), c)
+    tcomps = transfer.get("components", {}) if isinstance(transfer, dict) else {}
+
+    for i, c in enumerate(components):
+        if not isinstance(c, dict):
+            continue
+        cid = c.get("id", "")
+        parts = ((c.get("anatomy") or {}).get("parts")) or []
+        for p in parts:
+            if not isinstance(p, dict):
+                continue
+            org = p.get("orgId")
+            if not org:
+                continue
+            where = f"components[{i}] id={cid!r} part#{p.get('n')} -> {org!r}"
+            parent = tcomps.get(cid) or {}
+            nested = (parent.get("nestedInstances") or {}) if isinstance(parent, dict) else {}
+            rec = nested.get(org)
+            if not isinstance(rec, dict) or not rec.get("instanceId"):
+                add(ERROR, "R-NEST-FIGMA", where,
+                    f"declared nested global {org!r} has no recorded instance in "
+                    f"figma-transfer.components.{cid}.nestedInstances — the hand-off baked "
+                    f"it in instead of instancing the global")
+                continue
+            # the nested instance must reuse the SAME published DS component as the global
+            want = ((tcomps.get(org) or {}).get("dsMatch") or {}).get("componentKey")
+            got = rec.get("componentKey")
+            if want and got and want != got:
+                add(ERROR, "R-NEST-FIGMA", where,
+                    f"nested instance componentKey {got!r} != the global {org!r}'s DS key "
+                    f"{want!r} — it instances a different component than the global reuses")
+    return findings
+
+
 def _resolve_body(add, item, where, base_dir):
     """Return the render body to scan, resolving renderSrc (v1.4 schema 4).
 
@@ -209,16 +298,11 @@ def _scan_body(add, body, where, hex_px_sev):
         add(hex_px_sev, "R-PX", where, f"raw px {m} in render body — use a token (Principle 2)")
 
 
-def main():
-    args = sys.argv[1:]
-    strict = "--strict" in args
-    args = [a for a in args if a != "--strict"]
-    if len(args) != 1:
-        sys.exit("usage: check.py [--strict] <registry.json>")
-    path = args[0]
+def _load_json(path):
+    """Load a JSON file, failing closed with a one-line R-IO/R-JSON message (no traceback)."""
     try:
         with open(path, encoding="utf-8") as f:
-            reg = json.load(f)
+            return json.load(f)
     except FileNotFoundError:
         print(f"ERROR [R-IO] {path}: file not found", file=sys.stderr)
         sys.exit(2)
@@ -227,18 +311,43 @@ def main():
               file=sys.stderr)
         sys.exit(2)
 
-    findings = check(reg, strict=strict, base_dir=os.path.dirname(os.path.abspath(path)))
+
+def _report(findings, label, ok_msg):
+    """Print findings, then exit 0 (clean) / 1 (warnings) / 2 (any error)."""
     errors = [f for f in findings if f.severity == ERROR]
     warns = [f for f in findings if f.severity == WARN]
     for f in findings:
         print(f.line())
-
-    label = "check.py --strict" if strict else "check.py"
     if not findings:
-        print(f"✓ {label}: clean — {path}")
+        print(f"✓ {label}: {ok_msg}")
         sys.exit(0)
-    print(f"{label}: {len(errors)} error(s), {len(warns)} warning(s) — {path}")
+    print(f"{label}: {len(errors)} error(s), {len(warns)} warning(s)")
     sys.exit(2 if errors else 1)
+
+
+def main():
+    args = sys.argv[1:]
+    strict = "--strict" in args
+    figma = "--figma" in args
+    args = [a for a in args if a not in ("--strict", "--figma")]
+
+    # --figma: cross-check the registry against figma-transfer.json (nested-global reuse).
+    if figma:
+        if len(args) != 2:
+            sys.exit("usage: check.py --figma <registry.json> <figma-transfer.json>")
+        reg = _load_json(args[0])
+        transfer = _load_json(args[1])
+        _report(check_nesting_figma(reg, transfer),
+                "check.py --figma", f"clean — {args[0]} × {args[1]}")
+        return
+
+    if len(args) != 1:
+        sys.exit("usage: check.py [--strict] <registry.json>  |  "
+                 "check.py --figma <registry.json> <figma-transfer.json>")
+    path = args[0]
+    reg = _load_json(path)
+    findings = check(reg, strict=strict, base_dir=os.path.dirname(os.path.abspath(path)))
+    _report(findings, "check.py --strict" if strict else "check.py", f"clean — {path}")
 
 
 if __name__ == "__main__":

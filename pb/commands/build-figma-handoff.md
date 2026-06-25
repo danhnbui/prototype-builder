@@ -92,7 +92,7 @@ If `--dry-run` → print the plan and STOP (no writes, no contract updates).
 ## Step 6 — Execute (only after G-FP5 `yes`)
 Ordered, each a `Figma:use_figma` call (load the `figma-use` skill first):
 1. **Tokens** — create each local token in the chosen collection; record VariableIDs.
-2. **Components** (skip if scope=screens) — build each `create-local` from `anatomy.parts[]` + `spec.stack[]` + `properties[]` **with auto-layout**; apply diffs for `update`; record `componentSetId`/`componentId`. DS-matched components: no write, just record the binding.
+2. **Components** (skip if scope=screens) — build each `create-local` from `anatomy.parts[]` + `spec.stack[]` + `properties[]` **with auto-layout**; apply diffs for `update`; record `componentSetId`/`componentId`. DS-matched components: no write, just record the binding. **Any `anatomy.parts[]` entry with an `orgId` is a NESTED GLOBAL — do NOT redraw it as a local frame: `createInstance` of that global's `dsMatch.componentKey` (`importComponentSetByKeyAsync` → pick the variant → `createInstance`), place it in the parent's auto-layout, and apply the part's text override. Record each under `figma-transfer.components[<parent>].nestedInstances[<orgId>]` (`{instanceId, componentKey, dsName}`). Do this per variant of the parent ComponentSet.**
 3. **Screens** (skip if scope=components) — create a frame in `rootFrameId` per screen; for each element create a child node **with auto-layout** per the sizing heuristic; DS-matched element components inserted as **instances**, not local copies; record `frameId` + element map.
 4. **Token bindings** — bind each element's computed property to its VariableID.
 5. **Instance bindings** — ensure each instance points at the correct `{DS}` library component.
@@ -112,11 +112,12 @@ The push is **not done** until this passes. After Step 6, re-read the pushed res
 | 4 | **Variants in a ComponentSet** — any component with `properties[]` is a `COMPONENT_SET` whose variants match the declared `prop=value` axis. |
 | 5 | **Screens = instances** — every library / DS-matched element on a screen is an `INSTANCE` (has `mainComponent`), never a local copy. |
 | 6 | **Token coverage** — bound-variable count ≥ the G-FP3 token union; no in-scope token left unbound. |
+| 7 | **Nested globals = instances** — every component `anatomy.parts[]` entry with an `orgId` resolves to an `INSTANCE` (has `mainComponent`) of that global's DS match inside the built component (in EVERY variant), never a redrawn local frame/text. Verifiable offline over the two committed contracts: `python3 tools/check.py --figma registry.json figma-transfer.json`. |
 
 Print the result as a ✅/❌ checklist (one row per invariant + counts). Only an **all-✅** result proceeds to Step 7.
 
 ## Step 7 — Update contracts + log (only after G-FP6 passes all invariants)
-- **`figma-transfer.json`** — new `components[<id>].figmaComponentSetId`/`figmaId`, `screens[<id>].figmaFrameId`/`elementMapping`, `components[<id>].dsMatch`; `lastPushedAt`, `lastPushedHash[<scope>]`, `lastScope`.
+- **`figma-transfer.json`** — new `components[<id>].figmaComponentSetId`/`figmaId`, `components[<id>].nestedInstances` (one entry per nested-global `orgId`: `{instanceId, componentKey, dsName}`), `screens[<id>].figmaFrameId`/`elementMapping`, `components[<id>].dsMatch`; `lastPushedAt`, `lastPushedHash[<scope>]`, `lastScope`.
 - **`registry.json`** — write the Figma IDs back onto the matching `components[]` / `screens[]` entries (`figmaId`, `figmaComponentSetId`, `dsMatch`, `figmaFrameId`) and **only** those keys. Re-read to confirm valid JSON; on parse failure, restore and report — never leave a broken registry.
 - **Push log** — append the plan + Figma responses + the contract diff to `memory/figma-pushes/<ISO-timestamp>.log`.
 
@@ -137,6 +138,7 @@ Confirm to the user with the counts and the contracts updated. Re-running withou
 - NEVER hardcode a design-system name — always read `dsMatch.library` from config.
 - NEVER position a frame child absolutely — auto-layout on every frame (R3).
 - NEVER hand-emit / hand-draw prototype content into Figma outside this command — every export runs these gates.
+- NEVER redraw a nested global as a local frame — an `anatomy.parts[]` entry with an `orgId` MUST be instanced from the global's DS match (G-FP6 inv #7); baking it in is a hard fail.
 - NEVER run Step 7 or report a push "done" while any G-FP6 invariant fails — the render audit is a hard completion gate.
 
 > **Skill degrade (NS6).** If a skill this command invokes fails to load, say so explicitly and proceed with its core intent — never silently skip the step.
