@@ -4,6 +4,19 @@ All notable changes to Product Builder. Format follows [Keep a Changelog](https:
 
 ## [Unreleased]
 
+### Remove the test suite + CI — 2026-06-25
+
+*Repo-cleanup: the regression suite and the CI workflow that ran it are removed. No
+user-facing change — these were dev/CI-only and never shipped in the plugin (`./pb`).*
+
+- Deleted `tests/` (shell-lint, skill-refs-lint, render-budget, check-violations, e2e-smoke,
+  shell-version) and the committed `fixtures/` (golden registry + render bodies, violations.json).
+- Deleted the migrations selftest (`pb/migrations/selftest.py` + `pb/migrations/_selftest/`).
+  The runtime migration engine (`manifest.py`, `migrate_runner.py`, the `000N_*` steps) is unchanged.
+- Removed `.github/workflows/ci.yml`. The release/CD workflow (`release.yml`) is unchanged.
+- `docs/migrations.md` "Adding a migration" now verifies via `/pb:migrate` dry-run instead of the
+  deleted selftest.
+
 ### CI/CD + security hardening — 2026-06-19
 
 *Infrastructure only — no user-facing changes, no schema bump, no migration required.*

@@ -58,9 +58,8 @@ that don't alter what `registry.json` must contain.
    ```
 
 3. Add `(FROM, TO, "000N_slug")` to `_REGISTRY` in `pb/migrations/manifest.py`.
-4. Add a fixture for your migration to `pb/migrations/_selftest/` and extend
-   `pb/migrations/selftest.py` to cover it.
-5. Run `python3 pb/migrations/selftest.py` — all steps must pass.
+4. Verify against a representative registry with `/pb:migrate` in dry-run mode (then
+   `--apply` / `--rollback`) — confirm the round-trip restores the original.
 
 ### Authoring rules
 
