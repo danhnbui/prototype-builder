@@ -21,7 +21,7 @@ Migration module contract — each 000N_slug.py must export:
                         --apply for rule changes they must apply by hand to
                         memory/constitution.md. NEVER auto-written by the engine.
 
-Phase 3–4 non-goals (see docs/migrations.md):
+Phase 3–4 non-goals (see docs/version-updates.md):
   - Shell-drift detection via a template version marker
   - init --import auto-running migrate
   - Richer lossy down() reversal

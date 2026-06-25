@@ -31,7 +31,7 @@ Export a bundle (`handoff-bundle/` or `--out <dir>`) containing:
   `design-system/` · `memory/constitution.md` · `memory/decisions.md`
 
 The exported `registry.json` carries `meta.schemaVersion` — the bundle is schema-stamped so
-`/pb:init --import` can detect and suggest `/pb:migrate` if the receiving environment is newer.
+`/pb:init --import` can detect and suggest `/pb:update-version` if the receiving environment is newer.
 
 This is exactly what `/pb:init --import <bundle>` ingests to continue the work in a fresh project.
 

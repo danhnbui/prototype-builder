@@ -2,7 +2,7 @@
 """
 pb-migrate — versioned schema migration runner for Product Builder registry.json.
 
-Usage (from the project root, or via /pb:migrate):
+Usage (from the project root, or via /pb:update-version):
   python3 "${CLAUDE_PLUGIN_ROOT}/migrations/migrate_runner.py" [flags]
 
 Flags:
@@ -139,7 +139,7 @@ def run(args=None):
         print(f"✗ {e}")
         sys.exit(1)
 
-    print(f"Migration plan: schema {from_v} → {to_v} ({direction}, {len(mods)} step(s))")
+    print(f"Version update plan: schema {from_v} → {to_v} ({direction}, {len(mods)} step(s))")
     for mod in mods:
         stem = getattr(mod, "__name__", "?")
         print(f"  • {stem}: {mod.describe()}")
@@ -178,7 +178,7 @@ def run(args=None):
         try:
             working = mod.up(working, base_dir) if direction == "up" else mod.down(working, base_dir)
         except Exception as e:
-            print(f"✗ Migration failed at [{stem}]: {e}")
+            print(f"✗ Version update failed at [{stem}]: {e}")
             print("  Nothing written (backup preserved).")
             sys.exit(1)
 
@@ -225,7 +225,7 @@ def run(args=None):
 
     # 6. Summary
     new_v = working.get("meta", {}).get("schemaVersion", to_v)
-    print(f"✓ Migration complete: schema {from_v} → {new_v}")
+    print(f"✓ Version update complete: schema {from_v} → {new_v}")
     print(f"  registry.json updated · backup kept at .pb-backups/{backup_name}")
 
     # 7. Advisory memory_notes (NEVER auto-written)
@@ -241,7 +241,7 @@ def run(args=None):
         print("\n── Advisory: apply these rule changes by hand to memory/constitution.md ──")
         for note in advisory:
             print(note)
-        print("── (the migration engine NEVER writes to constitution.md) ──")
+        print("── (the version-update engine NEVER writes to constitution.md) ──")
 
 
 def _rerender(reg, registry_path):

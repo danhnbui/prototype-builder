@@ -7,7 +7,7 @@ description: Scaffold a new Product Builder prototype — PRD intake (Q&A or fil
 Scaffold a new prototype **in the current directory**. PRD intake is **never blank**.
 
 ## 0 · Preflight — the one prerequisite
-Verify **Python 3** is on PATH (it's the only runtime pb needs — the render/preview/check/migrate tools are
+Verify **Python 3** is on PATH (it's the only runtime pb needs — the render/preview/check/update-version tools are
 stdlib-only, no pip installs):
 ```
 python3 --version
@@ -83,7 +83,7 @@ If set, skip 1–5: read the bundle (`registry.json` + `render/` body files + `d
 
 **Schema compatibility check** (see **Schema compatibility** in `CLAUDE.md`) — run it here, on the
 imported `registry.json`, before proceeding. If the bundle is on an older schema, show the banner and
-suggest `/pb:migrate`. Do not silently copy an out-of-contract slice into the project. Ready to `/pb:build`.
+suggest `/pb:update-version`. Do not silently copy an out-of-contract slice into the project. Ready to `/pb:build`.
 
 ## Result
 A seeded project — non-empty `memory/prd.md`, locks set, `registry.json` seeded, `memory/decisions.md`,
