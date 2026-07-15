@@ -76,6 +76,17 @@ Write into `registry.json`: `meta.overview.objectives` = the PRD objective; `met
 = the constitution Principles as `[{num,title,body}]`. This is the Project-Summary sync the v0.4.0
 `after_*` hooks used to do — it now lives here. **Do not render yet.**
 
+## 5b · Install the pb agents (optional — enables `/pb:orchestrate`)
+After scaffolding, offer to install the 8 `pb-*` agents into this project's `.claude/agents/` so
+`/pb:orchestrate` can dispatch tasks to them:
+```
+python3 "${CLAUDE_PLUGIN_ROOT}/tools/agents_install.py" --project-dir .
+```
+It copies the roster (`pb-clarifier` · `pb-planner` · `pb-builder` · `pb-design-system` · `pb-flow` ·
+`pb-data` · `pb-tester` · `pb-reviewer`) into `.claude/agents/`, idempotently (safe to re-run). Skip it for
+a plain single-slice `/pb:build` workflow — it's only needed for the agent-wave orchestration path. Mention
+to the user that they can run it later if they decide to use `/pb:orchestrate`.
+
 ## 6 · `--import <bundle>` (alternative on-ramp)
 If set, skip 1–5: read the bundle (`registry.json` + `render/` body files + `design-system/` +
 `memory/constitution.md` + `memory/decisions.md`), copy it **all** into the new project (the

@@ -17,18 +17,27 @@ Group work by the tab it lands in (Prototype · Project Summary · UX Design · 
 tab, list discrete tasks. A good task is one coherent change to one slice (a screen, a component, a flow).
 
 ## 3 · For each task, define
-- **Acceptance** — the testable condition that says it's done (e.g. "empty submit shows an inline error").
-- **Skill** — which skill the executor invokes (`think-layout`, `think-logic`, `design-component-build`,
+Emit **every** field below on each task (all are consumed downstream — `deps:` / `slice:` / `agent:` drive
+`/pb:orchestrate`'s waves; absence of the new three is tolerated but incomplete):
+- **acceptance** — the testable condition that says it's done (e.g. "empty submit shows an inline error").
+- **skill** — which skill the executor invokes (`think-layout`, `think-logic`, `design-component-build`,
   `craft-connect-flow`, …).
-- **Order/deps** — what must exist first (atoms before the molecules that compose them, screens before flows).
+- **agent** — which of the 8 `pb-*` agents runs it: `pb-clarifier` · `pb-planner` · `pb-builder` ·
+  `pb-design-system` · `pb-flow` · `pb-data` · `pb-tester` · `pb-reviewer`. Route by `slice` (below):
+  screen / logic → `pb-builder`; component / tokens → `pb-design-system` (or `pb-builder` for a plain build);
+  flow → `pb-flow`; erd → `pb-data`; meta → `pb-clarifier`.
+- **deps** — comma-separated task ids that must finish first, or `none` (atoms before the molecules that
+  compose them, screens before flows). This is what `/pb:orchestrate` topologically sorts into waves.
+- **slice** — the one registry slice this task touches: `screen` · `component` · `logic` · `tokens` ·
+  `flow` · `erd` · `meta`. One coherent slice per task.
 
 ## 4 · Sequence
 Order tasks so dependencies come first and the prototype is runnable at each checkpoint. Prefer a thin
 end-to-end slice early (one working screen) over many half-built ones.
 
 ## Output
-A per-tab task breakdown — each task with acceptance + the skill it invokes + its dependencies — ready for
-`/pb:plan` to record and `/pb:build` to execute one slice at a time.
+A per-tab task breakdown — each task with **acceptance · skill · agent · deps · slice** — ready for
+`/pb:plan` to record, `/pb:build` to execute one slice at a time, and `/pb:orchestrate` to run in waves.
 
 ## Rules
 - **Plan, don't build** — this skill produces the breakdown; `/pb:build` does the work.

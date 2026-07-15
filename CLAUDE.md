@@ -1,4 +1,4 @@
-# Product Builder v1.4.2 — router (read first)
+# Product Builder v1.5.0 — router (read first)
 
 Standalone, CLAUDE.md-native prototype builder. **No SpecKit** — no `extension.yml`,
 `preset.yml`, or `after_*` hooks. State lives in `registry.json`; commands are native
@@ -12,9 +12,12 @@ the playbook, [prototype-builder.md](prototype-builder.md) (authored in Phase 2)
 | `/pb:init` | Scaffold: PRD intake (Q&A or file), set Stack + DS locks, seed `registry.json` + `memory/`; optional `--import <bundle>` | P4 |
 | `/pb:specify` | Produce the spec / PRD (native) | P4 |
 | `/pb:clarify` | User Insights + UI Logic Trade-offs → Project Summary; append trade-offs to `decisions.md` | P4 |
-| `/pb:plan` | Implementation plan **+** per-tab task breakdown (each task: acceptance + skill) | P4 |
+| `/pb:plan` | Implementation plan **+** per-tab task breakdown (each task: acceptance + skill + **agent · deps · slice**) | P4 |
+| `/pb:orchestrate` | Dispatch `memory/tasks.md` to the agent roster in dependency **waves** — serial registry writes, render once per wave, `acceptance`-gated | P4 |
 | `/pb:build` | The cheap loop: targeted `registry.json` patches, trio-gated, **no per-tweak render** | P3 |
 | `/pb:preview` | Live preview dev server: watch `registry.json` → deterministic render → browser live-reload | P3 |
+| `/pb:test` | Sandbox testing: run scenario `test{}` blocks (functional), `--roles`, `--server`, `--security`, `--explore`; writes `lastResult` → live ✓/✗ glyphs | P3 |
+| `/pb:explore` | Parallel design options: N `pb-builder` sub-agents propose alternatives → compare → keep one | P3 |
 | `/pb:build-check-design-system` | *(sub)* DS-first: reuse vs extend-variant vs build-local; enforce the naming contract | P3 |
 | `/pb:build-figma-handoff` | *(sub)* ported `figma-push` — 6 gates (incl. G-FP6 render audit), DS-neutral match, auto-layout, one-way | P3 |
 | `/pb:sync-flow` | UX flow (Mermaid wireflow + test checklist) — decoupled, manual | P5 |
@@ -25,6 +28,12 @@ the playbook, [prototype-builder.md](prototype-builder.md) (authored in Phase 2)
 | `/pb:update-version` | Versioned schema update: dry-run / `--apply` / `--rollback` / `--to <N>` | P6 |
 
 > Shipped as a Claude Code **plugin** (`pb@product-builder`, defined in `./.claude-plugin/marketplace.json` + `./pb/`) — commands invoke as `/pb:*`. After install, **restart Claude Code** to load them. (G1 decision: plugin ✓)
+
+## Agent roster + sandbox (v1.5)
+
+- **Agents** (`pb/agents/*.md`, installed to `.claude/agents/` via `tools/agents_install.py`): `pb-clarifier`, `pb-planner`, `pb-builder`, `pb-design-system`, `pb-flow`, `pb-data`, `pb-tester`, `pb-reviewer`. `/pb:orchestrate` routes each task to its fitting agent by `slice`; agents **return slice patches**, the coordinator applies them **serially** and renders **once per wave**; `pb-tester` + `pb-reviewer` are the `acceptance` gate.
+- **Sandbox** (`/pb:test` → `tools/test_run.py`, Playwright — the only pip dep, isolated to this path like Node/npm at `/pb:validate`; degrades if absent): drives the `data-*` runtime to verify scenario `test{}` blocks, per-role gating, and server reachability; `tools/security_scan.py` (stdlib) scans for secrets/PII. Results write `flow.stories[].scenarios[].lastResult` (additive) → the UX-tab ✓/✗/○/☐ glyphs.
+- **Roles** (all additive/optional): `meta.roles[]` + `meta.defaultRole` + `screens[].roles[]` + element `data-roles` gate the Prototype tab; a role switcher + **Reset** ride the header (kept visible to viewers even in a `--people` hand-off — only authoring controls hide); an `isAdmin` role bypasses gating.
 
 ## The three load-bearing rules (token levers — ship together)
 

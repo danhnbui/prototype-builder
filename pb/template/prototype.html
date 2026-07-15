@@ -72,6 +72,7 @@
       --fill-active-secondary:  var(--brand-soft);
       --fill-hover-secondary:   var(--neutral-10);
       --danger:                 #dc2626;   /* error/validation runtime — registry token overrides this */
+      --success:                #16a34a;   /* pass state (test glyphs) — registry token may override */
 
       /* Fonts */
       --font-heading: 'Inter', system-ui, -apple-system, sans-serif;
@@ -598,7 +599,8 @@
     body.view-only .sync-bar,
     body.view-only .fp-panel,
     body.view-only .empty-state-actions,
-    body.view-only .empty-state-cta { display: none !important; }
+    body.view-only .empty-state-cta,
+    body.view-only .pb-test-run-btn { display: none !important; }
     .empty-state-note { margin: 8px 0 0; font: var(--font-weight-medium) var(--font-size-s)/var(--line-height-p-s) var(--font-body); color: var(--text-tertiary); font-style: italic; }
     .pb-cover { padding: 18px 24px; background: var(--brand); color: #fff; display: flex; flex-direction: column; gap: 2px; font-family: var(--font-body); }
     .pb-cover strong { font-family: var(--font-heading); font-size: var(--font-size-l); }
@@ -977,6 +979,27 @@
     }
     .pb-qa-warn-head { font: var(--font-weight-bold) var(--font-size-xs)/var(--line-height-xs) var(--font-body); color: #c2410c; margin-bottom: 8px; }
     .pb-qa-warn-list { margin: 0; padding-left: 18px; font-size: var(--font-size-xs); line-height: var(--line-height-p-xs); color: var(--text-active-primary); }
+
+    /* UX Design — functional-test glyphs + tests-panel header (v1.5) */
+    .pb-test-glyph { display:inline-block; width:1.1em; text-align:center; font-weight:var(--font-weight-bold); }
+    .pb-test-glyph--pass     { color:var(--success); }
+    .pb-test-glyph--fail     { color:var(--danger); }
+    .pb-test-glyph--untested { color:var(--text-tertiary); }
+    .pb-test-head { display:flex; align-items:center; justify-content:space-between; gap:0.5em; margin:0 0 0.75em; }
+    .pb-test-summary {
+      font: var(--font-weight-bold) var(--font-size-xxs)/var(--line-height-xxs) var(--font-body);
+      text-transform:uppercase; letter-spacing:0.05em;
+      color:var(--text-active-secondary); background:var(--neutral-10);
+      padding:0.3em 0.7em; border-radius:var(--radius-full);
+    }
+    .pb-test-run-btn {
+      font: var(--font-weight-bold) var(--font-size-xs)/var(--line-height-xs) var(--font-body);
+      border:1px solid var(--border); border-radius:var(--radius-small);
+      background:var(--neutral-0); color:var(--text-active-secondary);
+      padding:0.35em 0.75em; cursor:pointer; flex-shrink:0;
+      transition:border-color .12s, color .12s;
+    }
+    .pb-test-run-btn:hover { border-color:var(--brand); color:var(--brand); }
     @media (max-width: 1100px) {
       .pb-content--split { grid-template-columns: 1fr; }
       .pb-aside { position: static; max-height: none; }
@@ -2009,6 +2032,80 @@
     .proto-struct-btn:hover { color:var(--text-active-primary); border-color:var(--brand); }
     .proto-struct-btn.is-active { background:var(--brand); color:#fff; border-color:var(--brand); }
     .proto-header-divider { width:1px; height:20px; background:var(--border); flex-shrink:0; }
+    /* Role switcher + sandbox Reset (v1.5) — sit in the header tools, styled like the sibling controls. */
+    .proto-role-select {
+      height:2rem; max-width:12rem; padding:0 1.75rem 0 0.75rem;
+      border:1px solid var(--border); border-radius:var(--radius-small); background:var(--neutral-0);
+      color:var(--text-active-primary); cursor:pointer; flex-shrink:0;
+      font: var(--font-weight-bold) var(--font-size-xs)/var(--line-height-xs) var(--font-body);
+      transition:border-color .12s, color .12s;
+    }
+    .proto-role-select:hover { border-color:var(--brand); color:var(--brand); }
+    .proto-reset-btn {
+      height:2rem; display:inline-flex; align-items:center; padding:0 0.85rem; flex-shrink:0;
+      border:1px solid var(--border); border-radius:var(--radius-small); background:var(--neutral-0);
+      color:var(--text-active-secondary); cursor:pointer;
+      font: var(--font-weight-bold) var(--font-size-xs)/var(--line-height-xs) var(--font-body);
+      transition:background .12s, color .12s, border-color .12s;
+    }
+    .proto-reset-btn:hover { color:var(--text-active-primary); border-color:var(--brand); }
+    /* v1.5 — ⋯ sandbox menu button (styled like the structure toggle) + its popover contents. */
+    .proto-menu-btn {
+      display:inline-flex; align-items:center; justify-content:center; width:36px; height:32px;
+      border:1px solid var(--border); border-radius:8px; background:#fff;
+      color:var(--text-active-secondary); cursor:pointer; transition:background .12s, color .12s, border-color .12s;
+      flex-shrink:0;
+    }
+    .proto-menu-btn:hover { color:var(--text-active-primary); border-color:var(--brand); }
+    .proto-menu-overline { font: var(--font-weight-bold) var(--font-size-xs)/1.4 var(--font-body);
+      text-transform:uppercase; letter-spacing:.06em; color:var(--text-tertiary); margin:0.75rem 0 0.25rem; }
+    .proto-menu-overline:first-of-type { margin-top:0; }
+    .proto-menu-row .proto-role-select { width:100%; max-width:100%; }
+    /* Reset = a flat list row (like the role rows / the reference menu items), not a button */
+    .proto-menu-item {
+      display:flex; width:100%; align-items:center; padding:0.55rem 0.6rem; margin:0;
+      border:0; border-radius:var(--radius-small); background:transparent;
+      color:var(--text-active-primary); cursor:pointer; text-align:left;
+      font: var(--font-weight-medium) var(--font-size-s)/1.2 var(--font-body);
+      transition:background .12s, color .12s;
+    }
+    .proto-menu-item:hover { background:var(--neutral-10); }
+    /* full-width divider — bleeds past the 18px popover padding */
+    .proto-menu-hr { height:1px; background:var(--border); margin:0.6rem -18px; }
+    /* role LIST (not a dropdown/buttons): each row = name + JTBD description; active row checked */
+    .proto-role-list { display:flex; flex-direction:column; gap:0.125rem; }
+    .proto-role-item {
+      display:flex; flex-direction:row; align-items:center; gap:0.55rem; width:100%; text-align:left;
+      padding:0.55rem 0.6rem; border:0; border-radius:var(--radius-small); background:transparent; cursor:pointer;
+      transition:background .12s;
+    }
+    .proto-role-item:hover { background:var(--neutral-10); }
+    .proto-role-item.is-active { background:transparent; }   /* selection reads from the radio, not a fill */
+    /* leading radio — replaces the check glyph; filled dot when the role is active */
+    .proto-role-radio {
+      flex:0 0 auto; margin-left:auto; width:1rem; height:1rem; border-radius:50%;
+      border:1.5px solid var(--border); background:transparent; position:relative; transition:border-color .12s;
+    }
+    .proto-role-item:hover .proto-role-radio { border-color:var(--text-tertiary); }
+    .proto-role-radio.is-on { border-color:var(--brand); }
+    .proto-role-radio.is-on::after { content:''; position:absolute; inset:0.22rem; border-radius:50%; background:var(--brand); }
+    .proto-role-item-body { display:flex; flex-direction:column; gap:0.15rem; min-width:0; flex:1 1 auto; }
+    .proto-role-item-head { display:flex; align-items:center; gap:0.4rem; }
+    .proto-role-item-name { font: var(--font-weight-bold) var(--font-size-s)/1.2 var(--font-body); color:var(--text-active-primary); }
+    .proto-role-item.is-active .proto-role-item-name { color:var(--brand); }
+    .proto-role-badge { font: var(--font-weight-bold) var(--font-size-xxs)/1 var(--font-body);
+      text-transform:uppercase; letter-spacing:.04em; color:var(--brand); background:var(--brand-soft);
+      border-radius:999px; padding:0.15rem 0.4rem; }
+    .proto-role-item-desc { font: var(--font-weight-medium) var(--font-size-xs)/1.4 var(--font-body); color:var(--text-tertiary); }
+    /* v1.5 — inspect overlay (⌥-hover): highlight box + name-path label, both fixed & click-through */
+    .pb-inspect-box { position:fixed; z-index:1400; pointer-events:none; display:none;
+      border:2px solid var(--brand); border-radius:4px; background:var(--brand-soft); }
+    .pb-inspect-label { position:fixed; z-index:1401; pointer-events:none; display:none; flex-direction:column; gap:0.1rem;
+      max-width:60vw; background:#0f172a; color:#fff; border-radius:6px; padding:0.35rem 0.5rem;
+      font-family:ui-monospace, SFMono-Regular, Menlo, monospace; font-size:var(--font-size-xs); line-height:1.35;
+      box-shadow:0 6px 20px rgba(0,0,0,.28); }
+    .pb-inspect-label .pb-inspect-path { white-space:nowrap; }
+    .pb-inspect-label .pb-inspect-hint { color:#9aa4b2; white-space:normal; font-size:0.6875rem; }
     .proto-device-btn { display:inline-flex; align-items:center; justify-content:center; width:44px; height:32px;
       border:0; border-radius:0; background:transparent; color:var(--text-active-secondary);
       cursor:pointer; transition:background .12s, color .12s; }
@@ -2017,10 +2114,11 @@
     .proto-device-btn.active { background:var(--brand); color:#fff; }
     .proto-device-btn:disabled, .proto-device-btn.is-disabled { opacity:.38; cursor:not-allowed; }
     .proto-main { display:flex; min-height:0; flex:1 1 auto; min-width:0; height:100%; }
-    .proto-stage { flex:1 1 auto; min-width:0; min-height:0; overflow:visible; }
+    .proto-stage { flex:1 1 auto; min-width:0; min-height:0; overflow:auto; }
     .proto-fit { height:100%; display:flex; justify-content:center; align-items:flex-start; }
     .proto-frame { background:#fff; border:1px solid var(--border); border-radius:12px; overflow:hidden;
-      box-shadow:0 10px 34px rgba(15,23,42,.12); transform-origin:top center; flex:0 0 auto; }
+      box-shadow:0 10px 34px rgba(15,23,42,.12); transform-origin:top center; flex:0 0 auto;
+      display:flex; flex-direction:column; }
     .proto-frame--tablet { border:10px solid #1c1f22; border-radius:26px; }
     .proto-frame--mobile { border:12px solid #1c1f22; border-radius:38px; }
     .proto-screen { overflow:auto; background:#fff; }
@@ -2186,6 +2284,7 @@
       erdView: null,                 // 'diagram' | 'table' — Data tab view mode
       erdVariant: {},                // { <entity>: 'schema' | <mock label> } — per-table data set (4.4)
       flowIndex: 0,                  // index into flow.flows[] (multi-flow dropdown)
+      activeRole: null,              // resolved meta.defaultRole — the role the sandbox previews as (v1.5)
       /* TODO: add your app state here, e.g.:
          user: null,
          currentScreen: 'home',
@@ -2739,6 +2838,60 @@
       window.addEventListener('resize', repositionCopyPopover);
     }
 
+    /* v1.5 — the Prototype sandbox tools (Preview-as-role + Reset) behind a single ⋯ menu.
+       Reuses the copy-popover infra (positioning / backdrop / Esc). An overline labels each group. */
+    function openSandboxMenu(anchorBtn) {
+      document.querySelectorAll('.copy-popover, .copy-popover-backdrop').forEach(el => el.remove());
+      window.removeEventListener('keydown', copyPopoverKeyHandler);
+      window.removeEventListener('resize', repositionCopyPopover);
+
+      const roles = (typeof pbRolesList === 'function') ? pbRolesList() : [];
+      // Roles render as a single-choice LIST (radiogroup): a leading radio marks the active role,
+      // then its name + a description of its abilities / JTBD. Clicking a row previews as that role.
+      const roleGroup = roles.length ? `
+        <div class="proto-menu-overline">Preview as role</div>
+        <div class="proto-role-list" role="radiogroup" aria-label="Preview as role">
+          ${roles.map(r => {
+            const active = r.id === state.activeRole;
+            return `<button class="proto-role-item ${active ? 'is-active' : ''}" role="radio" aria-checked="${active}"
+                    onclick="setProtoRole('${escapeHtmlAttr(r.id)}'); closeCopyPopover()">
+              <span class="proto-role-item-body">
+                <span class="proto-role-item-head">
+                  <span class="proto-role-item-name">${pbEscape(r.name || r.id)}</span>
+                  ${r.isAdmin ? '<span class="proto-role-badge">admin</span>' : ''}
+                </span>
+                ${r.description ? `<span class="proto-role-item-desc">${pbEscape(r.description)}</span>` : ''}
+              </span>
+              <span class="proto-role-radio ${active ? 'is-on' : ''}" aria-hidden="true"></span>
+            </button>`;
+          }).join('')}
+        </div>` : '';
+
+      const backdrop = document.createElement('div');
+      backdrop.className = 'copy-popover-backdrop';
+      backdrop.addEventListener('click', closeCopyPopover);
+
+      const pop = document.createElement('div');
+      pop.className = 'copy-popover proto-sandbox-menu';
+      pop.setAttribute('role', 'dialog');
+      pop.setAttribute('aria-label', 'Sandbox tools');
+      pop.style.width = '268px';
+      pop.innerHTML = `
+        <button class="copy-popover-close" type="button" aria-label="Close" onclick="closeCopyPopover()">${COPY_POPOVER_ICONS.close}</button>
+        ${roleGroup}
+        <div class="proto-menu-hr"></div>
+        <button class="proto-menu-item" type="button" onclick="pbResetSandbox(); closeCopyPopover()">Reset sandbox</button>
+      `;
+
+      document.body.appendChild(backdrop);
+      document.body.appendChild(pop);
+      positionCopyPopover(pop, anchorBtn);
+      setTimeout(() => { pop.classList.add('is-visible'); positionCopyPopover(pop, anchorBtn); }, 10);
+
+      window.addEventListener('keydown', copyPopoverKeyHandler);
+      window.addEventListener('resize', repositionCopyPopover);
+    }
+
     /* v0.3.2 — empty-state helper for tabs that haven't been synced yet. */
     function renderEmptyState({ icon, title, body, ctaLabel, command, label, learnHref, learnLabel, meta }) {
       // View-only (/pb:hand-off --people): an unpopulated tab must show NO authoring CTA.
@@ -2787,6 +2940,7 @@
           'Each screen in registry.json becomes a frame you can click through.',
           'The device switcher (desktop / tablet / mobile) previews responsive sizes; unsupported sizes are disabled.',
           'The structure panel on the right maps each screen down to its component instances.',
+          'Hold ⌥ (Option) and hover the preview to inspect element names; ⌥-click copies a reference to paste to the AI.',
         ],
         commands: ['/pb:build', '/pb:preview'],
         skills: ['build-generate', 'build-explore'],
@@ -2935,7 +3089,19 @@
       if (!state.protoDevice) state.protoDevice = pbNormalizeDevice(meta.device || 'laptop');
       if (supported.indexOf(state.protoDevice) === -1) state.protoDevice = supported[0] || 'laptop';
       if (!state.protoShell) state.protoShell = (meta.shell === 'app' ? 'app' : 'browser');
-      const sel = screens.find(s => s.id === state.protoScreenId);
+      // v1.5 — resolve the active role (absent meta.roles ⇒ null, switcher hidden, nothing gated).
+      const roles = (meta.roles && meta.roles.length) ? meta.roles : [];
+      if (roles.length) {
+        if (state.activeRole == null || !roles.some(r => r.id === state.activeRole)) state.activeRole = pbResolveDefaultRole();
+      } else {
+        state.activeRole = null;
+      }
+      let sel = screens.find(s => s.id === state.protoScreenId);
+      // If the active (non-admin) role may not see the selected screen, fall back to the first it can.
+      if (roles.length && sel && !pbScreenAllowsRole(sel, state.activeRole)) {
+        const permitted = screens.find(s => pbScreenAllowsRole(s, state.activeRole));
+        if (permitted) { state.protoScreenId = permitted.id; sel = permitted; }
+      }
       const device = state.protoDevice;
       const shell = state.protoShell;
       const dim = PROTO_DEVICES.find(d => d.id === device) || PROTO_DEVICES[1];
@@ -2957,9 +3123,17 @@
           }).join('')
         + `</div>`;
       const structBtn = `<button class="proto-struct-btn ${isStructOpen ? 'is-active' : ''}" onclick="toggleProtoStructPanel()" title="Structure tree" aria-label="Structure tree">${structIcon}</button>`;
+      // v1.5 — the sandbox tools (Preview-as-role + Reset) live behind ONE ⋯ menu (openSandboxMenu).
+      const sandboxIcon = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h12M6 21h12M8 3v3.6a4 4 0 0 0 1.5 3.1L12 12l2.5-2.3A4 4 0 0 0 16 6.6V3M8 21v-3.6a4 4 0 0 1 1.5-3.1L12 12l2.5 2.3A4 4 0 0 1 16 17.4V21"/></svg>`;
+      const menuBtn = `<button class="proto-menu-btn" onclick="openSandboxMenu(this)" title="Sandbox tools" aria-label="Sandbox tools">${sandboxIcon}</button>`;
+      const toolsFull = `<div class="proto-header-tools">${shellToggle}${switcher}${structBtn}${menuBtn}</div>`;
+      // v1.5 — in a view-only (--people) artifact the ⋯ menu (role switcher + Reset) stays as a VIEWER aid
+      // (routed through headerAside, which renders under VIEW_ONLY); the authoring chrome stays in cta.
+      const viewerTools = `<div class="proto-header-tools">${menuBtn}</div>`;
       const headerWithTools = pbPageHeader({
         title: 'Prototype', infoKey: 'prototype',
-        cta: `<div class="proto-header-tools">${shellToggle}${switcher}<span class="proto-header-divider"></span>${structBtn}</div>`,
+        cta: VIEW_ONLY ? '' : toolsFull,
+        headerAside: VIEW_ONLY ? viewerTools : '',
       });
 
       const body = (typeof window[sel.renderFn] === 'function')
@@ -2975,9 +3149,9 @@
             <div class="pb-main proto-main" id="proto-main" onclick="pbProtoMainClick(event)">
               <div class="proto-stage" id="proto-stage">
                 <div class="proto-fit" id="proto-fit">
-                  <div class="proto-frame proto-frame--${device} proto-shell--${shell}" id="proto-frame-wrap" style="width:${dim.w}px">
+                  <div class="proto-frame proto-frame--${device} proto-shell--${shell}" id="proto-frame-wrap" style="width:${dim.w}px;max-width:100%${(device === 'tablet' || device === 'mobile') ? '' : ';height:100%'}">
                     ${chrome}
-                    <div class="proto-screen" id="proto-frame" style="height:${dim.h}px">${body}</div>
+                    <div class="proto-screen" id="proto-frame" style="${(device === 'tablet' || device === 'mobile') ? `height:${dim.h}px` : 'flex:1 1 auto;min-height:0'}">${body}</div>
                   </div>
                 </div>
               </div>
@@ -2988,6 +3162,7 @@
           </div>
         </div>`;
       wireProtoNav();
+      pbApplyRoleGating();
       requestAnimationFrame(function () { fitProtoFrame(); pbSetStatusBarContrast(); });
     }
 
@@ -3086,15 +3261,20 @@
     // the whole frame is visible without scrolling (tall phones/tablets included). Clicks still map
     // correctly through the CSS transform. Collapses the wrapper height to the scaled height.
     function fitProtoFrame() {
-      const stage = document.getElementById('proto-stage');
-      const fit   = document.getElementById('proto-fit');
+      // v1.5 — browser/app views render at TRUE size (no scale): fonts are real, width is responsive
+      // (width:<device>px; max-width:100%) and the frame fills the column height (content scrolls
+      // inside). tablet/mobile are DEVICE frames — scale them DOWN to fit so the whole device is
+      // visible, but never scale up past 1:1.
       const frame = document.getElementById('proto-frame-wrap');
-      if (!stage || !fit || !frame) return;
+      const stage = document.getElementById('proto-stage');
+      if (!frame) return;
       frame.style.transform = 'none';
-      const availW = stage.clientWidth;
-      const availH = stage.clientHeight; // the stage fills the viewport-locked content cell
+      const device = state.protoDevice;
+      if ((device !== 'tablet' && device !== 'mobile') || !stage) return;
+      const availW = stage.clientWidth, availH = stage.clientHeight;
       const fw = frame.offsetWidth, fh = frame.offsetHeight;
-      let s = fw > 0 ? Math.min(1, availW / fw) : 1;
+      let s = 1;
+      if (fw > 0) s = Math.min(s, availW / fw);
       if (fh > 0 && availH > 80) s = Math.min(s, availH / fh);
       frame.style.transform = s < 1 ? `scale(${s})` : 'none';
     }
@@ -3131,14 +3311,80 @@
     }
     function setProtoDevice(id) { state.protoDevice = id; renderPrototype(); }
     function setProtoShell(v) { state.protoShell = (v === 'app' ? 'app' : 'browser'); renderPrototype(); }
+
+    /* =========================================================================
+       ROLE-BASED SANDBOX (v1.5)
+       meta.roles / meta.defaultRole gate which screens & elements each role sees.
+       A role with isAdmin:true bypasses ALL gating. Absent meta.roles ⇒ a single
+       implicit role: the switcher is hidden and nothing is gated (backward compatible).
+       ========================================================================= */
+    function pbRolesList() { const m = (PB_REGISTRY && PB_REGISTRY.meta) || {}; return (m.roles && m.roles.length) ? m.roles : []; }
+    function pbRoleById(id) { return pbRolesList().find(r => r.id === id) || null; }
+    function pbRoleIsAdmin(id) { const r = pbRoleById(id); return !!(r && r.isAdmin); }
+    function pbResolveDefaultRole() {
+      const roles = pbRolesList();
+      if (!roles.length) return null;
+      const m = (PB_REGISTRY && PB_REGISTRY.meta) || {};
+      if (m.defaultRole && roles.some(r => r.id === m.defaultRole)) return m.defaultRole;
+      const firstNonAdmin = roles.find(r => !r.isAdmin);
+      return firstNonAdmin ? firstNonAdmin.id : roles[0].id;
+    }
+    // A role may see a screen when: there is no roles model, OR the role is admin, OR the
+    // screen declares no `roles` (visible to all), OR the role id is in screen.roles.
+    function pbScreenAllowsRole(screen, roleId) {
+      if (!pbRolesList().length) return true;
+      if (pbRoleIsAdmin(roleId)) return true;
+      const allowed = screen && screen.roles;
+      if (!allowed || !allowed.length) return true;
+      return roleId != null && allowed.indexOf(roleId) !== -1;
+    }
+    // Refuse data-nav navigation to a screen the active role may not see.
+    function pbNavAllowed(id) {
+      if (!pbRolesList().length) return true;
+      const screens = (PB_DATA.handoff && PB_DATA.handoff.screens) || [];
+      return pbScreenAllowsRole(screens.find(s => s.id === id), state.activeRole);
+    }
+    window.setProtoRole = function (id) { state.activeRole = id; renderPrototype(); };
+    // Reset the sandbox: back to the first screen, clear history + field inputs, dismiss toasts.
+    window.pbResetSandbox = function () {
+      const screens = (PB_DATA.handoff && PB_DATA.handoff.screens) || [];
+      state.protoScreenId = screens.length ? screens[0].id : null;
+      state.protoHistory = [];
+      document.querySelectorAll('#proto-frame .field__input').forEach(function (i) { i.value = ''; });
+      const tw = document.getElementById('proto-toast-wrap');
+      if (tw) tw.innerHTML = '';
+      renderPrototype();
+    };
+    // Element-level gating: hide #proto-frame elements whose data-roles excludes the active
+    // role. isAdmin bypasses. No roles model ⇒ everything stays visible.
+    function pbApplyRoleGating() {
+      const frame = document.getElementById('proto-frame');
+      if (!frame) return;
+      const gated = frame.querySelectorAll('[data-roles]');
+      const hasRoles = pbRolesList().length > 0;
+      const admin = pbRoleIsAdmin(state.activeRole);
+      gated.forEach(function (el) {
+        if (!hasRoles || admin) { el.style.display = ''; return; }
+        const allowed = (el.getAttribute('data-roles') || '').split(/\s+/).filter(Boolean);
+        const ok = !allowed.length || (state.activeRole != null && allowed.indexOf(state.activeRole) !== -1);
+        el.style.display = ok ? '' : 'none';
+      });
+    }
+    function pbSyncStructBtn(open) {
+      const btn = document.querySelector('.proto-struct-btn');
+      if (btn) btn.classList.toggle('is-active', open);
+    }
     function toggleProtoStructPanel() {
       const p = document.getElementById('proto-struct-panel');
-      if (p) p.classList.toggle('is-open');
+      if (!p) return;
+      const open = p.classList.toggle('is-open');
+      pbSyncStructBtn(open);   // keep the toolbar button state in sync (was left stuck 'is-active')
     }
     function pbProtoMainClick(e) {
       const p = document.getElementById('proto-struct-panel');
       if (p && p.classList.contains('is-open') && !p.contains(e.target)) {
         p.classList.remove('is-open');
+        pbSyncStructBtn(false);
       }
     }
     function protoBack() {
@@ -3203,10 +3449,10 @@
       if(!ok) return;
       var toast = btn.getAttribute('data-toast'); if(toast) pbToast(toast);
       var go = btn.getAttribute('data-go');
-      if(go && pbScreensHas(go)){
+      if(go && pbScreensHas(go) && pbNavAllowed(go)){
         setProtoScreen(go);
         var rd = btn.getAttribute('data-redirect'); var ms = +(btn.getAttribute('data-redirect-ms')||0);
-        if(rd && ms && pbScreensHas(rd)) setTimeout(function(){ if(state.protoScreenId===go) setProtoScreen(rd); }, ms);
+        if(rd && ms && pbScreensHas(rd) && pbNavAllowed(rd)) setTimeout(function(){ if(state.protoScreenId===go) setProtoScreen(rd); }, ms);
       }
     }
     function pbToast(msg){
@@ -3216,17 +3462,104 @@
       requestAnimationFrame(function(){ t.classList.add('in'); });
       setTimeout(function(){ t.classList.remove('in'); setTimeout(function(){ if(t.parentNode) t.parentNode.removeChild(t); }, 250); }, 3400);
     }
+    // v1.5 — Inspect: hold ⌥/Alt and hover the preview to see an element's reference; ⌥-click copies
+    // it (a structured id path) to paste to the AI. No mode toggle — the Alt state is read off events.
+    var pbInspectLast = null, pbInspectKeysWired = false;
+    function pbInspectEls() {
+      var box = document.getElementById('pb-inspect-box');
+      var label = document.getElementById('pb-inspect-label');
+      if (!box) { box = document.createElement('div'); box.id = 'pb-inspect-box'; box.className = 'pb-inspect-box'; document.body.appendChild(box); }
+      if (!label) { label = document.createElement('div'); label.id = 'pb-inspect-label'; label.className = 'pb-inspect-label'; document.body.appendChild(label); }
+      return { box: box, label: label };
+    }
+    function pbInspectName(el) {
+      var screenId = state.protoScreenId || '';
+      var frame = document.getElementById('proto-frame');
+      var screens = (PB_DATA.handoff && PB_DATA.handoff.screens) || [];
+      var comps = (PB_DATA.handoff && PB_DATA.handoff.organisms) || [];
+      var nameOf = function (id) { var c = comps.find(function (c) { return c.id === id; }); return c ? c.name : null; };
+      // 1) tagged element (data-handoff-el) -> registry element label + component
+      var tagged = el.closest ? el.closest('[data-handoff-el]') : null;
+      if (tagged && frame && frame.contains(tagged)) {
+        var elId = tagged.getAttribute('data-handoff-el');
+        var scr = screens.find(function (s) { return s.id === screenId; });
+        var elm = scr && (scr.elements || []).find(function (x) { return x.id === elId; });
+        var org = elm && elm.orgId;
+        var path = 'screen:' + screenId + ' › element:' + elId + (org ? ' › component:' + org : '');
+        var hint = (elm && elm.label) ? elm.label : elId;
+        if (org && nameOf(org)) hint += ' · ' + nameOf(org);
+        return { path: path, hint: hint };
+      }
+      // 2) anatomy-part match by className anchor (real DOM class -> a component part name)
+      try {
+        for (var i = 0; i < comps.length; i++) {
+          var parts = ((comps[i].anatomy || {}).parts) || [];
+          for (var j = 0; j < parts.length; j++) {
+            var anchor = parts[j].anchor;
+            if (anchor && el.matches && el.matches(anchor)) {
+              return { path: 'screen:' + screenId + ' › component:' + comps[i].id + ' › part:' + (parts[j].name || anchor),
+                       hint: (parts[j].name || anchor) + ' · ' + (comps[i].name || comps[i].id) };
+            }
+          }
+        }
+      } catch (e) { /* selector edge cases — fall through */ }
+      // 3) DOM fallback — never precise, but always copyable
+      var tag = (el.tagName || 'node').toLowerCase();
+      var cls = (el.classList && el.classList.length) ? '.' + el.classList[0] : (el.id ? '#' + el.id : '');
+      var txt = (el.textContent || '').trim().replace(/\s+/g, ' ').slice(0, 32);
+      return { path: 'screen:' + screenId + ' › ' + tag + cls, hint: txt ? '"' + txt + '"' : tag };
+    }
+    function pbInspectShow(el) {
+      var frame = document.getElementById('proto-frame');
+      if (!el || !frame || el === frame || !frame.contains(el)) { pbInspectHide(); return; }
+      var info = pbInspectName(el);
+      var r = el.getBoundingClientRect();
+      var e = pbInspectEls();
+      e.box.style.display = 'block';
+      e.box.style.top = r.top + 'px'; e.box.style.left = r.left + 'px';
+      e.box.style.width = r.width + 'px'; e.box.style.height = r.height + 'px';
+      e.label.innerHTML = '';
+      var p = document.createElement('span'); p.className = 'pb-inspect-path'; p.textContent = info.path; e.label.appendChild(p);
+      if (info.hint) { var h = document.createElement('span'); h.className = 'pb-inspect-hint'; h.textContent = info.hint; e.label.appendChild(h); }
+      e.label.style.display = 'flex';
+      var ly = r.top - 30; if (ly < 4) ly = r.bottom + 6;
+      e.label.style.top = ly + 'px'; e.label.style.left = Math.max(4, r.left) + 'px';
+    }
+    function pbInspectHide() {
+      var box = document.getElementById('pb-inspect-box'); if (box) box.style.display = 'none';
+      var label = document.getElementById('pb-inspect-label'); if (label) label.style.display = 'none';
+    }
+    function pbInspectCopy(el) {
+      var info = pbInspectName(el);
+      copyCommandToClipboard(info.path);
+      pbToast('Copied  ' + info.path);
+    }
+    function pbInspectWireKeys() {
+      if (pbInspectKeysWired) return; pbInspectKeysWired = true;
+      document.addEventListener('keydown', function (e) {
+        if (e.key === 'Alt' && state.metaView === 'prototype' && pbInspectLast) pbInspectShow(pbInspectLast);
+      });
+      document.addEventListener('keyup', function (e) { if (e.key === 'Alt') pbInspectHide(); });
+      window.addEventListener('scroll', pbInspectHide, true);
+    }
     function wireProtoNav() {
       const frame = document.getElementById('proto-frame');
       if (!frame) return;
+      pbInspectWireKeys();
       frame.addEventListener('click', function (e) {
+        if (e.altKey) { e.preventDefault(); e.stopPropagation(); pbInspectCopy(e.target); return; }  // ⌥-click = copy reference
         var nav = e.target.closest('[data-nav]');
-        if (nav) { var id=nav.getAttribute('data-nav'); if(pbScreensHas(id)){ e.preventDefault(); setProtoScreen(id); } return; }
+        if (nav) { var id=nav.getAttribute('data-nav'); if(pbScreensHas(id)){ e.preventDefault(); if(pbNavAllowed(id)) setProtoScreen(id); } return; }
         var tog = e.target.closest('[data-action="toggle-password"]');
         if (tog) { e.preventDefault(); pbTogglePassword(tog); return; }
         var sub = e.target.closest('[data-action="submit"]');
         if (sub) { e.preventDefault(); pbProtoSubmit(sub); return; }
       });
+      frame.addEventListener('mousemove', function (e) {
+        pbInspectLast = e.target;
+        if (e.altKey) pbInspectShow(e.target); else pbInspectHide();
+      });
+      frame.addEventListener('mouseleave', function () { pbInspectLast = null; pbInspectHide(); });
     }
 
     /* =========================================================================
@@ -3591,12 +3924,31 @@
         : '<p class="flow-doc-side-sub">No user stories yet.</p>';
       // QA test cases: scenarios may be plain strings or { text, category } across the QA lenses
       // (UX · UI · Function · Business · System edge). f.coverageWarnings flags edges the UI misses.
+      // v1.5 — a scenario carrying a .test block shows its last-run status glyph
+      // (✓ pass · ✗ fail · ○ untested); a scenario without .test stays a manual ☐.
       const scenarioLi = (sc) => {
         const text = (typeof sc === 'string') ? sc : (sc && sc.text) || '';
         const cat = (sc && typeof sc === 'object') ? sc.category : null;
         const chip = cat ? `<span class="pb-qa-cat pb-qa-cat--${pbEscape(cat)}">${pbEscape(QA_CAT_LABEL[cat] || cat)}</span> ` : '';
-        return `<li>☐ ${chip}${pbEscape(text)}</li>`;
+        if (!(sc && typeof sc === 'object' && sc.test)) return `<li>☐ ${chip}${pbEscape(text)}</li>`;
+        const lr = sc.lastResult || {};
+        const st = lr.status === 'pass' ? 'pass' : lr.status === 'fail' ? 'fail' : 'untested';
+        const glyphChar = st === 'pass' ? '✓' : st === 'fail' ? '✗' : '○';
+        const titleTxt = (st === 'pass' ? 'Passed' : st === 'fail' ? 'Failed' : 'Not run yet') + (lr.detail ? ' — ' + lr.detail : '') + (lr.ranAt ? ' (' + lr.ranAt + ')' : '');
+        const glyph = `<span class="pb-test-glyph pb-test-glyph--${st}" title="${escapeHtmlAttr(titleTxt)}">${glyphChar}</span>`;
+        return `<li>${glyph} ${chip}${pbEscape(text)}</li>`;
       };
+      // Tests-panel summary: N/M functional passing · K manual (☐) scenarios.
+      let testTotal = 0, testPass = 0, manualCount = 0;
+      fStories.forEach(s => (s.scenarios || []).forEach(sc => {
+        if (sc && typeof sc === 'object' && sc.test) { testTotal++; if (sc.lastResult && sc.lastResult.status === 'pass') testPass++; }
+        else manualCount++;
+      }));
+      const runTestsBtn = VIEW_ONLY ? '' :
+        `<button class="pb-test-run-btn" type="button" onclick="openCopyPopover('/pb:test', this)" title="Copy the /pb:test command">Run tests</button>`;
+      const testsHeader = fStories.length
+        ? `<div class="pb-test-head"><span class="pb-test-summary">${testPass}/${testTotal} passing · ${manualCount} manual</span>${runTestsBtn}</div>`
+        : '';
       const testsList = fStories.length
         ? '<ol class="flow-doc-stories">' + fStories.map(s =>
             `<li><strong>${pbEscape(s.title||'')}</strong><ul class="flow-doc-checks">`
@@ -3654,6 +4006,7 @@
             ${storiesList}
           </div>
           <div class="flow-side-panel" data-tab="tests" hidden>
+            ${testsHeader}
             ${warnBlock}
             ${testsList}
           </div>

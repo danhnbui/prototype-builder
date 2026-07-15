@@ -119,7 +119,8 @@ def check(reg, strict=False, base_dir=None):
         if not isinstance(c, dict):
             continue
         cid = c.get("id", "")
-        parts = ((c.get("anatomy") or {}).get("parts")) or []
+        _anatomy = c.get("anatomy")
+        parts = ((_anatomy.get("parts") if isinstance(_anatomy, dict) else None)) or []
         for p in parts:
             if not isinstance(p, dict):
                 continue
@@ -222,7 +223,8 @@ def check_nesting_figma(reg, transfer):
         if not isinstance(c, dict):
             continue
         cid = c.get("id", "")
-        parts = ((c.get("anatomy") or {}).get("parts")) or []
+        _anatomy = c.get("anatomy")
+        parts = ((_anatomy.get("parts") if isinstance(_anatomy, dict) else None)) or []
         for p in parts:
             if not isinstance(p, dict):
                 continue

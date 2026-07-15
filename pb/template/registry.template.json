@@ -6,6 +6,8 @@
     "shell": "browser",
     "device": "laptop",
     "devices": ["monitor", "laptop", "tablet", "mobile"],
+    "roles": [],
+    "defaultRole": null,
     "designSystem": { "name": "", "designLink": null, "codeLibrary": null, "linked": false },
     "overview": { "objectives": null, "principles": [] },
     "userInsights": { "quantitative": null, "researchSummary": null, "executiveSummary": null },

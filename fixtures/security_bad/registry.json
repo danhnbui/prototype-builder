@@ -1,0 +1,22 @@
+{
+  "_about": "Deliberately-insecure fixture for tests/test_security.py — seeds a fake API key + a real-looking email so security_scan.py has something to flag. NOT a valid product; do not render.",
+  "meta": { "name": "Security Bad", "schemaVersion": 4, "shell": "browser", "device": "laptop", "devices": ["laptop"] },
+  "tokens": { "danger": { "value": "#dc2626", "kind": "color" } },
+  "components": [],
+  "screens": [
+    {
+      "id": "home",
+      "name": "Home",
+      "renderFn": "renderScreenHome",
+      "layout": { "type": "stack" },
+      "elements": [],
+      "logicNotes": [
+        "On load, calls the billing API with api_key = \"sk-abc123DEF456ghi789JKL012mno345\"",
+        "Emails the receipt to jane.doe.customer@gmail.com"
+      ]
+    }
+  ],
+  "staleness": {},
+  "flow": { "populated": false },
+  "erd": { "populated": false }
+}

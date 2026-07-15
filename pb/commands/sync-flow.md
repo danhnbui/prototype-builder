@@ -44,13 +44,36 @@ Then list **coverage gaps** — edges your QA pass identified that the **flow/sc
 (a referenced-but-missing screen, an unhandled error state). Write them to `flow.coverageWarnings` as
 `{ category, note }`; the tab renders them as a "Coverage gaps" callout so the user sees what to build next.
 
+### 3a · Make a scenario executable (optional `test{}` — enables `/pb:test`)
+A scenario is a manual checkbox by default (renders `☐`). To make it **runnable** by `/pb:test`, attach an
+executable `test{}` block that drives the Prototype sandbox — the scenario then reports `✓` / `✗` / `○`
+(pass / fail / untested) from its `lastResult` instead of `☐`:
+```
+{ "text": "Valid credentials land on the dashboard.", "category": "function",
+  "test": { "start": "login",
+            "steps": [ { "do": "fill", "target": "Email", "value": "ada@example.com" },
+                       { "do": "fill", "target": "Password", "value": "hunter2hunter2" },
+                       { "do": "click", "target": "submit" } ],
+            "expect": [ { "screen": "dashboard" }, { "no-console-error": true } ] } }
+```
+- **start** — the `screens[].id` the sandbox begins on.
+- **steps[].do** ∈ `fill` · `click` · `nav` · `submit` · `toggle-password` · `back`. `fill` takes `value`
+  and a `target` (field label · CSS selector · `data-*` value); the rest take a `target` (selector or
+  `data-*` value); `back` takes none.
+- **expect[]** — each item is exactly one of `{"screen":"<id>"}` · `{"text":"..."}` ·
+  `{"errors":{"min":N}}` / `{"errors":{"count":N}}` · `{"toast":"..."}` · `{"no-console-error":true}`.
+
+Author `test{}` only where the flow is real enough to drive; leave the rest as manual checkboxes. **Do not**
+author `lastResult` — `/pb:test` writes it (see the `sandbox-test` skill). This is purely additive: scenarios
+without `test{}` behave exactly as before.
+
 ## 4 · Write to the registry, then render
 Produce **structured data** — not a baked HTML blob. Write into `registry.json` → `flow`:
 ```
 { "populated": true,
   "mermaid": "<the flowchart LR source>",
   "stories": [ { "title", "priority", "jtbd", "path", "nodes": ["<mermaid-node-id>", …],
-                 "scenarios": [ { "text", "category" }, … ] }, … ],
+                 "scenarios": [ { "text", "category", "test"?: { "start", "steps": [ … ], "expect": [ … ] } }, … ] }, … ],
   "coverageWarnings": [ { "category", "note" }, … ] }
 ```
 Set each story's **`path`** to its route through the flow (`"Start → Login → Dashboard"`) — hovering the
