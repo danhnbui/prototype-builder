@@ -1,4 +1,4 @@
-# Product Builder v1.4.2
+# Product Builder v1.5.0
 
 A standalone, CLAUDE.md-native prototype builder for Claude Code. Turn a PRD into an interactive,
 self-documenting **5-tab prototype** — a real click-through flow you preview at desktop / tablet /
@@ -12,6 +12,12 @@ does, its commands and skills) over a main canvas + a context aside. Highlights 
 with a component structure tree; a UI Design tab that groups components by atomic level, links your design
 system, and previews Figma-push reuse + affected screens; QA-authored UX test cases with coverage-gap
 warnings; and an ERD mock-data viewer for checking empty / sparse / overflow edge cases.
+
+**New in v1.5** — an agent-powered testing **sandbox** (`/pb:test`: run authored scenarios, preview as
+role-gated users, plus server-reachability and secrets/PII checks), a **multi-agent orchestrator**
+(`/pb:orchestrate` dispatches the per-tab task plan to 8 specialized agents in dependency waves;
+`/pb:explore` proposes parallel design options), and an ⌥-hover **element inspector** that copies a precise
+`screen › element › component` reference to feed the AI. All additive — a pre-v1.5 project behaves unchanged.
 
 ## Install (it's a Claude Code plugin)
 
@@ -57,9 +63,12 @@ If `/pb:init` says Python isn't installed, it will tell you exactly how to fix i
 | `/pb:init` | Scaffold: PRD intake (Q&A or file), set Stack + DS locks, seed `registry.json` + `memory/`; `--import` a bundle |
 | `/pb:specify` | Produce the spec / PRD |
 | `/pb:clarify` | User Insights + UI Logic Trade-offs → Project Summary; append to `decisions.md` |
-| `/pb:plan` | Implementation plan + per-tab task breakdown (acceptance + skill) |
+| `/pb:plan` | Implementation plan + per-tab task breakdown (acceptance + skill + **agent · deps · slice**) |
+| `/pb:orchestrate` | Dispatch `memory/tasks.md` to the 8-agent roster in dependency **waves** — serial writes, render once per wave, acceptance-gated |
 | `/pb:build` | The cheap loop: targeted `registry.json` patches, trio-gated, no per-tweak render; `--render` to view |
 | `/pb:preview` | Live preview dev server: watch `registry.json` → render → live-reload the browser (start once, leave running) |
+| `/pb:test` | Sandbox testing: scenario `test{}` blocks (functional), `--roles`, `--server`, `--security`, `--explore` → live ✓/✗ glyphs |
+| `/pb:explore` | Parallel design options: N `pb-builder` agents propose alternatives → compare → keep one |
 | `/pb:build-check-design-system` | DS-first reuse → variant → local + naming contract |
 | `/pb:build-figma-handoff` | One-way registry → Figma (6 gates incl. G-FP6 render audit, DS-neutral, auto-layout) |
 | `/pb:sync-flow` | UX Design / Flow — wireflow + test checklist (decoupled) |

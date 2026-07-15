@@ -2,6 +2,45 @@
 
 All notable changes to Product Builder. Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [1.5.0] — 2026-07-15
+
+*Agent-powered testing sandbox, a multi-agent orchestrator, role-gated prototypes, and an ⌥-hover
+element inspector. Every registry addition is optional/additive — schema stays v4, no migration; a
+project without them behaves exactly as before. (Subsumes the terminology rename in [Unreleased].)*
+
+### Added
+- **Sandbox testing — `/pb:test`.** A Playwright-backed runner (`pb/tools/test_run.py`) drives the
+  prototype's `data-*` runtime to verify authored scenarios: `--functional` (runs
+  `flow.stories[].scenarios[].test` blocks and writes `lastResult` → live ✓/✗/○/☐ glyphs in the UX
+  Design tab), `--roles`, `--server` (reachability), `--explore`. `--security` runs
+  `pb/tools/security_scan.py` (stdlib secrets + PII scan). Playwright is the one optional dependency,
+  isolated to this path like Node/npm at `/pb:validate`, and degrades gracefully if absent.
+- **Multi-agent orchestration — `/pb:orchestrate`, `/pb:explore`.** Eight `pb-*` subagents
+  (`pb/agents/`) + a stdlib wave scheduler (`pb/tools/orchestrate.py`) + an idempotent installer
+  (`pb/tools/agents_install.py`). `/pb:plan` tasks now carry `agent` / `deps` / `slice`;
+  `/pb:orchestrate` dispatches them in dependency **waves** (serial registry writes, render once per
+  wave, acceptance-gated by `pb-tester` + `pb-reviewer`). `/pb:explore` fans out N `pb-builder`
+  agents for parallel design options to compare and keep one.
+- **Role-gated prototypes.** `meta.roles` / `meta.defaultRole` / `screens[].roles` + element
+  `data-roles` gate the Prototype tab (an `isAdmin` role bypasses). A sandbox menu (hourglass icon)
+  with a radio role list (each role's abilities / JTBD) + a Reset row rides the header; the role
+  switcher + Reset stay visible to viewers even in a `--people` hand-off (only authoring controls hide).
+- **Inspect mode.** Hold ⌥/Option and hover the live preview to see an element's structured id path
+  (`screen › element › component`); ⌥-click copies it to paste to the AI. Best-effort derivation from
+  the DOM's existing identity (`data-handoff-el` → registry label + component; else an anatomy part; else a fallback).
+
+### Fixed
+- `check.py` no longer crashes on a string (prose) `anatomy` — the `--strict` gate works on such projects.
+- `orchestrate.py --json` always emits a parseable object, including IO / usage / invalid-UTF-8 error paths.
+- `test_run.py` fails closed (exit 2) on server-boot failure and invalid-UTF-8 input instead of a traceback.
+- `security_scan.py` handles deeply-nested JSON (RecursionError) and non-UTF-8 input cleanly.
+- `--roles` leak detection now covers `display:contents`, `visibility`, and text-node-only children.
+
+### Changed
+- Reintroduces the regression suite (`tests/`) + fixtures (`golden`, `security_bad`, `violations.json`)
+  consolidated into the plugin repo, and adds `test_sandbox` / `test_inspect` / `test_orchestrate` /
+  `test_security` / `test_agents_install`. Version bumped to **1.5.0**.
+
 ## [Unreleased]
 
 ### Rename "migration" → "version update" — 2026-06-25
