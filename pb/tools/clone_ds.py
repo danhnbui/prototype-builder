@@ -194,14 +194,16 @@ def main(argv=None):
     g = p.add_mutually_exclusive_group(required=True)
     g.add_argument("--from", dest="src", metavar="EXPORT.json", help="clone this normalized DS export")
     g.add_argument("--drift", dest="drift_src", metavar="CURRENT.json", help="audit a fresh source export vs the clone")
-    p.add_argument("--registry", default="registry.json")
+    p.add_argument("registry", nargs="?", default=None, help="path to registry.json (default: ./registry.json)")
+    p.add_argument("--registry", dest="registry_opt", default=None, help="alias for the positional registry arg")
     p.add_argument("--name", default=None)
     p.add_argument("--overwrite-tokens", action="store_true")
     args = p.parse_args(argv)
+    registry = args.registry or args.registry_opt or "registry.json"
     try:
         if args.src:
-            return clone(_load(args.src), args.registry, args.name, args.overwrite_tokens)
-        return drift(_load(args.drift_src), args.registry, args.name)
+            return clone(_load(args.src), registry, args.name, args.overwrite_tokens)
+        return drift(_load(args.drift_src), registry, args.name)
     except (OSError, json.JSONDecodeError) as e:
         print(f"clone_ds: {e}", file=sys.stderr)
         return 2

@@ -2,6 +2,15 @@
 
 All notable changes to Product Builder. Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [1.8.1] — 2026-07-18
+
+### Fixed
+- **Tool CLI consistency.** `clone_ds.py` and `resolve_frame.py` now accept the registry path
+  **positionally** (`… --from EXPORT registry.json`), not only via `--registry`. The command docs
+  (`/pb:pull-ds`, `/pb:check-drift` §5, `/pb:init --figma`) already invoked them positionally, so
+  those steps would have errored at runtime. `--registry` still works as an alias. Guarded by
+  `tests/tool_cli.py`.
+
 ## [1.8.0] — 2026-07-18
 
 *R3 "Figma-frame entry": a second entry door — a project can be born from a Figma frame, not just a
