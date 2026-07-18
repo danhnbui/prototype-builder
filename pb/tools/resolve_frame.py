@@ -131,12 +131,14 @@ def _write_gaps(registry_path, screen_name, frame_id, gaps):
 def main(argv=None):
     p = argparse.ArgumentParser(prog="resolve_frame.py")
     p.add_argument("--from", dest="src", required=True, metavar="FRAME-EXPORT.json")
-    p.add_argument("--registry", default="registry.json")
+    p.add_argument("registry", nargs="?", default=None, help="path to registry.json (default: ./registry.json)")
+    p.add_argument("--registry", dest="registry_opt", default=None, help="alias for the positional registry arg")
     args = p.parse_args(argv)
-    if not os.path.isfile(args.registry):
-        sys.exit(f"resolve_frame: no registry at {args.registry}")
+    registry = args.registry or args.registry_opt or "registry.json"
+    if not os.path.isfile(registry):
+        sys.exit(f"resolve_frame: no registry at {registry}")
     try:
-        return resolve(_load(args.src), args.registry)
+        return resolve(_load(args.src), registry)
     except (OSError, json.JSONDecodeError) as e:
         print(f"resolve_frame: {e}", file=sys.stderr)
         return 2
