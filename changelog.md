@@ -2,6 +2,37 @@
 
 All notable changes to Product Builder. Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [1.7.0] — 2026-07-18
+
+*R2 "export tiers": the prototype can now emit code, not just HTML — at a tier that matches the
+need. Schema bumps to **6** (additive migration 0004). The scaffold tier is built + verified
+fixture-driven; the **hardened tier is deferred** (see below).*
+
+### Added
+- **`/pb:handoff-dev --tier=host|scaffold|hardened` [`--component <id>`].** Tiered engineering
+  hand-off, contract-gated (fail-closed `lint_registry.py --strict`) first.
+- **Scaffold tier — `pb/tools/render_react.py` + the `design-component-export` skill.** Deterministic
+  registry → a self-contained **React + Vite** app: one wrapper component per registry component/screen
+  (reusing its render body), `tokens.css` (`:root` vars) + a token-mapped `tailwind.config.js`, and
+  `npm run dev` scaffolding. Runs and lints clean. Fulfils the long-backlogged JSX/TSX export at the
+  scaffold level (NS9).
+- **`tests/r2_export_tiers.py`.** The R2 acceptance: migration 0004 reversibility + the scaffold
+  emits a runnable React app (valid wrappers, resolvable imports, token CSS + Tailwind theme) from the
+  golden fixture, and `--component` exports a single subset.
+
+### Changed
+- **Schema 5 → 6** via additive migration `0004_export_tier` (adds `meta.outputTier` default `"host"` +
+  `meta.exportTarget` null). Registry template + golden fixture carry the fields; `/pb:update-version`
+  migrates cleanly (up→down reversible).
+- `host` tier delegates to `/pb:validate` (unchanged behavior, now named as a tier).
+
+### Deferred (not built — inputs missing)
+- **Hardened tier** (`harden_export.py`, `design-component-harden`, `pb-hardener`): idiomatic,
+  DS-integrated per-component JSX, MCP-resolved + repo-matched + `validate_code`-scored + reviewed.
+  `/pb:handoff-dev --tier=hardened` **stops with a clear message** — it needs the G-B decision (target
+  repo AntD vs Tailwind), `pb-full-picture.md`'s export contracts, and the DS-MCP resolution path. No
+  fake idiomatic export is emitted.
+
 ## [1.6.0] — 2026-07-18
 
 *R1 "DS truth": the design system becomes a **cloned, verifiable source** rather than a loose

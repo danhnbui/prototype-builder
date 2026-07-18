@@ -1,4 +1,4 @@
-# Product Builder v1.6.0 — router (read first)
+# Product Builder v1.7.0 — router (read first)
 
 Standalone, CLAUDE.md-native prototype builder. **No SpecKit** — no `extension.yml`,
 `preset.yml`, or `after_*` hooks. State lives in `registry.json`; commands are native
@@ -27,6 +27,7 @@ the playbook, [prototype-builder.md](prototype-builder.md) (authored in Phase 2)
 | `/pb:check-drift` | Read-only drift audit of the trio vs `constitution.md` | P5 |
 | `/pb:handoff-close` | Close out into one `handoff/` folder: view-only `prototype.html` + portable `bundle/` + a recipient `AGENTS.md`; `--people` / `--context` narrow to one piece | P6 |
 | `/pb:validate` | Wrap `prototype.html` in a runnable reference build (Vite/Next) — serves the single file, not a component export | P6 |
+| `/pb:handoff-dev` | Export at a tier — `--tier=host` (runnable prototype) · `scaffold` (deterministic React+Tailwind app) · `hardened` (idiomatic/DS-integrated — **deferred**); records `meta.outputTier` + `meta.exportTarget` | P6 |
 | `/pb:update-version` | Versioned schema update: dry-run / `--apply` / `--rollback` / `--to <N>` | P6 |
 | `/pb:snapshot` | History model: timestamped `registry.json` copies under `<project>/history/`; `--list` / `--restore`. Never branches, never touches host git | — |
 
@@ -108,11 +109,11 @@ card that owns the CTA — no dead controls. (Replaces the old `meta-tag`/`meta-
 
 ## Schema compatibility
 
-Write-path commands (`/pb:build`, `/pb:flow`, `/pb:data`, `/pb:pull-ds`, `/pb:init --import`) apply
+Write-path commands (`/pb:build`, `/pb:flow`, `/pb:data`, `/pb:pull-ds`, `/pb:handoff-dev`, `/pb:init --import`) apply
 this check before patching `registry.json`:
 
 1. Read `meta.schemaVersion` from `registry.json` (absent → treat as schema 2).
-2. Read `CURRENT_SCHEMA` from `pb/migrations/manifest.py` (currently **5**).
+2. Read `CURRENT_SCHEMA` from `pb/migrations/manifest.py` (currently **6**).
 3. If `schemaVersion < CURRENT_SCHEMA`: print a one-line banner —
    `⚠ Schema gap (v<from> → v<to>): <pending version update's describe() text>. Run /pb:update-version.`
 4. Proceed — **unless** the current write touches a slice a pending version update changes,

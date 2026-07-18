@@ -30,6 +30,8 @@ tokens are applied onto `:root` at boot via `applyRegistryTokens`.
 | `meta.designSystem` | `{ name, designLink, codeLibrary, linked }` | UI Design | the linked design system — `designLink` (Figma/doc URL), `codeLibrary` (folder path or repo URL). Seeded from the DS Lock at `/pb:init`. Optional/tolerated-absent → the DS bar shows an "add one" affordance |
 | `meta.platform` | `'web'\|'ios'\|'android'\|'desktop'` | — | the DS/target platform; set at `/pb:init`. Defaults to `'web'`. Schema 5 (v1.6) |
 | `meta.dsSource` | `{ type, ref, clonedAt } \| null` | — | provenance of the cloned DS: `type ∈ figma\|code-library\|mcp\|common`, `ref` the literal URL/path/name, `clonedAt` ISO stamp. `null` until `/pb:pull-ds` clones. The full token/component snapshot lives in `design-system/<name>/.source.json`; `/pb:check-drift` §5 diffs the live source against it. Schema 5 (v1.6) |
+| `meta.outputTier` | `'host'\|'scaffold'\|'hardened'` | — | which export tier `/pb:handoff-dev` targets. `host` = the runnable single-file prototype; `scaffold` = deterministic React+Tailwind (`render_react.py`); `hardened` = idiomatic/DS-integrated (deferred). Defaults to `host`. Schema 6 (v1.7) |
+| `meta.exportTarget` | string \| null | — | machine-readable export target mirroring the Stack Lock (e.g. `'react-tailwind'`); `null` until set. Schema 6 (v1.7) |
 | `meta.overview` | `{ objectives, principles[] }` | Project Summary | from spec + constitution |
 | `meta.userInsights` | `{ quantitative, researchSummary, executiveSummary }` | Project Summary | from `/pb:clarify` |
 | `meta.tradeoffs[]` | `[{ title, question, options, decision, why, tabsAffected }]` | Project Summary | UI Logic Trade-offs |
@@ -187,13 +189,18 @@ Flow, Data, and UI Design · screen are **decoupled** — updated only by `/pb:f
 _(Phase 5)_ — DS-first, Local-first (R0); extend with a variant before spawning (R2); auto-layout
 on every Figma frame (R3); kebab-case non-colliding IDs (R4); the naming contract.
 
-## Backlog (gated, not built) — JSX/TSX component export
+## Export tiers — JSX/TSX component export (v1.7)
 
-The prototype artifact is **HTML** (single-file `prototype.html`); `/pb:validate` produces a runnable
-reference build of that file, **not** reusable framework components (see the validate command + Stack Lock
-note). A real per-component JSX/TSX export from `components[]` is **backlogged**, not in this release.
+Three tiers via `/pb:handoff-dev --tier=…`:
 
-**Pre-registered success criterion (decide before building it):** a front-end engineer can integrate
-**≥ 1 exported component** into a fresh CRA/Vite app and render it correctly in **< 30 minutes**, using only
-the generated files + a short README. Build this only if the consumption pilot shows real engineering demand
-(D5, Option B). Until then, engineers reuse the **design intent** — tokens, component specs, flows — not files.
+- **`host`** — the runnable single-file `prototype.html` (`/pb:validate`). Not reusable components.
+- **`scaffold`** *(shipped v1.7)* — `render_react.py` deterministically emits a **React + Vite** app:
+  one wrapper component per registry component/screen (reusing its render body), tokens as CSS vars +
+  a Tailwind theme. Runs + lints; **mechanical** (wrappers), not idiomatic JSX (NS9).
+- **`hardened`** *(deferred)* — idiomatic per-component Tailwind JSX, MCP-resolved against the real DS,
+  repo-matched, `validate_code`-scored, `pb-reviewer` + human approved. Needs the G-B decision,
+  `pb-full-picture.md`'s export contracts, and the DS-MCP path before it's built.
+
+**Pre-registered success criterion for the hardened tier:** a front-end engineer integrates **≥ 1
+exported component** into a fresh Vite app and renders it correctly in **< 30 minutes**, using only the
+generated files + a short README. That is the gate the hardened tier must clear.
