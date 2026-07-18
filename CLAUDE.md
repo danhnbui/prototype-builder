@@ -1,4 +1,4 @@
-# Product Builder v1.5.0 — router (read first)
+# Product Builder v1.5.1 — router (read first)
 
 Standalone, CLAUDE.md-native prototype builder. **No SpecKit** — no `extension.yml`,
 `preset.yml`, or `after_*` hooks. State lives in `registry.json`; commands are native
@@ -9,7 +9,7 @@ the playbook, [prototype-builder.md](prototype-builder.md) (authored in Phase 2)
 
 | Command | Does | Lands |
 |---|---|---|
-| `/pb:init` | Scaffold: PRD intake (Q&A or file), set Stack + DS locks, seed `registry.json` + `memory/`; optional `--import <bundle>` | P4 |
+| `/pb:init` | Scaffold: PRD intake (Q&A or file), set Stack + DS locks, seed `registry.json` + `memory/`; optional `--import <bundle>`; **adopt-in-place** under `.prototype/` inside an existing repo | P4 |
 | `/pb:specify` | Produce the spec / PRD (native) | P4 |
 | `/pb:clarify` | User Insights + UI Logic Trade-offs → Project Summary; append trade-offs to `decisions.md` | P4 |
 | `/pb:plan` | Implementation plan **+** per-tab task breakdown (each task: acceptance + skill + **agent · deps · slice**) | P4 |
@@ -20,12 +20,15 @@ the playbook, [prototype-builder.md](prototype-builder.md) (authored in Phase 2)
 | `/pb:explore` | Parallel design options: N `pb-builder` sub-agents propose alternatives → compare → keep one | P3 |
 | `/pb:build-check-design-system` | *(sub)* DS-first: reuse vs extend-variant vs build-local; enforce the naming contract | P3 |
 | `/pb:build-figma-handoff` | *(sub)* ported `figma-push` — 6 gates (incl. G-FP6 render audit), DS-neutral match, auto-layout, one-way | P3 |
-| `/pb:sync-flow` | UX flow (Mermaid wireflow + test checklist) — decoupled, manual | P5 |
-| `/pb:sync-erd` | Data (field/type/example table + Mermaid ERD) — decoupled, manual | P5 |
+| `/pb:flow` | UX flow (Mermaid wireflow + test checklist) — decoupled, manual | P5 |
+| `/pb:data` | Data (field/type/example table + Mermaid ERD) — decoupled, manual | P5 |
 | `/pb:check-drift` | Read-only drift audit of the trio vs `constitution.md` | P5 |
-| `/pb:hand-off` | `--people` (view-only self-documenting `prototype.html` + cover) · `--context` (portable bundle) | P6 |
+| `/pb:handoff-close` | Close out into one `handoff/` folder: view-only `prototype.html` + portable `bundle/` + a recipient `AGENTS.md`; `--people` / `--context` narrow to one piece | P6 |
 | `/pb:validate` | Wrap `prototype.html` in a runnable reference build (Vite/Next) — serves the single file, not a component export | P6 |
 | `/pb:update-version` | Versioned schema update: dry-run / `--apply` / `--rollback` / `--to <N>` | P6 |
+| `/pb:snapshot` | History model: timestamped `registry.json` copies under `<project>/history/`; `--list` / `--restore`. Never branches, never touches host git | — |
+
+> **Aliases (deprecated, still resolve):** `/pb:sync-flow` → `/pb:flow` · `/pb:sync-erd` → `/pb:data` · `/pb:hand-off` → `/pb:handoff-close`. The old command files are thin redirect stubs; they'll be removed in a future major release.
 
 > Shipped as a Claude Code **plugin** (`pb@product-builder`, defined in `./.claude-plugin/marketplace.json` + `./pb/`) — commands invoke as `/pb:*`. After install, **restart Claude Code** to load them. (G1 decision: plugin ✓)
 
@@ -103,7 +106,7 @@ card that owns the CTA — no dead controls. (Replaces the old `meta-tag`/`meta-
 
 ## Schema compatibility
 
-Write-path commands (`/pb:build`, `/pb:sync-flow`, `/pb:sync-erd`, `/pb:init --import`) apply
+Write-path commands (`/pb:build`, `/pb:flow`, `/pb:data`, `/pb:init --import`) apply
 this check before patching `registry.json`:
 
 1. Read `meta.schemaVersion` from `registry.json` (absent → treat as schema 2).

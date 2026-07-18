@@ -24,13 +24,13 @@ would do.
 
 ## 3 · Write the body file (`render/components/<id>.js`)
 A function body that `return`s an HTML string from `props`:
-- **Tokens only** — every color/space/radius/size is `var(--token)`; no raw hex/px (`check.py` flags them).
+- **Tokens only** — every color/space/radius/size is `var(--token)`; no raw hex/px (`lint_registry.py` flags them).
 - **State variants** — branch on `props.state` (e.g. danger border when `'error'`, spinner when `'loading'`).
 - **Stable anchors** — give referenced parts anchor classes (`.btn`, `.field__input`) so specs/Figma resolve.
 - Interactive markup uses the data-* runtime (see `think-logic`).
 
 ## 4 · Verify
-Run `check.py` — the new id must be kebab + unique, `renderFn` must match, no raw hex/px in the body.
+Run `lint_registry.py` — the new id must be kebab + unique, `renderFn` must match, no raw hex/px in the body.
 
 ## Output
 The new `components[]` entry + its `render/components/<id>.js` file, then hand back to `/pb:build` to write

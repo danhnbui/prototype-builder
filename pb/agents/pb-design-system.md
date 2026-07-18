@@ -35,7 +35,7 @@ It advises `pb-builder` on `components[]` but does not own screen/logic slices. 
 
 ## Acceptance discipline
 Done when the reuse decision is explicit and recorded, any new component satisfies the naming contract, tokens
-are added token-only, and `python3 "${CLAUDE_PLUGIN_ROOT}/tools/check.py" registry.json` reports no
+are added token-only, and `python3 "${CLAUDE_PLUGIN_ROOT}/tools/lint_registry.py" registry.json` reports no
 kebab / `renderFn` / token-kind / R-HEX / R-PX findings for the touched slice.
 
 > **Skill degrade (NS6).** If a skill this agent invokes fails to load, say so explicitly and proceed with its

@@ -25,7 +25,7 @@ Invoke `agent-orchestrate-tasks`. Produce `memory/tasks.md` — tasks grouped by
 
 These five per-task fields are what `/pb:orchestrate` reads to dispatch each task to its agent in dependency
 waves. Bake in the sync rules: the **trio** auto-syncs on `/pb:build`; Flow / Data / handoff-screen are manual
-(`/pb:sync-flow`, `/pb:sync-erd`).
+(`/pb:flow`, `/pb:data`).
 
 ## Result
 `memory/plan.md` + `memory/tasks.md` (per-tab tasks with acceptance · skill · agent · deps · slice).

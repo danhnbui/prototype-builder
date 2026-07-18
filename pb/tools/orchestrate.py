@@ -14,7 +14,7 @@ or a `deps:` entry referencing an unknown task id. Missing new fields (a tasks.m
 the agent/deps/slice contract) degrade to a WARN — deps are treated as none and the agent is
 inferred from `skill:` when possible.
 
-Severity → exit code (mirrors check.py):
+Severity → exit code (mirrors lint_registry.py):
   0  clean (no findings)
   1  warnings only
   2  at least one error

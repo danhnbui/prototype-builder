@@ -15,7 +15,7 @@
     components/screens get a render/<kind>/<id>.js body file.
   • Preview live with /pb:preview (watches registry.json + render/*.js and
     live-reloads the browser).
-  • Regenerate this file with /pb:build --render (also auto-run at /pb:hand-off
+  • Regenerate this file with /pb:build --render (also auto-run at /pb:handoff-close
     and /pb:validate). Never copy or edit it by hand.
 
   THE 5 TABS
@@ -592,8 +592,8 @@
       cursor: default;
     }
     .sync-button.is-copied:hover { background: #10b981; }
-    /* View-only (/pb:hand-off --people): hide every authoring CTA + the Figma push panel. */
-    /* View-only (/pb:hand-off --people): hide EVERY authoring affordance — the sync bars,
+    /* View-only (/pb:handoff-close --people): hide every authoring CTA + the Figma push panel. */
+    /* View-only (/pb:handoff-close --people): hide EVERY authoring affordance — the sync bars,
        the Figma push panel, and any empty-state build CTA (T3.3). */
     body.view-only .sync-button,
     body.view-only .sync-bar,
@@ -1488,7 +1488,7 @@
 
     /* ========================================================================
        FLOW DOC — Mermaid canvas + test-checklist sidebar (v0.3.8+)
-       Used by User Flow tab when populated by /pb:sync-flow
+       Used by User Flow tab when populated by /pb:flow
        Layout: 3:7 split (checklist left, canvas right). Single flow per surface.
        ======================================================================== */
     .flow-doc-grid {
@@ -2298,7 +2298,7 @@
     /* Icon helper (DS-agnostic) — set the icon source via registry config.iconCdn (e.g. your
        design system's SVG CDN). Leave it unset to fall back to an inline SVG placeholder. */
     const ICON_CDN = (PB_REGISTRY && PB_REGISTRY.config && PB_REGISTRY.config.iconCdn) || '';
-    /* View-only mode (set by /pb:hand-off --people): hides every authoring CTA. */
+    /* View-only mode (set by /pb:handoff-close --people): hides every authoring CTA. */
     const VIEW_ONLY = !!(PB_REGISTRY && PB_REGISTRY.config && PB_REGISTRY.config.viewOnly);
     function safeIcon(name, size = 16) {
       if (ICON_CDN) {
@@ -2455,10 +2455,10 @@
       '/pb:plan':        'Generate the implementation plan and per-tab task breakdown.',
       '/pb:build':       'Patch registry.json (trio-gated). Add --render to regenerate prototype.html.',
       '/pb:preview':     'Start the live dev server — watches registry.json and live-reloads the browser.',
-      '/pb:sync-flow':   'Generate the UX Design tab — Mermaid wireflow + QA test checklist.',
-      '/pb:sync-erd':    'Generate the Data tab — field/type table + Mermaid ERD with PK/FK guardrails.',
+      '/pb:flow':   'Generate the UX Design tab — Mermaid wireflow + QA test checklist.',
+      '/pb:data':    'Generate the Data tab — field/type table + Mermaid ERD with PK/FK guardrails.',
       '/pb:check-drift': 'Audit the trio against the constitution. Read-only — no writes.',
-      '/pb:hand-off':    '--people for a view-only prototype, --context for a portable bundle.',
+      '/pb:handoff-close':    '--people for a view-only prototype, --context for a portable bundle.',
       '/pb:validate':    'Wrap prototype.html in a runnable Vite/Next reference build.',
       '/pb:update-version': 'Run versioned schema updates. Dry-run by default; use --apply to execute.',
     };
@@ -2470,10 +2470,10 @@
       '/pb:plan':        'Run /pb:plan to produce the implementation plan + a per-tab task breakdown (each task: acceptance + skill).',
       '/pb:build':       'Run /pb:build to apply a targeted registry.json patch (trio-gated); add --render to regenerate prototype.html.',
       '/pb:preview':     'Run /pb:preview to start the live dev server — it watches registry.json + render/*.js and reloads the browser.',
-      '/pb:sync-flow':   'Run /pb:sync-flow to (re)generate the UX Design tab — a Mermaid wireflow plus a QA test checklist.',
-      '/pb:sync-erd':    'Run /pb:sync-erd to (re)generate the Data tab — a field/type/example table plus a Mermaid erDiagram (PK/FK/cardinality guardrails).',
+      '/pb:flow':   'Run /pb:flow to (re)generate the UX Design tab — a Mermaid wireflow plus a QA test checklist.',
+      '/pb:data':    'Run /pb:data to (re)generate the Data tab — a field/type/example table plus a Mermaid erDiagram (PK/FK/cardinality guardrails).',
       '/pb:check-drift': 'Run /pb:check-drift to audit the trio (screens, components, logic) against the constitution (report-only, no writes).',
-      '/pb:hand-off':    'Run /pb:hand-off --people for a view-only self-documenting prototype.html, or --context for a portable bundle.',
+      '/pb:handoff-close':    'Run /pb:handoff-close --people for a view-only self-documenting prototype.html, or --context for a portable bundle.',
       '/pb:validate':    'Run /pb:validate to scaffold a runnable reference build from prototype.html.',
       '/pb:update-version': 'Run /pb:update-version to apply a versioned registry schema update (dry-run by default; --apply to execute).',
     };
@@ -2894,7 +2894,7 @@
 
     /* v0.3.2 — empty-state helper for tabs that haven't been synced yet. */
     function renderEmptyState({ icon, title, body, ctaLabel, command, label, learnHref, learnLabel, meta }) {
-      // View-only (/pb:hand-off --people): an unpopulated tab must show NO authoring CTA.
+      // View-only (/pb:handoff-close --people): an unpopulated tab must show NO authoring CTA.
       // Render a neutral note instead of the build action (T3.3).
       if (VIEW_ONLY) {
         return `
@@ -2964,7 +2964,7 @@
           'User stories list jobs-to-be-done; test cases turn acceptance scenarios into a checklist.',
           'Set the screen width/height to size the flow canvas to your target device.',
         ],
-        commands: ['/pb:sync-flow'],
+        commands: ['/pb:flow'],
         skills: ['build-flow', 'craft-connect-flow'],
       },
       handoff: {
@@ -2986,7 +2986,7 @@
           'Toggle Diagram / Table; click an entity to inspect its fields on the right.',
           'Mock data sets let you preview edge cases (empty / sparse / overflow) against the UI.',
         ],
-        commands: ['/pb:sync-erd'],
+        commands: ['/pb:data'],
         skills: ['build-logic', 'think-logic'],
       },
     };
@@ -3802,7 +3802,7 @@
     function renderMetaFlow() {
       const populated = !!(PB_DATA.flow && PB_DATA.flow.populated);
       const cta = populated
-        ? `<button class="sync-button" onclick="openCopyPopover('/pb:sync-flow', this)">Sync</button>` : '';
+        ? `<button class="sync-button" onclick="openCopyPopover('/pb:flow', this)">Sync</button>` : '';
       const header = pbPageHeader({ title: 'UX Design', infoKey: 'flow', cta });
 
       if (!populated) {
@@ -3814,7 +3814,7 @@
                 icon: EMPTY_STATE_ICONS.flow,
                 title: 'No user flow yet',
                 body: 'Build your user flow from the project spec. Claude generates one combined left-to-right Mermaid flowchart that covers every story (including edge cases), with a per-story test checklist that maps each story to a path on the canvas.',
-                ctaLabel: 'Generate user flow', command: '/pb:sync-flow', label: 'Sync flow command copied',
+                ctaLabel: 'Generate user flow', command: '/pb:flow', label: 'Sync flow command copied',
               })}
             </div>
           </div>`;
@@ -3829,7 +3829,7 @@
           </div>
         </div>
       `;
-      // v0.3.9 — once /pb:sync-flow rewrites renderFlowPopulated
+      // v0.3.9 — once /pb:flow rewrites renderFlowPopulated
       // to stack multiple Mermaid flows inside #flow-stage, this init renders them all,
       // strips intrinsic widths, measures the natural content size of the stage, and
       // hands off to initCanvas('flow', W, H) so the user gets pan + zoom over every
@@ -5317,7 +5317,7 @@
     function renderMetaERD() {
       const populated = !!(PB_DATA.erd && PB_DATA.erd.populated);
       const cta = populated
-        ? `<button class="sync-button" onclick="openCopyPopover('/pb:sync-erd', this)">Sync</button>` : '';
+        ? `<button class="sync-button" onclick="openCopyPopover('/pb:data', this)">Sync</button>` : '';
       const header = pbPageHeader({ title: 'Data', infoKey: 'erd', cta });
 
       if (!populated) {
@@ -5329,7 +5329,7 @@
                 icon: EMPTY_STATE_ICONS.erd,
                 title: 'No data model yet',
                 body: 'Build the entity-relationship diagram from your spec. Claude generates a Mermaid `erDiagram` with PK/FK/cardinality guardrails — for a future production implementation.',
-                ctaLabel: 'Generate ERD', command: '/pb:sync-erd', label: 'Sync ERD command copied',
+                ctaLabel: 'Generate ERD', command: '/pb:data', label: 'Sync ERD command copied',
               })}
             </div>
           </div>`;

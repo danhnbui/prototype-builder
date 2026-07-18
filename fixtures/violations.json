@@ -1,5 +1,5 @@
 {
-  "_about": "Seeded-violations fixture for pb/tools/check.py. Valid JSON on purpose (so check.py parses it), but contains exactly nine distinct contract violations — one per rule code. CI asserts check.py --strict flags ALL of them. Do not 'clean up' this file; it is a negative test.",
+  "_about": "Seeded-violations fixture for pb/tools/lint_registry.py. Valid JSON on purpose (so lint_registry.py parses it), but contains exactly nine distinct contract violations — one per rule code. CI asserts lint_registry.py --strict flags ALL of them. Do not 'clean up' this file; it is a negative test.",
   "_seeded_violations": [
     "R-KEBAB  : component id 'GoodButton' is not kebab-case",
     "R-HEX    : raw hex (#ffffff) in a render body",

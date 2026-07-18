@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-check_violations.py — asserts pb/tools/check.py flags EVERY seeded violation.
+check_violations.py — asserts pb/tools/lint_registry.py flags EVERY seeded violation.
 
-Runs check.py --strict on fixtures/violations.json and verifies all nine seeded
-rule codes appear in the output, and that check.py exits non-zero (error) on it.
+Runs lint_registry.py --strict on fixtures/violations.json and verifies all nine seeded
+rule codes appear in the output, and that lint_registry.py exits non-zero (error) on it.
 
 Usage:  python3 tests/check_violations.py
 Exit:   0 = all nine caught + non-zero exit · 1 = a miss
@@ -13,7 +13,7 @@ import subprocess
 import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-CHECK = os.path.join(ROOT, "pb", "tools", "check.py")
+CHECK = os.path.join(ROOT, "pb", "tools", "lint_registry.py")
 FIXTURE = os.path.join(ROOT, "fixtures", "violations.json")
 
 EXPECTED = [
@@ -27,16 +27,16 @@ def main():
                        capture_output=True, text=True)
     out = r.stdout + r.stderr
     sys.stdout.write(out)
-    print(f"\n(check.py exit code: {r.returncode})")
+    print(f"\n(lint_registry.py exit code: {r.returncode})")
 
     missing = [code for code in EXPECTED if code not in out]
     if missing:
-        print(f"✗ check.py missed {len(missing)} seeded violation(s): {missing}")
+        print(f"✗ lint_registry.py missed {len(missing)} seeded violation(s): {missing}")
         sys.exit(1)
     if r.returncode == 0:
-        print("✗ check.py --strict must exit non-zero on the violations fixture")
+        print("✗ lint_registry.py --strict must exit non-zero on the violations fixture")
         sys.exit(1)
-    print(f"✓ all {len(EXPECTED)} seeded violations caught; check.py exited {r.returncode}")
+    print(f"✓ all {len(EXPECTED)} seeded violations caught; lint_registry.py exited {r.returncode}")
 
 
 if __name__ == "__main__":

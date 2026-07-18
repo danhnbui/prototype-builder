@@ -30,7 +30,7 @@ It owns **one slice at a time**. Under orchestration it **returns a slice patch*
 coordinator serializes writes and **renders once per wave** — the render step is the deterministic generator
 (`render.py`), never hand-emitted HTML (token lever NS2). Standalone (`/pb:build --render`) it may invoke the
 generator itself. After each patch it runs the advisory contract check:
-`python3 "${CLAUDE_PLUGIN_ROOT}/tools/check.py" registry.json` (read-only; never blocks the loop).
+`python3 "${CLAUDE_PLUGIN_ROOT}/tools/lint_registry.py" registry.json` (read-only; never blocks the loop).
 
 ## Explore mode — propose one design option (fan-out)
 When invoked by `/pb:explore`, it produces **one** candidate instead of patching the live slice: a render body
@@ -43,7 +43,7 @@ instances fan out — each proposing a single option — and `/pb:explore` colle
 ## Acceptance discipline
 Done when the task's stated **acceptance** holds, the touched slice + its body file are consistent (kebab id /
 matching `renderFn` / real `renderSrc`), styling is **token-only** (no raw hex/px), interactive components
-declare a `state` property, and `check.py` reports no new `ERROR`.
+declare a `state` property, and `lint_registry.py` reports no new `ERROR`.
 
 > **Skill degrade (NS6).** If a skill this agent invokes fails to load, say so explicitly and proceed with its
 > core intent — never silently skip the step.

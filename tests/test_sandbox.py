@@ -16,7 +16,7 @@ out to pb/tools/test_run.py the way /pb:test does. It asserts:
      forced visible for a member) — non-zero.
   5. test_run.py --server flags a deliberately-broken data-nav target (a dangling screen id) —
      non-zero.
-  6. check.py --strict stays exit 0 on the golden with all the additive keys present
+  6. lint_registry.py --strict stays exit 0 on the golden with all the additive keys present
      (meta.roles, screens[].roles, data-roles, scenario test{}).
   7. the shell's role seams work: the switcher + Reset render, and a data-roles element is
      hidden for a non-permitted role and shown for an admin (isAdmin bypass).
@@ -40,7 +40,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 TOOLS = os.path.join(ROOT, "pb", "tools")
 SERVE = os.path.join(TOOLS, "serve.py")
 TEST_RUN = os.path.join(TOOLS, "test_run.py")
-CHECK = os.path.join(TOOLS, "check.py")
+CHECK = os.path.join(TOOLS, "lint_registry.py")
 GOLDEN = os.path.join(ROOT, "fixtures", "golden", "registry.json")
 
 _failures = []
@@ -228,11 +228,11 @@ def run():
         check(r.returncode != 0,
               f"--server flags the dangling data-nav (rc={r.returncode})\n{r.stdout}{r.stderr}")
 
-    # ── 6 · check.py --strict stays clean with the additive keys ─────────────
-    print("check.py --strict (golden stays clean with the additive keys):")
+    # ── 6 · lint_registry.py --strict stays clean with the additive keys ─────────────
+    print("lint_registry.py --strict (golden stays clean with the additive keys):")
     r = run_tool(CHECK, "--strict", GOLDEN)
     check(r.returncode == 0,
-          f"check.py --strict exits 0 on the golden (rc={r.returncode})\n{r.stdout}{r.stderr}")
+          f"lint_registry.py --strict exits 0 on the golden (rc={r.returncode})\n{r.stdout}{r.stderr}")
 
     # ── 3 + 7 · shell behaviours (glyphs · role switcher/reset · gating) ─────
     print("shell (golden — glyphs, role switcher/reset, element gating):")

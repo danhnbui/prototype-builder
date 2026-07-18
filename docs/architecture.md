@@ -93,7 +93,7 @@ machinery, which is **unchanged**:
 - **`applyRegistryTokens(reg)`** injects `tokens{}` onto `:root` as CSS variables at boot.
 
 Because the render is deterministic and batched, it runs **only** on `/pb:build --render` and
-automatically at `/pb:hand-off` and `/pb:validate` — **never** per tweak, and **never** by the
+automatically at `/pb:handoff-close` and `/pb:validate` — **never** per tweak, and **never** by the
 model hand-emitting HTML (measured at G0.5 as ~2–3× *worse*).
 
 ### The three token levers (ship together)
@@ -133,9 +133,9 @@ All five are rendered from the registry by the ported machinery:
 |---|---|---|
 | **Prototype** | `screens[]` | trio — auto on `/pb:build` |
 | **Project Summary** | `meta.overview` / `userInsights` / `tradeoffs` (PRD · Insights · Trade-offs) | trio — auto on `/pb:build` |
-| **UX Design** | `flow` (Mermaid wireflow + test checklist) | **decoupled** — `/pb:sync-flow` only |
+| **UX Design** | `flow` (Mermaid wireflow + test checklist) | **decoupled** — `/pb:flow` only |
 | **UI Design** | `components[]` + `screens[]` (DS · Local · Screen, with the spec drawer) | component is trio; screen is decoupled |
-| **Data** | `erd` (field/type/example table + Mermaid ERD) | **decoupled** — `/pb:sync-erd` only |
+| **Data** | `erd` (field/type/example table + Mermaid ERD) | **decoupled** — `/pb:data` only |
 
 The **trio** (Prototype + Project Summary + UI Design · component) auto-syncs on `/pb:build`.
 Flow, Data, and UI Design · screen are decoupled — updated only by their explicit commands.

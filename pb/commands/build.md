@@ -15,7 +15,7 @@ Apply the **Schema compatibility** check from `CLAUDE.md` before writing any reg
 ## 0 · Flags
 - `--render` — after applying the patch (or on its own), regenerate `prototype.html` from
   `registry.json` via the deterministic generator (step 5). This is the **only** way HTML is produced
-  (besides `/pb:hand-off` and `/pb:validate`, which render automatically).
+  (besides `/pb:handoff-close` and `/pb:validate`, which render automatically).
 - no flag — apply the registry patch and **stop. Do NOT render.**
 
 ## 1 · Read the touched slice (only)
@@ -64,7 +64,7 @@ Edit the **one** touched slice in `registry.json` (changed keys only):
 - **new component / screen** → append an entry with a **kebab-case** `id`, a `renderFn`
   (`renderCmp{PascalCase}` / `renderScreen{PascalCase}`), and a `renderSrc`
   (`render/components/<id>.js` / `render/screens/<id>.js`); create that `.js` body file with the render
-  code. (A legacy inline `render` string still works but is discouraged — `check.py` warns if both are set.)
+  code. (A legacy inline `render` string still works but is discouraged — `lint_registry.py` warns if both are set.)
 
 **Do not touch `prototype.html`. Do not re-render.** State what slice changed and stop (unless `--render`).
 
@@ -89,12 +89,12 @@ Two more rules:
 Run the contract validator on the patched registry — **read-only, no render** (so the
 token levers NS2/NS3 stay intact). From the project root:
 ```
-python3 "${CLAUDE_PLUGIN_ROOT}/tools/check.py" registry.json
+python3 "${CLAUDE_PLUGIN_ROOT}/tools/lint_registry.py" registry.json
 ```
 Surface any `ERROR`/`WARN` lines to the user as advice (kebab/renderFn/orgId/token-kind
 issues, a `</script>` page-killer, raw hex/px, a missing `danger` token). This is
 **advisory** in the loop — it never blocks a build tweak — but the same check runs
-`--strict` and **fail-closed** at `/pb:hand-off` and `/pb:validate` before any render,
+`--strict` and **fail-closed** at `/pb:handoff-close` and `/pb:validate` before any render,
 so fixing findings now avoids a blocked exit later.
 
 ## 5 · Render — batched, deterministic, on demand only

@@ -16,7 +16,7 @@ carries a `renderSrc` pointing at a real `.js` body file (`render/components/<id
 `render/screens/<id>.js`, resolved relative to the registry); `render.py` reads those files and
 generates the render functions at `/pb:build --render`. Edit the `.js` files directly — they are
 lintable and diffable. (A legacy inline `render` string still renders for backward compatibility;
-`renderSrc` wins when both are present, and `check.py` warns to remove the inline copy.) Design
+`renderSrc` wins when both are present, and `lint_registry.py` warns to remove the inline copy.) Design
 tokens are applied onto `:root` at boot via `applyRegistryTokens`.
 
 ### Top-level shape
@@ -108,7 +108,7 @@ flow = { populated, mermaid, flows?: [ { name, mermaid } ],
          coverageWarnings?: [ { category, note } ], html? }
 ```
 
-`/pb:sync-flow` writes `mermaid` (a `flowchart LR` source) + `stories[]`. The shell renders the canvas on
+`/pb:flow` writes `mermaid` (a `flowchart LR` source) + `stories[]`. The shell renders the canvas on
 the **left** (it fills one viewport — no W×H controls) and a **User stories | Test cases** aside on the
 right (each `scenarios[]` entry a checkbox), running Mermaid then re-routing every edge as straight
 **orthogonal** connectors anchored at the nodes' 4 side-centers (Figma-board style)
@@ -136,7 +136,7 @@ erd = { populated, table: [ { entity, field, type, example, notes } ], mermaid, 
         mock?: [ { entity, label, rows: [ { <field>: <value> } ] } ], html? }
 ```
 
-`/pb:sync-erd` writes `table[]` + `mermaid` (an `erDiagram` source). The shell is **single-column**: a
+`/pb:data` writes `table[]` + `mermaid` (an `erDiagram` source). The shell is **single-column**: a
 **Diagram | Table** toggle, with a relationship-legend popover (crow's-foot 1:1 / 1:N / N:N) on the diagram
 and **data-set variant chips** on the table. Per-entity tables share fixed column widths so they line up.
 `html` is a legacy pre-baked fallback used only when neither `mermaid` nor `table` is present.
@@ -146,7 +146,7 @@ and **data-set variant chips** on the table. Per-entity tables share fixed colum
   definition, then one per `label`); a table with no mock sets shows no switcher. Selecting a variant swaps
   that table's Example column to the scenario's values (`rows[0]` is representative; an empty set reads as the
   no-data state). Use standard review scenarios — e.g. `New user`, `Empty`, `Returning`. Each set: `label` +
-  `rows[]` (objects keyed by field names). Authored by `/pb:sync-erd --mock`.
+  `rows[]` (objects keyed by field names). Authored by `/pb:data --mock`.
 
 ## The 5 tabs
 
@@ -177,8 +177,8 @@ bodies are generated from the registry.
 ## Sync rules
 
 The **trio** (Prototype + Project Summary + UI Design · component) auto-syncs on `/pb:build`.
-Flow, Data, and UI Design · screen are **decoupled** — updated only by `/pb:sync-flow`,
-`/pb:sync-erd`, and the screen pass. _(folded from the v0.4.0 hooks: Phase 4–5)_
+Flow, Data, and UI Design · screen are **decoupled** — updated only by `/pb:flow`,
+`/pb:data`, and the screen pass. _(folded from the v0.4.0 hooks: Phase 4–5)_
 
 ## Component governance
 

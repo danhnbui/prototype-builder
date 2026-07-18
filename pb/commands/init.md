@@ -4,7 +4,9 @@ description: Scaffold a new Product Builder prototype — PRD intake (Q&A or fil
 
 # /pb:init
 
-Scaffold a new prototype **in the current directory**. PRD intake is **never blank**.
+Scaffold a new prototype. PRD intake is **never blank**. Where it scaffolds depends on the
+context (see 0c): **greenfield** writes to the current directory; **adopt-in-place** (inside an
+existing repo) sidecars everything under `.prototype/` and never touches the host code.
 
 ## 0 · Preflight — the one prerequisite
 Verify **Python 3** is on PATH (it's the only runtime pb needs — the render/preview/check/update-version tools are
@@ -19,7 +21,43 @@ If that errors, STOP and print the OS-specific fix, then ask the user to install
 Everything else pb uses ships with the plugin — there is nothing else to install.
 
 ## 0b · Flags
-- `--import <bundle>` — ingest a context bundle from `/pb:hand-off --context` instead of doing intake (step 6).
+- `--import <bundle>` — ingest a context bundle from `/pb:handoff-close --context` instead of doing intake (step 6).
+- `--adopt` — force **adopt-in-place** mode (scaffold under `.prototype/`); see 0c.
+- `--standalone` — force greenfield mode (scaffold at the current directory root), even inside an existing repo.
+
+## 0c · Adopt-in-place vs greenfield (decide once — where pb scaffolds)
+- **Greenfield** (default in an empty dir or an existing pb project): scaffold at the current
+  directory root — `registry.json`, `memory/`, `design-system/`, `render/`, `prototype.html` all
+  sit here. Steps 1–5 write to the root as usual.
+- **Adopt-in-place** (default when `/pb:init` runs inside an existing git repo that already has a
+  host codebase): pb must **not** pollute someone else's repo. Detect it, then sidecar:
+
+  1. **Detect** — `git rev-parse --is-inside-work-tree` is true **and** `git ls-files` shows tracked
+     files that aren't a pb project. Override either way with `--adopt` / `--standalone`.
+  2. **Sidecar under `.prototype/`** — create a `.prototype/` directory; it is the pb **project
+     root**. Steps 1–5 scaffold **inside `.prototype/`** (`.prototype/registry.json`,
+     `.prototype/memory/`, `.prototype/render/`, …). Every later `/pb:*` command operates with
+     `.prototype/` as its working directory.
+  3. **Gitignore** — append the pb block to the host `.gitignore` (create it if absent), idempotent
+     and never duplicated (skip if the block is already present):
+     ```
+     # Product Builder (pb) — prototype sidecar under .prototype/
+     # Derived + transient artifacts; the registry/render/memory sources stay trackable.
+     # To ignore the whole sidecar instead, replace the lines below with:  .prototype/
+     .prototype/prototype.html
+     .prototype/history/
+     .prototype/.preview/
+     ```
+  4. **Read-only-outside rule** — append this Principle to `.prototype/memory/constitution.md`
+     (after the seeded Principles):
+     > **Adopt-in-place (read-only outside).** This prototype lives entirely under `.prototype/`.
+     > pb treats everything outside `.prototype/` as **read-only** — it never creates, edits, or
+     > deletes host-repo files. The one exception is the pb block appended to the host `.gitignore`
+     > at `/pb:init`. Every `/pb:*` command runs with `.prototype/` as the project root.
+
+  In this mode, **never** write pb artifacts outside `.prototype/` (besides that one `.gitignore`
+  append). When a path below says `registry.json` / `memory/` / etc., read it as
+  `.prototype/registry.json` / `.prototype/memory/`.
 
 ## 1 · PRD intake (never blank)
 Never start empty. Source it one of two ways:
@@ -98,6 +136,7 @@ suggest `/pb:update-version`. Do not silently copy an out-of-contract slice into
 
 ## Result
 A seeded project — non-empty `memory/prd.md`, locks set, `registry.json` seeded, `memory/decisions.md`,
-`design-system/{name}/`. Next: `/pb:specify` (expand) or `/pb:build` (start building).
+`design-system/{name}/` (all under `.prototype/` in adopt-in-place mode, plus the host `.gitignore`
+block + the read-only-outside Principle). Next: `/pb:specify` (expand) or `/pb:build` (start building).
 
 > **Skill degrade (NS6).** If a skill this command invokes fails to load, say so explicitly and proceed with its core intent — never silently skip the step.
