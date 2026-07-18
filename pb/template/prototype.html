@@ -5141,7 +5141,7 @@
       if (!targets.length) targets = [root];
       var isLeaf = (targets.length === 1 && targets[0] === root);
       var parts = [];
-      if (!isLeaf) parts.push({ el: root, name: 'Container', tokens: pbClassifyTokens(root).container, edge: 'top' });
+      if (!isLeaf) parts.push({ el: root, name: 'Container', tokens: pbClassifyTokens(root).container, isContainer: true });
       targets.forEach(function(el, idx) {
         var nested = findOrg(el);
         if (nested) { parts.push({ el: el, name: (nested.name || nested.id), link: nested.id }); return; }
@@ -5177,27 +5177,28 @@
       function badgeAt(n, x, y) { var b = document.createElement('span'); b.className = 'anatomy-badge anatomy-badge--pin anatomy-pin-auto'; b.textContent = n; b.style.left = (x - 10) + 'px'; b.style.top = (y - 10) + 'px'; stage.appendChild(b); }
       var leftX = 24, rightX = stage.clientWidth - 24, topY = 16, botY = stage.clientHeight - 16;
       var usedL = [], usedR = [], usedT = [], usedB = [];
-      function free(arr, v) { return !arr.some(function (u) { return Math.abs(u - v) < 24; }); }
+      function free(arr, v) { return !arr.some(function (u) { return Math.abs(u - v) < 26; }); }
       parts.forEach(function (p) {
-        var ax, ay;
-        if (p.isLabel) {
-          var tr = pbTextRect(p.el);
-          ax = tr.left - stageRect.left; ay = tr.top - stageRect.top + tr.height / 2;
-        } else {
-          var r = p.el.getBoundingClientRect();
-          ax = r.left - stageRect.left; ay = r.top - stageRect.top + Math.min(14, r.height / 2);
+        var rect = p.isLabel ? pbTextRect(p.el) : p.el.getBoundingClientRect();
+        var L = rect.left - stageRect.left, R = rect.right - stageRect.left;
+        var T = rect.top - stageRect.top, B = rect.bottom - stageRect.top;
+        var ay = p.isLabel ? (T + rect.height / 2) : (T + Math.min(14, rect.height / 2));
+        // The whole-component Container callout goes on TOP, clear of the element gutters, so it
+        // never collides with the first element or spawns a competing bottom vertical.
+        if (p.isContainer) {
+          var cx = L + Math.min(26, rect.width / 2);
+          while (!free(usedT, cx)) cx += 26; usedT.push(cx);
+          dotAt(cx, T); vLine(cx, topY + 12, T - topY - 12); badgeAt(p.n, cx, topY); return;
         }
-        if (free(usedL, ay)) {                    // LEFT — straight horizontal
-          usedL.push(ay); dotAt(ax, ay); hLine(leftX + 12, ay, ax - leftX - 12); badgeAt(p.n, leftX, ay);
-        } else if (free(usedB, ax)) {             // BOTTOM — straight vertical up
-          usedB.push(ax); dotAt(ax, ay); vLine(ax, ay, botY - 12 - ay); badgeAt(p.n, ax, botY);
-        } else if (free(usedT, ax)) {             // TOP — straight vertical down
-          usedT.push(ax); dotAt(ax, ay); vLine(ax, topY + 12, ay - topY - 12); badgeAt(p.n, ax, topY);
-        } else if (free(usedR, ay)) {             // RIGHT — straight horizontal
-          usedR.push(ay); dotAt(ax, ay); hLine(ax, ay, rightX - 12 - ax); badgeAt(p.n, rightX, ay);
-        } else {                                  // fallback: left gutter, nudged down
-          var y = ay; while (!free(usedL, y)) y += 24; usedL.push(y);
-          dotAt(ax, ay); hLine(leftX + 12, y, ax - leftX - 12); badgeAt(p.n, leftX, y);
+        if (free(usedL, ay)) {                    // LEFT — straight horizontal to the left edge
+          usedL.push(ay); dotAt(L, ay); hLine(leftX + 12, ay, L - leftX - 12); badgeAt(p.n, leftX, ay);
+        } else if (free(usedB, L)) {              // BOTTOM — straight vertical up to the part
+          usedB.push(L); dotAt(L, ay); vLine(L, ay, botY - 12 - ay); badgeAt(p.n, L, botY);
+        } else if (free(usedR, ay)) {             // RIGHT — straight horizontal to the right edge
+          usedR.push(ay); dotAt(R, ay); hLine(R, ay, rightX - 12 - R); badgeAt(p.n, rightX, ay);
+        } else {                                  // last resort: left gutter, nudged to a free row
+          var y = ay; while (!free(usedL, y)) y += 26; usedL.push(y);
+          dotAt(L, ay); hLine(leftX + 12, ay, L - leftX - 12); badgeAt(p.n, leftX, ay);
         }
       });
 
