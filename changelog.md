@@ -2,6 +2,24 @@
 
 All notable changes to Product Builder. Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [1.9.0] — 2026-07-18
+
+*Shell UI: the Prototype header tools collapse into one **Sandbox** control in the meta nav.*
+
+### Changed
+- **Consolidated Sandbox menu.** The per-tab Prototype header tools (Browser/App chrome toggle, device
+  switcher, structure-tree toggle, sandbox ⋯ menu) **plus** the shell version move into a single
+  **`Sandbox ▾`** button at the right end of the meta nav, present on all 5 tabs. Clicking it opens one
+  popover:
+  - **Preview** (Prototype tab only): Chrome · Device (segmented tab group, soft active token) · Structure tree.
+  - **Sandbox**: Reset session (top) · Roles · Explore · Terminal testing — Roles/Explore/Terminal are
+    dropdowns, disabled when the project has no data for them.
+  - **Footer**: `pb v<version>` (moved out of the nav).
+  On the other four tabs the menu shows just the Sandbox group + version. Reuses the shell's existing
+  `.proto-shell-toggle` / `.proto-device-btn` / popover components — no new visual language.
+- Tests updated to the new UI (`shell_version`, `e2e_smoke`, `test_sandbox`): version reads from the menu
+  footer; roles are a dropdown; the trigger is the nav `Sandbox` button.
+
 ## [1.8.1] — 2026-07-18
 
 ### Fixed

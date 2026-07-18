@@ -123,10 +123,14 @@ def run():
             # 1. five tabs
             check(page.locator(".meta-tab").count() == 5, "5 doc tabs render")
 
-            # 1b. build_html fills {{PB_SHELL_VERSION}} in the meta-nav; serve.py passes the version in
-            ver = page.locator(".meta-version").inner_text()
+            # 1b. build_html fills {{PB_SHELL_VERSION}}; the version now lives in the Sandbox menu footer.
+            page.click(".meta-sandbox")
+            page.wait_for_timeout(120)
+            ver = page.locator(".proto-sandbox-menu .sbx-foot").inner_text()
             check(re.match(r"pb v\d", ver) is not None,
-                  f"meta-nav shows the shell version badge ({ver!r})")
+                  f"Sandbox menu footer shows the shell version ({ver!r})")
+            page.evaluate("typeof closeCopyPopover==='function' && closeCopyPopover()")
+            page.wait_for_timeout(80)
 
             # 2. registry token reaches :root
             brand = page.evaluate(

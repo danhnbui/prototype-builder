@@ -1,6 +1,6 @@
 {
   "name": "pb",
-  "description": "Product Builder v1.8.1 — registry-backed prototype builder with a unified 5-tab UI, a cheap build loop, a small memory layer, a design-system-agnostic core, a two-mode hand-off, an agent-powered testing sandbox, and a multi-agent orchestrator. Provides /pb:init, /pb:specify, /pb:clarify, /pb:plan, /pb:orchestrate, /pb:build (+ check-design-system, figma-handoff), /pb:pull-ds, /pb:preview, /pb:preview-ds, /pb:test, /pb:explore, /pb:flow, /pb:data, /pb:check-drift, /pb:handoff-close, /pb:validate, /pb:handoff-dev, /pb:update-version, /pb:snapshot.",
-  "version": "1.8.1",
+  "description": "Product Builder v1.9.0 — registry-backed prototype builder with a unified 5-tab UI, a cheap build loop, a small memory layer, a design-system-agnostic core, a two-mode hand-off, an agent-powered testing sandbox, and a multi-agent orchestrator. Provides /pb:init, /pb:specify, /pb:clarify, /pb:plan, /pb:orchestrate, /pb:build (+ check-design-system, figma-handoff), /pb:pull-ds, /pb:preview, /pb:preview-ds, /pb:test, /pb:explore, /pb:flow, /pb:data, /pb:check-drift, /pb:handoff-close, /pb:validate, /pb:handoff-dev, /pb:update-version, /pb:snapshot.",
+  "version": "1.9.0",
   "author": { "name": "Danh (danhbnp)" }
 }

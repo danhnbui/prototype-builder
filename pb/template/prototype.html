@@ -166,6 +166,38 @@
       letter-spacing: 0.02em;
       user-select: all;                          /* easy to copy when reporting an issue */
     }
+    /* v1.9 — the consolidated Sandbox control at the right end of the meta nav. */
+    .meta-sandbox {
+      margin-left: auto;                         /* push to the far-right of the flex strip */
+      display: inline-flex; align-items: center; gap: 8px;
+      height: 30px; padding: 0 12px;
+      border-radius: var(--radius, 8px);
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.16);
+      color: var(--neutral-10, #e5e7eb);
+      font-family: var(--font-heading);
+      font-size: var(--font-size-s); font-weight: var(--font-weight-bold);
+      cursor: pointer; transition: background 0.12s, border-color 0.12s;
+    }
+    .meta-sandbox:hover { background: rgba(255,255,255,0.12); border-color: rgba(255,255,255,0.28); }
+    .meta-sandbox-dot { width: 7px; height: 7px; border-radius: 50%; background: #22c55e; }
+    .meta-sandbox-car { color: var(--neutral-40); }
+    /* v1.9 — rows inside the Sandbox popover (reuses .copy-popover / .proto-menu-* shells). */
+    .sbx-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 7px 2px; }
+    .sbx-row-lbl { font-family: var(--font-body); font-size: var(--font-size-xs); font-weight: var(--font-weight-bold);
+      text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-active-secondary, #6b7280); }
+    .sbx-row.is-disabled { opacity: 0.45; pointer-events: none; }
+    .sbx-select { height: 28px; max-width: 150px; border: 1px solid var(--border); border-radius: var(--radius, 8px);
+      background: #fff; font-family: var(--font-body); font-size: var(--font-size-s);
+      color: var(--text-active-primary, #111827); padding: 0 8px; cursor: pointer; }
+    .sbx-sw { position: relative; width: 34px; height: 20px; border-radius: 999px; background: var(--border-strong, #d1d5db); flex: none; }
+    .sbx-sw.on { background: var(--brand); }
+    .sbx-sw::after { content: ""; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: #fff; transition: left 0.12s; }
+    .sbx-sw.on::after { left: 16px; }
+    .sbx-foot { border-top: 1px solid var(--border); margin: 0.6rem -18px 0; padding: 0.6rem 18px 0;
+      font-family: var(--font-mono, ui-monospace, Menlo, monospace); font-size: var(--font-size-xs); color: var(--neutral-40); }
+    /* soft active token for the device switcher when it lives inside the Sandbox menu */
+    .proto-sandbox-menu .proto-device-btn.active { background: var(--brand-soft, #eef0fe); color: var(--brand); border-color: #c3c6f5; }
 
     /* ========================================================================
        META-PANEL — typography + layout for the 4 documentation tabs
@@ -2341,7 +2373,10 @@
         return `<button class="meta-tab ${state.metaView === id ? 'active' : ''}"
                  onclick="setMetaView('${id}')">${label}${badge}</button>`;
       }).join('') +
-        `<span class="meta-version" title="Rendered by the Product Builder shell v${PB_SHELL_VERSION}">pb v${PB_SHELL_VERSION}</span>`;
+        `<button class="meta-sandbox" onclick="openSandboxMenu(this)" aria-haspopup="dialog" aria-label="Sandbox tools">
+           <span class="meta-sandbox-dot" aria-hidden="true"></span><span>Sandbox</span>
+           <svg class="meta-sandbox-car" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+         </button>`;
     }
 
     /* Returns the # of prompts elapsed since this tab's last sync, or 0 if fresh. */
@@ -2840,32 +2875,12 @@
 
     /* v1.5 — the Prototype sandbox tools (Preview-as-role + Reset) behind a single ⋯ menu.
        Reuses the copy-popover infra (positioning / backdrop / Esc). An overline labels each group. */
+    var _sbxAnchor = null;
     function openSandboxMenu(anchorBtn) {
       document.querySelectorAll('.copy-popover, .copy-popover-backdrop').forEach(el => el.remove());
       window.removeEventListener('keydown', copyPopoverKeyHandler);
       window.removeEventListener('resize', repositionCopyPopover);
-
-      const roles = (typeof pbRolesList === 'function') ? pbRolesList() : [];
-      // Roles render as a single-choice LIST (radiogroup): a leading radio marks the active role,
-      // then its name + a description of its abilities / JTBD. Clicking a row previews as that role.
-      const roleGroup = roles.length ? `
-        <div class="proto-menu-overline">Preview as role</div>
-        <div class="proto-role-list" role="radiogroup" aria-label="Preview as role">
-          ${roles.map(r => {
-            const active = r.id === state.activeRole;
-            return `<button class="proto-role-item ${active ? 'is-active' : ''}" role="radio" aria-checked="${active}"
-                    onclick="setProtoRole('${escapeHtmlAttr(r.id)}'); closeCopyPopover()">
-              <span class="proto-role-item-body">
-                <span class="proto-role-item-head">
-                  <span class="proto-role-item-name">${pbEscape(r.name || r.id)}</span>
-                  ${r.isAdmin ? '<span class="proto-role-badge">admin</span>' : ''}
-                </span>
-                ${r.description ? `<span class="proto-role-item-desc">${pbEscape(r.description)}</span>` : ''}
-              </span>
-              <span class="proto-role-radio ${active ? 'is-on' : ''}" aria-hidden="true"></span>
-            </button>`;
-          }).join('')}
-        </div>` : '';
+      _sbxAnchor = anchorBtn;
 
       const backdrop = document.createElement('div');
       backdrop.className = 'copy-popover-backdrop';
@@ -2875,13 +2890,8 @@
       pop.className = 'copy-popover proto-sandbox-menu';
       pop.setAttribute('role', 'dialog');
       pop.setAttribute('aria-label', 'Sandbox tools');
-      pop.style.width = '268px';
-      pop.innerHTML = `
-        <button class="copy-popover-close" type="button" aria-label="Close" onclick="closeCopyPopover()">${COPY_POPOVER_ICONS.close}</button>
-        ${roleGroup}
-        <div class="proto-menu-hr"></div>
-        <button class="proto-menu-item" type="button" onclick="pbResetSandbox(); closeCopyPopover()">Reset sandbox</button>
-      `;
+      pop.style.width = '288px';
+      pop.innerHTML = pbSandboxMenuHTML();
 
       document.body.appendChild(backdrop);
       document.body.appendChild(pop);
@@ -2890,6 +2900,85 @@
 
       window.addEventListener('keydown', copyPopoverKeyHandler);
       window.addEventListener('resize', repositionCopyPopover);
+    }
+
+    /* Rebuild the open Sandbox menu in place after a control inside it changes state. */
+    function pbSandboxRerender() {
+      const pop = document.querySelector('.proto-sandbox-menu');
+      if (!pop) return;
+      pop.innerHTML = pbSandboxMenuHTML();
+      if (_sbxAnchor) positionCopyPopover(pop, _sbxAnchor);
+    }
+
+    /* Prototype-only preview controls (chrome · device · structure) — same builders renderPrototype used. */
+    function pbSandboxPreviewControls() {
+      const meta = (PB_REGISTRY && PB_REGISTRY.meta) || {};
+      const supported = pbNormalizeDeviceList(meta.devices);
+      const shell = state.protoShell || (meta.shell === 'app' ? 'app' : 'browser');
+      const panel = document.getElementById('proto-struct-panel');
+      const isStructOpen = panel && panel.classList.contains('is-open');
+      const shellToggle = `<div class="proto-shell-toggle" role="group" aria-label="Display type">
+          <button class="proto-shell-btn ${shell === 'browser' ? 'active' : ''}" onclick="setProtoShell('browser'); pbSandboxRerender()">Browser</button>
+          <button class="proto-shell-btn ${shell === 'app' ? 'active' : ''}" onclick="setProtoShell('app'); pbSandboxRerender()">App</button>
+        </div>`;
+      const switcher = `<div class="proto-toolbar" role="tablist" aria-label="Preview device">`
+        + PROTO_DEVICES.map(d => {
+            const ok = supported.indexOf(d.id) !== -1;
+            return `<button class="proto-device-btn ${state.protoDevice === d.id ? 'active' : ''} ${ok ? '' : 'is-disabled'}" role="tab"
+               aria-selected="${state.protoDevice === d.id}" aria-label="${d.label}${ok ? '' : ' (not supported)'}"
+               title="${d.label} · ${d.w}×${d.h}${ok ? '' : ' — not supported by this project'}" ${ok ? '' : 'disabled'}
+               ${ok ? `onclick="setProtoDevice('${d.id}'); pbSandboxRerender()"` : ''}>${protoDeviceIcon(d.id)}</button>`;
+          }).join('')
+        + `</div>`;
+      return `
+        <div class="proto-menu-overline" style="margin-top:0">Preview</div>
+        <div class="sbx-row"><span class="sbx-row-lbl">Chrome</span>${shellToggle}</div>
+        <div class="sbx-row"><span class="sbx-row-lbl">Device</span>${switcher}</div>
+        <button class="proto-menu-item" type="button" style="display:flex;align-items:center;justify-content:space-between;width:100%"
+                onclick="toggleProtoStructPanel(); pbSandboxRerender()">
+          <span>Structure tree</span><span class="sbx-sw ${isStructOpen ? 'on' : ''}" aria-hidden="true"></span>
+        </button>
+        <div class="proto-menu-hr"></div>`;
+    }
+
+    /* Titles of authored terminal-test scenarios (flow.stories[].scenarios[].test). */
+    function pbTestScenarioTitles() {
+      const stories = (PB_DATA && PB_DATA.flow && PB_DATA.flow.stories) || [];
+      const out = [];
+      stories.forEach(s => (s.scenarios || []).forEach(sc => {
+        if (sc && typeof sc === 'object' && sc.test) out.push(sc.title || sc.name || sc.id || 'scenario');
+      }));
+      return out;
+    }
+
+    /* The consolidated Sandbox menu content — adapts to the active tab. Roles/Explore/Terminal are
+       dropdowns, disabled when the project has no data for them. */
+    function pbSandboxMenuHTML() {
+      const onProto = state.metaView === 'prototype';
+      const roles = (typeof pbRolesList === 'function') ? pbRolesList() : [];
+      const tests = pbTestScenarioTitles();
+      const close = `<button class="copy-popover-close" type="button" aria-label="Close" onclick="closeCopyPopover()">${COPY_POPOVER_ICONS.close}</button>`;
+      const preview = onProto ? pbSandboxPreviewControls() : '';
+
+      const rolesSel = roles.length
+        ? `<select class="sbx-select" aria-label="Preview as role" onchange="setProtoRole(this.value); pbSandboxRerender()">
+             ${roles.map(r => `<option value="${escapeHtmlAttr(r.id)}" ${r.id === state.activeRole ? 'selected' : ''}>${pbEscape(r.name || r.id)}${r.isAdmin ? ' · admin' : ''}</option>`).join('')}
+           </select>`
+        : `<select class="sbx-select" disabled aria-label="Roles (none defined)"><option>None</option></select>`;
+      const testsSel = tests.length
+        ? `<select class="sbx-select" aria-label="Terminal test scenarios"><option disabled selected>${tests.length} scenario${tests.length > 1 ? 's' : ''}…</option>${tests.map(t => `<option>${pbEscape(t)}</option>`).join('')}</select>`
+        : `<select class="sbx-select" disabled aria-label="Terminal testing (none)"><option>None</option></select>`;
+      const exploreSel = `<select class="sbx-select" disabled aria-label="Explore options (none)"><option>None</option></select>`;
+
+      return `
+        ${close}
+        ${preview}
+        <div class="proto-menu-overline" ${onProto ? '' : 'style="margin-top:0"'}>Sandbox</div>
+        <button class="proto-menu-item" type="button" onclick="pbResetSandbox(); closeCopyPopover()">Reset session</button>
+        <div class="sbx-row ${roles.length ? '' : 'is-disabled'}"><span class="sbx-row-lbl">Roles</span>${rolesSel}</div>
+        <div class="sbx-row is-disabled"><span class="sbx-row-lbl">Explore</span>${exploreSel}</div>
+        <div class="sbx-row ${tests.length ? '' : 'is-disabled'}"><span class="sbx-row-lbl">Terminal testing</span>${testsSel}</div>
+        <div class="sbx-foot">pb v${PB_SHELL_VERSION}</div>`;
     }
 
     /* v0.3.2 — empty-state helper for tabs that haven't been synced yet. */
@@ -3130,11 +3219,10 @@
       // v1.5 — in a view-only (--people) artifact the ⋯ menu (role switcher + Reset) stays as a VIEWER aid
       // (routed through headerAside, which renders under VIEW_ONLY); the authoring chrome stays in cta.
       const viewerTools = `<div class="proto-header-tools">${menuBtn}</div>`;
-      const headerWithTools = pbPageHeader({
-        title: 'Prototype', infoKey: 'prototype',
-        cta: VIEW_ONLY ? '' : toolsFull,
-        headerAside: VIEW_ONLY ? viewerTools : '',
-      });
+      // v1.9 — chrome · device · structure · sandbox moved to the consolidated Sandbox menu in the
+      // meta nav (openSandboxMenu). The Prototype page header now carries only its title + info dialog.
+      void toolsFull; void viewerTools;  // builders retained above; no longer placed in the header
+      const headerWithTools = pbPageHeader({ title: 'Prototype', infoKey: 'prototype' });
 
       const body = (typeof window[sel.renderFn] === 'function')
         ? window[sel.renderFn]()

@@ -250,24 +250,20 @@ def run():
             page.goto(srv.url, wait_until="domcontentloaded")
             page.wait_for_selector(".meta-tab", timeout=10000)
 
-            # 7a — the Prototype header renders the ⋯ sandbox menu; opening it reveals the role
-            # switcher + Reset (meta.roles present). The controls live in the popover, not the header.
+            # 7a — the meta nav renders the Sandbox button; opening it reveals the roles dropdown +
+            # Reset session (meta.roles present). The controls live in the popover, not the header.
             page.click('.meta-tab >> nth=0')  # Prototype
             page.wait_for_timeout(120)
-            check(page.locator(".proto-menu-btn").count() >= 1,
-                  "sandbox menu button renders in the Prototype header")
-            page.click(".proto-menu-btn")
+            check(page.locator(".meta-sandbox").count() >= 1,
+                  "the Sandbox button renders in the meta nav")
+            page.click(".meta-sandbox")
             page.wait_for_timeout(150)
-            check(page.locator(".proto-sandbox-menu .proto-role-item").count() >= 2,
-                  "opening the menu lists the roles (list, not a dropdown)")
-            check(page.locator(".proto-sandbox-menu .proto-role-item-desc").count() >= 1,
-                  "each role row shows a description (abilities / JTBD)")
-            check(page.locator(".proto-sandbox-menu .proto-role-radio").count() >= 2,
-                  "each role row shows a radio (not a check glyph)")
-            check(page.locator('.proto-sandbox-menu .proto-role-item[aria-checked="true"] .proto-role-radio.is-on').count() == 1,
-                  "exactly one role's radio is filled (single selection)")
+            check(page.locator('.proto-sandbox-menu select[aria-label="Preview as role"]').count() == 1,
+                  "opening the menu shows the roles dropdown")
+            check(page.locator('.proto-sandbox-menu select[aria-label="Preview as role"] option').count() >= 2,
+                  "the roles dropdown lists the project roles")
             check(page.locator(".proto-sandbox-menu .proto-menu-item").count() >= 1,
-                  "the menu has a Reset sandbox action")
+                  "the menu has a Reset session action")
             page.evaluate("typeof closeCopyPopover==='function' && closeCopyPopover()")
             page.wait_for_timeout(100)
 
