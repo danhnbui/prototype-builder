@@ -916,6 +916,28 @@
     .pb-content--fill { flex: 1 1 auto; min-height: 0; overflow: hidden; display: flex; flex-direction: row; }
     .pb-content--fill.pb-content--split { display: grid; align-items: stretch; grid-template-rows: minmax(0, 1fr); }
     .pb-content--fill .pb-aside { position: static; top: auto; max-height: none; height: 100%; align-self: stretch; }
+    /* v1.9 — UI Design master–detail: a scrollable name rail + a stacked detail pane (MUI-docs style). */
+    .uidesign-split { display: grid; grid-template-columns: 248px minmax(0, 1fr); padding: 0; }
+    .uidesign-list { border-right: 1px solid var(--border); overflow-y: auto; height: 100%; padding: 12px 10px; }
+    .uidesign-detail { overflow-y: auto; height: 100%; padding: 24px 32px; min-width: 0; }
+    .uid-section { margin-bottom: 8px; }
+    .uid-section + .uid-section { border-top: 1px solid var(--border); padding-top: 8px; }
+    .uid-section-head { font-size: var(--font-size-xs); font-weight: var(--font-weight-bold); text-transform: uppercase;
+      letter-spacing: 0.04em; color: var(--text-tertiary); padding: 4px 8px 6px; }
+    .uid-row { display: flex; align-items: baseline; gap: 8px; width: 100%; text-align: left; border: 0; background: transparent;
+      padding: 7px 8px; border-radius: var(--radius, 8px); cursor: pointer; color: var(--text-active-primary); }
+    .uid-row:hover { background: var(--neutral-10, #f3f4f6); }
+    .uid-row.is-active { background: var(--brand-soft, #eef0fe); color: var(--brand); font-weight: var(--font-weight-bold); }
+    .uid-row-name { font-size: var(--font-size-s); }
+    .uid-row-meta { margin-left: auto; font-size: 10px; text-transform: uppercase; letter-spacing: 0.03em; color: var(--text-tertiary); }
+    .uid-detail-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 16px; }
+    .uid-detail-title { font-size: var(--font-size-lg); font-weight: var(--font-weight-bold); margin: 0; }
+    .uid-detail-sub { font-size: var(--font-size-xs); color: var(--text-tertiary); margin: 2px 0 0; }
+    .uid-detail-section { border-top: 1px solid var(--border); padding-top: 18px; margin-top: 18px; }
+    .uid-detail-h { font-size: var(--font-size-s); font-weight: var(--font-weight-bold); text-transform: uppercase; letter-spacing: 0.04em;
+      color: var(--text-active-secondary); margin: 0 0 12px; }
+    .uid-el-row { display: flex; align-items: center; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border); }
+    .uid-el-name { font-size: var(--font-size-s); font-weight: var(--font-weight-bold); }
     .pb-aside {
       position: sticky; top: 24px;
       align-self: start;
@@ -4437,31 +4459,84 @@
       }
 
       const isGlobal = o => o.scope === 'global' || !!o.dsMatch;
-      const groups = { global: orgs.filter(isGlobal), local: orgs.filter(o => !isGlobal(o)) };
-      if (!state.handoffTab) state.handoffTab = groups.local.length ? 'local' : (groups.global.length ? 'global' : 'screen');
-      const tab = state.handoffTab;
-      PB_DATA.handoff.view = (tab === 'screen') ? 'screen' : 'component';
-      if (tab !== 'screen') state.handoffScope = tab;
-
-      const tabsCtl = [['global', 'Global', groups.global.length], ['local', 'Local', groups.local.length], ['screen', 'Screen', screens.length]]
-        .map(([id, label, n]) => `<button class="meta-subtab ${tab === id ? 'active' : ''}" onclick="setHandoffTab('${id}')">${label}<span class="meta-subtab-count">${n}</span></button>`).join('');
-
-      const main = (tab === 'screen') ? pbRenderHandoffScreen() : pbRenderHandoffCards(groups[tab]);
-      const aside = (tab === 'screen')
-        ? (state.screenDrawerOpenFor ? `<div class="handoff-drawer">${pbRenderScreenDrawer()}</div>` : pbRenderScreenOverviewAside())
-        : (state.handoffDrawerOpenFor ? pbRenderHandoffDrawer() : pbHandoffAsideHint('Select a component to see its anatomy, specification, UI logic, and usage.'));
+      const global = orgs.filter(isGlobal), local = orgs.filter(o => !isGlobal(o));
+      PB_DATA.handoff.view = 'component';
+      // default selection: first component, else first screen
+      if (!state.handoffDrawerOpenFor && !state.uidScreenSel) {
+        if (orgs.length) state.handoffDrawerOpenFor = orgs[0].id;
+        else if (screens.length) state.uidScreenSel = screens[0].id;
+      }
 
       $('#app').innerHTML = `
         <div class="pb-page">
           ${header}
-          <div class="pb-content pb-content--split">
-            <div class="pb-main handoff-main-col">
-              <div class="meta-subtabs" style="margin-bottom:16px">${tabsCtl}</div>
-              ${main}
-            </div>
-            <aside class="pb-aside">${aside}</aside>
+          <div class="pb-content pb-content--fill uidesign-split">
+            <div class="uidesign-list" id="uidesign-list">${pbHandoffNameList(global, local, screens)}</div>
+            <div class="uidesign-detail" id="uidesign-detail">${pbHandoffDetail(orgs, screens)}</div>
           </div>
         </div>`;
+    }
+
+    /* Left rail — one scrollable list, sectioned Global · Local · Screens (MUI-docs style). */
+    function pbHandoffNameList(global, local, screens) {
+      const row = (name, meta, active, onclick) =>
+        `<button class="uid-row ${active ? 'is-active' : ''}" onclick="${onclick}">
+           <span class="uid-row-name">${pbEscape(name)}</span>${meta ? `<span class="uid-row-meta">${pbEscape(meta)}</span>` : ''}
+         </button>`;
+      const section = (label, rows) => rows.length
+        ? `<div class="uid-section"><div class="uid-section-head">${label}</div>${rows.join('')}</div>` : '';
+      const comp = arr => arr.map(o => row(o.name, o.level, state.handoffDrawerOpenFor === o.id, `pbSelectHandoffComponent('${pbEscape(o.id)}')`));
+      const scr = screens.map(s => row(s.name, 'screen', state.uidScreenSel === s.id, `pbSelectHandoffScreen('${pbEscape(s.id)}')`));
+      return (section('Global', comp(global)) + section('Local', comp(local)) + section('Screens', scr))
+        || `<p class="pb-aside-empty">No components.</p>`;
+    }
+    function pbSelectHandoffComponent(id) { state.handoffDrawerOpenFor = id; state.uidScreenSel = null; renderHandoff(); }
+    function pbSelectHandoffScreen(id) { state.uidScreenSel = id; state.handoffDrawerOpenFor = null; renderHandoff(); }
+
+    /* Right pane — the selected item's full detail, stacked top→down (no tab switcher). */
+    function pbHandoffDetail(orgs, screens) {
+      if (state.handoffDrawerOpenFor) {
+        const org = orgs.find(o => o.id === state.handoffDrawerOpenFor);
+        if (org) return pbHandoffComponentDetail(org);
+      }
+      if (state.uidScreenSel) {
+        const s = screens.find(x => x.id === state.uidScreenSel);
+        if (s) return pbHandoffScreenDetail(s);
+      }
+      return `<p class="pb-aside-empty">Select a component to see its demo, anatomy, specification, UI logic, and usage.</p>`;
+    }
+    function pbUidSection(heading, content) {
+      return `<section class="uid-detail-section"><h3 class="uid-detail-h">${heading}</h3><div class="uid-detail-body">${content}</div></section>`;
+    }
+    function pbHandoffComponentDetail(org) {
+      const props = pbActiveProps(org);
+      const controls = (org.properties || []).filter(p => (p.options || []).length).map(p => `
+        <label class="prop-field"><span class="prop-label">${pbEscape(p.label || p.id)}</span>
+          <select class="prop-select" onchange="setHandoffProp('${pbEscape(org.id)}','${pbEscape(p.id)}',this.value)">
+            ${(p.options || []).map(o => `<option value="${pbEscape(o.value)}" ${props[p.id]===o.value?'selected':''}>${pbEscape(o.label)}</option>`).join('')}
+          </select></label>`).join('');
+      return `
+        <div class="uid-detail-head">
+          <div><h2 class="uid-detail-title">${pbEscape(org.name)}</h2>${org.meta ? `<p class="uid-detail-sub">${pbEscape(org.meta)}</p>` : ''}</div>
+          <div class="uid-detail-actions">${pbRenderHandoffCode(org)}</div>
+        </div>
+        ${controls ? `<div class="handoff-card-controls">${controls}</div>` : ''}
+        <div class="handoff-card-body handoff-card-body--stacked"><div>${pbRenderComponentDemo(org, props)}</div></div>
+        ${pbUidSection('Anatomy', pbRenderHandoffAnatomy(org))}
+        ${pbUidSection('Specification', pbRenderHandoffSpec(org))}
+        ${pbUidSection('UI Logic', pbRenderHandoffUiLogic(org))}
+        ${pbUidSection('Usage', pbRenderHandoffUsage(org))}`;
+    }
+    function pbHandoffScreenDetail(s) {
+      const preview = (typeof window[s.renderFn] === 'function') ? window[s.renderFn]() : '';
+      const els = s.elements || [];
+      const elList = els.length
+        ? els.map(el => `<div class="uid-el-row"><span class="uid-el-name">${pbEscape(el.label || el.id)}</span>${el.orgId ? `<span class="handoff-level-badge">${pbEscape(el.orgId)}</span>` : (el.placeholder ? '<span class="handoff-level-badge">placeholder</span>' : '')}</div>`).join('')
+        : `<p class="handoff-spec-note">No elements.</p>`;
+      return `
+        <div class="uid-detail-head"><div><h2 class="uid-detail-title">${pbEscape(s.name)}</h2><p class="uid-detail-sub">Screen</p></div></div>
+        ${preview ? `<div class="handoff-card-body handoff-card-body--stacked"><div class="handoff-card-preview">${preview}</div></div>` : ''}
+        ${pbUidSection('Elements', elList)}`;
     }
 
     function pbHandoffAsideHint(msg) { return `<p class="pb-aside-empty">${msg}</p>`; }
@@ -5200,10 +5275,11 @@
            component / switching a dropdown doesn't jump it back to the top.
            The drawer body is a fresh element each render, so it naturally
            loads at its starting point — which is the intended behavior. */
-        const prevScroll = (document.querySelector('.handoff-main-col') || {}).scrollTop || 0;
+        const prevList = (document.querySelector('.uidesign-list') || {}).scrollTop || 0;
+        const prevDetail = (document.querySelector('.uidesign-detail') || {}).scrollTop || 0;
         orig.apply(this, arguments);
-        const col = document.querySelector('.handoff-main-col');
-        if (col) col.scrollTop = prevScroll;
+        const list = document.querySelector('.uidesign-list'); if (list) list.scrollTop = prevList;
+        const detail = document.querySelector('.uidesign-detail'); if (detail) detail.scrollTop = prevDetail;
         requestAnimationFrame(function(){ requestAnimationFrame(after); });
       };
       window.addEventListener('resize', function(){
