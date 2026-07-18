@@ -112,7 +112,7 @@ The push is **not done** until this passes. After Step 6, re-read the pushed res
 | 4 | **Variants in a ComponentSet** — any component with `properties[]` is a `COMPONENT_SET` whose variants match the declared `prop=value` axis. |
 | 5 | **Screens = instances** — every library / DS-matched element on a screen is an `INSTANCE` (has `mainComponent`), never a local copy. |
 | 6 | **Token coverage** — bound-variable count ≥ the G-FP3 token union; no in-scope token left unbound. |
-| 7 | **Nested globals = instances** — every component `anatomy.parts[]` entry with an `orgId` resolves to an `INSTANCE` (has `mainComponent`) of that global's DS match inside the built component (in EVERY variant), never a redrawn local frame/text. Verifiable offline over the two committed contracts: `python3 tools/check.py --figma registry.json figma-transfer.json`. |
+| 7 | **Nested globals = instances** — every component `anatomy.parts[]` entry with an `orgId` resolves to an `INSTANCE` (has `mainComponent`) of that global's DS match inside the built component (in EVERY variant), never a redrawn local frame/text. Verifiable offline over the two committed contracts: `python3 tools/lint_registry.py --figma registry.json figma-transfer.json`. |
 
 Print the result as a ✅/❌ checklist (one row per invariant + counts). Only an **all-✅** result proceeds to Step 7.
 

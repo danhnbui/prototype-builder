@@ -2,6 +2,39 @@
 
 All notable changes to Product Builder. Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [1.5.1] — 2026-07-18
+
+*R0 groundwork: hygiene + safety so pb can sit cleanly inside a real repo. Command renames all
+ship backward-compat aliases; nothing existing breaks. Schema stays v4 — no migration.*
+
+### Added
+- **`/pb:snapshot` + `pb/tools/snapshot.py`** — pb's history model: timestamped `registry.json`
+  copies under `<project>/history/` (`--list` / `--restore`, with an auto-snapshot before every
+  restore). Pure stdlib; it **never** branches and **never** touches the host repo's git — the
+  reason snapshot (not an orphan branch) was chosen for adopt-in-place.
+- **`/pb:init` adopt-in-place mode** — inside an existing git repo, pb sidecars everything under
+  `.prototype/`, appends a pb block to the host `.gitignore`, and records a **read-only-outside**
+  Principle in `constitution.md` (pb never edits host-repo files). `--adopt` / `--standalone` force it.
+- **`pb/template/AGENTS.template.md`** — a recipient-facing orientation now written into every
+  `/pb:handoff-close` (what the folder is, that `prototype.html` is derived, how to continue from `bundle/`).
+- **`AGENTS.md`** (repo root) — build guardrails for anyone (human or agent) working on pb.
+- **`tests/r0_hygiene.py`** — guards the R0 renames, alias resolution, the `check.py` shim, and the
+  snapshot round-trip.
+
+### Changed
+- **Command renames (aliases kept):** `/pb:sync-flow` → **`/pb:flow`**, `/pb:sync-erd` →
+  **`/pb:data`**, `/pb:hand-off` → **`/pb:handoff-close`**. The old command files are thin redirect
+  stubs that still resolve.
+- **`/pb:handoff-close`** now closes out into a single **`handoff/`** folder: a view-only
+  `prototype.html` + a portable `bundle/` (ingestible by `/pb:init --import handoff/bundle`) + a
+  generated `AGENTS.md`. `--people` / `--context` narrow to one piece.
+- **Contract validator renamed** `pb/tools/check.py` → **`pb/tools/lint_registry.py`**; `check.py`
+  stays as a compatibility shim (both `import check` and the CLI keep working).
+
+### Deprecated
+- `/pb:sync-flow`, `/pb:sync-erd`, `/pb:hand-off` command names and the `check.py` tool name — all
+  kept working via alias/shim; scheduled for removal in a future major release.
+
 ## [1.5.0] — 2026-07-15
 
 *Agent-powered testing sandbox, a multi-agent orchestrator, role-gated prototypes, and an ⌥-hover

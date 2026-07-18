@@ -6,7 +6,7 @@ A prototype's registry.json + its render bodies + its mock/example data are ship
 hand-offs (prototype.html, --context bundles) and pushed to Figma. A pasted-in API key or
 a real customer email leaks the moment the prototype leaves the machine. This scan is the
 guard: it reads the registry and every render/**/*.js body it references (via renderSrc,
-resolved exactly like check.py / render.py) plus the seeded example data (erd.mock rows,
+resolved exactly like lint_registry.py / render.py) plus the seeded example data (erd.mock rows,
 erd.table examples — every string/number leaf in the registry) and flags:
 
   ERROR (R-SEC-KEY):   hardcoded secrets — OpenAI sk-… keys, AWS AKIA… ids, PEM private-key
@@ -18,7 +18,7 @@ erd.table examples — every string/number leaf in the registry) and flags:
 
 Pure stdlib (NS4); read-only — it never writes the registry or the render.
 
-Severity -> exit code (mirrors check.py):
+Severity -> exit code (mirrors lint_registry.py):
   0  clean (no findings)
   1  warnings only
   2  at least one error
@@ -234,7 +234,7 @@ def scan(reg, base_dir):
     """Scan a registry dict (incl. mock/example leaves) + its referenced render bodies.
 
     base_dir (the registry's directory) resolves each entry's renderSrc exactly like
-    check.py / render.py, so the real bodies are scanned. Returns a list of Finding."""
+    lint_registry.py / render.py, so the real bodies are scanned. Returns a list of Finding."""
     findings = []
 
     def add(sev, code, where, msg):
@@ -270,7 +270,7 @@ def scan(reg, base_dir):
                 with open(path, encoding="utf-8") as f:
                     body = f.read()
             except (FileNotFoundError, IsADirectoryError, OSError):
-                # A missing renderSrc is check.py's concern (R-RENDERSRC); nothing to scan here.
+                # A missing renderSrc is lint_registry.py's concern (R-RENDERSRC); nothing to scan here.
                 continue
             scan_text(add, body, where)
 

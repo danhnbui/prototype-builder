@@ -24,7 +24,7 @@ Playwright is a dev/CI-only dependency (NS4 — never shipped to users, never pi
 by the plugin). It is imported lazily; if absent the runner prints the install hint and
 exits 2 instead of crashing. --explore needs no browser.
 
-Findings mirror check.py exactly — each prints as `<SEVERITY> [<CODE>] <where>: <msg>`;
+Findings mirror lint_registry.py exactly — each prints as `<SEVERITY> [<CODE>] <where>: <msg>`;
 exit 0 = clean, 1 = warnings only, 2 = any error; a clean run prints `✓ <label>: <ok>`.
 
 Usage:
@@ -53,7 +53,7 @@ _ACTION_RE = re.compile(r'data-action\s*=\s*"([^"]*)"')
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Finding + reporting — copied verbatim in spirit from pb/tools/check.py so the
+# Finding + reporting — copied verbatim in spirit from pb/tools/lint_registry.py so the
 # CLI contract (severity line, exit code, clean banner) is identical.
 # ─────────────────────────────────────────────────────────────────────────────
 class Finding:

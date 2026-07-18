@@ -9,7 +9,7 @@ Playwright, asserting the behaviours the CPTO audit verified by hand:
   2. a registry design token reaches :root (Principle 1, runtime side)
   3. an empty submit shows >= 2 inline errors with the danger-token border
   4. a valid submit navigates to the next screen
-  5. a view-only (/pb:hand-off --people) artifact hides EVERY authoring CTA, on all 5 tabs
+  5. a view-only (/pb:handoff-close --people) artifact hides EVERY authoring CTA, on all 5 tabs
   6. zero console / page errors throughout
 
 Dev/CI-only dependency (NS4 — never shipped to users, never pip-installed by the plugin):
@@ -79,7 +79,7 @@ class Server:
 
 def make_viewonly_registry(tmpdir, unpopulate=False):
     """Copy the golden project (registry + render/ body files) and flip on config.viewOnly
-    — the /pb:hand-off --people shape. With unpopulate=True, also empty the flow/erd tabs
+    — the /pb:handoff-close --people shape. With unpopulate=True, also empty the flow/erd tabs
     so the artifact exercises empty-state tabs in view-only (T3.3)."""
     src_dir = os.path.dirname(GOLDEN)
     render_src = os.path.join(src_dir, "render")

@@ -1,6 +1,6 @@
 ---
 name: pb-flow
-description: Use to generate or update the UX Design / Flow tab — a Mermaid wireflow plus a numbered user-story test checklist with categorized scenarios. Wraps /pb:sync-flow; owns the flow slice. Decoupled and manual — never auto-fires.
+description: Use to generate or update the UX Design / Flow tab — a Mermaid wireflow plus a numbered user-story test checklist with categorized scenarios. Wraps /pb:flow; owns the flow slice. Decoupled and manual — never auto-fires.
 tools: Read, Edit, Write, Bash, Grep, Glob
 model: inherit
 ---
@@ -13,7 +13,7 @@ categorized test checklist — worn as the QA hat, not just a diagram.
 ## Skills + commands it wraps
 - **Skill:** `craft-connect-flow` (navigation, shared state, entry/exit, transitions via the shell's `data-*`
   runtime; wireflow node rules).
-- **Command:** `/pb:sync-flow`.
+- **Command:** `/pb:flow`.
 
 ## Slice it owns
 - **`flow`** — the sole writer of this registry slice:

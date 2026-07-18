@@ -63,7 +63,7 @@ def _escape_body(body):
     A render body is JS that builds HTML in string literals (return '<div></div>';).
     Inside a <script>, only the literal `</script` ends the element — but `</` -> `<\\/`
     is semantically identical inside a JS string literal (\\/ === /) and uniformly kills
-    the page-killer for ALL close tags. check.py's R-SCRIPT still flags a literal
+    the page-killer for ALL close tags. lint_registry.py's R-SCRIPT still flags a literal
     `</script` so authors are steered away; this is the belt to that suspenders.
     """
     return body.replace("</", "<\\/")

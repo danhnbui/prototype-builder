@@ -34,7 +34,7 @@ Read the design system's scannable **component index** — `design-system/{name}
 - **tokens** — every color / space / radius / shadow is a token (`tokens.<name>`),
   `kind ∈ color | radius | space | size | type`. No raw hex or px in a render body file (`renderSrc`) or
   `sizing`; if none fits, create a token tagged `"scope":"local"` rather than inlining a value.
-  (`check.py` flags raw hex/px; `--strict` makes it an error.)
+  (`lint_registry.py` flags raw hex/px; `--strict` makes it an error.)
 - **anchors** — every element referenced by `anatomy.parts[]` or `spec.stack[]` carries a stable anchor
   class (`.field__label`, `.btn`, …) so the handoff redlines and Figma match resolve.
 

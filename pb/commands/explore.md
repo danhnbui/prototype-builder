@@ -24,7 +24,7 @@ is a drop-in). Each writes its body to a scratch slot:
 render/_candidates/opt-<k>/<id>.js
 ```
 Give every agent the target's current body (as a starting point to diverge from), its `renderFn`, its
-props, and the one-line intent from `$ARGUMENTS`. Bodies are **token-only** (no raw hex/px — `check.py`).
+props, and the one-line intent from `$ARGUMENTS`. Bodies are **token-only** (no raw hex/px — `lint_registry.py`).
 
 ## 2 · Preview each candidate in isolation
 For each slot, render a standalone preview **on a temporary copy** of `registry.json` whose target entry's

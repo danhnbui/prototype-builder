@@ -17,7 +17,7 @@ single-file `prototype.html`. This is the bridge from "open the file" to "host i
 ## 0 · Contract gate (fail-closed — runs first)
 Before rendering or scaffolding, run the contract validator in **strict** mode:
 ```
-python3 "${CLAUDE_PLUGIN_ROOT}/tools/check.py" --strict registry.json
+python3 "${CLAUDE_PLUGIN_ROOT}/tools/lint_registry.py" --strict registry.json
 ```
 If it exits non-zero (any `ERROR`), **STOP** — do not render, do not scaffold. Print the
 findings and tell the user to fix them (or run `/pb:build`) and retry. A scaffold must

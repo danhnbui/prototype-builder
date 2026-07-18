@@ -1,5 +1,5 @@
 ---
-description: Run the prototype's authored scenario tests against the live preview — functional, role, exploratory, and security modes — driving the shell's data-* runtime and honoring the check.py exit codes. Read-only on the registry (writes only each scenario's lastResult).
+description: Run the prototype's authored scenario tests against the live preview — functional, role, exploratory, and security modes — driving the shell's data-* runtime and honoring the lint_registry.py exit codes. Read-only on the registry (writes only each scenario's lastResult).
 ---
 
 # /pb:test
@@ -21,7 +21,7 @@ scenario's `lastResult` (status + detail + `ranAt`), which the UX-tab glyph read
 - `--security` — also run the static security scan (`security_scan.py`) over the registry + render
   bodies (secrets, `</script>` page-killers, unescaped injection, external calls).
 - `--story <id|title>` — run only the matching story's scenarios.
-- `--strict` — promote the pre-flight `check.py` to **strict** and **fail-closed**: if the contract
+- `--strict` — promote the pre-flight `lint_registry.py` to **strict** and **fail-closed**: if the contract
   isn't clean, STOP before running anything.
 - `--render` — after the run, regenerate `prototype.html` via `render.py` (so the glyphs are in the
   snapshot). Default: no render (token lever NS2 — tests don't render).
@@ -34,10 +34,10 @@ Apply the **Schema compatibility** check from `CLAUDE.md`. `/pb:test` writes onl
 
 ## 2 · Contract check (advisory, or fail-closed with `--strict`)
 ```
-python3 "${CLAUDE_PLUGIN_ROOT}/tools/check.py" registry.json
+python3 "${CLAUDE_PLUGIN_ROOT}/tools/lint_registry.py" registry.json
 ```
 Surface any `ERROR`/`WARN` lines. This is **advisory** by default (a bad contract shouldn't hide a test
-result). With `--strict`, re-run as `check.py --strict registry.json` and **STOP on any error** — never
+result). With `--strict`, re-run as `lint_registry.py --strict registry.json` and **STOP on any error** — never
 test a registry that violates the contract.
 
 ## 3 · Run the tests
@@ -63,7 +63,7 @@ python3 "${CLAUDE_PLUGIN_ROOT}/tools/security_scan.py" registry.json
 ```
 
 ## 4 · Report + exit codes
-Print the tester's report verbatim (it mirrors `check.py`: `<SEVERITY> [<CODE>] <where>: <msg>`; `✓ … clean`
+Print the tester's report verbatim (it mirrors `lint_registry.py`: `<SEVERITY> [<CODE>] <where>: <msg>`; `✓ … clean`
 when all pass). **Honor the exit codes** across every tool run: `0` = clean, `1` = warnings only, `2` = any
 error / failing scenario. If several tools ran, the command's outcome is the **worst** exit seen (a failing
 scenario or a security error is a `2`).

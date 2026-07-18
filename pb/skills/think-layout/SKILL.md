@@ -7,7 +7,7 @@ description: Make structural layout decisions for a Product Builder screen or co
 
 Decide the structure of a render body so it is sound and token-driven. In Product Builder a render body is
 the `.js` file at `renderSrc` (`render/components/<id>.js` / `render/screens/<id>.js`) — it returns an HTML
-string built with **tokens only** (no raw hex/px; `check.py` flags them).
+string built with **tokens only** (no raw hex/px; `lint_registry.py` flags them).
 
 ## Flex vs grid
 - **Flex** for one-dimensional runs (a row of buttons, a vertical stack, a toolbar). Use `gap`, not margins.

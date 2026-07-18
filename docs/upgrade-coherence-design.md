@@ -54,7 +54,7 @@ filled by `build_html`. No hand-maintained marker — it tracks `plugin.json` on
    `WARN`:
    `⚠ Shell drift: prototype.html rendered by pb vX.Y.Z; current plugin is vA.B.C — re-render (/pb:build --render) or restart /pb:preview.`
    This is a step in the `/pb:check-drift` command body (it reads `prototype.html` + `plugin.json`); it is
-   **not** added to `check.py`, which stays registry-focused.
+   **not** added to `lint_registry.py`, which stays registry-focused.
 
 ### C · Upgrade guide — `docs/upgrading.md` (new)
 

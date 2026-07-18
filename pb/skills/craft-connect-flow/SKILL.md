@@ -1,6 +1,6 @@
 ---
 name: craft-connect-flow
-description: Connect multiple Product Builder screens into a working journey — navigation, shared state, entry/exit points, and transitions — using the shell's declarative data-* runtime. Use when building a multi-screen prototype or mapping its flow — loaded by /pb:build and /pb:sync-flow. Not for single-screen behavior (use think-logic) or arranging one screen's elements (use think-layout).
+description: Connect multiple Product Builder screens into a working journey — navigation, shared state, entry/exit points, and transitions — using the shell's declarative data-* runtime. Use when building a multi-screen prototype or mapping its flow — loaded by /pb:build and /pb:flow. Not for single-screen behavior (use think-logic) or arranging one screen's elements (use think-layout).
 ---
 
 # craft-connect-flow
@@ -25,7 +25,7 @@ Every target id must be a real `screens[].id`.
   trying to thread variables between bodies.
 
 ## Mapping to the UX Design tab
-When documenting the journey (`/pb:sync-flow`), the same screens become nodes in the Mermaid wireflow:
+When documenting the journey (`/pb:flow`), the same screens become nodes in the Mermaid wireflow:
 single `Start`, ≥1 `End`, decisions end with `?`, branches labeled `-- Yes/No -->`. Keep the wireflow and
 the wired `data-nav`/`data-go` targets in agreement.
 

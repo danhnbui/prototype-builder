@@ -1,6 +1,6 @@
 ---
 name: pb-data
-description: Use to generate or update the Data tab — a field / type / example table per entity plus a Mermaid ERD for the prototype's eventual data model. Wraps /pb:sync-erd; owns the erd slice. Decoupled and manual — never auto-fires.
+description: Use to generate or update the Data tab — a field / type / example table per entity plus a Mermaid ERD for the prototype's eventual data model. Wraps /pb:data; owns the erd slice. Decoupled and manual — never auto-fires.
 tools: Read, Edit, Write, Bash, Grep, Glob
 model: inherit
 ---
@@ -11,7 +11,7 @@ The data-model agent. Derives the prototype's entities from the spec/plan and pr
 field/type/example tables and the entity-relationship diagram — under five guardrails.
 
 ## Skills + commands it wraps
-- **Command:** `/pb:sync-erd` (with `--mock` to also generate sample row-sets).
+- **Command:** `/pb:data` (with `--mock` to also generate sample row-sets).
 - Reads `memory/spec.md` (Key Entities) + `memory/plan.md` (relationships) for its inputs.
 
 ## Slice it owns

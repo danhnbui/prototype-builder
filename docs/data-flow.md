@@ -90,11 +90,11 @@ drift check. Each writes its own slice of the registry, then renders.
 
 ```mermaid
 flowchart LR
-  subgraph flow["/pb:sync-flow (manual)"]
+  subgraph flow["/pb:flow (manual)"]
     F1["read memory/spec.md + plan.md"] --> F2["build ONE Mermaid wireflow<br/>+ user-story test checklist"]
     F2 --> F3["write registry.flow<br/>{ populated, mermaid, stories[], wireflowScreens, wireflowNotes }"]
   end
-  subgraph erd["/pb:sync-erd (manual)"]
+  subgraph erd["/pb:data (manual)"]
     E1["read spec.md + plan.md;<br/>extract entities"] --> E2["field/type/example table<br/>+ Mermaid erDiagram (5 guardrails)"]
     E2 --> E3["write registry.erd<br/>{ populated, table[], mermaid, warnings[] }"]
   end
@@ -103,10 +103,10 @@ flowchart LR
   RENDER --> VIEW["UX Design / Data tabs refreshed"]
 ```
 
-- **`/pb:sync-flow`** — one `flowchart LR` (the 18 wireflow rules), wireflow nodes whose labels
+- **`/pb:flow`** — one `flowchart LR` (the 18 wireflow rules), wireflow nodes whose labels
   match `registry.screens[].name`, plus a numbered test checklist. Writes `registry.flow`, then
   `--render`.
-- **`/pb:sync-erd`** — entities → a field/type/example table + an `erDiagram`, run through the 5
+- **`/pb:data`** — entities → a field/type/example table + an `erDiagram`, run through the 5
   guardrails (PK, FK, cardinality, PascalCase-singular naming, completeness); warnings become a
   prepended TODO block. Writes `registry.erd`, then `--render`.
 - **`/pb:check-drift`** — read-only audit of the trio (screens · components · logic) against the
@@ -125,12 +125,12 @@ and only those keys — so the next push reconciles instead of duplicating. Roll
 
 ```mermaid
 flowchart TD
-  subgraph people["/pb:hand-off --people"]
+  subgraph people["/pb:handoff-close --people"]
     PP1["--render"] --> PP2["set config.viewOnly = true<br/>+ config.cover { title, summary, date, by }"]
     PP2 --> PP3["--render again"]
     PP3 --> PP4["prototype.html: authoring CTAs hidden,<br/>cover shown, read-only, opens anywhere"]
   end
-  subgraph ctx["/pb:hand-off --context"]
+  subgraph ctx["/pb:handoff-close --context"]
     CX1["export bundle:<br/>registry.json + design-system/ +<br/>memory/constitution.md + memory/decisions.md"]
     CX1 --> CX2["/pb:init --import &lt;bundle&gt; ingests it<br/>into a fresh project"]
   end

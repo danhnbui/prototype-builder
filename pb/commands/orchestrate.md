@@ -44,21 +44,21 @@ each wave in order:
            "${CLAUDE_PLUGIN_ROOT}/template/prototype.html" prototype.html
    ```
 4. **Acceptance gate.** Dispatch **pb-tester** (run the wave's acceptance conditions / authored scenarios
-   via `/pb:test`) and **pb-reviewer** (drift + contract sanity via `/pb:check-drift` + `check.py`). If the
+   via `/pb:test`) and **pb-reviewer** (drift + contract sanity via `/pb:check-drift` + `lint_registry.py`). If the
    gate fails, **stop the wave loop**, report which task/acceptance failed, and hand back to the user — do
    not steamroll into the next wave on a red gate.
 
 ## 3 · Final gate (fail-closed)
 After the last wave, run the contract validator in strict mode:
 ```
-python3 "${CLAUDE_PLUGIN_ROOT}/tools/check.py" --strict registry.json
+python3 "${CLAUDE_PLUGIN_ROOT}/tools/lint_registry.py" --strict registry.json
 ```
 If it exits non-zero, the orchestration **fails** — report the findings; the plan is not "done" until this
 is clean (NS6, fail-closed). Exit codes follow the house rule: `0` clean, `1` warnings, `2` any error.
 
 ## Result
 A built prototype whose `registry.json` reflects the whole `memory/tasks.md` plan, rendered once per wave,
-each wave acceptance-gated, and passing a final strict contract check. Next: `/pb:hand-off` or `/pb:validate`.
+each wave acceptance-gated, and passing a final strict contract check. Next: `/pb:handoff-close` or `/pb:validate`.
 
 ## NEVER
 - NEVER apply two agents' patches concurrently — serialize every registry write.
