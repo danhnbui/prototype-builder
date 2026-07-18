@@ -899,6 +899,8 @@
     .pb-info-btn:hover { border-color: var(--brand); color: var(--brand); background: var(--brand-soft); }
     .pb-page-cta { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
     .pb-content { flex: 1 1 auto; padding: 24px 48px 48px; min-width: 0; }
+    /* v1.9 — the Prototype tab has no page header; the device preview fills the whole tab. */
+    .pb-page--proto .pb-content { padding: 16px; }
     .pb-content--full { max-width: 960px; margin: 0 auto; width: 100%; }
     .pb-content--split {
       display: grid;
@@ -3219,10 +3221,9 @@
       // v1.5 — in a view-only (--people) artifact the ⋯ menu (role switcher + Reset) stays as a VIEWER aid
       // (routed through headerAside, which renders under VIEW_ONLY); the authoring chrome stays in cta.
       const viewerTools = `<div class="proto-header-tools">${menuBtn}</div>`;
-      // v1.9 — chrome · device · structure · sandbox moved to the consolidated Sandbox menu in the
-      // meta nav (openSandboxMenu). The Prototype page header now carries only its title + info dialog.
-      void toolsFull; void viewerTools;  // builders retained above; no longer placed in the header
-      const headerWithTools = pbPageHeader({ title: 'Prototype', infoKey: 'prototype' });
+      // v1.9 — the Prototype tab has NO page header: chrome · device · structure · sandbox live in the
+      // consolidated Sandbox menu in the meta nav (openSandboxMenu), and the device preview fills the tab.
+      void toolsFull; void viewerTools;  // legacy header-tool builders above are unused now
 
       const body = (typeof window[sel.renderFn] === 'function')
         ? window[sel.renderFn]()
@@ -3231,8 +3232,7 @@
       const chrome = protoChrome(shell, device, sel, meta);
 
       $('#app').innerHTML = `
-        <div class="pb-page pb-page--viewport">
-          ${headerWithTools}
+        <div class="pb-page pb-page--viewport pb-page--proto">
           <div class="pb-content pb-content--fill">
             <div class="pb-main proto-main" id="proto-main" onclick="pbProtoMainClick(event)">
               <div class="proto-stage" id="proto-stage">
