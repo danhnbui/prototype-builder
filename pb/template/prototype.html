@@ -1400,7 +1400,7 @@
       background: var(--bg-soft); padding: 34px 30px 34px 64px;
       margin-bottom: 18px;
     }
-    .anatomy-stage[data-anatomy-auto] { padding: 48px 44px 48px 64px; overflow: hidden; }
+    .anatomy-stage[data-anatomy-auto] { padding: 72px; overflow: hidden; }
     .anatomy-stage[data-anatomy-auto] > .anatomy-render { display: flex; justify-content: flex-start; max-width: 100%; }
     .anatomy-stage[data-anatomy-auto] > .anatomy-render > * { max-width: 100%; }
     .anatomy-badge {
@@ -5030,7 +5030,7 @@
       // ≥24px padding intact (never clipped against the right edge). Anchored top-left at the
       // left gutter; element anchors below are measured AFTER the scale, so callouts stay true.
       container.style.transform = ''; container.style.transformOrigin = 'left top';
-      var availW = stage.clientWidth - 64 - 44;   // stage padding: 64 left · 44 right
+      var availW = stage.clientWidth - 72 - 72;   // stage padding: 72 left · 72 right
       var natW = root.getBoundingClientRect().width;
       if (natW > availW && availW > 0) { container.style.transform = 'scale(' + (availW / natW).toFixed(4) + ')'; }
       // Build className→tokens map from <style> tag inside render
