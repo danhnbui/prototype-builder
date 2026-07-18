@@ -1414,11 +1414,15 @@
     .anatomy-leader {
       position: absolute; z-index: 2; height: 0;
       border-top: 1.5px dashed #94a3b8;
-      pointer-events: none; transform-origin: left center;
+      pointer-events: none;
     }
-    .anatomy-leader::after {
-      content: ''; position: absolute; right: -3px; top: -3px;
-      width: 5px; height: 5px; border-radius: 50%; background: #475569;
+    .anatomy-leader-v {
+      position: absolute; z-index: 2; width: 0;
+      border-left: 1.5px dashed #94a3b8; pointer-events: none;
+    }
+    .anatomy-leader-dot {
+      position: absolute; z-index: 2; width: 5px; height: 5px; border-radius: 50%;
+      background: #475569; margin: -3px 0 0 -3px; pointer-events: none;
     }
     .anatomy-table { width: 100%; border-collapse: collapse; }
     .anatomy-table th {
@@ -5009,7 +5013,7 @@
     function pbPlaceAutoAnatomyPins() {
       var stage = document.querySelector('.anatomy-stage[data-anatomy-auto]');
       if (!stage) return;
-      stage.querySelectorAll('.anatomy-pin-auto').forEach(function(e) { e.remove(); });
+      stage.querySelectorAll('.anatomy-pin-auto, .anatomy-leader, .anatomy-leader-v, .anatomy-leader-dot').forEach(function(e) { e.remove(); });
       var prevTable = stage.parentNode && stage.parentNode.querySelector('.anatomy-auto-table');
       if (prevTable) prevTable.remove();
       var container = stage.querySelector('.anatomy-render');
@@ -5179,16 +5183,25 @@
         var by = ay;
         while (usedY.some(function(u) { return Math.abs(u - by) < 22; })) by += 22;
         usedY.push(by);
-        var fromX = gutterX + 12, fromY = by;
-        var dx = ax - fromX, dy = ay - fromY;
-        var len = Math.max(6, Math.sqrt(dx * dx + dy * dy));
-        var line = document.createElement('div');
-        line.className = 'anatomy-leader';
-        line.style.top = fromY + 'px';
-        line.style.left = fromX + 'px';
-        line.style.width = len + 'px';
-        line.style.transform = 'rotate(' + (Math.atan2(dy, dx) * 180 / Math.PI) + 'deg)';
-        stage.appendChild(line);
+        // Orthogonal elbow (straight segments only): horizontal from the badge to the anchor's X,
+        // then a vertical drop to the anchor's Y, ending in a dot on the exact anchor.
+        var fromX = gutterX + 12;
+        if (ax - fromX > 0) {
+          var h = document.createElement('div');
+          h.className = 'anatomy-leader';
+          h.style.top = by + 'px'; h.style.left = fromX + 'px'; h.style.width = (ax - fromX) + 'px';
+          stage.appendChild(h);
+        }
+        if (Math.abs(ay - by) > 0.5) {
+          var v = document.createElement('div');
+          v.className = 'anatomy-leader-v';
+          v.style.left = ax + 'px'; v.style.top = Math.min(by, ay) + 'px'; v.style.height = Math.abs(ay - by) + 'px';
+          stage.appendChild(v);
+        }
+        var dot = document.createElement('div');
+        dot.className = 'anatomy-leader-dot';
+        dot.style.left = ax + 'px'; dot.style.top = ay + 'px';
+        stage.appendChild(dot);
         var badge = document.createElement('span');
         badge.className = 'anatomy-badge anatomy-badge--pin anatomy-pin-auto';
         badge.textContent = p.n;
