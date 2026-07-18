@@ -917,9 +917,10 @@
     .pb-content--fill.pb-content--split { display: grid; align-items: stretch; grid-template-rows: minmax(0, 1fr); }
     .pb-content--fill .pb-aside { position: static; top: auto; max-height: none; height: 100%; align-self: stretch; }
     /* v1.9 — UI Design master–detail: a scrollable name rail + a stacked detail pane (MUI-docs style). */
-    .uidesign-split { display: grid; grid-template-columns: 248px minmax(0, 1fr); padding: 0; }
-    .uidesign-list { border-right: 1px solid var(--border); overflow-y: auto; height: 100%; padding: 12px 10px; }
-    .uidesign-detail { overflow-y: auto; height: 100%; padding: 24px 32px; min-width: 0; }
+    .uidesign-split { display: grid; grid-template-columns: 248px minmax(0, 1fr); grid-template-rows: minmax(0, 1fr);
+      height: 100%; min-height: 0; padding: 0; }
+    .uidesign-list { border-right: 1px solid var(--border); overflow-y: auto; min-height: 0; height: 100%; padding: 12px 10px; }
+    .uidesign-detail { overflow-y: auto; height: 100%; min-height: 0; padding: 24px 32px; min-width: 0; }
     .uid-section { margin-bottom: 8px; }
     .uid-section + .uid-section { border-top: 1px solid var(--border); padding-top: 8px; }
     .uid-section-head { font-size: var(--font-size-xs); font-weight: var(--font-weight-bold); text-transform: uppercase;
@@ -1435,12 +1436,15 @@
     .anatomy-container-row td { background: var(--neutral-5); }
     .anatomy-container-row .anatomy-el-name { color: var(--text-tertiary); font-style: italic; }
     .anatomy-el-name { font-size: var(--font-size-xs); font-weight: var(--font-weight-medium); color: var(--text-active-primary); max-width: 140px; }
-    .anatomy-el-tokens { }
+    .anatomy-el-tokens { display: flex; flex-wrap: wrap; gap: 4px; }
     .anatomy-token-chip {
-      display: inline-block; font-size: var(--font-size-xxs); font-family: 'SF Mono', Menlo, monospace;
+      display: inline-flex; align-items: center; gap: 5px; font-size: var(--font-size-xxs); font-family: 'SF Mono', Menlo, monospace;
       background: var(--bg-soft); border: 1px solid var(--border); border-radius: var(--radius-small);
-      padding: 1px 5px; color: var(--text-active-secondary); white-space: nowrap; margin: 1px 2px;
+      padding: 2px 6px; color: var(--text-active-secondary); white-space: nowrap;
     }
+    .atk-sw { width: 11px; height: 11px; border-radius: 3px; border: 1px solid var(--border); flex: none;
+      display: inline-flex; align-items: center; justify-content: center; font-size: 8px; line-height: 1; color: var(--text-tertiary); }
+    .atk-val { color: var(--text-tertiary); }
     .anatomy-component-link {
       color: var(--fill-active-primary); text-decoration: none;
       font-size: var(--font-size-xs); font-weight: var(--font-weight-medium);
@@ -5067,10 +5071,32 @@
       }
       function getTokenChips(el) {
         var tokens = [];
+        // 1 — class-based tokens (from a <style> block's rules)
         Array.from(el.classList).forEach(function(cls) {
           if (tokenMap[cls]) tokenMap[cls].forEach(function(t) { if (tokens.indexOf(t) === -1) tokens.push(t); });
         });
+        // 2 — inline-style tokens: every var(--x) in the element's own style="" attribute
+        var inline = el.getAttribute('style') || '';
+        var ivar = /var\((--[^,)\s]+)/g, im;
+        while ((im = ivar.exec(inline)) !== null) { if (tokens.indexOf(im[1]) === -1) tokens.push(im[1]); }
         return tokens;
+      }
+      // A rich, typed chip: kind-appropriate swatch + token name + its value (from the registry).
+      function pbAnatomyChip(varName) {
+        var key = varName.replace(/^--/, '');
+        var t = (PB_REGISTRY && PB_REGISTRY.tokens && PB_REGISTRY.tokens[key]) || null;
+        var kind = t ? (t.kind || 'other') : 'other', val = t ? (t.value || '') : '';
+        var sw;
+        if (kind === 'color') sw = '<span class="atk-sw" style="background:' + pbEscape(val) + '"></span>';
+        else if (kind === 'radius') sw = '<span class="atk-sw" style="border-radius:' + pbEscape(val) + '"></span>';
+        else if (kind === 'type' || kind === 'fontSize' || kind === 'font') sw = '<span class="atk-sw">Aa</span>';
+        else if (kind === 'space' || kind === 'size') sw = '<span class="atk-sw">↔</span>';
+        else sw = '<span class="atk-sw"></span>';
+        return '<code class="anatomy-token-chip" title="' + pbEscape(kind) + '">' + sw +
+               pbEscape(varName) + (val ? '<span class="atk-val">' + pbEscape(val) + '</span>' : '') + '</code>';
+      }
+      function chipsHtml(names) {
+        return names.length ? names.map(pbAnatomyChip).join('') : '<span class="anatomy-token-note">—</span>';
       }
       // Badge direct children of the root (its visual "parts"); fall back to root itself
       var targets = Array.from(root.children).filter(function(el) {
@@ -5089,13 +5115,14 @@
         badge.style.left = (r.left - stageRect.left - 9) + 'px';
         stage.appendChild(badge);
       });
-      // Build breakdown table
-      // Container row: tokens on the root component element itself (spacing, border, color, etc.)
+      // Build breakdown table. Leaf component (no element children) → one row for the element itself,
+      // no separate Container row. Composed component → a Container row (root tokens) + one row per part.
+      var isLeaf = (targets.length === 1 && targets[0] === root);
       var rootChips = getTokenChips(root);
-      var containerRow = rootChips.length
+      var containerRow = (!isLeaf && rootChips.length)
         ? '<tr class="anatomy-container-row"><td><span class="anatomy-token-note">—</span></td>' +
           '<td class="anatomy-el-name">Container</td>' +
-          '<td class="anatomy-el-tokens">' + rootChips.map(function(t) { return '<code class="anatomy-token-chip">' + pbEscape(t) + '</code>'; }).join('') + '</td></tr>'
+          '<td class="anatomy-el-tokens">' + chipsHtml(rootChips) + '</td></tr>'
         : '';
       var childRows = targets.map(function(el, idx) {
         var n = idx + 1;
@@ -5106,10 +5133,7 @@
           tokensTd = '<span class="anatomy-token-note">see component</span>';
         } else {
           nameTd = pbEscape(proseNames[idx] || autoDesc(el));
-          var chips = getTokenChips(el);
-          tokensTd = chips.length
-            ? chips.map(function(t) { return '<code class="anatomy-token-chip">' + pbEscape(t) + '</code>'; }).join('')
-            : '<span class="anatomy-token-note">—</span>';
+          tokensTd = chipsHtml(getTokenChips(el));
         }
         return '<tr><td><span class="anatomy-badge">' + n + '</span></td>' +
                '<td class="anatomy-el-name">' + nameTd + '</td>' +
