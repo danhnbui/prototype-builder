@@ -1400,7 +1400,7 @@
       background: var(--bg-soft); padding: 34px 30px 34px 64px;
       margin-bottom: 18px;
     }
-    .anatomy-stage[data-anatomy-auto] { padding: 34px 30px 34px 72px; overflow: hidden; }
+    .anatomy-stage[data-anatomy-auto] { padding: 48px 44px 48px 64px; overflow: hidden; }
     .anatomy-stage[data-anatomy-auto] > .anatomy-render { display: flex; justify-content: flex-start; max-width: 100%; }
     .anatomy-stage[data-anatomy-auto] > .anatomy-render > * { max-width: 100%; }
     .anatomy-badge {
@@ -5026,6 +5026,13 @@
         if (c.tagName !== 'STYLE' && c.tagName !== 'SCRIPT') { root = c; break; }
       }
       if (!root) return;
+      // Scale a too-wide preview down so the component always sits inside the box with its
+      // ≥24px padding intact (never clipped against the right edge). Anchored top-left at the
+      // left gutter; element anchors below are measured AFTER the scale, so callouts stay true.
+      container.style.transform = ''; container.style.transformOrigin = 'left top';
+      var availW = stage.clientWidth - 64 - 44;   // stage padding: 64 left · 44 right
+      var natW = root.getBoundingClientRect().width;
+      if (natW > availW && availW > 0) { container.style.transform = 'scale(' + (availW / natW).toFixed(4) + ')'; }
       // Build className→tokens map from <style> tag inside render
       var tokenMap = {};
       var styleEl = container.querySelector('style');
@@ -5175,7 +5182,7 @@
       function vLine(x, y, h) { var d = document.createElement('div'); d.className = 'anatomy-leader-v'; d.style.left = x + 'px'; d.style.top = y + 'px'; d.style.height = Math.max(4, h) + 'px'; stage.appendChild(d); }
       function dotAt(x, y) { var d = document.createElement('div'); d.className = 'anatomy-leader-dot'; d.style.left = x + 'px'; d.style.top = y + 'px'; stage.appendChild(d); }
       function badgeAt(n, x, y) { var b = document.createElement('span'); b.className = 'anatomy-badge anatomy-badge--pin anatomy-pin-auto'; b.textContent = n; b.style.left = (x - 10) + 'px'; b.style.top = (y - 10) + 'px'; stage.appendChild(b); }
-      var leftX = 24, rightX = stage.clientWidth - 24, topY = 16, botY = stage.clientHeight - 16;
+      var leftX = 34, rightX = stage.clientWidth - 34, topY = 34, botY = stage.clientHeight - 34;
       var usedL = [], usedR = [], usedT = [], usedB = [];
       function free(arr, v) { return !arr.some(function (u) { return Math.abs(u - v) < 26; }); }
       parts.forEach(function (p) {
