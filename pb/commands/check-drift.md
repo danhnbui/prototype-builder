@@ -49,6 +49,28 @@ that motivated it: `prototype.html` left rendered by an **older plugin shell** t
 
 Report this alongside the trio drift report. It is **advisory**: never edit `prototype.html`, never block.
 
+## 5 · DS drift — clone vs source (advisory · read-only)
+
+Another advisory check (does **not** touch the trio, **never** blocks): has the cloned design system
+drifted from its live source since `/pb:pull-ds` ran?
+
+- Skip silently if `meta.dsSource` is `null` or `design-system/<name>/.source.json` is missing
+  (nothing cloned yet).
+- Otherwise **re-resolve the current source** — the same fallback ladder `/pb:pull-ds` uses
+  (`meta.dsSource.type` + `.ref`: a DS MCP, a Figma link, a code library, or a common preset) —
+  and normalize it to a fresh DS-export (invoke `ref-design-system`). Write it to a temp file.
+- Compare it against the stored snapshot:
+  ```
+  python3 "${CLAUDE_PLUGIN_ROOT}/tools/clone_ds.py" --drift <fresh-export.json> registry.json
+  ```
+  Exit `0` = in sync; exit `3` = drift (the tool prints each changed/added/removed token + component).
+  Delete the temp file after.
+- Report exactly one block:
+  - **In sync** → `✅ DS coherent — <name> clone matches source.`
+  - **Drift** → the tool's `⚠ DS DRIFT …` list, then: *re-run `/pb:pull-ds` to re-clone, or reconcile
+    intentionally.* Advisory — never auto re-clone, never block.
+- If the source can't be re-resolved (MCP/link unavailable), say so and skip — don't guess.
+
 ## NEVER
 - NEVER write to `registry.json` / `prototype.html` — this is a read-only audit.
 - NEVER auto-fix drift — surface the fixes; the user decides.

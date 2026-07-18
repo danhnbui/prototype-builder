@@ -1,4 +1,4 @@
-# Product Builder v1.5.1
+# Product Builder v1.6.0
 
 A standalone, CLAUDE.md-native prototype builder for Claude Code. Turn a PRD into an interactive,
 self-documenting **5-tab prototype** — a real click-through flow you preview at desktop / tablet /
@@ -66,7 +66,9 @@ If `/pb:init` says Python isn't installed, it will tell you exactly how to fix i
 | `/pb:plan` | Implementation plan + per-tab task breakdown (acceptance + skill + **agent · deps · slice**) |
 | `/pb:orchestrate` | Dispatch `memory/tasks.md` to the 8-agent roster in dependency **waves** — serial writes, render once per wave, acceptance-gated |
 | `/pb:build` | The cheap loop: targeted `registry.json` patches, trio-gated, no per-tweak render; `--render` to view |
+| `/pb:pull-ds` | Clone the design system (DS MCP → Figma link → code library → common) → registry tokens + a scannable reference + a `.source.json` drift snapshot; records `meta.dsSource` + `meta.platform` |
 | `/pb:preview` | Live preview dev server: watch `registry.json` → render → live-reload the browser (start once, leave running) |
+| `/pb:preview-ds` | Storybook-style server for the cloned DS: token foundations as swatches + the component catalog (read-only) |
 | `/pb:test` | Sandbox testing: scenario `test{}` blocks (functional), `--roles`, `--server`, `--security`, `--explore` → live ✓/✗ glyphs |
 | `/pb:explore` | Parallel design options: N `pb-builder` agents propose alternatives → compare → keep one |
 | `/pb:build-check-design-system` | DS-first reuse → variant → local + naming contract |

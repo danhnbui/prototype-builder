@@ -1,4 +1,4 @@
-# Product Builder v1.5.1 — router (read first)
+# Product Builder v1.6.0 — router (read first)
 
 Standalone, CLAUDE.md-native prototype builder. **No SpecKit** — no `extension.yml`,
 `preset.yml`, or `after_*` hooks. State lives in `registry.json`; commands are native
@@ -10,12 +10,14 @@ the playbook, [prototype-builder.md](prototype-builder.md) (authored in Phase 2)
 | Command | Does | Lands |
 |---|---|---|
 | `/pb:init` | Scaffold: PRD intake (Q&A or file), set Stack + DS locks, seed `registry.json` + `memory/`; optional `--import <bundle>`; **adopt-in-place** under `.prototype/` inside an existing repo | P4 |
+| `/pb:pull-ds` | Clone the design system (fallback ladder: DS MCP → Figma link → code library → common) → registry tokens + `design-system/<name>/` reference + `.source.json` drift snapshot; records `meta.dsSource` + `meta.platform` | P4 |
 | `/pb:specify` | Produce the spec / PRD (native) | P4 |
 | `/pb:clarify` | User Insights + UI Logic Trade-offs → Project Summary; append trade-offs to `decisions.md` | P4 |
 | `/pb:plan` | Implementation plan **+** per-tab task breakdown (each task: acceptance + skill + **agent · deps · slice**) | P4 |
 | `/pb:orchestrate` | Dispatch `memory/tasks.md` to the agent roster in dependency **waves** — serial registry writes, render once per wave, `acceptance`-gated | P4 |
 | `/pb:build` | The cheap loop: targeted `registry.json` patches, trio-gated, **no per-tweak render** | P3 |
 | `/pb:preview` | Live preview dev server: watch `registry.json` → deterministic render → browser live-reload | P3 |
+| `/pb:preview-ds` | Storybook-style server for the **cloned DS**: token foundations as swatches + the component catalog (read-only) | P3 |
 | `/pb:test` | Sandbox testing: run scenario `test{}` blocks (functional), `--roles`, `--server`, `--security`, `--explore`; writes `lastResult` → live ✓/✗ glyphs | P3 |
 | `/pb:explore` | Parallel design options: N `pb-builder` sub-agents propose alternatives → compare → keep one | P3 |
 | `/pb:build-check-design-system` | *(sub)* DS-first: reuse vs extend-variant vs build-local; enforce the naming contract | P3 |
@@ -101,16 +103,16 @@ card that owns the CTA — no dead controls. (Replaces the old `meta-tag`/`meta-
 - `render/components/<id>.js` · `render/screens/<id>.js` — the render bodies (v1.4 schema 4): real, lintable `.js` files compiled into `prototype.html` by `render.py`. Edit these directly; the registry stays pure data.
 - `memory/constitution.md` — durable rules: Principles + **Stack Lock** + **DS Lock** (lean, rules-only).
 - `memory/decisions.md` — the why-log (trade-offs, gate overrides).
-- `design-system/{name}/{name}.md` — the global DS reference (scannable component index + rules R0–R4 + naming contract).
+- `design-system/{name}/{name}.md` — the global DS reference (scannable component index + rules R0–R4 + naming contract). Cloned by `/pb:pull-ds`; a sibling `.source.json` snapshots the source (tokens + components) for `/pb:check-drift`. `meta.dsSource` (provenance) + `meta.platform` record where it came from.
 - `prototype.html` — rendered view, regenerated from `registry.json`.
 
 ## Schema compatibility
 
-Write-path commands (`/pb:build`, `/pb:flow`, `/pb:data`, `/pb:init --import`) apply
+Write-path commands (`/pb:build`, `/pb:flow`, `/pb:data`, `/pb:pull-ds`, `/pb:init --import`) apply
 this check before patching `registry.json`:
 
 1. Read `meta.schemaVersion` from `registry.json` (absent → treat as schema 2).
-2. Read `CURRENT_SCHEMA` from `pb/migrations/manifest.py` (currently **4**).
+2. Read `CURRENT_SCHEMA` from `pb/migrations/manifest.py` (currently **5**).
 3. If `schemaVersion < CURRENT_SCHEMA`: print a one-line banner —
    `⚠ Schema gap (v<from> → v<to>): <pending version update's describe() text>. Run /pb:update-version.`
 4. Proceed — **unless** the current write touches a slice a pending version update changes,

@@ -71,10 +71,24 @@ Write a short PRD (objective + key screens + success criteria) to `memory/prd.md
 
 ## 2 · Set the locks (confirm with the user)
 - **Stack Lock** — language + framework (e.g. TypeScript + React).
-- **Design System Lock** — name + source (git URL / local path / built-in).
+- **Design System Lock** — name + **platform** (`web` / `ios` / `android` / `desktop`) + the
+  **clone source**, asked as the fallback ladder (stop at the first the user has):
+  1. a **dedicated DS MCP** (a design-system export tool), 2. a **Figma design-system link**,
+  3. the **current code library** (repo/path with tokens), 4. a **common DS** (`built-in` / `mui`).
+  Record the chosen `{ type, ref }` — it becomes `meta.dsSource` when the DS is cloned (2b).
 
 Write `memory/constitution.md` from `${CLAUDE_PLUGIN_ROOT}/template/constitution.template.md`, filling
 Stack Lock + DS Lock + a first cut of Principles (from the PRD + DS rules). Keep it lean.
+
+## 2b · Clone the design system (offer — via `/pb:pull-ds`)
+Offer to clone the DS now from the source captured in the DS Lock:
+```
+/pb:pull-ds <source>
+```
+It resolves the ladder, seeds `registry.json` tokens, writes `design-system/<name>/<name>.md` +
+`.source.json`, and records `meta.dsSource` + confirms `meta.platform`. Skippable — the project
+still scaffolds with an empty DS reference (step 4) and the user can run `/pb:pull-ds` later. If they
+skip, leave `meta.dsSource: null` and set `meta.platform` from the DS Lock answer.
 
 ## 3 · Seed the registry
 Copy `${CLAUDE_PLUGIN_ROOT}/template/registry.template.json` → `registry.json`; set `meta.name`.
@@ -103,6 +117,10 @@ Seed **`meta.designSystem`** from the Design System Lock (step 2): `name` = the 
 its source when that's a repo URL or local path (**required** — a DS must have a code home); `designLink` =
 a Figma/doc URL if one was given (else `null`); `linked: true` once both name and codeLibrary are set.
 This drives the UI Design design-system bar.
+
+Also set **`meta.platform`** from the DS Lock (step 2) — `web` / `ios` / `android` / `desktop`
+(default `web`). Leave **`meta.dsSource: null`** unless the DS was cloned in 2b (then `/pb:pull-ds`
+already set it). Both fields are seeded in the template at `meta.schemaVersion 5`.
 
 ## 4 · Seed memory + design system
 - `memory/decisions.md` from `${CLAUDE_PLUGIN_ROOT}/template/decisions.template.md`.

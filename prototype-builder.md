@@ -28,6 +28,8 @@ tokens are applied onto `:root` at boot via `applyRegistryTokens`.
 | `meta.device` | `'monitor'\|'laptop'\|'tablet'\|'mobile'` | Prototype | default device for the preview frame; set at `/pb:init`. Falls back to `'laptop'`. Legacy `'desktop'` → `'laptop'` |
 | `meta.devices` | `('monitor'\|'laptop'\|'tablet'\|'mobile')[]` | Prototype | the fixed sizes this project supports (`monitor 1920×1080 · laptop 1280×832 · tablet 834×1112 · mobile 390×844`) — unsupported sizes are disabled in the switcher. Optional; defaults to all four. Legacy `'desktop'` expands to `monitor`+`laptop` |
 | `meta.designSystem` | `{ name, designLink, codeLibrary, linked }` | UI Design | the linked design system — `designLink` (Figma/doc URL), `codeLibrary` (folder path or repo URL). Seeded from the DS Lock at `/pb:init`. Optional/tolerated-absent → the DS bar shows an "add one" affordance |
+| `meta.platform` | `'web'\|'ios'\|'android'\|'desktop'` | — | the DS/target platform; set at `/pb:init`. Defaults to `'web'`. Schema 5 (v1.6) |
+| `meta.dsSource` | `{ type, ref, clonedAt } \| null` | — | provenance of the cloned DS: `type ∈ figma\|code-library\|mcp\|common`, `ref` the literal URL/path/name, `clonedAt` ISO stamp. `null` until `/pb:pull-ds` clones. The full token/component snapshot lives in `design-system/<name>/.source.json`; `/pb:check-drift` §5 diffs the live source against it. Schema 5 (v1.6) |
 | `meta.overview` | `{ objectives, principles[] }` | Project Summary | from spec + constitution |
 | `meta.userInsights` | `{ quantitative, researchSummary, executiveSummary }` | Project Summary | from `/pb:clarify` |
 | `meta.tradeoffs[]` | `[{ title, question, options, decision, why, tabsAffected }]` | Project Summary | UI Logic Trade-offs |
