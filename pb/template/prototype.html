@@ -900,7 +900,7 @@
     .pb-page-cta { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
     .pb-content { flex: 1 1 auto; padding: 24px 48px 48px; min-width: 0; }
     /* v1.9 — the Prototype tab has no page header; the device preview fills the whole tab. */
-    .pb-page--proto .pb-content { padding: 16px; }
+    .pb-page--proto .pb-content { padding: 0; }
     .pb-content--full { max-width: 960px; margin: 0 auto; width: 100%; }
     .pb-content--split {
       display: grid;
@@ -2162,6 +2162,8 @@
       background:#fff; border:1px solid var(--border); border-bottom:0; border-radius:9px 9px 0 0;
       font: var(--font-weight-medium) var(--font-size-xs)/32px var(--font-body); color:var(--text-active-secondary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
     .proto-tab.active { color:var(--text-active-primary); font-weight: var(--font-weight-bold); }
+    .proto-favicon { display:inline-flex; align-items:center; justify-content:center; width:16px; height:16px; border-radius:4px;
+      background:var(--brand); color:#fff; font-size:10px; font-weight:700; line-height:1; flex-shrink:0; }
     .proto-tab-x { cursor:pointer; color:var(--text-tertiary); font-size: var(--font-size-base); line-height: var(--line-height-base); flex-shrink:0; }
     .proto-tab-x:hover { color:var(--danger); }
     .proto-newtab { width:28px; height:28px; border-radius:6px; border:0; background:transparent; color:var(--text-tertiary);
@@ -3283,13 +3285,10 @@
       const path = (sel.id || '').replace(/-/g, '/');
       const displayUrl = `https://${slug}.app/${path}`;
       if (shell === 'browser') {
-        const extra = (state.protoTabs || []).map((t, i) =>
-          `<span class="proto-tab">${pbEscape(t)}<span class="proto-tab-x" title="Close tab" onclick="protoCloseTab(${i})">×</span></span>`).join('');
         const canBack = (state.protoHistory || []).length > 0;
+        const fav = ((meta.name || 'A').trim()[0] || 'A').toUpperCase();
         return `<div class="proto-tabbar">
-            <span class="proto-tab active">${pbEscape(title)}</span>
-            ${extra}
-            <button class="proto-newtab" title="New tab" aria-label="Open a new tab" onclick="protoNewTab()">+</button>
+            <span class="proto-tab active"><span class="proto-favicon" aria-hidden="true">${pbEscape(fav)}</span>${pbEscape(title)}</span>
           </div>
           <div class="proto-navbar">
             <button class="proto-navbtn" title="Back" aria-label="Back" onclick="protoBack()" ${canBack ? '' : 'disabled'}>‹</button>
