@@ -1400,8 +1400,9 @@
       background: var(--bg-soft); padding: 34px 30px 34px 64px;
       margin-bottom: 18px;
     }
-    .anatomy-stage[data-anatomy-auto] { padding: 34px 30px 34px 72px; }
-    .anatomy-stage[data-anatomy-auto] > .anatomy-render { display: flex; justify-content: center; }
+    .anatomy-stage[data-anatomy-auto] { padding: 34px 30px 34px 72px; overflow: hidden; }
+    .anatomy-stage[data-anatomy-auto] > .anatomy-render { display: flex; justify-content: flex-start; max-width: 100%; }
+    .anatomy-stage[data-anatomy-auto] > .anatomy-render > * { max-width: 100%; }
     .anatomy-badge {
       display: inline-flex; align-items: center; justify-content: center;
       width: 20px; height: 20px; border-radius: 50%;
