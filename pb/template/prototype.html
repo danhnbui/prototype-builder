@@ -5168,46 +5168,37 @@
       // Park each badge in the left gutter (never overlapping the component), staggered so they don't
       // collide, and draw a DIAGONAL dashed leader that lands exactly on the part's anchor point:
       // the element's left edge for a container/element, the measured text box for a Label.
-      var gutterX = 30, usedY = [];
-      parts.forEach(function(p) {
+      // Straight single-segment leaders (NO corners): each badge goes on a side of the component that
+      // lets one straight line reach the anchor — left/right = horizontal, top/bottom = vertical. Parts
+      // pick the first side that's free, so callouts to the same short element land on different sides.
+      function hLine(x, y, w) { var d = document.createElement('div'); d.className = 'anatomy-leader'; d.style.left = x + 'px'; d.style.top = y + 'px'; d.style.width = Math.max(4, w) + 'px'; stage.appendChild(d); }
+      function vLine(x, y, h) { var d = document.createElement('div'); d.className = 'anatomy-leader-v'; d.style.left = x + 'px'; d.style.top = y + 'px'; d.style.height = Math.max(4, h) + 'px'; stage.appendChild(d); }
+      function dotAt(x, y) { var d = document.createElement('div'); d.className = 'anatomy-leader-dot'; d.style.left = x + 'px'; d.style.top = y + 'px'; stage.appendChild(d); }
+      function badgeAt(n, x, y) { var b = document.createElement('span'); b.className = 'anatomy-badge anatomy-badge--pin anatomy-pin-auto'; b.textContent = n; b.style.left = (x - 10) + 'px'; b.style.top = (y - 10) + 'px'; stage.appendChild(b); }
+      var leftX = 24, rightX = stage.clientWidth - 24, topY = 16, botY = stage.clientHeight - 16;
+      var usedL = [], usedR = [], usedT = [], usedB = [];
+      function free(arr, v) { return !arr.some(function (u) { return Math.abs(u - v) < 24; }); }
+      parts.forEach(function (p) {
         var ax, ay;
         if (p.isLabel) {
           var tr = pbTextRect(p.el);
-          ax = tr.left - stageRect.left;
-          ay = tr.top - stageRect.top + tr.height / 2;
+          ax = tr.left - stageRect.left; ay = tr.top - stageRect.top + tr.height / 2;
         } else {
           var r = p.el.getBoundingClientRect();
-          ax = r.left - stageRect.left;
-          ay = r.top - stageRect.top + Math.min(14, r.height / 2);
+          ax = r.left - stageRect.left; ay = r.top - stageRect.top + Math.min(14, r.height / 2);
         }
-        var by = ay;
-        while (usedY.some(function(u) { return Math.abs(u - by) < 22; })) by += 22;
-        usedY.push(by);
-        // Orthogonal elbow (straight segments only): horizontal from the badge to the anchor's X,
-        // then a vertical drop to the anchor's Y, ending in a dot on the exact anchor.
-        var fromX = gutterX + 12;
-        if (ax - fromX > 0) {
-          var h = document.createElement('div');
-          h.className = 'anatomy-leader';
-          h.style.top = by + 'px'; h.style.left = fromX + 'px'; h.style.width = (ax - fromX) + 'px';
-          stage.appendChild(h);
+        if (free(usedL, ay)) {                    // LEFT — straight horizontal
+          usedL.push(ay); dotAt(ax, ay); hLine(leftX + 12, ay, ax - leftX - 12); badgeAt(p.n, leftX, ay);
+        } else if (free(usedB, ax)) {             // BOTTOM — straight vertical up
+          usedB.push(ax); dotAt(ax, ay); vLine(ax, ay, botY - 12 - ay); badgeAt(p.n, ax, botY);
+        } else if (free(usedT, ax)) {             // TOP — straight vertical down
+          usedT.push(ax); dotAt(ax, ay); vLine(ax, topY + 12, ay - topY - 12); badgeAt(p.n, ax, topY);
+        } else if (free(usedR, ay)) {             // RIGHT — straight horizontal
+          usedR.push(ay); dotAt(ax, ay); hLine(ax, ay, rightX - 12 - ax); badgeAt(p.n, rightX, ay);
+        } else {                                  // fallback: left gutter, nudged down
+          var y = ay; while (!free(usedL, y)) y += 24; usedL.push(y);
+          dotAt(ax, ay); hLine(leftX + 12, y, ax - leftX - 12); badgeAt(p.n, leftX, y);
         }
-        if (Math.abs(ay - by) > 0.5) {
-          var v = document.createElement('div');
-          v.className = 'anatomy-leader-v';
-          v.style.left = ax + 'px'; v.style.top = Math.min(by, ay) + 'px'; v.style.height = Math.abs(ay - by) + 'px';
-          stage.appendChild(v);
-        }
-        var dot = document.createElement('div');
-        dot.className = 'anatomy-leader-dot';
-        dot.style.left = ax + 'px'; dot.style.top = ay + 'px';
-        stage.appendChild(dot);
-        var badge = document.createElement('span');
-        badge.className = 'anatomy-badge anatomy-badge--pin anatomy-pin-auto';
-        badge.textContent = p.n;
-        badge.style.top = (by - 10) + 'px';
-        badge.style.left = (gutterX - 10) + 'px';
-        stage.appendChild(badge);
       });
 
       // Build the breakdown table from the SAME parts (row numbers match the badges).
