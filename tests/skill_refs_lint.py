@@ -24,7 +24,7 @@ SKILL_VOCAB = {
     "ref-prd", "ref-blueprint", "think-critique-prd", "think-clarify",
     "think-layout", "think-logic", "design-component-build",
     "agent-orchestrate-tasks", "craft-connect-flow", "craft-research", "figma-use",
-    "ref-design-system", "design-component-export",
+    "ref-design-system", "design-component-export", "ref-figma-frame",
 }
 
 

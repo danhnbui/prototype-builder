@@ -1,0 +1,10 @@
+{
+  "_about": "R3 fixture — a normalized Figma frame-export (the shape /pb:init --figma produces via the Figma MCP and resolve_frame.py consumes). Used by tests/r3_figma_entry.py to exercise frame → screen resolution + gaps.md end to end. 'button'/'text-input' map to known DS components; the other two are unmapped and must become gaps, never invented.",
+  "frame": { "id": "10:5", "name": "Checkout" },
+  "layers": [
+    { "name": "Sign in button", "type": "INSTANCE", "component": "button" },
+    { "name": "text-input", "type": "INSTANCE" },
+    { "name": "Promo Banner", "type": "FRAME" },
+    { "name": "Live Chat Bubble", "type": "GROUP" }
+  ]
+}

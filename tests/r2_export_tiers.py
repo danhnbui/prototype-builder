@@ -54,7 +54,7 @@ check(up["meta"].get("outputTier") == "host" and "exportTarget" in up["meta"] an
       "up adds outputTier+exportTarget, stamps 6")
 check(m4.down(up) == v5, "down is reversible")
 tmpl = json.load(open(TEMPLATE))
-check(tmpl["meta"]["schemaVersion"] == man.CURRENT_SCHEMA == 6, "template schemaVersion == CURRENT_SCHEMA == 6")
+check(tmpl["meta"]["schemaVersion"] == man.CURRENT_SCHEMA, "template schemaVersion == CURRENT_SCHEMA")
 check("outputTier" in tmpl["meta"] and "exportTarget" in tmpl["meta"], "template carries outputTier + exportTarget")
 
 print("2 · scaffold tier emits a runnable React app")

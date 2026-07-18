@@ -2,6 +2,28 @@
 
 All notable changes to Product Builder. Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [1.8.0] — 2026-07-18
+
+*R3 "Figma-frame entry": a second entry door — a project can be born from a Figma frame, not just a
+PRD. Schema bumps to **7** (additive migration 0005). DS fidelity is held at entry: layers map to
+components that already exist; unmapped layers are logged, never invented. Built + verified fixture-driven.*
+
+### Added
+- **`/pb:init --figma <frame>` + `pb/tools/resolve_frame.py` + the `ref-figma-frame` skill.** Read a
+  Figma frame via the Figma MCP, normalize it to a **frame-export**, then deterministically map each
+  layer to a known DS component — emitting a registry **screen patch** (elements → `orgId`). Sets
+  `meta.entry = "figma"`.
+- **`gaps.md` logging.** Every layer with no confident DS match becomes a **labeled placeholder**
+  element AND a `gaps.md` entry — pb never invents a component to fill a gap. Resolve each by
+  cloning/adding the component and re-resolving, or building it with `/pb:build`.
+- **`tests/r3_figma_entry.py` + `fixtures/frame-export.json`.** The R3 acceptance end-to-end
+  (frame → screen patch with `orgId`s ⊆ known components + unmapped layers in `gaps.md`), asserting DS
+  fidelity: nothing invented, nothing silently dropped.
+
+### Changed
+- **Schema 6 → 7** via additive migration `0005_entry` (adds `meta.entry` = `"prd"` | `"figma"`, default
+  `"prd"`). Registry template + golden carry it; `/pb:update-version` migrates cleanly (up→down reversible).
+
 ## [1.7.0] — 2026-07-18
 
 *R2 "export tiers": the prototype can now emit code, not just HTML — at a tier that matches the
