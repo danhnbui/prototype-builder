@@ -1400,7 +1400,8 @@
       background: var(--bg-soft); padding: 34px 30px 34px 64px;
       margin-bottom: 18px;
     }
-    .anatomy-stage[data-anatomy-auto] { padding: 24px; }
+    .anatomy-stage[data-anatomy-auto] { padding: 34px 30px 34px 72px; }
+    .anatomy-stage[data-anatomy-auto] > .anatomy-render { display: flex; justify-content: center; }
     .anatomy-badge {
       display: inline-flex; align-items: center; justify-content: center;
       width: 20px; height: 20px; border-radius: 50%;
@@ -5125,56 +5126,61 @@
         }
         return false;
       }
-      // Badge direct children of the root (its visual "parts"); fall back to root itself
+      // Build the numbered parts: the container (composed components) + each visual child element +
+      // a "Label" part for any element carrying its own text (background vs label = two elements).
       var targets = Array.from(root.children).filter(function(el) {
         if (el.tagName === 'STYLE' || el.tagName === 'SCRIPT') return false;
         var r = el.getBoundingClientRect();
         return r.width > 0 || r.height > 0;
       });
       if (!targets.length) targets = [root];
-      // Place in-element badges at top-left corner of each target
+      var isLeaf = (targets.length === 1 && targets[0] === root);
+      var parts = [];
+      if (!isLeaf) parts.push({ el: root, name: 'Container', tokens: pbClassifyTokens(root).container, edge: 'top' });
       targets.forEach(function(el, idx) {
-        var r = el.getBoundingClientRect();
+        var nested = findOrg(el);
+        if (nested) { parts.push({ el: el, name: (nested.name || nested.id), link: nested.id }); return; }
+        var cl = pbClassifyTokens(el);
+        parts.push({ el: el, name: (proseNames[idx] || autoDesc(el)), tokens: (cl.container.length ? cl.container : cl.label), edge: 'top' });
+        if (cl.container.length && cl.label.length && pbHasDirectText(el)) {
+          parts.push({ el: el, name: 'Label', tokens: cl.label, isLabel: true, edge: 'mid' });
+        }
+      });
+      parts.forEach(function(p, i) { p.n = i + 1; });
+
+      // Place each badge OUTSIDE the component, parked in the left gutter, with a dashed leader line to
+      // the element edge — never overlapping the component. Stagger badges so they never collide.
+      var gutterX = 30, usedY = [];
+      parts.forEach(function(p) {
+        var r = p.el.getBoundingClientRect();
+        var elLeft = r.left - stageRect.left;
+        var cy = r.top - stageRect.top + (p.edge === 'top' ? 12 : r.height / 2);
+        while (usedY.some(function(u) { return Math.abs(u - cy) < 22; })) cy += 22;
+        usedY.push(cy);
+        var line = document.createElement('div');
+        line.className = 'anatomy-leader';
+        line.style.top = cy + 'px';
+        line.style.left = (gutterX + 10) + 'px';
+        line.style.width = Math.max(8, elLeft - gutterX - 10) + 'px';
+        stage.appendChild(line);
         var badge = document.createElement('span');
         badge.className = 'anatomy-badge anatomy-badge--pin anatomy-pin-auto';
-        badge.textContent = idx + 1;
-        badge.style.top = (r.top - stageRect.top - 9) + 'px';
-        badge.style.left = (r.left - stageRect.left - 9) + 'px';
+        badge.textContent = p.n;
+        badge.style.top = (cy - 10) + 'px';
+        badge.style.left = (gutterX - 10) + 'px';
         stage.appendChild(badge);
       });
-      // Build breakdown table. Leaf component (no element children) → one row for the element itself,
-      // no separate Container row. Composed component → a Container row (root tokens) + one row per part.
-      var isLeaf = (targets.length === 1 && targets[0] === root);
-      var rootChips = getTokenChips(root);
-      var containerRow = (!isLeaf && rootChips.length)
-        ? '<tr class="anatomy-container-row"><td><span class="anatomy-token-note">—</span></td>' +
-          '<td class="anatomy-el-name">Container</td>' +
-          '<td class="anatomy-el-tokens">' + chipsHtml(rootChips) + '</td></tr>'
-        : '';
-      var rowsArr = [];
-      targets.forEach(function(el, idx) {
-        var n = idx + 1;
-        var nested = findOrg(el);
-        if (nested) {
-          // A nested element that IS a documented component → link out, don't re-document it.
-          rowsArr.push('<tr><td><span class="anatomy-badge">' + n + '</span></td>' +
-            '<td class="anatomy-el-name"><a class="anatomy-component-link" href="#" onclick="event.preventDefault();openHandoffDrawer(\'' + pbEscape(nested.id) + '\')">' + pbEscape(nested.name || nested.id) + ' ↗</a></td>' +
-            '<td class="anatomy-el-tokens"><span class="anatomy-token-note">see component</span></td></tr>');
-          return;
-        }
-        var name = proseNames[idx] || autoDesc(el);
-        var cl = pbClassifyTokens(el);
-        rowsArr.push('<tr><td><span class="anatomy-badge">' + n + '</span></td>' +
-          '<td class="anatomy-el-name">' + pbEscape(name) + '</td>' +
-          '<td class="anatomy-el-tokens">' + chipsHtml(cl.container.length ? cl.container : cl.label) + '</td></tr>');
-        // The text/label is kept as its OWN individual element (its text-color + typography tokens).
-        if (cl.container.length && cl.label.length && pbHasDirectText(el)) {
-          rowsArr.push('<tr class="anatomy-sub-row"><td></td>' +
-            '<td class="anatomy-el-name anatomy-el-sub">↳ Label</td>' +
-            '<td class="anatomy-el-tokens">' + chipsHtml(cl.label) + '</td></tr>');
-        }
-      });
-      var rows = containerRow + rowsArr.join('');
+
+      // Build the breakdown table from the SAME parts (row numbers match the badges).
+      var rows = parts.map(function(p) {
+        var nameTd = p.link
+          ? '<a class="anatomy-component-link" href="#" onclick="event.preventDefault();openHandoffDrawer(\'' + pbEscape(p.link) + '\')">' + pbEscape(p.name) + ' ↗</a>'
+          : (p.isLabel ? '<span class="anatomy-el-sub">↳ ' + pbEscape(p.name) + '</span>' : pbEscape(p.name));
+        var tokensTd = p.link ? '<span class="anatomy-token-note">see component</span>' : chipsHtml(p.tokens || []);
+        return '<tr' + (p.isLabel ? ' class="anatomy-sub-row"' : '') + '><td><span class="anatomy-badge">' + p.n + '</span></td>' +
+               '<td class="anatomy-el-name">' + nameTd + '</td>' +
+               '<td class="anatomy-el-tokens">' + tokensTd + '</td></tr>';
+      }).join('');
       if (!rows) return;
       if (proseEl) proseEl.style.display = 'none';
       var wrapper = document.createElement('div');
