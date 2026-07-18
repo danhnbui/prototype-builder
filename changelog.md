@@ -2,6 +2,33 @@
 
 All notable changes to Product Builder. Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [1.6.0] — 2026-07-18
+
+*R1 "DS truth": the design system becomes a **cloned, verifiable source** rather than a loose
+label. Schema bumps to **5** (additive migration 0003). Built and verified fixture-driven — no
+production DS required.*
+
+### Added
+- **`/pb:pull-ds` + `pb/tools/clone_ds.py` + the `ref-design-system` skill.** Clone a DS via the
+  fallback ladder — a dedicated **DS MCP** → a **Figma design-system link** → the **current code
+  library** → a **common DS** — normalized to one DS-export, then materialized deterministically:
+  tokens merged into `registry.json` (additive), `design-system/<name>/<name>.md` (scannable
+  reference) + `design-system/<name>/.source.json` (drift snapshot) written, and `meta.dsSource` +
+  `meta.platform` recorded. `clone_ds.py --drift` compares a fresh source export against the snapshot.
+- **`/pb:preview-ds` + `pb/tools/ds_serve.py`.** A storybook-style server for the cloned DS — token
+  foundations as visual swatches + the component catalog. Read-only; re-reads on every refresh.
+- **`/pb:init` clone step.** The DS Lock now captures `platform` + the clone source (the ladder) and
+  offers to run `/pb:pull-ds`; seeds `meta.platform`, leaves `meta.dsSource` null until cloned.
+- **`tests/r1_ds_truth.py` + `fixtures/ds-export.json`.** The R1 acceptance end-to-end
+  (clone → `preview-ds` → change one token at source → `check-drift` reports drift), fixture-driven.
+
+### Changed
+- **`/pb:check-drift`** gains §5 — a read-only, advisory **DS-drift audit**: re-resolve the source and
+  diff it against `.source.json`. Never blocks. `/pb:handoff-close` runs it as an advisory pre-flight.
+- **Schema 4 → 5** via additive migration `0003_ds_source` (adds `meta.platform` default `"web"` +
+  `meta.dsSource` null). Registry template + golden fixture carry the fields; `/pb:update-version`
+  migrates old projects cleanly (up→down reversible).
+
 ## [1.5.1] — 2026-07-18
 
 *R0 groundwork: hygiene + safety so pb can sit cleanly inside a real repo. Command renames all

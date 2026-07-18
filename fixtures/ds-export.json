@@ -1,0 +1,20 @@
+{
+  "_about": "R1 fixture — a normalized design-system export (the shape /pb:pull-ds produces and clone_ds.py consumes). Used by tests/r1_ds_truth.py to exercise clone → preview-ds → drift end to end without a real DS or MCP. Keep it small and valid.",
+  "name": "acme-ds",
+  "platform": "web",
+  "source": { "type": "figma", "ref": "https://figma.com/file/ACME/design-system" },
+  "tokens": {
+    "color-brand": { "value": "#2563eb", "kind": "color" },
+    "color-brand-soft": { "value": "#dbeafe", "kind": "color" },
+    "color-ink": { "value": "#0f172a", "kind": "color" },
+    "space-2": { "value": "8px", "kind": "space" },
+    "space-4": { "value": "16px", "kind": "space" },
+    "radius-md": { "value": "10px", "kind": "radius" },
+    "font-body": { "value": "Inter", "kind": "type" }
+  },
+  "components": [
+    { "id": "button", "level": "atom", "variants": ["primary", "secondary", "ghost"], "purpose": "The primary action control", "renderFn": "renderCmpButton" },
+    { "id": "badge", "level": "atom", "variants": ["info", "success", "danger"], "purpose": "Compact status label", "renderFn": "renderCmpBadge" },
+    { "id": "card", "level": "molecule", "variants": [], "purpose": "Elevated content container", "renderFn": "renderCmpCard" }
+  ]
+}

@@ -1,7 +1,7 @@
 """
 pb/migrations/manifest.py — Schema version constant + migration chain.
 
-CURRENT_SCHEMA = 4 is the single source of truth for the v1.4 registry contract.
+CURRENT_SCHEMA = 5 is the single source of truth for the v1.6 registry contract.
 It is intentionally decoupled from the plugin's SemVer in plugin.json:
   - Plugin SemVer bumps on any release (features, fixes, docs, refactors).
   - CURRENT_SCHEMA bumps ONLY when the registry/template contract changes
@@ -30,13 +30,14 @@ Phase 3–4 non-goals (see docs/version-updates.md):
 import importlib.util
 import os
 
-CURRENT_SCHEMA = 4
+CURRENT_SCHEMA = 5
 
 # Ordered registry: (FROM, TO, filename_stem).
 # Add a new tuple here when authoring a new migration.
 _REGISTRY = [
     (2, 3, "0001_v12_to_v13"),
     (3, 4, "0002_v13_to_v14"),
+    (4, 5, "0003_ds_source"),
 ]
 
 

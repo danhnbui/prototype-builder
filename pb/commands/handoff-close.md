@@ -31,6 +31,11 @@ findings and tell the user to fix them (or run `/pb:build` to patch) and retry. 
 must never ship a registry that violates the contract (NS6, fail-closed). Only on a clean
 exit (0) proceed.
 
+**DS-drift pre-flight (advisory, never blocks):** if `meta.dsSource` is set, run the DS-drift
+audit from `/pb:check-drift` §5 (re-resolve the source, `clone_ds.py --drift`). If it reports
+drift, surface it so the user knows the hand-off's tokens may lag the live DS — but do **not**
+block the hand-off; they may ship intentionally.
+
 ## 1 · The view-only prototype (default + `--people`)
 1. `/pb:build --render` first (never hand off a stale render).
 2. Set `registry.json` → `config.viewOnly = true` and `config.cover = { title, summary, date, by }`
