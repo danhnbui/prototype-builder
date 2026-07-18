@@ -22,6 +22,7 @@ Everything else pb uses ships with the plugin — there is nothing else to insta
 
 ## 0b · Flags
 - `--import <bundle>` — ingest a context bundle from `/pb:handoff-close --context` instead of doing intake (step 6).
+- `--figma <frame-url|id>` — start from a **Figma frame** instead of PRD intake — resolve its layers to DS components (step 6c). Sets `meta.entry = "figma"`.
 - `--adopt` — force **adopt-in-place** mode (scaffold under `.prototype/`); see 0c.
 - `--standalone` — force greenfield mode (scaffold at the current directory root), even inside an existing repo.
 
@@ -151,6 +152,26 @@ If set, skip 1–5: read the bundle (`registry.json` + `render/` body files + `d
 **Schema compatibility check** (see **Schema compatibility** in `CLAUDE.md`) — run it here, on the
 imported `registry.json`, before proceeding. If the bundle is on an older schema, show the banner and
 suggest `/pb:update-version`. Do not silently copy an out-of-contract slice into the project. Ready to `/pb:build`.
+
+## 6c · `--figma <frame>` (the second entry door)
+If set, start from a Figma frame instead of PRD intake (steps 1–5 still seed the locks + registry;
+`meta.entry = "figma"`). This door holds **DS fidelity at entry** — it maps to components that already
+exist, and never invents one.
+
+1. **Need a DS first.** The frame's layers map to the project's design system, so a DS must be cloned
+   (`meta.dsSource` set). If none is, run `/pb:pull-ds` (step 2b) before resolving.
+2. **Read + normalize the frame.** Invoke the **`ref-figma-frame`** skill: read the frame via the Figma
+   MCP and normalize it to a **frame-export** (`{ frame:{id,name}, layers:[{name,type,component?}] }`),
+   resolving each Figma component instance to its DS component id where possible. Write it to a temp file.
+3. **Resolve (deterministic).**
+   ```
+   python3 "${CLAUDE_PLUGIN_ROOT}/tools/resolve_frame.py" --from .pb-frame.json registry.json
+   ```
+   It emits a **screen patch** (elements → `orgId` for mapped layers), logs every unmapped layer to
+   **`gaps.md`** as a labeled placeholder (never invented), and sets `meta.entry = "figma"`. Delete the
+   temp file after. Surface the tool's summary + the gaps to the user.
+4. **Next:** `/pb:build` to flesh out the screen's render body from the resolved elements; resolve each
+   `gaps.md` entry by cloning/adding the missing component then re-resolving, or building it.
 
 ## Result
 A seeded project — non-empty `memory/prd.md`, locks set, `registry.json` seeded, `memory/decisions.md`,

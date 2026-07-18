@@ -1,4 +1,4 @@
-# Product Builder v1.7.0
+# Product Builder v1.8.0
 
 A standalone, CLAUDE.md-native prototype builder for Claude Code. Turn a PRD into an interactive,
 self-documenting **5-tab prototype** — a real click-through flow you preview at desktop / tablet /
@@ -84,7 +84,7 @@ If `/pb:init` says Python isn't installed, it will tell you exactly how to fix i
 
 ## Quickstart
 
-1. `/pb:init` — intake a PRD, set the locks, seed the project.
+1. `/pb:init` — intake a PRD, set the locks, seed the project. (Or `--figma <frame>` to start from a Figma frame — layers resolve to DS components, unmapped ones logged to `gaps.md`.)
 2. `/pb:specify` → `/pb:clarify` → `/pb:plan` — shape the spec, insights, and tasks.
 3. `/pb:preview` (start once, leave running) → `/pb:build` — the preview server live-reloads on every
    registry change; no `--render` needed during the build loop.

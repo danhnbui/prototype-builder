@@ -1,4 +1,4 @@
-# Product Builder v1.7.0 — router (read first)
+# Product Builder v1.8.0 — router (read first)
 
 Standalone, CLAUDE.md-native prototype builder. **No SpecKit** — no `extension.yml`,
 `preset.yml`, or `after_*` hooks. State lives in `registry.json`; commands are native
@@ -9,7 +9,7 @@ the playbook, [prototype-builder.md](prototype-builder.md) (authored in Phase 2)
 
 | Command | Does | Lands |
 |---|---|---|
-| `/pb:init` | Scaffold: PRD intake (Q&A or file), set Stack + DS locks, seed `registry.json` + `memory/`; optional `--import <bundle>`; **adopt-in-place** under `.prototype/` inside an existing repo | P4 |
+| `/pb:init` | Scaffold: PRD intake (Q&A or file), set Stack + DS locks, seed `registry.json` + `memory/`; `--import <bundle>`; **`--figma <frame>`** (resolve a Figma frame → screen, gaps → `gaps.md`, `meta.entry=figma`); **adopt-in-place** under `.prototype/` inside an existing repo | P4 |
 | `/pb:pull-ds` | Clone the design system (fallback ladder: DS MCP → Figma link → code library → common) → registry tokens + `design-system/<name>/` reference + `.source.json` drift snapshot; records `meta.dsSource` + `meta.platform` | P4 |
 | `/pb:specify` | Produce the spec / PRD (native) | P4 |
 | `/pb:clarify` | User Insights + UI Logic Trade-offs → Project Summary; append trade-offs to `decisions.md` | P4 |
@@ -113,7 +113,7 @@ Write-path commands (`/pb:build`, `/pb:flow`, `/pb:data`, `/pb:pull-ds`, `/pb:ha
 this check before patching `registry.json`:
 
 1. Read `meta.schemaVersion` from `registry.json` (absent → treat as schema 2).
-2. Read `CURRENT_SCHEMA` from `pb/migrations/manifest.py` (currently **6**).
+2. Read `CURRENT_SCHEMA` from `pb/migrations/manifest.py` (currently **7**).
 3. If `schemaVersion < CURRENT_SCHEMA`: print a one-line banner —
    `⚠ Schema gap (v<from> → v<to>): <pending version update's describe() text>. Run /pb:update-version.`
 4. Proceed — **unless** the current write touches a slice a pending version update changes,

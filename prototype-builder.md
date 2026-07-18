@@ -32,6 +32,7 @@ tokens are applied onto `:root` at boot via `applyRegistryTokens`.
 | `meta.dsSource` | `{ type, ref, clonedAt } \| null` | — | provenance of the cloned DS: `type ∈ figma\|code-library\|mcp\|common`, `ref` the literal URL/path/name, `clonedAt` ISO stamp. `null` until `/pb:pull-ds` clones. The full token/component snapshot lives in `design-system/<name>/.source.json`; `/pb:check-drift` §5 diffs the live source against it. Schema 5 (v1.6) |
 | `meta.outputTier` | `'host'\|'scaffold'\|'hardened'` | — | which export tier `/pb:handoff-dev` targets. `host` = the runnable single-file prototype; `scaffold` = deterministic React+Tailwind (`render_react.py`); `hardened` = idiomatic/DS-integrated (deferred). Defaults to `host`. Schema 6 (v1.7) |
 | `meta.exportTarget` | string \| null | — | machine-readable export target mirroring the Stack Lock (e.g. `'react-tailwind'`); `null` until set. Schema 6 (v1.7) |
+| `meta.entry` | `'prd'\|'figma'` | — | intake provenance — `prd` (PRD/Q&A) or `figma` (`/pb:init --figma` resolved a frame). Defaults to `prd`. Schema 7 (v1.8) |
 | `meta.overview` | `{ objectives, principles[] }` | Project Summary | from spec + constitution |
 | `meta.userInsights` | `{ quantitative, researchSummary, executiveSummary }` | Project Summary | from `/pb:clarify` |
 | `meta.tradeoffs[]` | `[{ title, question, options, decision, why, tabsAffected }]` | Project Summary | UI Logic Trade-offs |
