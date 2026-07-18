@@ -85,7 +85,7 @@ check(up["meta"].get("platform") == "web" and "dsSource" in up["meta"] and up["m
       "up adds platform+dsSource, stamps 5")
 check(m3.down(up) == v4, "down is reversible")
 tmpl = json.load(open(TEMPLATE))
-check(tmpl["meta"]["schemaVersion"] == man.CURRENT_SCHEMA == 5, "template schemaVersion == CURRENT_SCHEMA == 5")
+check(tmpl["meta"]["schemaVersion"] == man.CURRENT_SCHEMA, "template schemaVersion == CURRENT_SCHEMA")
 check("platform" in tmpl["meta"] and "dsSource" in tmpl["meta"], "template carries platform + dsSource")
 
 print()

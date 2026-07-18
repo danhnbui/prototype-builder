@@ -1,4 +1,4 @@
-# Product Builder v1.6.0
+# Product Builder v1.7.0
 
 A standalone, CLAUDE.md-native prototype builder for Claude Code. Turn a PRD into an interactive,
 self-documenting **5-tab prototype** — a real click-through flow you preview at desktop / tablet /
@@ -78,6 +78,7 @@ If `/pb:init` says Python isn't installed, it will tell you exactly how to fix i
 | `/pb:check-drift` | Read-only drift audit of the trio vs the constitution |
 | `/pb:handoff-close` | Close out into one `handoff/` folder: view-only `prototype.html` + portable `bundle/` + a recipient `AGENTS.md` (`--people` / `--context` narrow it) |
 | `/pb:validate` | Wrap `prototype.html` in a runnable reference build (Vite/Next) — serves the single file, not a component export |
+| `/pb:handoff-dev` | Export at a tier — `--tier=host` (runnable prototype) · `scaffold` (deterministic React+Tailwind app) · `hardened` (idiomatic/DS-integrated — deferred) |
 | `/pb:update-version` | Schema version update: dry-run / `--apply` / `--rollback` / `--to <N>` |
 | `/pb:snapshot` | Timestamped `registry.json` history under `<project>/history/` (`--list` / `--restore`); never branches |
 
