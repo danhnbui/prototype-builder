@@ -1414,7 +1414,7 @@
     .anatomy-leader {
       position: absolute; z-index: 2; height: 0;
       border-top: 1.5px dashed #94a3b8;
-      pointer-events: none;
+      pointer-events: none; transform-origin: left center;
     }
     .anatomy-leader::after {
       content: ''; position: absolute; right: -3px; top: -3px;
@@ -5149,25 +5149,50 @@
       });
       parts.forEach(function(p, i) { p.n = i + 1; });
 
-      // Place each badge OUTSIDE the component, parked in the left gutter, with a dashed leader line to
-      // the element edge — never overlapping the component. Stagger badges so they never collide.
+      // The precise text box of an element's own text (so a Label leader lands ON the text, not the edge).
+      function pbTextRect(el) {
+        for (var i = 0; i < el.childNodes.length; i++) {
+          var nn = el.childNodes[i];
+          if (nn.nodeType === 3 && nn.textContent.trim()) {
+            var rg = document.createRange(); rg.selectNodeContents(nn);
+            var rr = rg.getBoundingClientRect();
+            if (rr.width || rr.height) return rr;
+          }
+        }
+        return el.getBoundingClientRect();
+      }
+      // Park each badge in the left gutter (never overlapping the component), staggered so they don't
+      // collide, and draw a DIAGONAL dashed leader that lands exactly on the part's anchor point:
+      // the element's left edge for a container/element, the measured text box for a Label.
       var gutterX = 30, usedY = [];
       parts.forEach(function(p) {
-        var r = p.el.getBoundingClientRect();
-        var elLeft = r.left - stageRect.left;
-        var cy = r.top - stageRect.top + (p.edge === 'top' ? 12 : r.height / 2);
-        while (usedY.some(function(u) { return Math.abs(u - cy) < 22; })) cy += 22;
-        usedY.push(cy);
+        var ax, ay;
+        if (p.isLabel) {
+          var tr = pbTextRect(p.el);
+          ax = tr.left - stageRect.left;
+          ay = tr.top - stageRect.top + tr.height / 2;
+        } else {
+          var r = p.el.getBoundingClientRect();
+          ax = r.left - stageRect.left;
+          ay = r.top - stageRect.top + Math.min(14, r.height / 2);
+        }
+        var by = ay;
+        while (usedY.some(function(u) { return Math.abs(u - by) < 22; })) by += 22;
+        usedY.push(by);
+        var fromX = gutterX + 12, fromY = by;
+        var dx = ax - fromX, dy = ay - fromY;
+        var len = Math.max(6, Math.sqrt(dx * dx + dy * dy));
         var line = document.createElement('div');
         line.className = 'anatomy-leader';
-        line.style.top = cy + 'px';
-        line.style.left = (gutterX + 10) + 'px';
-        line.style.width = Math.max(8, elLeft - gutterX - 10) + 'px';
+        line.style.top = fromY + 'px';
+        line.style.left = fromX + 'px';
+        line.style.width = len + 'px';
+        line.style.transform = 'rotate(' + (Math.atan2(dy, dx) * 180 / Math.PI) + 'deg)';
         stage.appendChild(line);
         var badge = document.createElement('span');
         badge.className = 'anatomy-badge anatomy-badge--pin anatomy-pin-auto';
         badge.textContent = p.n;
-        badge.style.top = (cy - 10) + 'px';
+        badge.style.top = (by - 10) + 'px';
         badge.style.left = (gutterX - 10) + 'px';
         stage.appendChild(badge);
       });
