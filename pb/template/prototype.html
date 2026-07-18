@@ -1445,6 +1445,8 @@
     .atk-sw { width: 11px; height: 11px; border-radius: 3px; border: 1px solid var(--border); flex: none;
       display: inline-flex; align-items: center; justify-content: center; font-size: 8px; line-height: 1; color: var(--text-tertiary); }
     .atk-val { color: var(--text-tertiary); }
+    .anatomy-sub-row td { border-top: 0; padding-top: 2px; }
+    .anatomy-el-sub { padding-left: 14px; color: var(--text-tertiary); font-style: italic; }
     .anatomy-component-link {
       color: var(--fill-active-primary); text-decoration: none;
       font-size: var(--font-size-xs); font-weight: var(--font-weight-medium);
@@ -4767,18 +4769,18 @@
 
     function pbRenderHandoffAnatomy(org) {
       const a = org.anatomy;
-      if (!a) return pbAutoAnatomy(org);
-      // Prose form: components often author anatomy as a plain string (or {description}).
-      if (typeof a === 'string' || !a.parts || !a.parts.length) {
-        const text = typeof a === 'string' ? a : (a.description || '');
-        if (!text) return pbAutoAnatomy(org);
-        const p = (typeof a === 'object' && a.renderProps) || pbActiveProps(org);
-        const prev = typeof window[org.renderFn] === 'function' ? window[org.renderFn](p) : '';
-        return `${prev ? `<div class="anatomy-stage" data-anatomy-auto="1"><div class="anatomy-render">${prev}</div></div>` : ''}
-          <p class="handoff-spec-prose">${pbEscape(text)}</p>`;
+      // Unified path (v1.9): ALWAYS render the live preview + data-anatomy-auto, so every component —
+      // inline-styled or authored-parts — gets the SAME rich, per-element, all-tokens breakdown from
+      // pbPlaceAutoAnatomyPins (consistent display). Authored prose is used for element names + shown once.
+      const desc = (typeof a === 'string') ? a : (a && typeof a === 'object' && a.description) || '';
+      const props = (a && typeof a === 'object' && a.renderProps) || pbActiveProps(org);
+      const prev = (typeof window[org.renderFn] === 'function') ? window[org.renderFn](props) : '';
+      if (prev) {
+        return `<div class="anatomy-stage" data-anatomy-auto="1"><div class="anatomy-render">${prev}</div></div>
+          ${desc ? `<p class="handoff-spec-prose">${pbEscape(desc)}</p>` : ''}`;
       }
-      const preview = typeof window[org.renderFn] === 'function'
-        ? window[org.renderFn](a.renderProps || {}) : '';
+      if (!a || typeof a === 'string' || !a.parts || !a.parts.length) return pbAutoAnatomy(org);
+      const preview = '';
       return `
         <div class="anatomy-stage" data-anatomy-for="${pbEscape(org.id)}">
           <div class="anatomy-render">${preview}</div>
@@ -5098,6 +5100,31 @@
       function chipsHtml(names) {
         return names.length ? names.map(pbAnatomyChip).join('') : '<span class="anatomy-token-note">—</span>';
       }
+      // Split an element's tokens into container aspects (bg/border/radius/size/space) vs the label/text
+      // aspects (color/font/text/line-height), by the CSS property each var() is assigned to.
+      function pbClassifyTokens(el) {
+        var cont = [], lab = [];
+        (el.getAttribute('style') || '').split(';').forEach(function(decl) {
+          var i = decl.indexOf(':'); if (i < 0) return;
+          var prop = decl.slice(0, i).trim().toLowerCase(), val = decl.slice(i + 1);
+          var vars = [], m, re = /var\((--[^,)\s]+)/g;
+          while ((m = re.exec(val)) !== null) vars.push(m[1]);
+          if (!vars.length) return;
+          var isText = prop === 'color' || prop.indexOf('font') === 0 || prop.indexOf('text') === 0 || prop === 'line-height' || prop === 'letter-spacing';
+          var bucket = isText ? lab : cont;
+          vars.forEach(function(v) { if (cont.indexOf(v) === -1 && lab.indexOf(v) === -1) bucket.push(v); });
+        });
+        Array.from(el.classList).forEach(function(cls) {
+          if (tokenMap[cls]) tokenMap[cls].forEach(function(t) { if (cont.indexOf(t) === -1 && lab.indexOf(t) === -1) cont.push(t); });
+        });
+        return { container: cont, label: lab };
+      }
+      function pbHasDirectText(el) {
+        for (var i = 0; i < el.childNodes.length; i++) {
+          if (el.childNodes[i].nodeType === 3 && el.childNodes[i].textContent.trim()) return true;
+        }
+        return false;
+      }
       // Badge direct children of the root (its visual "parts"); fall back to root itself
       var targets = Array.from(root.children).filter(function(el) {
         if (el.tagName === 'STYLE' || el.tagName === 'SCRIPT') return false;
@@ -5124,22 +5151,30 @@
           '<td class="anatomy-el-name">Container</td>' +
           '<td class="anatomy-el-tokens">' + chipsHtml(rootChips) + '</td></tr>'
         : '';
-      var childRows = targets.map(function(el, idx) {
+      var rowsArr = [];
+      targets.forEach(function(el, idx) {
         var n = idx + 1;
         var nested = findOrg(el);
-        var nameTd, tokensTd;
         if (nested) {
-          nameTd = '<a class="anatomy-component-link" href="#" onclick="event.preventDefault();openHandoffDrawer(\'' + pbEscape(nested.id) + '\')">' + pbEscape(nested.name || nested.id) + ' ↗</a>';
-          tokensTd = '<span class="anatomy-token-note">see component</span>';
-        } else {
-          nameTd = pbEscape(proseNames[idx] || autoDesc(el));
-          tokensTd = chipsHtml(getTokenChips(el));
+          // A nested element that IS a documented component → link out, don't re-document it.
+          rowsArr.push('<tr><td><span class="anatomy-badge">' + n + '</span></td>' +
+            '<td class="anatomy-el-name"><a class="anatomy-component-link" href="#" onclick="event.preventDefault();openHandoffDrawer(\'' + pbEscape(nested.id) + '\')">' + pbEscape(nested.name || nested.id) + ' ↗</a></td>' +
+            '<td class="anatomy-el-tokens"><span class="anatomy-token-note">see component</span></td></tr>');
+          return;
         }
-        return '<tr><td><span class="anatomy-badge">' + n + '</span></td>' +
-               '<td class="anatomy-el-name">' + nameTd + '</td>' +
-               '<td class="anatomy-el-tokens">' + tokensTd + '</td></tr>';
-      }).join('');
-      var rows = containerRow + childRows;
+        var name = proseNames[idx] || autoDesc(el);
+        var cl = pbClassifyTokens(el);
+        rowsArr.push('<tr><td><span class="anatomy-badge">' + n + '</span></td>' +
+          '<td class="anatomy-el-name">' + pbEscape(name) + '</td>' +
+          '<td class="anatomy-el-tokens">' + chipsHtml(cl.container.length ? cl.container : cl.label) + '</td></tr>');
+        // The text/label is kept as its OWN individual element (its text-color + typography tokens).
+        if (cl.container.length && cl.label.length && pbHasDirectText(el)) {
+          rowsArr.push('<tr class="anatomy-sub-row"><td></td>' +
+            '<td class="anatomy-el-name anatomy-el-sub">↳ Label</td>' +
+            '<td class="anatomy-el-tokens">' + chipsHtml(cl.label) + '</td></tr>');
+        }
+      });
+      var rows = containerRow + rowsArr.join('');
       if (!rows) return;
       if (proseEl) proseEl.style.display = 'none';
       var wrapper = document.createElement('div');
