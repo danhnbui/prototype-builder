@@ -123,10 +123,14 @@ def run():
             # 1. five tabs
             check(page.locator(".meta-tab").count() == 5, "5 doc tabs render")
 
-            # 1b. build_html fills {{PB_SHELL_VERSION}} in the meta-nav; serve.py passes the version in
-            ver = page.locator(".meta-version").inner_text()
+            # 1b. build_html fills {{PB_SHELL_VERSION}}; the version now lives in the Sandbox menu footer.
+            page.click(".meta-sandbox")
+            page.wait_for_timeout(120)
+            ver = page.locator(".proto-sandbox-menu .sbx-foot").inner_text()
             check(re.match(r"pb v\d", ver) is not None,
-                  f"meta-nav shows the shell version badge ({ver!r})")
+                  f"Sandbox menu footer shows the shell version ({ver!r})")
+            page.evaluate("typeof closeCopyPopover==='function' && closeCopyPopover()")
+            page.wait_for_timeout(80)
 
             # 2. registry token reaches :root
             brand = page.evaluate(
@@ -154,16 +158,16 @@ def run():
                   "valid submit navigates to the dashboard")
 
             # T1.4 — a component named with an apostrophe ("User's Login Card") must
-            # render and open its drawer (pbEscape now escapes quotes).
+            # render in the UI Design list and open its detail (pbEscape escapes quotes).
             page.click('.meta-tab >> nth=3')  # UI Design tab
             page.wait_for_timeout(150)
-            card = page.locator(".handoff-card", has_text="User's Login Card")
-            check(card.count() >= 1, "apostrophe-named component renders in UI Design")
-            if card.count():
-                card.first.click()
+            row = page.locator(".uid-row", has_text="User's Login Card")
+            check(row.count() >= 1, "apostrophe-named component renders in the UI Design list")
+            if row.count():
+                row.first.click()
                 page.wait_for_timeout(150)
-                check(page.locator(".handoff-card.is-selected").count() >= 1,
-                      "apostrophe-named component opens its drawer")
+                check(page.locator(".uid-detail-title", has_text="User's Login Card").count() >= 1,
+                      "apostrophe-named component opens its detail (stacked, no tabs)")
 
             check(not errors, f"zero console errors on golden ({errors})")
             page.close()

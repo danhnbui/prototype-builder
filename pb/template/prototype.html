@@ -166,6 +166,38 @@
       letter-spacing: 0.02em;
       user-select: all;                          /* easy to copy when reporting an issue */
     }
+    /* v1.9 — the consolidated Sandbox control at the right end of the meta nav. */
+    .meta-sandbox {
+      margin-left: auto;                         /* push to the far-right of the flex strip */
+      display: inline-flex; align-items: center; gap: 8px;
+      height: 30px; padding: 0 12px;
+      border-radius: var(--radius, 8px);
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.16);
+      color: var(--neutral-10, #e5e7eb);
+      font-family: var(--font-heading);
+      font-size: var(--font-size-s); font-weight: var(--font-weight-bold);
+      cursor: pointer; transition: background 0.12s, border-color 0.12s;
+    }
+    .meta-sandbox:hover { background: rgba(255,255,255,0.12); border-color: rgba(255,255,255,0.28); }
+    .meta-sandbox-dot { width: 7px; height: 7px; border-radius: 50%; background: #22c55e; }
+    .meta-sandbox-car { color: var(--neutral-40); }
+    /* v1.9 — rows inside the Sandbox popover (reuses .copy-popover / .proto-menu-* shells). */
+    .sbx-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 7px 2px; }
+    .sbx-row-lbl { font-family: var(--font-body); font-size: var(--font-size-xs); font-weight: var(--font-weight-bold);
+      text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-active-secondary, #6b7280); }
+    .sbx-row.is-disabled { opacity: 0.45; pointer-events: none; }
+    .sbx-select { height: 28px; max-width: 150px; border: 1px solid var(--border); border-radius: var(--radius, 8px);
+      background: #fff; font-family: var(--font-body); font-size: var(--font-size-s);
+      color: var(--text-active-primary, #111827); padding: 0 8px; cursor: pointer; }
+    .sbx-sw { position: relative; width: 34px; height: 20px; border-radius: 999px; background: var(--border-strong, #d1d5db); flex: none; }
+    .sbx-sw.on { background: var(--brand); }
+    .sbx-sw::after { content: ""; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: #fff; transition: left 0.12s; }
+    .sbx-sw.on::after { left: 16px; }
+    .sbx-foot { border-top: 1px solid var(--border); margin: 0.6rem -18px 0; padding: 0.6rem 18px 0;
+      font-family: var(--font-mono, ui-monospace, Menlo, monospace); font-size: var(--font-size-xs); color: var(--neutral-40); }
+    /* soft active token for the device switcher when it lives inside the Sandbox menu */
+    .proto-sandbox-menu .proto-device-btn.active { background: var(--brand-soft, #eef0fe); color: var(--brand); border-color: #c3c6f5; }
 
     /* ========================================================================
        META-PANEL — typography + layout for the 4 documentation tabs
@@ -867,6 +899,8 @@
     .pb-info-btn:hover { border-color: var(--brand); color: var(--brand); background: var(--brand-soft); }
     .pb-page-cta { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
     .pb-content { flex: 1 1 auto; padding: 24px 48px 48px; min-width: 0; }
+    /* v1.9 — the Prototype tab has no page header; the device preview fills the whole tab. */
+    .pb-page--proto .pb-content { padding: 0; }
     .pb-content--full { max-width: 960px; margin: 0 auto; width: 100%; }
     .pb-content--split {
       display: grid;
@@ -882,6 +916,29 @@
     .pb-content--fill { flex: 1 1 auto; min-height: 0; overflow: hidden; display: flex; flex-direction: row; }
     .pb-content--fill.pb-content--split { display: grid; align-items: stretch; grid-template-rows: minmax(0, 1fr); }
     .pb-content--fill .pb-aside { position: static; top: auto; max-height: none; height: 100%; align-self: stretch; }
+    /* v1.9 — UI Design master–detail: a scrollable name rail + a stacked detail pane (MUI-docs style). */
+    .uidesign-split { display: grid; grid-template-columns: 248px minmax(0, 1fr); grid-template-rows: minmax(0, 1fr);
+      height: 100%; min-height: 0; padding: 0; }
+    .uidesign-list { border-right: 1px solid var(--border); overflow-y: auto; min-height: 0; height: 100%; padding: 12px 10px; }
+    .uidesign-detail { overflow-y: auto; height: 100%; min-height: 0; padding: 24px 32px; min-width: 0; }
+    .uid-section { margin-bottom: 8px; }
+    .uid-section + .uid-section { border-top: 1px solid var(--border); padding-top: 8px; }
+    .uid-section-head { font-size: var(--font-size-xs); font-weight: var(--font-weight-bold); text-transform: uppercase;
+      letter-spacing: 0.04em; color: var(--text-tertiary); padding: 4px 8px 6px; }
+    .uid-row { display: flex; align-items: baseline; gap: 8px; width: 100%; text-align: left; border: 0; background: transparent;
+      padding: 7px 8px; border-radius: var(--radius, 8px); cursor: pointer; color: var(--text-active-primary); }
+    .uid-row:hover { background: var(--neutral-10, #f3f4f6); }
+    .uid-row.is-active { background: var(--brand-soft, #eef0fe); color: var(--brand); font-weight: var(--font-weight-bold); }
+    .uid-row-name { font-size: var(--font-size-s); }
+    .uid-row-meta { margin-left: auto; font-size: 10px; text-transform: uppercase; letter-spacing: 0.03em; color: var(--text-tertiary); }
+    .uid-detail-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 16px; }
+    .uid-detail-title { font-size: var(--font-size-lg); font-weight: var(--font-weight-bold); margin: 0; }
+    .uid-detail-sub { font-size: var(--font-size-xs); color: var(--text-tertiary); margin: 2px 0 0; }
+    .uid-detail-section { border-top: 1px solid var(--border); padding-top: 18px; margin-top: 18px; }
+    .uid-detail-h { font-size: var(--font-size-s); font-weight: var(--font-weight-bold); text-transform: uppercase; letter-spacing: 0.04em;
+      color: var(--text-active-secondary); margin: 0 0 12px; }
+    .uid-el-row { display: flex; align-items: center; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border); }
+    .uid-el-name { font-size: var(--font-size-s); font-weight: var(--font-weight-bold); }
     .pb-aside {
       position: sticky; top: 24px;
       align-self: start;
@@ -1343,7 +1400,9 @@
       background: var(--bg-soft); padding: 34px 30px 34px 64px;
       margin-bottom: 18px;
     }
-    .anatomy-stage[data-anatomy-auto] { padding: 24px; }
+    .anatomy-stage[data-anatomy-auto] { padding: 72px; overflow: hidden; }
+    .anatomy-stage[data-anatomy-auto] > .anatomy-render { display: flex; justify-content: flex-start; max-width: 100%; }
+    .anatomy-stage[data-anatomy-auto] > .anatomy-render > * { max-width: 100%; }
     .anatomy-badge {
       display: inline-flex; align-items: center; justify-content: center;
       width: 20px; height: 20px; border-radius: 50%;
@@ -1357,9 +1416,17 @@
       border-top: 1.5px dashed #94a3b8;
       pointer-events: none;
     }
-    .anatomy-leader::after {
-      content: ''; position: absolute; right: -3px; top: -3px;
-      width: 5px; height: 5px; border-radius: 50%; background: #475569;
+    .anatomy-leader-v {
+      position: absolute; z-index: 2; width: 0;
+      border-left: 1.5px dashed #94a3b8; pointer-events: none;
+    }
+    .anatomy-leader-dot {
+      position: absolute; z-index: 2; width: 5px; height: 5px; border-radius: 50%;
+      background: #475569; margin: -3px 0 0 -3px; pointer-events: none;
+    }
+    .anatomy-frame-outline {
+      position: absolute; z-index: 1; box-sizing: border-box;
+      border: 1.5px dashed #c4ccd6; border-radius: 10px; pointer-events: none;
     }
     .anatomy-table { width: 100%; border-collapse: collapse; }
     .anatomy-table th {
@@ -1379,12 +1446,17 @@
     .anatomy-container-row td { background: var(--neutral-5); }
     .anatomy-container-row .anatomy-el-name { color: var(--text-tertiary); font-style: italic; }
     .anatomy-el-name { font-size: var(--font-size-xs); font-weight: var(--font-weight-medium); color: var(--text-active-primary); max-width: 140px; }
-    .anatomy-el-tokens { }
+    .anatomy-el-tokens { display: flex; flex-wrap: wrap; gap: 4px; }
     .anatomy-token-chip {
-      display: inline-block; font-size: var(--font-size-xxs); font-family: 'SF Mono', Menlo, monospace;
+      display: inline-flex; align-items: center; gap: 5px; font-size: var(--font-size-xxs); font-family: 'SF Mono', Menlo, monospace;
       background: var(--bg-soft); border: 1px solid var(--border); border-radius: var(--radius-small);
-      padding: 1px 5px; color: var(--text-active-secondary); white-space: nowrap; margin: 1px 2px;
+      padding: 2px 6px; color: var(--text-active-secondary); white-space: nowrap;
     }
+    .atk-sw { width: 11px; height: 11px; border-radius: 3px; border: 1px solid var(--border); flex: none;
+      display: inline-flex; align-items: center; justify-content: center; font-size: 8px; line-height: 1; color: var(--text-tertiary); }
+    .atk-val { color: var(--text-tertiary); }
+    .anatomy-sub-row td { border-top: 0; padding-top: 2px; }
+    .anatomy-el-sub { padding-left: 14px; color: var(--text-tertiary); font-style: italic; }
     .anatomy-component-link {
       color: var(--fill-active-primary); text-decoration: none;
       font-size: var(--font-size-xs); font-weight: var(--font-weight-medium);
@@ -1414,7 +1486,7 @@
     .spec-stage {
       position: relative;
       border: 1px solid var(--border); border-radius: var(--radius-small);
-      background: var(--bg-soft); padding: 40px 76px 26px;
+      background: var(--bg-soft); padding: 54px 80px 26px;
       margin-bottom: 10px; overflow: hidden;
     }
     .spec-render { display: flex; justify-content: center; position: relative; z-index: 1; }
@@ -1431,14 +1503,59 @@
     .spec-cap     { z-index: 2; pointer-events: none; background: currentColor; border-radius: 1px; }
     .spec-witness { height: 0; z-index: 1; pointer-events: none; border-top: 1px dotted rgba(24,24,27,0.22); }
     .spec-chip {
-      z-index: 3; width: 30px; height: 18px; padding: 0 4px; box-sizing: border-box;
-      border-radius: 5px; display: flex; align-items: center; justify-content: center;
+      z-index: 3; min-width: 30px; width: auto; height: 18px; padding: 0 6px; box-sizing: border-box;
+      border-radius: 5px; display: inline-flex; align-items: center; justify-content: center; white-space: nowrap;
       font: var(--font-weight-bold) var(--font-size-xxs)/var(--line-height-xxs) var(--font-body); color: #fff;
       box-shadow: 0 1px 2px rgba(24,24,27,0.18);
     }
     .spec-chip--dimension { background: #f97316; }
     .spec-chip--gap       { background: #2563eb; }
     .spec-chip--margin    { background: #db2777; }
+    /* Component information — Figma-style inspect list */
+    .ci-list { display: flex; flex-direction: column; }
+    .ci-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 9px 2px; border-bottom: 1px solid var(--border); }
+    .ci-row:last-child { border-bottom: 0; }
+    .ci-label { color: var(--text-tertiary); font-size: var(--font-size-xs); }
+    .ci-val { display: inline-flex; align-items: center; gap: 8px; color: var(--text-active-primary); font-size: var(--font-size-xs); }
+    .ci-ic { display: inline-flex; align-items: center; color: var(--text-tertiary); font-size: 10px; }
+    .ci-select { border: 0; background: transparent; color: var(--text-active-primary); font: inherit; padding: 2px 20px 2px 4px; border-radius: 4px; cursor: pointer;
+      -webkit-appearance: none; appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='3' stroke-linecap='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 4px center; }
+    .ci-select:hover { background-color: var(--neutral-5); }
+    .ci-input { border: 1px solid var(--border); background: var(--neutral-0); color: var(--text-active-primary); font: inherit; padding: 3px 8px; border-radius: 5px; max-width: 190px; }
+    /* Layer properties — box-model diagram */
+    .boxmodel-stage { display: flex; justify-content: center; padding: 18px 12px 6px; overflow-x: auto; }
+    .bm-ring { position: relative; display: inline-block; box-sizing: border-box; border-radius: 8px; line-height: 0; }
+    .bm-tag { position: absolute; top: 4px; left: 10px; font: var(--font-weight-bold) 8.5px/1 var(--font-body); letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-tertiary); }
+    .bm-margin  { background: rgba(37,99,235,0.08); padding: 32px 50px; }
+    .bm-border  { background: rgba(100,116,139,0.14); padding: 26px 34px; }
+    .bm-padding { background: rgba(37,99,235,0.16); padding: 26px 38px; text-align: center; }
+    .bm-content { display: inline-block; border: 1px dashed var(--text-tertiary); border-radius: 5px; background: var(--neutral-0); padding: 12px 20px; font: var(--font-weight-bold) var(--font-size-xs)/1.2 var(--font-body); color: var(--text-active-primary); white-space: nowrap; }
+    .bm-e { position: absolute; z-index: 2; min-width: 18px; height: 16px; padding: 0 5px; border-radius: 4px; display: inline-flex; align-items: center; justify-content: center; font: var(--font-weight-bold) 10px/1 var(--font-body); box-shadow: 0 1px 2px rgba(24,24,27,0.20); }
+    .bm-e--t { top: 8px; left: 50%; transform: translateX(-50%); }
+    .bm-e--b { bottom: 8px; left: 50%; transform: translateX(-50%); }
+    .bm-e--l { left: 8px; top: 50%; transform: translateY(-50%); }
+    .bm-e--r { right: 8px; top: 50%; transform: translateY(-50%); }
+    .bm-e--margin { background: #2563eb; color: #fff; }
+    .bm-e--border { background: #64748b; color: #fff; }
+    .bm-e--pad    { background: #1e293b; color: #fff; }
+    .bm-e--zero   { background: transparent; color: var(--text-tertiary); box-shadow: none; }
+    /* Component playground — inline block in the component detail */
+    .pb-pg-inline { border: 1px solid var(--border); border-radius: 12px; overflow: hidden; margin-bottom: 4px; }
+    .pb-pg-body { display: grid; grid-template-columns: minmax(0,1fr) 320px; height: 380px; min-height: 0; }
+    .pb-pg-canvas { position: relative; display: flex; align-items: center; justify-content: center; overflow: auto; background: var(--bg-soft); }
+    .pb-pg-canvas[data-theme="dark"] { background: #1c1f22; }
+    .pb-pg-preview { padding: 48px; }
+    .pb-pg-theme { position: absolute; right: 20px; bottom: 20px; display: inline-flex; gap: 2px; padding: 3px; border-radius: 10px; background: var(--neutral-0); border: 1px solid var(--border); box-shadow: 0 2px 10px rgba(0,0,0,0.14); }
+    .pb-pg-theme button { border: 0; background: transparent; width: 36px; height: 30px; border-radius: 7px; cursor: pointer; color: var(--text-tertiary); display: inline-flex; align-items: center; justify-content: center; }
+    .pb-pg-theme button.is-active { background: var(--neutral-5); color: var(--text-active-primary); }
+    .pb-pg-panel { border-left: 1px solid var(--border); overflow-y: auto; padding: 4px 20px 24px; background: var(--neutral-0); }
+    .pb-pg-section { padding: 16px 0; border-bottom: 1px solid var(--border); }
+    .pb-pg-section:last-child { border-bottom: 0; }
+    .pb-pg-sec-head { display: flex; align-items: center; justify-content: space-between; min-height: 26px; margin-bottom: 4px; }
+    .pb-pg-sec-title { font: var(--font-weight-bold) var(--font-size-sm)/1 var(--font-body); color: var(--text-active-primary); }
+    .pb-pg-reset { border: 0; background: transparent; color: var(--text-tertiary); cursor: pointer; padding: 4px; border-radius: 6px; display: inline-flex; }
+    .pb-pg-reset:hover { background: var(--neutral-5); color: var(--text-active-primary); }
 
     /* ---- v0.3.17 drawer: UI Logic + Usage tabs ---- */
     .uilogic-row { display: flex; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--border); }
@@ -2128,6 +2245,8 @@
       background:#fff; border:1px solid var(--border); border-bottom:0; border-radius:9px 9px 0 0;
       font: var(--font-weight-medium) var(--font-size-xs)/32px var(--font-body); color:var(--text-active-secondary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
     .proto-tab.active { color:var(--text-active-primary); font-weight: var(--font-weight-bold); }
+    .proto-favicon { display:inline-flex; align-items:center; justify-content:center; width:16px; height:16px; border-radius:4px;
+      background:var(--brand); color:#fff; font-size:10px; font-weight:700; line-height:1; flex-shrink:0; }
     .proto-tab-x { cursor:pointer; color:var(--text-tertiary); font-size: var(--font-size-base); line-height: var(--line-height-base); flex-shrink:0; }
     .proto-tab-x:hover { color:var(--danger); }
     .proto-newtab { width:28px; height:28px; border-radius:6px; border:0; background:transparent; color:var(--text-tertiary);
@@ -2341,7 +2460,10 @@
         return `<button class="meta-tab ${state.metaView === id ? 'active' : ''}"
                  onclick="setMetaView('${id}')">${label}${badge}</button>`;
       }).join('') +
-        `<span class="meta-version" title="Rendered by the Product Builder shell v${PB_SHELL_VERSION}">pb v${PB_SHELL_VERSION}</span>`;
+        `<button class="meta-sandbox" onclick="openSandboxMenu(this)" aria-haspopup="dialog" aria-label="Sandbox tools">
+           <span class="meta-sandbox-dot" aria-hidden="true"></span><span>Sandbox</span>
+           <svg class="meta-sandbox-car" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+         </button>`;
     }
 
     /* Returns the # of prompts elapsed since this tab's last sync, or 0 if fresh. */
@@ -2840,32 +2962,12 @@
 
     /* v1.5 — the Prototype sandbox tools (Preview-as-role + Reset) behind a single ⋯ menu.
        Reuses the copy-popover infra (positioning / backdrop / Esc). An overline labels each group. */
+    var _sbxAnchor = null;
     function openSandboxMenu(anchorBtn) {
       document.querySelectorAll('.copy-popover, .copy-popover-backdrop').forEach(el => el.remove());
       window.removeEventListener('keydown', copyPopoverKeyHandler);
       window.removeEventListener('resize', repositionCopyPopover);
-
-      const roles = (typeof pbRolesList === 'function') ? pbRolesList() : [];
-      // Roles render as a single-choice LIST (radiogroup): a leading radio marks the active role,
-      // then its name + a description of its abilities / JTBD. Clicking a row previews as that role.
-      const roleGroup = roles.length ? `
-        <div class="proto-menu-overline">Preview as role</div>
-        <div class="proto-role-list" role="radiogroup" aria-label="Preview as role">
-          ${roles.map(r => {
-            const active = r.id === state.activeRole;
-            return `<button class="proto-role-item ${active ? 'is-active' : ''}" role="radio" aria-checked="${active}"
-                    onclick="setProtoRole('${escapeHtmlAttr(r.id)}'); closeCopyPopover()">
-              <span class="proto-role-item-body">
-                <span class="proto-role-item-head">
-                  <span class="proto-role-item-name">${pbEscape(r.name || r.id)}</span>
-                  ${r.isAdmin ? '<span class="proto-role-badge">admin</span>' : ''}
-                </span>
-                ${r.description ? `<span class="proto-role-item-desc">${pbEscape(r.description)}</span>` : ''}
-              </span>
-              <span class="proto-role-radio ${active ? 'is-on' : ''}" aria-hidden="true"></span>
-            </button>`;
-          }).join('')}
-        </div>` : '';
+      _sbxAnchor = anchorBtn;
 
       const backdrop = document.createElement('div');
       backdrop.className = 'copy-popover-backdrop';
@@ -2875,13 +2977,8 @@
       pop.className = 'copy-popover proto-sandbox-menu';
       pop.setAttribute('role', 'dialog');
       pop.setAttribute('aria-label', 'Sandbox tools');
-      pop.style.width = '268px';
-      pop.innerHTML = `
-        <button class="copy-popover-close" type="button" aria-label="Close" onclick="closeCopyPopover()">${COPY_POPOVER_ICONS.close}</button>
-        ${roleGroup}
-        <div class="proto-menu-hr"></div>
-        <button class="proto-menu-item" type="button" onclick="pbResetSandbox(); closeCopyPopover()">Reset sandbox</button>
-      `;
+      pop.style.width = '288px';
+      pop.innerHTML = pbSandboxMenuHTML();
 
       document.body.appendChild(backdrop);
       document.body.appendChild(pop);
@@ -2890,6 +2987,85 @@
 
       window.addEventListener('keydown', copyPopoverKeyHandler);
       window.addEventListener('resize', repositionCopyPopover);
+    }
+
+    /* Rebuild the open Sandbox menu in place after a control inside it changes state. */
+    function pbSandboxRerender() {
+      const pop = document.querySelector('.proto-sandbox-menu');
+      if (!pop) return;
+      pop.innerHTML = pbSandboxMenuHTML();
+      if (_sbxAnchor) positionCopyPopover(pop, _sbxAnchor);
+    }
+
+    /* Prototype-only preview controls (chrome · device · structure) — same builders renderPrototype used. */
+    function pbSandboxPreviewControls() {
+      const meta = (PB_REGISTRY && PB_REGISTRY.meta) || {};
+      const supported = pbNormalizeDeviceList(meta.devices);
+      const shell = state.protoShell || (meta.shell === 'app' ? 'app' : 'browser');
+      const panel = document.getElementById('proto-struct-panel');
+      const isStructOpen = panel && panel.classList.contains('is-open');
+      const shellToggle = `<div class="proto-shell-toggle" role="group" aria-label="Display type">
+          <button class="proto-shell-btn ${shell === 'browser' ? 'active' : ''}" onclick="setProtoShell('browser'); pbSandboxRerender()">Browser</button>
+          <button class="proto-shell-btn ${shell === 'app' ? 'active' : ''}" onclick="setProtoShell('app'); pbSandboxRerender()">App</button>
+        </div>`;
+      const switcher = `<div class="proto-toolbar" role="tablist" aria-label="Preview device">`
+        + PROTO_DEVICES.map(d => {
+            const ok = supported.indexOf(d.id) !== -1;
+            return `<button class="proto-device-btn ${state.protoDevice === d.id ? 'active' : ''} ${ok ? '' : 'is-disabled'}" role="tab"
+               aria-selected="${state.protoDevice === d.id}" aria-label="${d.label}${ok ? '' : ' (not supported)'}"
+               title="${d.label} · ${d.w}×${d.h}${ok ? '' : ' — not supported by this project'}" ${ok ? '' : 'disabled'}
+               ${ok ? `onclick="setProtoDevice('${d.id}'); pbSandboxRerender()"` : ''}>${protoDeviceIcon(d.id)}</button>`;
+          }).join('')
+        + `</div>`;
+      return `
+        <div class="proto-menu-overline" style="margin-top:0">Preview</div>
+        <div class="sbx-row"><span class="sbx-row-lbl">Chrome</span>${shellToggle}</div>
+        <div class="sbx-row"><span class="sbx-row-lbl">Device</span>${switcher}</div>
+        <button class="proto-menu-item" type="button" style="display:flex;align-items:center;justify-content:space-between;width:100%"
+                onclick="toggleProtoStructPanel(); pbSandboxRerender()">
+          <span>Structure tree</span><span class="sbx-sw ${isStructOpen ? 'on' : ''}" aria-hidden="true"></span>
+        </button>
+        <div class="proto-menu-hr"></div>`;
+    }
+
+    /* Titles of authored terminal-test scenarios (flow.stories[].scenarios[].test). */
+    function pbTestScenarioTitles() {
+      const stories = (PB_DATA && PB_DATA.flow && PB_DATA.flow.stories) || [];
+      const out = [];
+      stories.forEach(s => (s.scenarios || []).forEach(sc => {
+        if (sc && typeof sc === 'object' && sc.test) out.push(sc.title || sc.name || sc.id || 'scenario');
+      }));
+      return out;
+    }
+
+    /* The consolidated Sandbox menu content — adapts to the active tab. Roles/Explore/Terminal are
+       dropdowns, disabled when the project has no data for them. */
+    function pbSandboxMenuHTML() {
+      const onProto = state.metaView === 'prototype';
+      const roles = (typeof pbRolesList === 'function') ? pbRolesList() : [];
+      const tests = pbTestScenarioTitles();
+      const close = `<button class="copy-popover-close" type="button" aria-label="Close" onclick="closeCopyPopover()">${COPY_POPOVER_ICONS.close}</button>`;
+      const preview = onProto ? pbSandboxPreviewControls() : '';
+
+      const rolesSel = roles.length
+        ? `<select class="sbx-select" aria-label="Preview as role" onchange="setProtoRole(this.value); pbSandboxRerender()">
+             ${roles.map(r => `<option value="${escapeHtmlAttr(r.id)}" ${r.id === state.activeRole ? 'selected' : ''}>${pbEscape(r.name || r.id)}${r.isAdmin ? ' · admin' : ''}</option>`).join('')}
+           </select>`
+        : `<select class="sbx-select" disabled aria-label="Roles (none defined)"><option>None</option></select>`;
+      const testsSel = tests.length
+        ? `<select class="sbx-select" aria-label="Terminal test scenarios"><option disabled selected>${tests.length} scenario${tests.length > 1 ? 's' : ''}…</option>${tests.map(t => `<option>${pbEscape(t)}</option>`).join('')}</select>`
+        : `<select class="sbx-select" disabled aria-label="Terminal testing (none)"><option>None</option></select>`;
+      const exploreSel = `<select class="sbx-select" disabled aria-label="Explore options (none)"><option>None</option></select>`;
+
+      return `
+        ${close}
+        ${preview}
+        <div class="proto-menu-overline" ${onProto ? '' : 'style="margin-top:0"'}>Sandbox</div>
+        <button class="proto-menu-item" type="button" onclick="pbResetSandbox(); closeCopyPopover()">Reset session</button>
+        <div class="sbx-row ${roles.length ? '' : 'is-disabled'}"><span class="sbx-row-lbl">Roles</span>${rolesSel}</div>
+        <div class="sbx-row is-disabled"><span class="sbx-row-lbl">Explore</span>${exploreSel}</div>
+        <div class="sbx-row ${tests.length ? '' : 'is-disabled'}"><span class="sbx-row-lbl">Terminal testing</span>${testsSel}</div>
+        <div class="sbx-foot">pb v${PB_SHELL_VERSION}</div>`;
     }
 
     /* v0.3.2 — empty-state helper for tabs that haven't been synced yet. */
@@ -3130,11 +3306,9 @@
       // v1.5 — in a view-only (--people) artifact the ⋯ menu (role switcher + Reset) stays as a VIEWER aid
       // (routed through headerAside, which renders under VIEW_ONLY); the authoring chrome stays in cta.
       const viewerTools = `<div class="proto-header-tools">${menuBtn}</div>`;
-      const headerWithTools = pbPageHeader({
-        title: 'Prototype', infoKey: 'prototype',
-        cta: VIEW_ONLY ? '' : toolsFull,
-        headerAside: VIEW_ONLY ? viewerTools : '',
-      });
+      // v1.9 — the Prototype tab has NO page header: chrome · device · structure · sandbox live in the
+      // consolidated Sandbox menu in the meta nav (openSandboxMenu), and the device preview fills the tab.
+      void toolsFull; void viewerTools;  // legacy header-tool builders above are unused now
 
       const body = (typeof window[sel.renderFn] === 'function')
         ? window[sel.renderFn]()
@@ -3143,8 +3317,7 @@
       const chrome = protoChrome(shell, device, sel, meta);
 
       $('#app').innerHTML = `
-        <div class="pb-page pb-page--viewport">
-          ${headerWithTools}
+        <div class="pb-page pb-page--viewport pb-page--proto">
           <div class="pb-content pb-content--fill">
             <div class="pb-main proto-main" id="proto-main" onclick="pbProtoMainClick(event)">
               <div class="proto-stage" id="proto-stage">
@@ -3195,13 +3368,10 @@
       const path = (sel.id || '').replace(/-/g, '/');
       const displayUrl = `https://${slug}.app/${path}`;
       if (shell === 'browser') {
-        const extra = (state.protoTabs || []).map((t, i) =>
-          `<span class="proto-tab">${pbEscape(t)}<span class="proto-tab-x" title="Close tab" onclick="protoCloseTab(${i})">×</span></span>`).join('');
         const canBack = (state.protoHistory || []).length > 0;
+        const fav = ((meta.name || 'A').trim()[0] || 'A').toUpperCase();
         return `<div class="proto-tabbar">
-            <span class="proto-tab active">${pbEscape(title)}</span>
-            ${extra}
-            <button class="proto-newtab" title="New tab" aria-label="Open a new tab" onclick="protoNewTab()">+</button>
+            <span class="proto-tab active"><span class="proto-favicon" aria-hidden="true">${pbEscape(fav)}</span>${pbEscape(title)}</span>
           </div>
           <div class="proto-navbar">
             <button class="proto-navbtn" title="Back" aria-label="Back" onclick="protoBack()" ${canBack ? '' : 'disabled'}>‹</button>
@@ -4350,31 +4520,79 @@
       }
 
       const isGlobal = o => o.scope === 'global' || !!o.dsMatch;
-      const groups = { global: orgs.filter(isGlobal), local: orgs.filter(o => !isGlobal(o)) };
-      if (!state.handoffTab) state.handoffTab = groups.local.length ? 'local' : (groups.global.length ? 'global' : 'screen');
-      const tab = state.handoffTab;
-      PB_DATA.handoff.view = (tab === 'screen') ? 'screen' : 'component';
-      if (tab !== 'screen') state.handoffScope = tab;
-
-      const tabsCtl = [['global', 'Global', groups.global.length], ['local', 'Local', groups.local.length], ['screen', 'Screen', screens.length]]
-        .map(([id, label, n]) => `<button class="meta-subtab ${tab === id ? 'active' : ''}" onclick="setHandoffTab('${id}')">${label}<span class="meta-subtab-count">${n}</span></button>`).join('');
-
-      const main = (tab === 'screen') ? pbRenderHandoffScreen() : pbRenderHandoffCards(groups[tab]);
-      const aside = (tab === 'screen')
-        ? (state.screenDrawerOpenFor ? `<div class="handoff-drawer">${pbRenderScreenDrawer()}</div>` : pbRenderScreenOverviewAside())
-        : (state.handoffDrawerOpenFor ? pbRenderHandoffDrawer() : pbHandoffAsideHint('Select a component to see its anatomy, specification, UI logic, and usage.'));
+      const global = orgs.filter(isGlobal), local = orgs.filter(o => !isGlobal(o));
+      PB_DATA.handoff.view = 'component';
+      // default selection: first component, else first screen
+      if (!state.handoffDrawerOpenFor && !state.uidScreenSel) {
+        if (orgs.length) state.handoffDrawerOpenFor = orgs[0].id;
+        else if (screens.length) state.uidScreenSel = screens[0].id;
+      }
 
       $('#app').innerHTML = `
         <div class="pb-page">
           ${header}
-          <div class="pb-content pb-content--split">
-            <div class="pb-main handoff-main-col">
-              <div class="meta-subtabs" style="margin-bottom:16px">${tabsCtl}</div>
-              ${main}
-            </div>
-            <aside class="pb-aside">${aside}</aside>
+          <div class="pb-content pb-content--fill uidesign-split">
+            <div class="uidesign-list" id="uidesign-list">${pbHandoffNameList(global, local, screens)}</div>
+            <div class="uidesign-detail" id="uidesign-detail">${pbHandoffDetail(orgs, screens)}</div>
           </div>
         </div>`;
+    }
+
+    /* Left rail — one scrollable list, sectioned Global · Local · Screens (MUI-docs style). */
+    function pbHandoffNameList(global, local, screens) {
+      const row = (name, meta, active, onclick) =>
+        `<button class="uid-row ${active ? 'is-active' : ''}" onclick="${onclick}">
+           <span class="uid-row-name">${pbEscape(name)}</span>${meta ? `<span class="uid-row-meta">${pbEscape(meta)}</span>` : ''}
+         </button>`;
+      const section = (label, rows) => rows.length
+        ? `<div class="uid-section"><div class="uid-section-head">${label}</div>${rows.join('')}</div>` : '';
+      const comp = arr => arr.map(o => row(o.name, o.level, state.handoffDrawerOpenFor === o.id, `pbSelectHandoffComponent('${pbEscape(o.id)}')`));
+      const scr = screens.map(s => row(s.name, 'screen', state.uidScreenSel === s.id, `pbSelectHandoffScreen('${pbEscape(s.id)}')`));
+      return (section('Global', comp(global)) + section('Local', comp(local)) + section('Screens', scr))
+        || `<p class="pb-aside-empty">No components.</p>`;
+    }
+    function pbSelectHandoffComponent(id) { state.handoffDrawerOpenFor = id; state.uidScreenSel = null; renderHandoff(); }
+    function pbSelectHandoffScreen(id) { state.uidScreenSel = id; state.handoffDrawerOpenFor = null; renderHandoff(); }
+
+    /* Right pane — the selected item's full detail, stacked top→down (no tab switcher). */
+    function pbHandoffDetail(orgs, screens) {
+      if (state.handoffDrawerOpenFor) {
+        const org = orgs.find(o => o.id === state.handoffDrawerOpenFor);
+        if (org) return pbHandoffComponentDetail(org);
+      }
+      if (state.uidScreenSel) {
+        const s = screens.find(x => x.id === state.uidScreenSel);
+        if (s) return pbHandoffScreenDetail(s);
+      }
+      return `<p class="pb-aside-empty">Select a component to see its demo, anatomy, specification, UI logic, and usage.</p>`;
+    }
+    function pbUidSection(heading, content) {
+      return `<section class="uid-detail-section"><h3 class="uid-detail-h">${heading}</h3><div class="uid-detail-body">${content}</div></section>`;
+    }
+    function pbHandoffComponentDetail(org) {
+      const props = pbActiveProps(org);
+      return `
+        <div class="uid-detail-head">
+          <div><h2 class="uid-detail-title">${pbEscape(org.name)}</h2>${org.meta ? `<p class="uid-detail-sub">${pbEscape(org.meta)}</p>` : ''}</div>
+          <div class="uid-detail-actions">${pbRenderHandoffCode(org)}</div>
+        </div>
+        ${pbComponentPlaygroundInline(org, props)}
+        ${pbUidSection('Anatomy', pbRenderHandoffAnatomy(org))}
+        ${pbUidSection('Specification', pbRenderHandoffSpec(org))}
+        ${pbUidSection('Layer properties', pbRenderBoxModel(org))}
+        ${pbUidSection('UI Logic', pbRenderHandoffUiLogic(org))}
+        ${pbUidSection('Usage', pbRenderHandoffUsage(org))}`;
+    }
+    function pbHandoffScreenDetail(s) {
+      const preview = (typeof window[s.renderFn] === 'function') ? window[s.renderFn]() : '';
+      const els = s.elements || [];
+      const elList = els.length
+        ? els.map(el => `<div class="uid-el-row"><span class="uid-el-name">${pbEscape(el.label || el.id)}</span>${el.orgId ? `<span class="handoff-level-badge">${pbEscape(el.orgId)}</span>` : (el.placeholder ? '<span class="handoff-level-badge">placeholder</span>' : '')}</div>`).join('')
+        : `<p class="handoff-spec-note">No elements.</p>`;
+      return `
+        <div class="uid-detail-head"><div><h2 class="uid-detail-title">${pbEscape(s.name)}</h2><p class="uid-detail-sub">Screen</p></div></div>
+        ${preview ? `<div class="handoff-card-body handoff-card-body--stacked"><div class="handoff-card-preview">${preview}</div></div>` : ''}
+        ${pbUidSection('Elements', elList)}`;
     }
 
     function pbHandoffAsideHint(msg) { return `<p class="pb-aside-empty">${msg}</p>`; }
@@ -4410,6 +4628,110 @@
         handoffProps[org.id] = seed;
       }
       return handoffProps[org.id];
+    }
+
+    function pbTitleCase(s) { s = String(s == null ? '' : s); return s.charAt(0).toUpperCase() + s.slice(1); }
+
+    /* Component information — the props/variants as a Figma-style inspect list. Option props read as a
+       diamond-marked variant (inline select); free-text props as an editable value. Both stay live. */
+    function pbComponentInfoList(org, props) {
+      const DIAMOND = '<svg width="10" height="10" viewBox="0 0 12 12" aria-hidden="true"><path d="M6 0l6 6-6 6-6-6z" fill="currentColor"/></svg>';
+      const rows = (org.properties || []).map(p => {
+        const label = pbTitleCase(p.label || p.id);
+        const opts = p.options || [];
+        if (opts.length) {
+          const sel = `<select class="ci-select" onchange="setHandoffProp('${pbEscape(org.id)}','${pbEscape(p.id)}',this.value)">`
+            + opts.map(o => `<option value="${pbEscape(o.value)}" ${props[p.id] === o.value ? 'selected' : ''}>${pbEscape(pbTitleCase(o.label || o.value))}</option>`).join('')
+            + `</select>`;
+          return `<div class="ci-row"><span class="ci-label">${pbEscape(label)}</span><span class="ci-val"><span class="ci-ic">${DIAMOND}</span>${sel}</span></div>`;
+        }
+        const val = props[p.id] != null ? props[p.id] : '';
+        return `<div class="ci-row"><span class="ci-label">${pbEscape(label)}</span><span class="ci-val"><span class="ci-ic"><b>Aa</b></span>`
+          + `<input class="ci-input" value="${pbEscape(val)}" onchange="setHandoffProp('${pbEscape(org.id)}','${pbEscape(p.id)}',this.value)"></span></div>`;
+      }).join('');
+      return rows ? `<div class="ci-list">${rows}</div>` : '<p class="handoff-spec-note">No properties.</p>';
+    }
+
+    /* Layer properties — a Figma-style box-model diagram. Renders the component off-screen so
+       pbPlaceBoxModel can measure its real margin/border/padding/content box, then draws it. */
+    function pbRenderBoxModel(org) {
+      const props = pbActiveProps(org);
+      const html = (typeof window[org.renderFn] === 'function') ? window[org.renderFn](props) : '';
+      if (!html) return '<p class="handoff-spec-note">Nothing to measure.</p>';
+      return `<div class="boxmodel-stage" data-boxmodel-for="${pbEscape(org.id)}"><div class="bm-measure" style="position:absolute;left:-9999px;top:0;visibility:hidden">${html}</div></div>`;
+    }
+
+    function pbPlaceBoxModel() {
+      const stage = document.querySelector('.boxmodel-stage[data-boxmodel-for]');
+      if (!stage) return;
+      const measure = stage.querySelector('.bm-measure');
+      const root = measure && measure.firstElementChild;
+      if (!root) return;
+      const cs = getComputedStyle(root);
+      const n = v => Math.round(parseFloat(v) || 0);
+      const mg = { t: n(cs.marginTop), r: n(cs.marginRight), b: n(cs.marginBottom), l: n(cs.marginLeft) };
+      const bd = { t: n(cs.borderTopWidth), r: n(cs.borderRightWidth), b: n(cs.borderBottomWidth), l: n(cs.borderLeftWidth) };
+      const pd = { t: n(cs.paddingTop), r: n(cs.paddingRight), b: n(cs.paddingBottom), l: n(cs.paddingLeft) };
+      const cw = Math.max(0, Math.round(root.clientWidth - pd.l - pd.r));
+      const ch = Math.max(0, Math.round(root.clientHeight - pd.t - pd.b));
+      const edges = (kind, v) => ['t', 'r', 'b', 'l'].map(s =>
+        `<span class="bm-e bm-e--${s} bm-e--${kind}${v[s] ? '' : ' bm-e--zero'}">${v[s] || '–'}</span>`).join('');
+      stage.innerHTML =
+        `<div class="bm-ring bm-margin"><span class="bm-tag">Margin</span>${edges('margin', mg)}`
+        + `<div class="bm-ring bm-border"><span class="bm-tag">Border</span>${edges('border', bd)}`
+        + `<div class="bm-ring bm-padding"><span class="bm-tag">Padding</span>${edges('pad', pd)}`
+        + `<div class="bm-content">${cw} × ${ch}</div></div></div></div>`;
+    }
+
+    /* Component playground — a full-screen modal to preview a component large with its prop controls
+       and a light/dark canvas toggle. Props share handoffProps, so changes reflect back in the detail. */
+    const PB_PG_ICONS = {
+      sun: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>',
+      moon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>',
+      reset: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>'
+    };
+    function pbComponentPlaygroundInline(org, props) {
+      const preview = (typeof window[org.renderFn] === 'function') ? window[org.renderFn](props) : '';
+      const theme = state.pgTheme || 'light';
+      return `<div class="pb-pg-inline"><div class="pb-pg-body">
+          <div class="pb-pg-canvas" data-theme="${theme}">
+            <div class="pb-pg-preview">${preview}</div>
+            <div class="pb-pg-theme">
+              <button data-theme-val="light" class="${theme === 'light' ? 'is-active' : ''}" title="Light" onclick="setPlaygroundTheme('light')">${PB_PG_ICONS.sun}</button>
+              <button data-theme-val="dark" class="${theme === 'dark' ? 'is-active' : ''}" title="Dark" onclick="setPlaygroundTheme('dark')">${PB_PG_ICONS.moon}</button>
+            </div>
+          </div>
+          <aside class="pb-pg-panel">
+            <div class="pb-pg-section">
+              <div class="pb-pg-sec-head"><span class="pb-pg-sec-title">${pbEscape(org.name)}</span>
+                <button class="pb-pg-reset" title="Reset properties" onclick="pbResetPlaygroundProps('${pbEscape(org.id)}')">${PB_PG_ICONS.reset}</button></div>
+              ${pbComponentInfoList(org, props)}
+            </div>
+            <div class="pb-pg-section">
+              <div class="pb-pg-sec-head"><span class="pb-pg-sec-title">Display</span></div>
+              <div class="ci-list"><div class="ci-row"><span class="ci-label">Color Mode</span>
+                <span class="ci-val"><select class="ci-select pb-cm-select" onchange="setPlaygroundTheme(this.value)">
+                  <option value="light" ${theme === 'light' ? 'selected' : ''}>Light</option>
+                  <option value="dark" ${theme === 'dark' ? 'selected' : ''}>Dark</option>
+                </select></span></div></div>
+            </div>
+          </aside>
+        </div></div>`;
+    }
+    /* Theme only affects the preview canvas — toggle it in place (no full re-render, keeps scroll). */
+    function setPlaygroundTheme(t) {
+      state.pgTheme = t;
+      document.querySelectorAll('.pb-pg-canvas').forEach(c => c.setAttribute('data-theme', t));
+      document.querySelectorAll('.pb-pg-theme button').forEach(b => b.classList.toggle('is-active', b.getAttribute('data-theme-val') === t));
+      document.querySelectorAll('select.pb-cm-select').forEach(s => { s.value = t; });
+    }
+    function pbResetPlaygroundProps(orgId) {
+      const org = (PB_DATA.handoff.organisms || []).find(x => x.id === orgId);
+      if (!org) return;
+      const seed = {};
+      (org.properties || []).forEach(p => { seed[p.id] = p.default; });
+      handoffProps[orgId] = seed;
+      renderHandoff();
     }
 
     /* v0.3.13 — Auto-position handoff hit overlays from rendered elements. */
@@ -4601,18 +4923,18 @@
 
     function pbRenderHandoffAnatomy(org) {
       const a = org.anatomy;
-      if (!a) return pbAutoAnatomy(org);
-      // Prose form: components often author anatomy as a plain string (or {description}).
-      if (typeof a === 'string' || !a.parts || !a.parts.length) {
-        const text = typeof a === 'string' ? a : (a.description || '');
-        if (!text) return pbAutoAnatomy(org);
-        const p = (typeof a === 'object' && a.renderProps) || pbActiveProps(org);
-        const prev = typeof window[org.renderFn] === 'function' ? window[org.renderFn](p) : '';
-        return `${prev ? `<div class="anatomy-stage" data-anatomy-auto="1"><div class="anatomy-render">${prev}</div></div>` : ''}
-          <p class="handoff-spec-prose">${pbEscape(text)}</p>`;
+      // Unified path (v1.9): ALWAYS render the live preview + data-anatomy-auto, so every component —
+      // inline-styled or authored-parts — gets the SAME rich, per-element, all-tokens breakdown from
+      // pbPlaceAutoAnatomyPins (consistent display). Authored prose is used for element names + shown once.
+      const desc = (typeof a === 'string') ? a : (a && typeof a === 'object' && a.description) || '';
+      const props = (a && typeof a === 'object' && a.renderProps) || pbActiveProps(org);
+      const prev = (typeof window[org.renderFn] === 'function') ? window[org.renderFn](props) : '';
+      if (prev) {
+        return `<div class="anatomy-stage" data-anatomy-auto="1"><div class="anatomy-render">${prev}</div></div>
+          ${desc ? `<p class="handoff-spec-prose">${pbEscape(desc)}</p>` : ''}`;
       }
-      const preview = typeof window[org.renderFn] === 'function'
-        ? window[org.renderFn](a.renderProps || {}) : '';
+      if (!a || typeof a === 'string' || !a.parts || !a.parts.length) return pbAutoAnatomy(org);
+      const preview = '';
       return `
         <div class="anatomy-stage" data-anatomy-for="${pbEscape(org.id)}">
           <div class="anatomy-render">${preview}</div>
@@ -4839,7 +5161,7 @@
     function pbPlaceAutoAnatomyPins() {
       var stage = document.querySelector('.anatomy-stage[data-anatomy-auto]');
       if (!stage) return;
-      stage.querySelectorAll('.anatomy-pin-auto').forEach(function(e) { e.remove(); });
+      stage.querySelectorAll('.anatomy-pin-auto, .anatomy-leader, .anatomy-leader-v, .anatomy-leader-dot, .anatomy-frame-outline').forEach(function(e) { e.remove(); });
       var prevTable = stage.parentNode && stage.parentNode.querySelector('.anatomy-auto-table');
       if (prevTable) prevTable.remove();
       var container = stage.querySelector('.anatomy-render');
@@ -4852,6 +5174,13 @@
         if (c.tagName !== 'STYLE' && c.tagName !== 'SCRIPT') { root = c; break; }
       }
       if (!root) return;
+      // Scale a too-wide preview down so the component always sits inside the box with its
+      // ≥24px padding intact (never clipped against the right edge). Anchored top-left at the
+      // left gutter; element anchors below are measured AFTER the scale, so callouts stay true.
+      container.style.transform = ''; container.style.transformOrigin = 'left top';
+      var availW = stage.clientWidth - 72 - 72;   // stage padding: 72 left · 72 right
+      var natW = root.getBoundingClientRect().width;
+      if (natW > availW && availW > 0) { container.style.transform = 'scale(' + (availW / natW).toFixed(4) + ')'; }
       // Build className→tokens map from <style> tag inside render
       var tokenMap = {};
       var styleEl = container.querySelector('style');
@@ -4905,55 +5234,157 @@
       }
       function getTokenChips(el) {
         var tokens = [];
+        // 1 — class-based tokens (from a <style> block's rules)
         Array.from(el.classList).forEach(function(cls) {
           if (tokenMap[cls]) tokenMap[cls].forEach(function(t) { if (tokens.indexOf(t) === -1) tokens.push(t); });
         });
+        // 2 — inline-style tokens: every var(--x) in the element's own style="" attribute
+        var inline = el.getAttribute('style') || '';
+        var ivar = /var\((--[^,)\s]+)/g, im;
+        while ((im = ivar.exec(inline)) !== null) { if (tokens.indexOf(im[1]) === -1) tokens.push(im[1]); }
         return tokens;
       }
-      // Badge direct children of the root (its visual "parts"); fall back to root itself
+      // A rich, typed chip: kind-appropriate swatch + token name + its value (from the registry).
+      function pbAnatomyChip(varName) {
+        var key = varName.replace(/^--/, '');
+        var t = (PB_REGISTRY && PB_REGISTRY.tokens && PB_REGISTRY.tokens[key]) || null;
+        var kind = t ? (t.kind || 'other') : 'other', val = t ? (t.value || '') : '';
+        var sw;
+        if (kind === 'color') sw = '<span class="atk-sw" style="background:' + pbEscape(val) + '"></span>';
+        else if (kind === 'radius') sw = '<span class="atk-sw" style="border-radius:' + pbEscape(val) + '"></span>';
+        else if (kind === 'type' || kind === 'fontSize' || kind === 'font') sw = '<span class="atk-sw">Aa</span>';
+        else if (kind === 'space' || kind === 'size') sw = '<span class="atk-sw">↔</span>';
+        else sw = '<span class="atk-sw"></span>';
+        return '<code class="anatomy-token-chip" title="' + pbEscape(kind) + '">' + sw +
+               pbEscape(varName) + (val ? '<span class="atk-val">' + pbEscape(val) + '</span>' : '') + '</code>';
+      }
+      function chipsHtml(names) {
+        return names.length ? names.map(pbAnatomyChip).join('') : '<span class="anatomy-token-note">—</span>';
+      }
+      // Split an element's tokens into container aspects (bg/border/radius/size/space) vs the label/text
+      // aspects (color/font/text/line-height), by the CSS property each var() is assigned to.
+      function pbClassifyTokens(el) {
+        var cont = [], lab = [];
+        (el.getAttribute('style') || '').split(';').forEach(function(decl) {
+          var i = decl.indexOf(':'); if (i < 0) return;
+          var prop = decl.slice(0, i).trim().toLowerCase(), val = decl.slice(i + 1);
+          var vars = [], m, re = /var\((--[^,)\s]+)/g;
+          while ((m = re.exec(val)) !== null) vars.push(m[1]);
+          if (!vars.length) return;
+          var isText = prop === 'color' || prop.indexOf('font') === 0 || prop.indexOf('text') === 0 || prop === 'line-height' || prop === 'letter-spacing';
+          var bucket = isText ? lab : cont;
+          vars.forEach(function(v) { if (cont.indexOf(v) === -1 && lab.indexOf(v) === -1) bucket.push(v); });
+        });
+        Array.from(el.classList).forEach(function(cls) {
+          if (tokenMap[cls]) tokenMap[cls].forEach(function(t) { if (cont.indexOf(t) === -1 && lab.indexOf(t) === -1) cont.push(t); });
+        });
+        return { container: cont, label: lab };
+      }
+      function pbHasDirectText(el) {
+        for (var i = 0; i < el.childNodes.length; i++) {
+          if (el.childNodes[i].nodeType === 3 && el.childNodes[i].textContent.trim()) return true;
+        }
+        return false;
+      }
+      // Build the numbered parts: the container (composed components) + each visual child element +
+      // a "Label" part for any element carrying its own text (background vs label = two elements).
       var targets = Array.from(root.children).filter(function(el) {
         if (el.tagName === 'STYLE' || el.tagName === 'SCRIPT') return false;
         var r = el.getBoundingClientRect();
         return r.width > 0 || r.height > 0;
       });
       if (!targets.length) targets = [root];
-      // Place in-element badges at top-left corner of each target
+      var isLeaf = (targets.length === 1 && targets[0] === root);
+      var parts = [];
+      if (!isLeaf) parts.push({ el: root, name: 'Container', tokens: pbClassifyTokens(root).container, isContainer: true });
       targets.forEach(function(el, idx) {
-        var r = el.getBoundingClientRect();
-        var badge = document.createElement('span');
-        badge.className = 'anatomy-badge anatomy-badge--pin anatomy-pin-auto';
-        badge.textContent = idx + 1;
-        badge.style.top = (r.top - stageRect.top - 9) + 'px';
-        badge.style.left = (r.left - stageRect.left - 9) + 'px';
-        stage.appendChild(badge);
-      });
-      // Build breakdown table
-      // Container row: tokens on the root component element itself (spacing, border, color, etc.)
-      var rootChips = getTokenChips(root);
-      var containerRow = rootChips.length
-        ? '<tr class="anatomy-container-row"><td><span class="anatomy-token-note">—</span></td>' +
-          '<td class="anatomy-el-name">Container</td>' +
-          '<td class="anatomy-el-tokens">' + rootChips.map(function(t) { return '<code class="anatomy-token-chip">' + pbEscape(t) + '</code>'; }).join('') + '</td></tr>'
-        : '';
-      var childRows = targets.map(function(el, idx) {
-        var n = idx + 1;
         var nested = findOrg(el);
-        var nameTd, tokensTd;
-        if (nested) {
-          nameTd = '<a class="anatomy-component-link" href="#" onclick="event.preventDefault();openHandoffDrawer(\'' + pbEscape(nested.id) + '\')">' + pbEscape(nested.name || nested.id) + ' ↗</a>';
-          tokensTd = '<span class="anatomy-token-note">see component</span>';
-        } else {
-          nameTd = pbEscape(proseNames[idx] || autoDesc(el));
-          var chips = getTokenChips(el);
-          tokensTd = chips.length
-            ? chips.map(function(t) { return '<code class="anatomy-token-chip">' + pbEscape(t) + '</code>'; }).join('')
-            : '<span class="anatomy-token-note">—</span>';
+        if (nested) { parts.push({ el: el, name: (nested.name || nested.id), link: nested.id }); return; }
+        var cl = pbClassifyTokens(el);
+        parts.push({ el: el, name: (proseNames[idx] || autoDesc(el)), tokens: (cl.container.length ? cl.container : cl.label), edge: 'top' });
+        if (cl.container.length && cl.label.length && pbHasDirectText(el)) {
+          parts.push({ el: el, name: 'Label', tokens: cl.label, isLabel: true, edge: 'mid' });
         }
-        return '<tr><td><span class="anatomy-badge">' + n + '</span></td>' +
+      });
+      parts.forEach(function(p, i) { p.n = i + 1; });
+
+      // The precise text box of an element's own text (so a Label leader lands ON the text, not the edge).
+      function pbTextRect(el) {
+        for (var i = 0; i < el.childNodes.length; i++) {
+          var nn = el.childNodes[i];
+          if (nn.nodeType === 3 && nn.textContent.trim()) {
+            var rg = document.createRange(); rg.selectNodeContents(nn);
+            var rr = rg.getBoundingClientRect();
+            if (rr.width || rr.height) return rr;
+          }
+        }
+        return el.getBoundingClientRect();
+      }
+      // Each badge parks in a gutter OUTSIDE the component and draws ONE straight dashed leader
+      // (no corners) to the part's anchor: horizontal for left/right, vertical for top/bottom.
+      // Element parts anchor at their CENTER (so label/input/error fall on their own rows) and take
+      // the first free direction in the fixed ladder — LEFT, RIGHT, TOP, BOTTOM. The Container is the
+      // exception: it points at the FRAME's top border, never onto a child's text. The 72px gutter
+      // keeps every badge >=24px off both the object edge and the box edge.
+      function hLine(x, y, w) { var d = document.createElement('div'); d.className = 'anatomy-leader'; d.style.left = x + 'px'; d.style.top = y + 'px'; d.style.width = Math.max(4, w) + 'px'; stage.appendChild(d); }
+      function vLine(x, y, h) { var d = document.createElement('div'); d.className = 'anatomy-leader-v'; d.style.left = x + 'px'; d.style.top = y + 'px'; d.style.height = Math.max(4, h) + 'px'; stage.appendChild(d); }
+      function dotAt(x, y) { var d = document.createElement('div'); d.className = 'anatomy-leader-dot'; d.style.left = x + 'px'; d.style.top = y + 'px'; stage.appendChild(d); }
+      function badgeAt(n, x, y) { var b = document.createElement('span'); b.className = 'anatomy-badge anatomy-badge--pin anatomy-pin-auto'; b.textContent = n; b.style.left = (x - 10) + 'px'; b.style.top = (y - 10) + 'px'; stage.appendChild(b); }
+      // Gutters hug the COMPONENT's bounding box (not the stage), so a left-aligned or narrow
+      // component still gets short leaders on every side. 38px out = badge 28px off the object edge;
+      // the 72px stage padding keeps that same gutter >=24px off the box edge.
+      var rootRect = root.getBoundingClientRect();
+      var cL = rootRect.left - stageRect.left, cR = rootRect.right - stageRect.left;
+      var cT = rootRect.top - stageRect.top, cB = rootRect.bottom - stageRect.top;
+      var leftX = cL - 38, rightX = cR + 38, topY = cT - 38, botY = cB + 38;
+      var usedL = [], usedR = [], usedT = [], usedB = [];
+      function free(arr, v) { return !arr.some(function (u) { return Math.abs(u - v) < 26; }); }
+      parts.forEach(function (p) {
+        var rect = p.isLabel ? pbTextRect(p.el) : p.el.getBoundingClientRect();
+        var L = rect.left - stageRect.left, R = rect.right - stageRect.left;
+        var T = rect.top - stageRect.top, B = rect.bottom - stageRect.top;
+        var ay = T + rect.height / 2;   // CENTER of the label/element — parts land on their own rows
+        var ax = L + rect.width / 2;
+        // The whole-component Container points at the FRAME's top border (the empty band above the
+        // first child), never onto a child's text — it owns the top gutter so element rows stay clean.
+        if (p.isContainer) {
+          // The frame has no border of its own, so draw one: a dashed bounding-box outline sitting
+          // 8px outside the component (clear of the input's own border). Badge 1's leader then lands
+          // on that real, drawn top edge — never on empty air or a child's text.
+          var op = 8;
+          var ol = document.createElement('div');
+          ol.className = 'anatomy-frame-outline';
+          ol.style.left = (cL - op) + 'px'; ol.style.top = (cT - op) + 'px';
+          ol.style.width = (cR - cL + op * 2) + 'px'; ol.style.height = (cB - cT + op * 2) + 'px';
+          stage.appendChild(ol);
+          var fx = cL + rect.width / 2;   // centred on the frame's top edge, clear of the left label
+          while (!free(usedT, fx)) fx += 26; usedT.push(fx);
+          dotAt(fx, cT - op); vLine(fx, topY + 12, (cT - op) - topY - 12); badgeAt(p.n, fx, topY); return;
+        }
+        if (free(usedL, ay)) {                    // 1 · LEFT — horizontal to the left edge
+          usedL.push(ay); dotAt(L, ay); hLine(leftX + 12, ay, L - leftX - 12); badgeAt(p.n, leftX, ay);
+        } else if (free(usedR, ay)) {             // 2 · RIGHT — horizontal to the right edge
+          usedR.push(ay); dotAt(R, ay); hLine(R, ay, rightX - 12 - R); badgeAt(p.n, rightX, ay);
+        } else if (free(usedT, ax)) {             // 3 · TOP — vertical down to the top edge
+          usedT.push(ax); dotAt(ax, T); vLine(ax, topY + 12, T - topY - 12); badgeAt(p.n, ax, topY);
+        } else if (free(usedB, ax)) {             // 4 · BOTTOM — vertical up to the bottom edge
+          usedB.push(ax); dotAt(ax, B); vLine(ax, B, botY - 12 - B); badgeAt(p.n, ax, botY);
+        } else {                                  // last resort: stack in the left gutter, nudged down
+          var y = ay; while (!free(usedL, y)) y += 26; usedL.push(y);
+          dotAt(L, ay); hLine(leftX + 12, ay, L - leftX - 12); badgeAt(p.n, leftX, y);
+        }
+      });
+
+      // Build the breakdown table from the SAME parts (row numbers match the badges).
+      var rows = parts.map(function(p) {
+        var nameTd = p.link
+          ? '<a class="anatomy-component-link" href="#" onclick="event.preventDefault();openHandoffDrawer(\'' + pbEscape(p.link) + '\')">' + pbEscape(p.name) + ' ↗</a>'
+          : (p.isLabel ? '<span class="anatomy-el-sub">↳ ' + pbEscape(p.name) + '</span>' : pbEscape(p.name));
+        var tokensTd = p.link ? '<span class="anatomy-token-note">see component</span>' : chipsHtml(p.tokens || []);
+        return '<tr' + (p.isLabel ? ' class="anatomy-sub-row"' : '') + '><td><span class="anatomy-badge">' + p.n + '</span></td>' +
                '<td class="anatomy-el-name">' + nameTd + '</td>' +
                '<td class="anatomy-el-tokens">' + tokensTd + '</td></tr>';
       }).join('');
-      var rows = containerRow + childRows;
       if (!rows) return;
       if (proseEl) proseEl.style.display = 'none';
       var wrapper = document.createElement('div');
@@ -5005,6 +5436,9 @@
           mk('spec-cap' + m,   `left:${x + len - 1}px;top:${y - 5}px;width:2px;height:10px`);
         }
       };
+      /* a spacing chip in plain pixels, centred on x via a transform (auto width) */
+      const spaceChip = (cls, x, y, v) =>
+        mk('spec-chip ' + cls, `left:${x}px;top:${y - chipH / 2}px;height:${chipH}px;transform:translateX(-50%)`, Math.round(v));
 
       let minL = Infinity, maxR = 0, maxW = 0;
       els.forEach(e => { minL = Math.min(minL, e.r.left); maxR = Math.max(maxR, e.r.right); maxW = Math.max(maxW, e.r.width); });
@@ -5012,23 +5446,32 @@
       const compTop = els[0].r.top - sr.top, compBot = els[els.length - 1].r.bottom - sr.top;
       const chipH = 18, chipW = 30;
 
-      /* element heights (run down the LEFT) + inter-element gaps (run down the RIGHT) */
+      /* the component's OUTER box (its wrapping element). Anchoring the width + gap lines here — rather
+         than to the content bounds — is what keeps witnesses short: on a card the content sits well
+         inside the box, so a content-anchored gap line trailed halfway across the card. */
+      const _wc = stage.querySelector(s.stack[0].anchor);
+      const _wp = _wc && _wc.parentElement;
+      const owr = (_wp && stage.contains(_wp)) ? _wp.getBoundingClientRect() : null;
+      const owL = owr ? owr.left - sr.left : compL;
+      const owR = owr ? owr.right - sr.left : compR;
+      const owTop = owr ? owr.top - sr.top : compTop;
+
+      /* element heights + inter-element gaps */
       const heights = [], gaps = [];
       els.forEach((e, i) => {
         const top = e.r.top - sr.top, bot = e.r.bottom - sr.top;
         heights.push({ value: Math.round(bot - top), top: top, bot: bot });
         if (i < els.length - 1) {
-          const gBot = els[i + 1].r.top - sr.top;
-          if (gBot - bot > 0.5) gaps.push({ value: Math.round(gBot - bot), top: bot, bot: gBot });
+          const gTop = bot, gBot = els[i + 1].r.top - sr.top;
+          if (gBot - gTop > 0.5) gaps.push({ value: Math.round(gBot - gTop), top: gTop, bot: gBot });
         }
       });
-
-      /* gap region bands on the component — dotted top + bottom edges */
+      /* subtle band marking each gap region across the component */
       gaps.forEach(g => mk('spec-band spec-band--gap',
         `left:${compL}px;top:${g.top}px;width:${compR - compL}px;height:${g.bot - g.top}px`));
 
-      /* LEFT — one orange dimension line per element height, chip beside it */
-      const xL = Math.max(compL - 26, chipW + 10);
+      /* LEFT — one orange dimension line per element height, witness to the element's left edge */
+      const xL = Math.max(compL - 26, chipW + 12);
       heights.forEach(h => {
         mk('spec-witness', `left:${xL}px;top:${h.top}px;width:${compL - xL}px`);
         mk('spec-witness', `left:${xL}px;top:${h.bot}px;width:${compL - xL}px`);
@@ -5037,21 +5480,21 @@
           `left:${xL - 7 - chipW}px;top:${(h.top + h.bot) / 2 - chipH / 2}px;height:${chipH}px`, h.value);
       });
 
-      /* RIGHT — one blue dimension line per gap, chip beside it */
-      const xR = Math.min(compR + 26, sr.width - chipW - 14);
+      /* RIGHT — one blue dimension line per gap, mirrored just outside the box's OUTER right edge */
+      const xR = owR + 26;
       gaps.forEach(g => {
-        mk('spec-witness', `left:${compR}px;top:${g.top}px;width:${xR - compR}px`);
-        mk('spec-witness', `left:${compR}px;top:${g.bot}px;width:${xR - compR}px`);
+        mk('spec-witness', `left:${owR}px;top:${g.top}px;width:${xR - owR}px`);
+        mk('spec-witness', `left:${owR}px;top:${g.bot}px;width:${xR - owR}px`);
         dimLine('gap', 'v', xR, g.top, g.bot - g.top);
         mk('spec-chip spec-chip--gap',
-          `left:${xR + 7}px;top:${(g.top + g.bot) / 2 - chipH / 2}px;height:${chipH}px`, g.value);
+          `left:${xR + 8}px;top:${(g.top + g.bot) / 2 - chipH / 2}px;height:${chipH}px`, g.value);
       });
 
-      /* overall content width — horizontal dimension line above the component */
-      const wY = compTop - 15;
-      dimLine('dimension', 'h', compL, wY, compR - compL);
+      /* overall width — spans the component's OUTER box, above everything */
+      const wY = owTop - 15;
+      dimLine('dimension', 'h', owL, wY, owR - owL);
       mk('spec-chip spec-chip--dimension',
-        `left:${(compL + compR) / 2 - chipW / 2}px;top:${wY - chipH - 3}px;height:${chipH}px`, Math.round(maxW));
+        `left:${(owL + owR) / 2 - chipW / 2}px;top:${wY - chipH - 3}px;height:${chipH}px`, Math.round(owR - owL));
 
       /* declared horizontal margin — dotted-edge bands flanking the component;
          one labelled dimension line below the left band (margin is symmetric) */
@@ -5063,8 +5506,7 @@
         mk('spec-band spec-band--margin', `left:${compR}px;top:${compTop}px;width:${m}px;height:${bH}px`);
         const mY = compBot + 17;
         dimLine('margin', 'h', compL - m, mY, m);
-        mk('spec-chip spec-chip--margin',
-          `left:${compL - m / 2 - chipW / 2}px;top:${mY + 6}px;height:${chipH}px`, m);
+        spaceChip('spec-chip--margin', compL - m / 2, mY + 6 + chipH / 2, m);
         bottomY = mY + 6 + chipH;
       }
 
@@ -5077,16 +5519,24 @@
         const pad = { t: parseFloat(cs.paddingTop) || 0, r: parseFloat(cs.paddingRight) || 0, b: parseFloat(cs.paddingBottom) || 0, l: parseFloat(cs.paddingLeft) || 0 };
         const cr = container.getBoundingClientRect();
         const cL = cr.left - sr.left, cR = cr.right - sr.left, cT = cr.top - sr.top, cB = cr.bottom - sr.top;
-        if (pad.t > 0) {
-          mk('spec-band spec-band--pad', `left:${cL}px;top:${cT}px;width:${cR - cL}px;height:${pad.t}px`);
-          mk('spec-chip spec-chip--pad', `left:${(cL + cR) / 2 - chipW / 2}px;top:${cT + pad.t / 2 - chipH / 2}px;height:${chipH}px`, Math.round(pad.t));
-        }
+        /* shaded bands on every padded side show WHERE the padding sits */
+        if (pad.t > 0) mk('spec-band spec-band--pad', `left:${cL}px;top:${cT}px;width:${cR - cL}px;height:${pad.t}px`);
         if (pad.b > 0) mk('spec-band spec-band--pad', `left:${cL}px;top:${cB - pad.b}px;width:${cR - cL}px;height:${pad.b}px`);
-        if (pad.l > 0) {
-          mk('spec-band spec-band--pad', `left:${cL}px;top:${cT + pad.t}px;width:${pad.l}px;height:${cB - cT - pad.t - pad.b}px`);
-          mk('spec-chip spec-chip--pad', `left:${cL + pad.l / 2 - chipW / 2}px;top:${(cT + cB) / 2 - chipH / 2}px;height:${chipH}px`, Math.round(pad.l));
-        }
+        if (pad.l > 0) mk('spec-band spec-band--pad', `left:${cL}px;top:${cT + pad.t}px;width:${pad.l}px;height:${cB - cT - pad.t - pad.b}px`);
         if (pad.r > 0) mk('spec-band spec-band--pad', `left:${cR - pad.r}px;top:${cT + pad.t}px;width:${pad.r}px;height:${cB - cT - pad.t - pad.b}px`);
+        /* numeric labels — kept OFF the content. Uniform padding → one chip in the top band; otherwise
+           top/bottom labels sit centred in their (full-width, empty) bands and left/right in the top
+           corners, clear of left-aligned body text. */
+        const padChip = (x, y, v) => spaceChip('spec-chip--pad', x, y, v);
+        const uniform = pad.t > 0 && pad.t === pad.b && pad.t === pad.l && pad.t === pad.r;
+        if (uniform) {
+          padChip((cL + cR) / 2, cT + pad.t / 2, pad.t);
+        } else {
+          if (pad.t > 0) padChip((cL + cR) / 2, cT + pad.t / 2, pad.t);
+          if (pad.b > 0) padChip((cL + cR) / 2, cB - pad.b / 2, pad.b);
+          if (pad.l > 0) padChip(cL + pad.l / 2, cT + Math.min(pad.t / 2 || 11, 11), pad.l);
+          if (pad.r > 0) padChip(cR - pad.r / 2, cT + Math.min(pad.t / 2 || 11, 11), pad.r);
+        }
       }
 
       /* grow the stage so nothing in the bottom margin row is clipped */
@@ -5107,16 +5557,17 @@
     /* Patch renderHandoff so bounds + anatomy badges + spec redline recompute every draw. */
     (function patchRenderHandoff(){
       const orig = window.renderHandoff;
-      const after = function(){ recomputeHandoffBounds(); pbPlaceAnatomyBadges(); pbPlaceAutoAnatomyPins(); pbPlaceSpecAnnotations(); };
+      const after = function(){ recomputeHandoffBounds(); pbPlaceAnatomyBadges(); pbPlaceAutoAnatomyPins(); pbPlaceSpecAnnotations(); pbPlaceBoxModel(); };
       window.renderHandoff = function() {
         /* Preserve the left card-list scroll across re-renders so opening a
            component / switching a dropdown doesn't jump it back to the top.
            The drawer body is a fresh element each render, so it naturally
            loads at its starting point — which is the intended behavior. */
-        const prevScroll = (document.querySelector('.handoff-main-col') || {}).scrollTop || 0;
+        const prevList = (document.querySelector('.uidesign-list') || {}).scrollTop || 0;
+        const prevDetail = (document.querySelector('.uidesign-detail') || {}).scrollTop || 0;
         orig.apply(this, arguments);
-        const col = document.querySelector('.handoff-main-col');
-        if (col) col.scrollTop = prevScroll;
+        const list = document.querySelector('.uidesign-list'); if (list) list.scrollTop = prevList;
+        const detail = document.querySelector('.uidesign-detail'); if (detail) detail.scrollTop = prevDetail;
         requestAnimationFrame(function(){ requestAnimationFrame(after); });
       };
       window.addEventListener('resize', function(){
