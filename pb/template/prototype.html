@@ -1508,7 +1508,6 @@
       font: var(--font-weight-bold) var(--font-size-xxs)/var(--line-height-xxs) var(--font-body); color: #fff;
       box-shadow: 0 1px 2px rgba(24,24,27,0.18);
     }
-    .spec-chip--rem { letter-spacing: 0.01em; }
     .spec-chip--dimension { background: #f97316; }
     .spec-chip--gap       { background: #2563eb; }
     .spec-chip--margin    { background: #db2777; }
@@ -5371,14 +5370,9 @@
           mk('spec-cap' + m,   `left:${x + len - 1}px;top:${y - 5}px;width:2px;height:10px`);
         }
       };
-      /* spacing values carry the design-token pair px/rem (Carbon-style): 16→"16/1", 8→"8/.5", 4→"4/.25" */
-      const pxRem = (v) => {
-        const r = Math.round((v / 16) * 100) / 100;
-        return Math.round(v) + '/' + String(r).replace(/^0\./, '.');
-      };
-      /* a spacing chip carries px/rem and is centred on x via a transform (auto width) */
+      /* a spacing chip in plain pixels, centred on x via a transform (auto width) */
       const spaceChip = (cls, x, y, v) =>
-        mk('spec-chip spec-chip--rem ' + cls, `left:${x}px;top:${y - chipH / 2}px;height:${chipH}px;transform:translateX(-50%)`, pxRem(v));
+        mk('spec-chip ' + cls, `left:${x}px;top:${y - chipH / 2}px;height:${chipH}px;transform:translateX(-50%)`, Math.round(v));
 
       let minL = Infinity, maxR = 0, maxW = 0;
       els.forEach(e => { minL = Math.min(minL, e.r.left); maxR = Math.max(maxR, e.r.right); maxW = Math.max(maxW, e.r.width); });
@@ -5426,8 +5420,8 @@
         mk('spec-witness', `left:${owR}px;top:${g.top}px;width:${xR - owR}px`);
         mk('spec-witness', `left:${owR}px;top:${g.bot}px;width:${xR - owR}px`);
         dimLine('gap', 'v', xR, g.top, g.bot - g.top);
-        mk('spec-chip spec-chip--gap spec-chip--rem',
-          `left:${xR + 8}px;top:${(g.top + g.bot) / 2 - chipH / 2}px;height:${chipH}px`, pxRem(g.value));
+        mk('spec-chip spec-chip--gap',
+          `left:${xR + 8}px;top:${(g.top + g.bot) / 2 - chipH / 2}px;height:${chipH}px`, g.value);
       });
 
       /* overall width — spans the component's OUTER box, above everything */
