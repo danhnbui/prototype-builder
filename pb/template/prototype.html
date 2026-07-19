@@ -5172,17 +5172,23 @@
         }
         return el.getBoundingClientRect();
       }
-      // Park each badge in the left gutter (never overlapping the component), staggered so they don't
-      // collide, and draw a DIAGONAL dashed leader that lands exactly on the part's anchor point:
-      // the element's left edge for a container/element, the measured text box for a Label.
-      // Straight single-segment leaders (NO corners): each badge goes on a side of the component that
-      // lets one straight line reach the anchor — left/right = horizontal, top/bottom = vertical. Parts
-      // pick the first side that's free, so callouts to the same short element land on different sides.
+      // Each badge parks in a gutter OUTSIDE the component and draws ONE straight dashed leader
+      // (no corners) to the part's anchor: horizontal for left/right, vertical for top/bottom.
+      // Direction priority is fixed — LEFT, then RIGHT, then TOP, then BOTTOM — and each part takes
+      // the first direction whose row is free, so callouts never overlap. Same rule for every part,
+      // Container included (it is just part #1); the 72px gutter keeps every badge >=24px off both
+      // the object edge and the box edge.
       function hLine(x, y, w) { var d = document.createElement('div'); d.className = 'anatomy-leader'; d.style.left = x + 'px'; d.style.top = y + 'px'; d.style.width = Math.max(4, w) + 'px'; stage.appendChild(d); }
       function vLine(x, y, h) { var d = document.createElement('div'); d.className = 'anatomy-leader-v'; d.style.left = x + 'px'; d.style.top = y + 'px'; d.style.height = Math.max(4, h) + 'px'; stage.appendChild(d); }
       function dotAt(x, y) { var d = document.createElement('div'); d.className = 'anatomy-leader-dot'; d.style.left = x + 'px'; d.style.top = y + 'px'; stage.appendChild(d); }
       function badgeAt(n, x, y) { var b = document.createElement('span'); b.className = 'anatomy-badge anatomy-badge--pin anatomy-pin-auto'; b.textContent = n; b.style.left = (x - 10) + 'px'; b.style.top = (y - 10) + 'px'; stage.appendChild(b); }
-      var leftX = 34, rightX = stage.clientWidth - 34, topY = 34, botY = stage.clientHeight - 34;
+      // Gutters hug the COMPONENT's bounding box (not the stage), so a left-aligned or narrow
+      // component still gets short leaders on every side. 38px out = badge 28px off the object edge;
+      // the 72px stage padding keeps that same gutter >=24px off the box edge.
+      var rootRect = root.getBoundingClientRect();
+      var cL = rootRect.left - stageRect.left, cR = rootRect.right - stageRect.left;
+      var cT = rootRect.top - stageRect.top, cB = rootRect.bottom - stageRect.top;
+      var leftX = cL - 38, rightX = cR + 38, topY = cT - 38, botY = cB + 38;
       var usedL = [], usedR = [], usedT = [], usedB = [];
       function free(arr, v) { return !arr.some(function (u) { return Math.abs(u - v) < 26; }); }
       parts.forEach(function (p) {
@@ -5190,22 +5196,18 @@
         var L = rect.left - stageRect.left, R = rect.right - stageRect.left;
         var T = rect.top - stageRect.top, B = rect.bottom - stageRect.top;
         var ay = p.isLabel ? (T + rect.height / 2) : (T + Math.min(14, rect.height / 2));
-        // The whole-component Container callout goes on TOP, clear of the element gutters, so it
-        // never collides with the first element or spawns a competing bottom vertical.
-        if (p.isContainer) {
-          var cx = L + Math.min(26, rect.width / 2);
-          while (!free(usedT, cx)) cx += 26; usedT.push(cx);
-          dotAt(cx, T); vLine(cx, topY + 12, T - topY - 12); badgeAt(p.n, cx, topY); return;
-        }
-        if (free(usedL, ay)) {                    // LEFT — straight horizontal to the left edge
+        var ax = p.isLabel ? (L + rect.width / 2) : (L + Math.min(14, rect.width / 2));
+        if (free(usedL, ay)) {                    // 1 · LEFT — horizontal to the left edge
           usedL.push(ay); dotAt(L, ay); hLine(leftX + 12, ay, L - leftX - 12); badgeAt(p.n, leftX, ay);
-        } else if (free(usedB, L)) {              // BOTTOM — straight vertical up to the part
-          usedB.push(L); dotAt(L, ay); vLine(L, ay, botY - 12 - ay); badgeAt(p.n, L, botY);
-        } else if (free(usedR, ay)) {             // RIGHT — straight horizontal to the right edge
+        } else if (free(usedR, ay)) {             // 2 · RIGHT — horizontal to the right edge
           usedR.push(ay); dotAt(R, ay); hLine(R, ay, rightX - 12 - R); badgeAt(p.n, rightX, ay);
-        } else {                                  // last resort: left gutter, nudged to a free row
+        } else if (free(usedT, ax)) {             // 3 · TOP — vertical down to the top edge
+          usedT.push(ax); dotAt(ax, T); vLine(ax, topY + 12, T - topY - 12); badgeAt(p.n, ax, topY);
+        } else if (free(usedB, ax)) {             // 4 · BOTTOM — vertical up to the bottom edge
+          usedB.push(ax); dotAt(ax, B); vLine(ax, B, botY - 12 - B); badgeAt(p.n, ax, botY);
+        } else {                                  // last resort: stack in the left gutter, nudged down
           var y = ay; while (!free(usedL, y)) y += 26; usedL.push(y);
-          dotAt(L, ay); hLine(leftX + 12, ay, L - leftX - 12); badgeAt(p.n, leftX, ay);
+          dotAt(L, ay); hLine(leftX + 12, ay, L - leftX - 12); badgeAt(p.n, leftX, y);
         }
       });
 
