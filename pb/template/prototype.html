@@ -1540,18 +1540,9 @@
     .bm-e--border { background: #64748b; color: #fff; }
     .bm-e--pad    { background: #1e293b; color: #fff; }
     .bm-e--zero   { background: transparent; color: var(--text-tertiary); box-shadow: none; }
-    /* Explore button + Component playground modal */
-    .pb-explore-btn { width: 100%; margin-top: 14px; padding: 11px 14px; border: 1px solid var(--border); border-radius: 8px;
-      background: var(--neutral-0); color: var(--text-active-primary); font: var(--font-weight-bold) var(--font-size-xs)/1 var(--font-body); cursor: pointer; }
-    .pb-explore-btn:hover { background: var(--neutral-5); }
-    .pb-pg-backdrop { position: fixed; inset: 0; background: rgba(10,12,16,0.55); z-index: 1300; }
-    .pb-pg { position: fixed; inset: 24px; z-index: 1301; background: var(--neutral-0); border-radius: 14px; overflow: hidden;
-      display: flex; flex-direction: column; box-shadow: 0 24px 70px rgba(0,0,0,0.42); }
-    .pb-pg-head { display: flex; align-items: center; justify-content: space-between; padding: 15px 20px; border-bottom: 1px solid var(--border); flex: 0 0 auto; }
-    .pb-pg-title { font: var(--font-weight-bold) 15px/1 var(--font-body); color: var(--text-active-primary); }
-    .pb-pg-close { border: 0; background: transparent; color: var(--text-tertiary); font-size: 22px; line-height: 1; cursor: pointer; padding: 2px 8px; border-radius: 6px; }
-    .pb-pg-close:hover { background: var(--neutral-5); color: var(--text-active-primary); }
-    .pb-pg-body { flex: 1 1 auto; display: grid; grid-template-columns: minmax(0,1fr) 340px; min-height: 0; }
+    /* Component playground — inline block in the component detail */
+    .pb-pg-inline { border: 1px solid var(--border); border-radius: 12px; overflow: hidden; margin-bottom: 4px; }
+    .pb-pg-body { display: grid; grid-template-columns: minmax(0,1fr) 320px; height: 380px; min-height: 0; }
     .pb-pg-canvas { position: relative; display: flex; align-items: center; justify-content: center; overflow: auto; background: var(--bg-soft); }
     .pb-pg-canvas[data-theme="dark"] { background: #1c1f22; }
     .pb-pg-preview { padding: 48px; }
@@ -4481,7 +4472,6 @@
       if (!org) return;
       pbActiveProps(org)[propId] = value;
       renderHandoff();
-      if (state.pgOpen === orgId) pbPlaygroundRerender();
     }
     function setHandoffView(v) {
       PB_DATA.handoff.view = v;
@@ -4586,9 +4576,7 @@
           <div><h2 class="uid-detail-title">${pbEscape(org.name)}</h2>${org.meta ? `<p class="uid-detail-sub">${pbEscape(org.meta)}</p>` : ''}</div>
           <div class="uid-detail-actions">${pbRenderHandoffCode(org)}</div>
         </div>
-        <div class="handoff-card-body handoff-card-body--stacked"><div>${pbRenderComponentDemo(org, props)}</div></div>
-        <button class="pb-explore-btn" onclick="openComponentPlayground('${pbEscape(org.id)}')">Explore component behavior</button>
-        ${pbUidSection('Component information', pbComponentInfoList(org, props))}
+        ${pbComponentPlaygroundInline(org, props)}
         ${pbUidSection('Anatomy', pbRenderHandoffAnatomy(org))}
         ${pbUidSection('Specification', pbRenderHandoffSpec(org))}
         ${pbUidSection('Layer properties', pbRenderBoxModel(org))}
@@ -4702,19 +4690,15 @@
       moon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>',
       reset: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>'
     };
-    function pbPlaygroundHTML(org) {
-      const props = pbActiveProps(org);
+    function pbComponentPlaygroundInline(org, props) {
       const preview = (typeof window[org.renderFn] === 'function') ? window[org.renderFn](props) : '';
       const theme = state.pgTheme || 'light';
-      return `
-        <header class="pb-pg-head"><span class="pb-pg-title">Component playground</span>
-          <button class="pb-pg-close" aria-label="Close" onclick="closeComponentPlayground()">✕</button></header>
-        <div class="pb-pg-body">
+      return `<div class="pb-pg-inline"><div class="pb-pg-body">
           <div class="pb-pg-canvas" data-theme="${theme}">
             <div class="pb-pg-preview">${preview}</div>
             <div class="pb-pg-theme">
-              <button class="${theme === 'light' ? 'is-active' : ''}" title="Light" onclick="setPlaygroundTheme('light')">${PB_PG_ICONS.sun}</button>
-              <button class="${theme === 'dark' ? 'is-active' : ''}" title="Dark" onclick="setPlaygroundTheme('dark')">${PB_PG_ICONS.moon}</button>
+              <button data-theme-val="light" class="${theme === 'light' ? 'is-active' : ''}" title="Light" onclick="setPlaygroundTheme('light')">${PB_PG_ICONS.sun}</button>
+              <button data-theme-val="dark" class="${theme === 'dark' ? 'is-active' : ''}" title="Dark" onclick="setPlaygroundTheme('dark')">${PB_PG_ICONS.moon}</button>
             </div>
           </div>
           <aside class="pb-pg-panel">
@@ -4726,45 +4710,21 @@
             <div class="pb-pg-section">
               <div class="pb-pg-sec-head"><span class="pb-pg-sec-title">Display</span></div>
               <div class="ci-list"><div class="ci-row"><span class="ci-label">Color Mode</span>
-                <span class="ci-val"><select class="ci-select" onchange="setPlaygroundTheme(this.value)">
+                <span class="ci-val"><select class="ci-select pb-cm-select" onchange="setPlaygroundTheme(this.value)">
                   <option value="light" ${theme === 'light' ? 'selected' : ''}>Light</option>
                   <option value="dark" ${theme === 'dark' ? 'selected' : ''}>Dark</option>
                 </select></span></div></div>
             </div>
           </aside>
-        </div>`;
+        </div></div>`;
     }
-    function openComponentPlayground(orgId) {
-      const org = (PB_DATA.handoff.organisms || []).find(x => x.id === orgId);
-      if (!org) return;
-      document.querySelectorAll('.pb-pg, .pb-pg-backdrop').forEach(el => el.remove());
-      state.pgOpen = orgId;
-      if (!state.pgTheme) state.pgTheme = 'light';
-      const backdrop = document.createElement('div');
-      backdrop.className = 'pb-pg-backdrop';
-      backdrop.addEventListener('click', closeComponentPlayground);
-      const modal = document.createElement('div');
-      modal.className = 'pb-pg';
-      modal.setAttribute('role', 'dialog');
-      modal.setAttribute('aria-label', 'Component playground');
-      modal.innerHTML = pbPlaygroundHTML(org);
-      document.body.appendChild(backdrop);
-      document.body.appendChild(modal);
-      window.addEventListener('keydown', pbPlaygroundKey);
+    /* Theme only affects the preview canvas — toggle it in place (no full re-render, keeps scroll). */
+    function setPlaygroundTheme(t) {
+      state.pgTheme = t;
+      document.querySelectorAll('.pb-pg-canvas').forEach(c => c.setAttribute('data-theme', t));
+      document.querySelectorAll('.pb-pg-theme button').forEach(b => b.classList.toggle('is-active', b.getAttribute('data-theme-val') === t));
+      document.querySelectorAll('select.pb-cm-select').forEach(s => { s.value = t; });
     }
-    function pbPlaygroundKey(e) { if (e.key === 'Escape') closeComponentPlayground(); }
-    function closeComponentPlayground() {
-      document.querySelectorAll('.pb-pg, .pb-pg-backdrop').forEach(el => el.remove());
-      window.removeEventListener('keydown', pbPlaygroundKey);
-      state.pgOpen = null;
-    }
-    function pbPlaygroundRerender() {
-      const modal = document.querySelector('.pb-pg');
-      if (!modal || !state.pgOpen) return;
-      const org = (PB_DATA.handoff.organisms || []).find(x => x.id === state.pgOpen);
-      if (org) modal.innerHTML = pbPlaygroundHTML(org);
-    }
-    function setPlaygroundTheme(t) { state.pgTheme = t; pbPlaygroundRerender(); }
     function pbResetPlaygroundProps(orgId) {
       const org = (PB_DATA.handoff.organisms || []).find(x => x.id === orgId);
       if (!org) return;
@@ -4772,7 +4732,6 @@
       (org.properties || []).forEach(p => { seed[p.id] = p.default; });
       handoffProps[orgId] = seed;
       renderHandoff();
-      pbPlaygroundRerender();
     }
 
     /* v0.3.13 — Auto-position handoff hit overlays from rendered elements. */
