@@ -5369,16 +5369,24 @@
         const pad = { t: parseFloat(cs.paddingTop) || 0, r: parseFloat(cs.paddingRight) || 0, b: parseFloat(cs.paddingBottom) || 0, l: parseFloat(cs.paddingLeft) || 0 };
         const cr = container.getBoundingClientRect();
         const cL = cr.left - sr.left, cR = cr.right - sr.left, cT = cr.top - sr.top, cB = cr.bottom - sr.top;
-        if (pad.t > 0) {
-          mk('spec-band spec-band--pad', `left:${cL}px;top:${cT}px;width:${cR - cL}px;height:${pad.t}px`);
-          mk('spec-chip spec-chip--pad', `left:${(cL + cR) / 2 - chipW / 2}px;top:${cT + pad.t / 2 - chipH / 2}px;height:${chipH}px`, Math.round(pad.t));
-        }
+        /* shaded bands on every padded side show WHERE the padding sits */
+        if (pad.t > 0) mk('spec-band spec-band--pad', `left:${cL}px;top:${cT}px;width:${cR - cL}px;height:${pad.t}px`);
         if (pad.b > 0) mk('spec-band spec-band--pad', `left:${cL}px;top:${cB - pad.b}px;width:${cR - cL}px;height:${pad.b}px`);
-        if (pad.l > 0) {
-          mk('spec-band spec-band--pad', `left:${cL}px;top:${cT + pad.t}px;width:${pad.l}px;height:${cB - cT - pad.t - pad.b}px`);
-          mk('spec-chip spec-chip--pad', `left:${cL + pad.l / 2 - chipW / 2}px;top:${(cT + cB) / 2 - chipH / 2}px;height:${chipH}px`, Math.round(pad.l));
-        }
+        if (pad.l > 0) mk('spec-band spec-band--pad', `left:${cL}px;top:${cT + pad.t}px;width:${pad.l}px;height:${cB - cT - pad.t - pad.b}px`);
         if (pad.r > 0) mk('spec-band spec-band--pad', `left:${cR - pad.r}px;top:${cT + pad.t}px;width:${pad.r}px;height:${cB - cT - pad.t - pad.b}px`);
+        /* numeric labels — kept OFF the content. Uniform padding → one chip in the top band; otherwise
+           top/bottom labels sit centred in their (full-width, empty) bands and left/right in the top
+           corners, clear of left-aligned body text. */
+        const padChip = (x, y, v) => mk('spec-chip spec-chip--pad', `left:${x - chipW / 2}px;top:${y - chipH / 2}px;height:${chipH}px`, Math.round(v));
+        const uniform = pad.t > 0 && pad.t === pad.b && pad.t === pad.l && pad.t === pad.r;
+        if (uniform) {
+          padChip((cL + cR) / 2, cT + pad.t / 2, pad.t);
+        } else {
+          if (pad.t > 0) padChip((cL + cR) / 2, cT + pad.t / 2, pad.t);
+          if (pad.b > 0) padChip((cL + cR) / 2, cB - pad.b / 2, pad.b);
+          if (pad.l > 0) padChip(cL + pad.l / 2, cT + Math.min(pad.t / 2 || 11, 11), pad.l);
+          if (pad.r > 0) padChip(cR - pad.r / 2, cT + Math.min(pad.t / 2 || 11, 11), pad.r);
+        }
       }
 
       /* grow the stage so nothing in the bottom margin row is clipped */
