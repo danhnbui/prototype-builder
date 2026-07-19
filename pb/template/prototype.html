@@ -5174,10 +5174,10 @@
       }
       // Each badge parks in a gutter OUTSIDE the component and draws ONE straight dashed leader
       // (no corners) to the part's anchor: horizontal for left/right, vertical for top/bottom.
-      // Direction priority is fixed — LEFT, then RIGHT, then TOP, then BOTTOM — and each part takes
-      // the first direction whose row is free, so callouts never overlap. Same rule for every part,
-      // Container included (it is just part #1); the 72px gutter keeps every badge >=24px off both
-      // the object edge and the box edge.
+      // Element parts anchor at their CENTER (so label/input/error fall on their own rows) and take
+      // the first free direction in the fixed ladder — LEFT, RIGHT, TOP, BOTTOM. The Container is the
+      // exception: it points at the FRAME's top border, never onto a child's text. The 72px gutter
+      // keeps every badge >=24px off both the object edge and the box edge.
       function hLine(x, y, w) { var d = document.createElement('div'); d.className = 'anatomy-leader'; d.style.left = x + 'px'; d.style.top = y + 'px'; d.style.width = Math.max(4, w) + 'px'; stage.appendChild(d); }
       function vLine(x, y, h) { var d = document.createElement('div'); d.className = 'anatomy-leader-v'; d.style.left = x + 'px'; d.style.top = y + 'px'; d.style.height = Math.max(4, h) + 'px'; stage.appendChild(d); }
       function dotAt(x, y) { var d = document.createElement('div'); d.className = 'anatomy-leader-dot'; d.style.left = x + 'px'; d.style.top = y + 'px'; stage.appendChild(d); }
@@ -5195,8 +5195,15 @@
         var rect = p.isLabel ? pbTextRect(p.el) : p.el.getBoundingClientRect();
         var L = rect.left - stageRect.left, R = rect.right - stageRect.left;
         var T = rect.top - stageRect.top, B = rect.bottom - stageRect.top;
-        var ay = p.isLabel ? (T + rect.height / 2) : (T + Math.min(14, rect.height / 2));
-        var ax = p.isLabel ? (L + rect.width / 2) : (L + Math.min(14, rect.width / 2));
+        var ay = T + rect.height / 2;   // CENTER of the label/element — parts land on their own rows
+        var ax = L + rect.width / 2;
+        // The whole-component Container points at the FRAME's top border (the empty band above the
+        // first child), never onto a child's text — it owns the top gutter so element rows stay clean.
+        if (p.isContainer) {
+          var fx = cL + Math.min(40, rect.width / 2);
+          while (!free(usedT, fx)) fx += 26; usedT.push(fx);
+          dotAt(fx, cT); vLine(fx, topY + 12, cT - topY - 12); badgeAt(p.n, fx, topY); return;
+        }
         if (free(usedL, ay)) {                    // 1 · LEFT — horizontal to the left edge
           usedL.push(ay); dotAt(L, ay); hLine(leftX + 12, ay, L - leftX - 12); badgeAt(p.n, leftX, ay);
         } else if (free(usedR, ay)) {             // 2 · RIGHT — horizontal to the right edge
