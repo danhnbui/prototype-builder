@@ -5299,42 +5299,52 @@
       const compTop = els[0].r.top - sr.top, compBot = els[els.length - 1].r.bottom - sr.top;
       const chipH = 18, chipW = 30;
 
-      /* One vertical measurement chain down the LEFT for every component: element heights AND the
-         inter-element gaps between them, in reading order (orange = height, blue = gap). Keeping both
-         on one side — instead of heights-left / gaps-right — is what makes the card read like the input. */
-      const segs = [];
-      els.forEach((e, i) => {
-        const top = e.r.top - sr.top, bot = e.r.bottom - sr.top;
-        segs.push({ kind: 'dimension', value: Math.round(bot - top), top: top, bot: bot });
-        if (i < els.length - 1) {
-          const gTop = bot, gBot = els[i + 1].r.top - sr.top;
-          if (gBot - gTop > 0.5) segs.push({ kind: 'gap', value: Math.round(gBot - gTop), top: gTop, bot: gBot });
-        }
-      });
-      /* subtle band marking each gap region across the component */
-      segs.filter(sg => sg.kind === 'gap').forEach(g =>
-        mk('spec-band spec-band--gap', `left:${compL}px;top:${g.top}px;width:${compR - compL}px;height:${g.bot - g.top}px`));
-      /* the chain itself */
-      const xL = Math.max(compL - 26, chipW + 12);
-      segs.forEach(sg => {
-        mk('spec-witness', `left:${xL}px;top:${sg.top}px;width:${compL - xL}px`);
-        mk('spec-witness', `left:${xL}px;top:${sg.bot}px;width:${compL - xL}px`);
-        dimLine(sg.kind, 'v', xL, sg.top, sg.bot - sg.top);
-        mk('spec-chip spec-chip--' + sg.kind,
-          `left:${xL - 7 - chipW}px;top:${(sg.top + sg.bot) / 2 - chipH / 2}px;height:${chipH}px`, sg.value);
-      });
-
-      /* overall content width — horizontal dimension line above the WHOLE component (clear of any
-         top-padding band, which lives between the container top and the first element). */
-      /* Span the component's OUTER box (its wrapping element), so every component measures the same
-         thing — the input reads 360 across the field, the card reads its full width across the card,
-         both flush with the padding frame — instead of content-width on one and component-width on another. */
+      /* the component's OUTER box (its wrapping element). Anchoring the width + gap lines here — rather
+         than to the content bounds — is what keeps witnesses short: on a card the content sits well
+         inside the box, so a content-anchored gap line trailed halfway across the card. */
       const _wc = stage.querySelector(s.stack[0].anchor);
       const _wp = _wc && _wc.parentElement;
       const owr = (_wp && stage.contains(_wp)) ? _wp.getBoundingClientRect() : null;
       const owL = owr ? owr.left - sr.left : compL;
       const owR = owr ? owr.right - sr.left : compR;
-      const wY = (owr ? owr.top - sr.top : compTop) - 15;
+      const owTop = owr ? owr.top - sr.top : compTop;
+
+      /* element heights + inter-element gaps */
+      const heights = [], gaps = [];
+      els.forEach((e, i) => {
+        const top = e.r.top - sr.top, bot = e.r.bottom - sr.top;
+        heights.push({ value: Math.round(bot - top), top: top, bot: bot });
+        if (i < els.length - 1) {
+          const gTop = bot, gBot = els[i + 1].r.top - sr.top;
+          if (gBot - gTop > 0.5) gaps.push({ value: Math.round(gBot - gTop), top: gTop, bot: gBot });
+        }
+      });
+      /* subtle band marking each gap region across the component */
+      gaps.forEach(g => mk('spec-band spec-band--gap',
+        `left:${compL}px;top:${g.top}px;width:${compR - compL}px;height:${g.bot - g.top}px`));
+
+      /* LEFT — one orange dimension line per element height, witness to the element's left edge */
+      const xL = Math.max(compL - 26, chipW + 12);
+      heights.forEach(h => {
+        mk('spec-witness', `left:${xL}px;top:${h.top}px;width:${compL - xL}px`);
+        mk('spec-witness', `left:${xL}px;top:${h.bot}px;width:${compL - xL}px`);
+        dimLine('dimension', 'v', xL, h.top, h.bot - h.top);
+        mk('spec-chip spec-chip--dimension',
+          `left:${xL - 7 - chipW}px;top:${(h.top + h.bot) / 2 - chipH / 2}px;height:${chipH}px`, h.value);
+      });
+
+      /* RIGHT — one blue dimension line per gap, mirrored just outside the box's OUTER right edge */
+      const xR = owR + 26;
+      gaps.forEach(g => {
+        mk('spec-witness', `left:${owR}px;top:${g.top}px;width:${xR - owR}px`);
+        mk('spec-witness', `left:${owR}px;top:${g.bot}px;width:${xR - owR}px`);
+        dimLine('gap', 'v', xR, g.top, g.bot - g.top);
+        mk('spec-chip spec-chip--gap',
+          `left:${xR + 7}px;top:${(g.top + g.bot) / 2 - chipH / 2}px;height:${chipH}px`, g.value);
+      });
+
+      /* overall width — spans the component's OUTER box, above everything */
+      const wY = owTop - 15;
       dimLine('dimension', 'h', owL, wY, owR - owL);
       mk('spec-chip spec-chip--dimension',
         `left:${(owL + owR) / 2 - chipW / 2}px;top:${wY - chipH - 3}px;height:${chipH}px`, Math.round(owR - owL));
