@@ -1486,7 +1486,7 @@
     .spec-stage {
       position: relative;
       border: 1px solid var(--border); border-radius: var(--radius-small);
-      background: var(--bg-soft); padding: 40px 76px 26px;
+      background: var(--bg-soft); padding: 54px 80px 26px;
       margin-bottom: 10px; overflow: hidden;
     }
     .spec-render { display: flex; justify-content: center; position: relative; z-index: 1; }
@@ -5334,8 +5334,13 @@
           `left:${xR + 7}px;top:${(g.top + g.bot) / 2 - chipH / 2}px;height:${chipH}px`, g.value);
       });
 
-      /* overall content width — horizontal dimension line above the component */
-      const wY = compTop - 15;
+      /* overall content width — horizontal dimension line above the WHOLE component (clear of any
+         top-padding band, which lives between the container top and the first element). */
+      let topRef = compTop;
+      const _wc = stage.querySelector(s.stack[0].anchor);
+      const _wp = _wc && _wc.parentElement;
+      if (_wp && stage.contains(_wp)) topRef = Math.min(topRef, _wp.getBoundingClientRect().top - sr.top);
+      const wY = topRef - 15;
       dimLine('dimension', 'h', compL, wY, compR - compL);
       mk('spec-chip spec-chip--dimension',
         `left:${(compL + compR) / 2 - chipW / 2}px;top:${wY - chipH - 3}px;height:${chipH}px`, Math.round(maxW));
