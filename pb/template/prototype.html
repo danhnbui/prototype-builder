@@ -1503,11 +1503,12 @@
     .spec-cap     { z-index: 2; pointer-events: none; background: currentColor; border-radius: 1px; }
     .spec-witness { height: 0; z-index: 1; pointer-events: none; border-top: 1px dotted rgba(24,24,27,0.22); }
     .spec-chip {
-      z-index: 3; width: 30px; height: 18px; padding: 0 4px; box-sizing: border-box;
-      border-radius: 5px; display: flex; align-items: center; justify-content: center;
+      z-index: 3; min-width: 30px; width: auto; height: 18px; padding: 0 6px; box-sizing: border-box;
+      border-radius: 5px; display: inline-flex; align-items: center; justify-content: center; white-space: nowrap;
       font: var(--font-weight-bold) var(--font-size-xxs)/var(--line-height-xxs) var(--font-body); color: #fff;
       box-shadow: 0 1px 2px rgba(24,24,27,0.18);
     }
+    .spec-chip--rem { letter-spacing: 0.01em; }
     .spec-chip--dimension { background: #f97316; }
     .spec-chip--gap       { background: #2563eb; }
     .spec-chip--margin    { background: #db2777; }
@@ -5292,6 +5293,14 @@
           mk('spec-cap' + m,   `left:${x + len - 1}px;top:${y - 5}px;width:2px;height:10px`);
         }
       };
+      /* spacing values carry the design-token pair px/rem (Carbon-style): 16→"16/1", 8→"8/.5", 4→"4/.25" */
+      const pxRem = (v) => {
+        const r = Math.round((v / 16) * 100) / 100;
+        return Math.round(v) + '/' + String(r).replace(/^0\./, '.');
+      };
+      /* a spacing chip carries px/rem and is centred on x via a transform (auto width) */
+      const spaceChip = (cls, x, y, v) =>
+        mk('spec-chip spec-chip--rem ' + cls, `left:${x}px;top:${y - chipH / 2}px;height:${chipH}px;transform:translateX(-50%)`, pxRem(v));
 
       let minL = Infinity, maxR = 0, maxW = 0;
       els.forEach(e => { minL = Math.min(minL, e.r.left); maxR = Math.max(maxR, e.r.right); maxW = Math.max(maxW, e.r.width); });
@@ -5339,8 +5348,8 @@
         mk('spec-witness', `left:${owR}px;top:${g.top}px;width:${xR - owR}px`);
         mk('spec-witness', `left:${owR}px;top:${g.bot}px;width:${xR - owR}px`);
         dimLine('gap', 'v', xR, g.top, g.bot - g.top);
-        mk('spec-chip spec-chip--gap',
-          `left:${xR + 7}px;top:${(g.top + g.bot) / 2 - chipH / 2}px;height:${chipH}px`, g.value);
+        mk('spec-chip spec-chip--gap spec-chip--rem',
+          `left:${xR + 8}px;top:${(g.top + g.bot) / 2 - chipH / 2}px;height:${chipH}px`, pxRem(g.value));
       });
 
       /* overall width — spans the component's OUTER box, above everything */
@@ -5359,8 +5368,7 @@
         mk('spec-band spec-band--margin', `left:${compR}px;top:${compTop}px;width:${m}px;height:${bH}px`);
         const mY = compBot + 17;
         dimLine('margin', 'h', compL - m, mY, m);
-        mk('spec-chip spec-chip--margin',
-          `left:${compL - m / 2 - chipW / 2}px;top:${mY + 6}px;height:${chipH}px`, m);
+        spaceChip('spec-chip--margin', compL - m / 2, mY + 6 + chipH / 2, m);
         bottomY = mY + 6 + chipH;
       }
 
@@ -5381,7 +5389,7 @@
         /* numeric labels — kept OFF the content. Uniform padding → one chip in the top band; otherwise
            top/bottom labels sit centred in their (full-width, empty) bands and left/right in the top
            corners, clear of left-aligned body text. */
-        const padChip = (x, y, v) => mk('spec-chip spec-chip--pad', `left:${x - chipW / 2}px;top:${y - chipH / 2}px;height:${chipH}px`, Math.round(v));
+        const padChip = (x, y, v) => spaceChip('spec-chip--pad', x, y, v);
         const uniform = pad.t > 0 && pad.t === pad.b && pad.t === pad.l && pad.t === pad.r;
         if (uniform) {
           padChip((cL + cR) / 2, cT + pad.t / 2, pad.t);
