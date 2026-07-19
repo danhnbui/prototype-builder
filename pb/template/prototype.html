@@ -1424,6 +1424,10 @@
       position: absolute; z-index: 2; width: 5px; height: 5px; border-radius: 50%;
       background: #475569; margin: -3px 0 0 -3px; pointer-events: none;
     }
+    .anatomy-frame-outline {
+      position: absolute; z-index: 1; box-sizing: border-box;
+      border: 1.5px dashed #c4ccd6; border-radius: 10px; pointer-events: none;
+    }
     .anatomy-table { width: 100%; border-collapse: collapse; }
     .anatomy-table th {
       text-align: left; font: var(--font-weight-bold) var(--font-size-xxs)/var(--line-height-xxs) var(--font-body);
@@ -5013,7 +5017,7 @@
     function pbPlaceAutoAnatomyPins() {
       var stage = document.querySelector('.anatomy-stage[data-anatomy-auto]');
       if (!stage) return;
-      stage.querySelectorAll('.anatomy-pin-auto, .anatomy-leader, .anatomy-leader-v, .anatomy-leader-dot').forEach(function(e) { e.remove(); });
+      stage.querySelectorAll('.anatomy-pin-auto, .anatomy-leader, .anatomy-leader-v, .anatomy-leader-dot, .anatomy-frame-outline').forEach(function(e) { e.remove(); });
       var prevTable = stage.parentNode && stage.parentNode.querySelector('.anatomy-auto-table');
       if (prevTable) prevTable.remove();
       var container = stage.querySelector('.anatomy-render');
@@ -5200,9 +5204,18 @@
         // The whole-component Container points at the FRAME's top border (the empty band above the
         // first child), never onto a child's text — it owns the top gutter so element rows stay clean.
         if (p.isContainer) {
-          var fx = cL + rect.width / 2;   // top-CENTRE: the open band above the input, clear of the left label
+          // The frame has no border of its own, so draw one: a dashed bounding-box outline sitting
+          // 8px outside the component (clear of the input's own border). Badge 1's leader then lands
+          // on that real, drawn top edge — never on empty air or a child's text.
+          var op = 8;
+          var ol = document.createElement('div');
+          ol.className = 'anatomy-frame-outline';
+          ol.style.left = (cL - op) + 'px'; ol.style.top = (cT - op) + 'px';
+          ol.style.width = (cR - cL + op * 2) + 'px'; ol.style.height = (cB - cT + op * 2) + 'px';
+          stage.appendChild(ol);
+          var fx = cL + rect.width / 2;   // centred on the frame's top edge, clear of the left label
           while (!free(usedT, fx)) fx += 26; usedT.push(fx);
-          dotAt(fx, cT); vLine(fx, topY + 12, cT - topY - 12); badgeAt(p.n, fx, topY); return;
+          dotAt(fx, cT - op); vLine(fx, topY + 12, (cT - op) - topY - 12); badgeAt(p.n, fx, topY); return;
         }
         if (free(usedL, ay)) {                    // 1 · LEFT — horizontal to the left edge
           usedL.push(ay); dotAt(L, ay); hLine(leftX + 12, ay, L - leftX - 12); badgeAt(p.n, leftX, ay);
