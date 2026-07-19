@@ -2,6 +2,35 @@
 
 All notable changes to Product Builder. Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [1.10.0] — 2026-07-19
+
+*UI Design tab reworked into a Figma-style inspector — master-detail, redline anatomy/spec, a box model, and an inline component playground.*
+
+### Changed
+- **Prototype tab — full-bleed device preview.** Removed the tab title and page padding so the device
+  frame fills edge-to-edge; added an app favicon (brand initial) and dropped the non-functional new-tab
+  button from the browser chrome.
+- **UI Design — master-detail layout.** Replaced the component card grid with a MUI-docs-style split: a
+  scrollable name list (Global / Local / Screens) on the left, the selected component's detail stacked on
+  the right — inline **component playground → Anatomy → Specification → Layer properties → UI Logic →
+  Usage** (no per-section tab switcher).
+
+### Added
+- **Anatomy redlines.** Auto-extracted, numbered element callouts placed *outside* the component with
+  single straight leaders (no corners), a fixed **Left → Right → Top → Bottom** side priority, gutters
+  that hug the component so leaders stay short, and a dashed bounding-box outline for the container part.
+  Every badge clears the object and box edges by ≥24px; the token list per element is typed (swatch +
+  name + value).
+- **Specification redlines — consistent across components.** Width dimension spans the component's outer
+  box; element heights run down the left and inter-element gaps down the right (both anchored to the outer
+  edge); uniform padding collapses to one chip and never overlaps content. Plain-pixel labels.
+- **Layer properties — box model.** A Figma-style nested **Margin → Border → Padding → content W×H**
+  diagram, measured live from the component, with a value chip per side (`–` for zero).
+- **Component information — inspect list.** Variant props render as diamond-marked selects, free-text props
+  as `Aa` fields — one labeled row each, all live.
+- **Component playground (inline).** A preview canvas with a light/dark canvas toggle beside a controls
+  panel (component props + Display / Color Mode + reset), rendered inline at the top of the detail.
+
 ## [1.9.0] — 2026-07-18
 
 *Shell UI: the Prototype header tools collapse into one **Sandbox** control in the meta nav.*
