@@ -5200,7 +5200,7 @@
         // The whole-component Container points at the FRAME's top border (the empty band above the
         // first child), never onto a child's text — it owns the top gutter so element rows stay clean.
         if (p.isContainer) {
-          var fx = cL + Math.min(40, rect.width / 2);
+          var fx = cL + rect.width / 2;   // top-CENTRE: the open band above the input, clear of the left label
           while (!free(usedT, fx)) fx += 26; usedT.push(fx);
           dotAt(fx, cT); vLine(fx, topY + 12, cT - topY - 12); badgeAt(p.n, fx, topY); return;
         }
