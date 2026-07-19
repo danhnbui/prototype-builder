@@ -1,6 +1,6 @@
 {
   "name": "product-builder",
-  "description": "Product Builder v1.9.0 — the registry-backed, design-system-agnostic prototype builder.",
+  "description": "Product Builder v1.10.0 — the registry-backed, design-system-agnostic prototype builder.",
   "owner": { "name": "Danh (danhbnp)" },
   "plugins": [
     {

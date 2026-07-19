@@ -1,4 +1,4 @@
-# Product Builder v1.8.0
+# Product Builder v1.10.0
 
 A standalone, CLAUDE.md-native prototype builder for Claude Code. Turn a PRD into an interactive,
 self-documenting **5-tab prototype** — a real click-through flow you preview at desktop / tablet /
@@ -18,6 +18,13 @@ role-gated users, plus server-reachability and secrets/PII checks), a **multi-ag
 (`/pb:orchestrate` dispatches the per-tab task plan to 8 specialized agents in dependency waves;
 `/pb:explore` proposes parallel design options), and an ⌥-hover **element inspector** that copies a precise
 `screen › element › component` reference to feed the AI. All additive — a pre-v1.5 project behaves unchanged.
+
+**New in v1.10** — the **UI Design** tab is now a Figma-style inspector: a master-detail layout (component
+list → stacked detail) with an inline **component playground** (live preview + prop controls + light/dark
+canvas toggle), redline **Anatomy** and **Specification** callouts placed cleanly outside the component, a
+**Layer properties** box model (margin → border → padding → content), and a **Component information**
+inspect list. The **Prototype** tab preview now runs edge-to-edge, and every tab's header tools collapse
+into one **Sandbox** control in the nav (v1.9). Registry/CLI behavior is unchanged — this release is shell UI.
 
 ## Install (it's a Claude Code plugin)
 
