@@ -1512,6 +1512,35 @@
     .spec-chip--dimension { background: #f97316; }
     .spec-chip--gap       { background: #2563eb; }
     .spec-chip--margin    { background: #db2777; }
+    /* Component information — Figma-style inspect list */
+    .ci-list { display: flex; flex-direction: column; }
+    .ci-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 9px 2px; border-bottom: 1px solid var(--border); }
+    .ci-row:last-child { border-bottom: 0; }
+    .ci-label { color: var(--text-tertiary); font-size: var(--font-size-xs); }
+    .ci-val { display: inline-flex; align-items: center; gap: 8px; color: var(--text-active-primary); font-size: var(--font-size-xs); }
+    .ci-ic { display: inline-flex; align-items: center; color: var(--text-tertiary); font-size: 10px; }
+    .ci-select { border: 0; background: transparent; color: var(--text-active-primary); font: inherit; padding: 2px 20px 2px 4px; border-radius: 4px; cursor: pointer;
+      -webkit-appearance: none; appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='3' stroke-linecap='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 4px center; }
+    .ci-select:hover { background-color: var(--neutral-5); }
+    .ci-input { border: 1px solid var(--border); background: var(--bg); color: var(--text-active-primary); font: inherit; padding: 3px 8px; border-radius: 5px; max-width: 190px; }
+    /* Layer properties — box-model diagram */
+    .boxmodel-stage { display: flex; justify-content: center; padding: 18px 12px 6px; overflow-x: auto; }
+    .bm-ring { position: relative; display: inline-block; box-sizing: border-box; border-radius: 8px; line-height: 0; }
+    .bm-tag { position: absolute; top: 4px; left: 10px; font: var(--font-weight-bold) 8.5px/1 var(--font-body); letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-tertiary); }
+    .bm-margin  { background: rgba(37,99,235,0.08); padding: 32px 50px; }
+    .bm-border  { background: rgba(100,116,139,0.14); padding: 26px 34px; }
+    .bm-padding { background: rgba(37,99,235,0.16); padding: 26px 38px; text-align: center; }
+    .bm-content { display: inline-block; border: 1px dashed var(--text-tertiary); border-radius: 5px; background: var(--bg); padding: 12px 20px; font: var(--font-weight-bold) var(--font-size-xs)/1.2 var(--font-body); color: var(--text-active-primary); white-space: nowrap; }
+    .bm-e { position: absolute; z-index: 2; min-width: 18px; height: 16px; padding: 0 5px; border-radius: 4px; display: inline-flex; align-items: center; justify-content: center; font: var(--font-weight-bold) 10px/1 var(--font-body); box-shadow: 0 1px 2px rgba(24,24,27,0.20); }
+    .bm-e--t { top: 8px; left: 50%; transform: translateX(-50%); }
+    .bm-e--b { bottom: 8px; left: 50%; transform: translateX(-50%); }
+    .bm-e--l { left: 8px; top: 50%; transform: translateY(-50%); }
+    .bm-e--r { right: 8px; top: 50%; transform: translateY(-50%); }
+    .bm-e--margin { background: #2563eb; color: #fff; }
+    .bm-e--border { background: #64748b; color: #fff; }
+    .bm-e--pad    { background: #1e293b; color: #fff; }
+    .bm-e--zero   { background: transparent; color: var(--text-tertiary); box-shadow: none; }
 
     /* ---- v0.3.17 drawer: UI Logic + Usage tabs ---- */
     .uilogic-row { display: flex; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--border); }
@@ -4527,20 +4556,16 @@
     }
     function pbHandoffComponentDetail(org) {
       const props = pbActiveProps(org);
-      const controls = (org.properties || []).filter(p => (p.options || []).length).map(p => `
-        <label class="prop-field"><span class="prop-label">${pbEscape(p.label || p.id)}</span>
-          <select class="prop-select" onchange="setHandoffProp('${pbEscape(org.id)}','${pbEscape(p.id)}',this.value)">
-            ${(p.options || []).map(o => `<option value="${pbEscape(o.value)}" ${props[p.id]===o.value?'selected':''}>${pbEscape(o.label)}</option>`).join('')}
-          </select></label>`).join('');
       return `
         <div class="uid-detail-head">
           <div><h2 class="uid-detail-title">${pbEscape(org.name)}</h2>${org.meta ? `<p class="uid-detail-sub">${pbEscape(org.meta)}</p>` : ''}</div>
           <div class="uid-detail-actions">${pbRenderHandoffCode(org)}</div>
         </div>
-        ${controls ? `<div class="handoff-card-controls">${controls}</div>` : ''}
         <div class="handoff-card-body handoff-card-body--stacked"><div>${pbRenderComponentDemo(org, props)}</div></div>
+        ${pbUidSection('Component information', pbComponentInfoList(org, props))}
         ${pbUidSection('Anatomy', pbRenderHandoffAnatomy(org))}
         ${pbUidSection('Specification', pbRenderHandoffSpec(org))}
+        ${pbUidSection('Layer properties', pbRenderBoxModel(org))}
         ${pbUidSection('UI Logic', pbRenderHandoffUiLogic(org))}
         ${pbUidSection('Usage', pbRenderHandoffUsage(org))}`;
     }
@@ -4589,6 +4614,59 @@
         handoffProps[org.id] = seed;
       }
       return handoffProps[org.id];
+    }
+
+    function pbTitleCase(s) { s = String(s == null ? '' : s); return s.charAt(0).toUpperCase() + s.slice(1); }
+
+    /* Component information — the props/variants as a Figma-style inspect list. Option props read as a
+       diamond-marked variant (inline select); free-text props as an editable value. Both stay live. */
+    function pbComponentInfoList(org, props) {
+      const DIAMOND = '<svg width="10" height="10" viewBox="0 0 12 12" aria-hidden="true"><path d="M6 0l6 6-6 6-6-6z" fill="currentColor"/></svg>';
+      const rows = (org.properties || []).map(p => {
+        const label = pbTitleCase(p.label || p.id);
+        const opts = p.options || [];
+        if (opts.length) {
+          const sel = `<select class="ci-select" onchange="setHandoffProp('${pbEscape(org.id)}','${pbEscape(p.id)}',this.value)">`
+            + opts.map(o => `<option value="${pbEscape(o.value)}" ${props[p.id] === o.value ? 'selected' : ''}>${pbEscape(pbTitleCase(o.label || o.value))}</option>`).join('')
+            + `</select>`;
+          return `<div class="ci-row"><span class="ci-label">${pbEscape(label)}</span><span class="ci-val"><span class="ci-ic">${DIAMOND}</span>${sel}</span></div>`;
+        }
+        const val = props[p.id] != null ? props[p.id] : '';
+        return `<div class="ci-row"><span class="ci-label">${pbEscape(label)}</span><span class="ci-val"><span class="ci-ic"><b>Aa</b></span>`
+          + `<input class="ci-input" value="${pbEscape(val)}" oninput="setHandoffProp('${pbEscape(org.id)}','${pbEscape(p.id)}',this.value)"></span></div>`;
+      }).join('');
+      return rows ? `<div class="ci-list">${rows}</div>` : '<p class="handoff-spec-note">No properties.</p>';
+    }
+
+    /* Layer properties — a Figma-style box-model diagram. Renders the component off-screen so
+       pbPlaceBoxModel can measure its real margin/border/padding/content box, then draws it. */
+    function pbRenderBoxModel(org) {
+      const props = pbActiveProps(org);
+      const html = (typeof window[org.renderFn] === 'function') ? window[org.renderFn](props) : '';
+      if (!html) return '<p class="handoff-spec-note">Nothing to measure.</p>';
+      return `<div class="boxmodel-stage" data-boxmodel-for="${pbEscape(org.id)}"><div class="bm-measure" style="position:absolute;left:-9999px;top:0;visibility:hidden">${html}</div></div>`;
+    }
+
+    function pbPlaceBoxModel() {
+      const stage = document.querySelector('.boxmodel-stage[data-boxmodel-for]');
+      if (!stage) return;
+      const measure = stage.querySelector('.bm-measure');
+      const root = measure && measure.firstElementChild;
+      if (!root) return;
+      const cs = getComputedStyle(root);
+      const n = v => Math.round(parseFloat(v) || 0);
+      const mg = { t: n(cs.marginTop), r: n(cs.marginRight), b: n(cs.marginBottom), l: n(cs.marginLeft) };
+      const bd = { t: n(cs.borderTopWidth), r: n(cs.borderRightWidth), b: n(cs.borderBottomWidth), l: n(cs.borderLeftWidth) };
+      const pd = { t: n(cs.paddingTop), r: n(cs.paddingRight), b: n(cs.paddingBottom), l: n(cs.paddingLeft) };
+      const cw = Math.max(0, Math.round(root.clientWidth - pd.l - pd.r));
+      const ch = Math.max(0, Math.round(root.clientHeight - pd.t - pd.b));
+      const edges = (kind, v) => ['t', 'r', 'b', 'l'].map(s =>
+        `<span class="bm-e bm-e--${s} bm-e--${kind}${v[s] ? '' : ' bm-e--zero'}">${v[s] || '–'}</span>`).join('');
+      stage.innerHTML =
+        `<div class="bm-ring bm-margin"><span class="bm-tag">Margin</span>${edges('margin', mg)}`
+        + `<div class="bm-ring bm-border"><span class="bm-tag">Border</span>${edges('border', bd)}`
+        + `<div class="bm-ring bm-padding"><span class="bm-tag">Padding</span>${edges('pad', pd)}`
+        + `<div class="bm-content">${cw} × ${ch}</div></div></div></div>`;
     }
 
     /* v0.3.13 — Auto-position handoff hit overlays from rendered elements. */
@@ -5419,7 +5497,7 @@
     /* Patch renderHandoff so bounds + anatomy badges + spec redline recompute every draw. */
     (function patchRenderHandoff(){
       const orig = window.renderHandoff;
-      const after = function(){ recomputeHandoffBounds(); pbPlaceAnatomyBadges(); pbPlaceAutoAnatomyPins(); pbPlaceSpecAnnotations(); };
+      const after = function(){ recomputeHandoffBounds(); pbPlaceAnatomyBadges(); pbPlaceAutoAnatomyPins(); pbPlaceSpecAnnotations(); pbPlaceBoxModel(); };
       window.renderHandoff = function() {
         /* Preserve the left card-list scroll across re-renders so opening a
            component / switching a dropdown doesn't jump it back to the top.
