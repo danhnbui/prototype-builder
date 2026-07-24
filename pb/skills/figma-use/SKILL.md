@@ -1,107 +1,81 @@
 ---
 name: figma-use
-description: Foundational skill for writing to a Figma canvas via the Figma MCP (use_figma, create_new_file, upload_assets). MANDATORY before any Figma write performed by /pb:build-figma-handoff Step 6. Encodes the fail-closed rituals that prevent the common code-to-Figma failures — auto-layout on every frame, token/variable binding (no raw hex/px), variants via prop=value naming combined into a ComponentSet, images as fills on shapes, icons via createNodeFromSvg — plus a post-write read-back self-check. DS-neutral, never hardcoding a design-system name. Use whenever creating or updating frames, components, variants, variables, or image/vector assets in Figma.
+description: Authoring rules for the GHN DS Bridge code→Figma bridge — how to emit / edit valid declarative node JSON that the plugin rebuilds as real, linked component instances. Loaded by /pb:build-figma-handoff Step 6. The transformer (registry_to_figma.py) emits this deterministically; use this skill when hand-editing the emitted JSON or authoring a piece by hand. Real keys/variants/props only, prefer tokens, instances as references, auto-layout everywhere, flag gaps — never invent. DS-neutral. (A legacy Figma-MCP write path is retained behind --mcp; its rituals are in the appendix.)
 ---
 
-# figma-use
+# figma-use — GHN DS Bridge node-JSON authoring
 
-The foundational write-to-Figma procedure. **Load this before every `use_figma` / `create_new_file` / `upload_assets` call** in `/pb:build-figma-handoff` Step 6. It reads from `registry.json` (`components[]` / `screens[]`) and the contracts `figma-transfer.json` + `figma-tokens.json`.
-
-This skill is the **guided** layer (skill-only). It does not replace the command's gates; it tells you exactly *how* to write each node so the six known failure modes never occur. The hard, fail-closed equivalents (a pre-flight-contract gate and a verification gate inside the command) are a separate, later step.
-
-## The one rule
-
-**Fail-closed, never fall back.** Every ritual below has a *forbidden default* that Figma's API silently falls into. If you cannot satisfy a ritual from the registry, **STOP and surface it** — never emit the degraded version (absolute positioning, raw hex, a standalone variant, an empty image box). There is no "do it badly" branch.
+The **bridge** puts prototype content into Figma by exchanging **declarative node JSON** with the GHN
+DS Bridge plugin: pb emits it (deterministically, via `registry_to_figma.py`), you paste it into the
+plugin's **Code → Figma** tab, and the plugin rebuilds it as real, **linked component instances**. This
+skill is the authoring contract for that JSON — for when you hand-edit the emitted `figma-nodes.json`
+or author a fragment. The transformer already follows these rules; keep them intact when you touch it.
 
 ## DS-neutral rule
+Never write a literal design-system name. Read it from `memory/constitution.md` → Design System Lock,
+mirrored as `figma-transfer.json.dsMatch.library`. Everywhere below, `{DS}` = that value.
 
-Never write a literal design-system name. Read it from `memory/constitution.md` → Design System Lock, mirrored as `figma-transfer.json.dsMatch.library`. Everywhere this skill writes `{DS}`, substitute that value.
+## Node JSON — the shape you emit
+`{ meta, roots: [ <node> ] }`. A `<node>`:
+- `type` — `FRAME | COMPONENT | INSTANCE | TEXT | …`; `name`.
+- `layout` — `{ mode: HORIZONTAL|VERTICAL, itemSpacing, paddingTop/Right/Bottom/Left, primaryAxisAlignItems, counterAxisAlignItems, primaryAxisSizingMode, counterAxisSizingMode, layoutWrap }`.
+- `sizingH` / `sizingV` — `FILL | HUG | FIXED` (relative to the parent auto-layout).
+- `fills` / `strokes` — a variable-bound paint `{ paints:[…], token, tokenId, tokenKey }`, a `{ styleRef }`, or a raw paint + `untokenized:true`.
+- `cornerRadius` — a number **and/or** a `{ token, id, key }` (pb emits number + a `cornerRadiusToken` sidecar).
+- spacing token sidecars — `itemSpacingToken` / `padding<Side>Token` = `{ token, id, key }` (number stays for fallback).
+- `children[]` — nested nodes (a FRAME's real content; an INSTANCE's children are read-only context, ignored on rebuild).
+- **INSTANCE** — `component: { set, key, variant } | { name, key }` + `componentProperties: { "<PropName>": value, … }`. Rebuilt from `component.key`; children ignored.
 
----
+## The five rules (from AGENT_GUIDE — keep them intact)
 
-## Pre-write contract (confirm before any write)
+1. **Real keys / variants / props only.** Every `component.key`, `variant` value, and property name
+   must come from a **serialized node or the Scan DS catalog** (`design-system/<name>/ds-catalog.json`).
+   NEVER invent a key or a `#nodeid` prop. `registry_to_figma.py` resolves keys from
+   `figma-transfer.json.dsKey` then the catalog — no fuzzy guessing beyond name/dsMatch.
+2. **Prefer tokens.** If a color/space/radius has a `token`/`styleRef`/`{token,id,key}` ref, keep it.
+   NEVER replace a token ref with a raw hex/px. An unmapped value stays raw **plus** `untokenized:true`
+   (a visible gap), never silently baked.
+3. **Instances are references.** To place a component, emit an `INSTANCE` with `component` +
+   `componentProperties` — do NOT hand-build its internals as frames/text. This is the whole point:
+   the rebuilt node stays linked to the real `{DS}` component. A screen element → one INSTANCE.
+4. **Respect auto-layout (R3).** Set `layout` on every container (`mode ≠ NONE`) and `sizingH`/`sizingV`
+   on children — NEVER absolute `x`/`y`. Padding/`itemSpacing` come from spacing **tokens** (number +
+   `*Token` sidecar). A child that can't be expressed as auto-layout is a gap to surface, not an
+   absolute-position fallback.
+5. **Flag gaps, don't fake them.** If a component/token you need isn't in the source or the catalog,
+   emit the honest fallback (a local FRAME from anatomy / `untokenized` raw value) **and** record it in
+   `gaps.md` + `meta.gaps` / the `gaps[]` array. Say what's missing; never fabricate a reference.
 
-For the in-scope slice, confirm the registry **declares** all of the following. Any missing field → STOP, do not guess:
+## Component-first / atomic (why the tree lowers cleanly)
+The registry is a composition tree: only atoms hold primitives; molecules/organisms/screens compose
+lower components (lint R-COMPOSE). So each element/part is already a component reference → it lowers 1:1
+to an INSTANCE. If you find yourself hand-building a primitive frame where a catalog component exists,
+stop — that is the anti-pattern the whole bridge avoids.
 
-- **Layout** — every frame/screen has a layout intent (direction + spacing) expressible as auto-layout.
-- **Token** — every color, spacing, radius, and type value resolves to a token name (`component.anatomy.parts[].token.name`, `component.spec.stack[]`, `screen.elements[].tokens[]`, **and any `var(--name)` in the render body files** — each entry's `renderSrc` target, e.g.
-`render/components/<id>.js`), already mapped in `figma-tokens.json` or queued for G-FP3.
-- **Binding** — every element has a component binding: a `dsMatch.figmaComponentId` (instance) **or** an explicit `create-local` decision.
-- **Variant axes** — every multi-state component declares its axes in `properties[]`.
-- **Asset** — every image/graphic has a descriptor (source, format, intended node type).
+## Round-trip self-check (you are blind to the built result)
+After the user pastes + Builds, verify by serializing the built frame back (plugin *Figma → Code*) and
+diffing against what you emitted. Assert: every intended element is an **INSTANCE** with a
+`mainComponent` (not a detached copy); every fill/spacing/radius that had a token ref is **bound to a
+variable** (needs the plugin patch in `docs/figma-bridge-plugin.md` for spacing/radius); auto-layout on
+every frame; declared gaps are the only unresolved items. Any miss → report it; do not declare done.
 
----
-
-## Rituals (per node type)
-
-### 1. Frames & layout — auto-layout on every frame (R3)
-- Set `layoutMode` to `HORIZONTAL` or `VERTICAL` on **every** created frame.
-- Set `paddingLeft/Right/Top/Bottom` and `itemSpacing` from spacing tokens — never ad-hoc pixels.
-- Sizing: default **hug-V / fill-H** (`figma-transfer.json.decisions.defaultSizing`); use explicit `sizing.width`/`sizing.height` when present (`primaryAxisSizingMode` / `counterAxisSizingMode`).
-- Map alignment from the source: `align-items` → counter-axis align, `justify-content` → primary-axis align.
-- **NEVER** leave `layoutMode = NONE`. **NEVER** position a child absolutely. A child that can't be expressed as auto-layout is a **HARD FAIL**, not an absolute-position fallback.
-
-### 2. Tokens & variables — bind everything
-- Bind every fill, stroke, spacing, radius, and typography property to its Figma **variable** (`figma-tokens.json` VariableID).
-- Unmapped token → **pause at G-FP3**; default a no-match to a local variable in the `Prototype tokens` collection — never to a raw value.
-- **NEVER** write a raw hex or raw px when a token exists or could be created.
-
-### 3. Components — build from anatomy, reuse the library
-- Build each `create-local` component from `anatomy.parts[]` + `spec.stack[]` + `properties[]`, **with auto-layout** (ritual 1).
-- A `dsMatch.figmaComponentId` element is inserted as an **instance** of the `{DS}` component — never a re-built local copy.
-- **NEVER** flatten a component into a raw frame when a binding exists.
-
-### 4. Variants — name then combine
-- Name each variant by convention: `prop=value, prop2=value2` (e.g. `state=hover, size=md`), exactly matching the axes in `properties[]`.
-- Combine the named variants into one `ComponentSetNode` (`combineAsVariants`, or `createComponent` + `appendChild`). The Plugin API cannot add VARIANT properties directly — the naming **is** the mechanism.
-- **NEVER** emit standalone, unrelated components for states. **NEVER** auto-add a new axis — surface it as `axis-change` (G-FP2) for confirmation.
-
-### 5. Images — a fill on a shape, never a layer
-- An image is an `ImagePaint` **fill applied to a shape** — create the shape first, then attach the fill.
-- Bytes you already have → `figma.createImage(bytes)` (PNG/JPEG/GIF, **≤ 4096×4096px** — downscale first if larger).
-- Remote URL → `figma.createImageAsync(url)`; the host domain **must** be in `manifest.networkAccess.allowedDomains` and clear CORS (plugin iframes are null-origin, so the server must send `Access-Control-Allow-Origin: *`).
-- **NEVER** skip a declared image silently. Missing/blocked bytes = **HARD FAIL**, not an empty box.
-
-### 6. Graphics / icons / SVG — branch by asset type
-- Icon or simple vector → `figma.createNodeFromSvg(svgString)` so it stays crisp and editable.
-- Complex illustration → **rasterize** to PNG (≤ 4096px) and route through ritual 5. Figma cannot use a vector as a fill.
-- Declare the branch per asset in the descriptor; **NEVER** attempt vector-as-fill.
-
----
-
-## Read-back self-check (after every write)
-
-You are blind to your own rendered output unless you re-read it. After each `use_figma` write, re-read the node tree for what you just created and assert:
-
-- Every created frame has `layoutMode != NONE` and **0** absolutely-positioned children.
-- **0** raw hex / raw px — every fill, stroke, spacing, radius, and type value is bound to a variable.
-- Every multi-state component resolved into a `ComponentSetNode` carrying the expected axes from `properties[]`.
-- Every declared image node has a **non-empty `ImagePaint` fill**; every declared icon is a vector node.
-- Every `dsMatch` element is an **instance** of the `{DS}` component, not a local copy.
-
-Any assertion fails → **STOP, report which one, log it.** Do not declare the push successful.
+## NEVER
+- NEVER invent a `component.key`, variant value, or property name — real ones only (catalog / serialized).
+- NEVER replace a token ref with a raw value; an unmapped value is `untokenized` + a gap.
+- NEVER hand-build an instance's internals — emit `component` + `componentProperties`.
+- NEVER emit absolute positioning — auto-layout on every frame, sizing on children.
+- NEVER fabricate to fill a gap — flag it in `gaps.md`.
+- NEVER hardcode a design-system name — resolve `{DS}` from config.
+- NEVER reconcile Figma → registry here (that's `/pb:init --figma` / `ref-figma-frame`); this is one-way.
 
 ---
 
-## NEVER (forbidden fallbacks)
-
-- NEVER position a frame child absolutely — auto-layout on every frame, or HARD FAIL.
-- NEVER inline a raw hex/px when a token is missing — pause, don't degrade.
-- NEVER emit standalone components for variant states — name `prop=value` and combine, or stop.
-- NEVER drop a declared image — missing bytes is a failure, not an empty box.
-- NEVER rasterize an icon that can be a clean vector, and NEVER vector-import a complex illustration.
-- NEVER declare success without the read-back self-check.
-- NEVER advance past a missing pre-write-contract field by guessing.
-- NEVER hardcode a design-system name — always resolve `{DS}` from config.
-- NEVER reconcile Figma → registry here; this skill writes one way only.
-
----
-
-## Order of operations (mirrors command Step 6)
-
-1. Tokens — create/confirm local variables; record VariableIDs.
-2. Components (skip if scope = screens) — build `create-local` with auto-layout; record `componentSetId`/`componentId`; DS-matched → record binding only.
-3. Screens (skip if scope = components) — frame per screen in `rootFrameId`; each element a child **with auto-layout**; DS-matched elements as **instances**; record `frameId` + element map.
-4. Token bindings — bind each computed property to its VariableID.
-5. Instance bindings — point each instance at the correct `{DS}` component.
-6. **Read-back self-check** (above) before reporting done.
+## Appendix — legacy Figma-MCP write path (`--mcp`, deprecated)
+When `/pb:build-figma-handoff --mcp` is used (no plugin available), writes go through the Figma MCP
+`use_figma` instead of the node-JSON paste. The old fail-closed rituals apply: auto-layout on every
+created frame; bind every fill/stroke/spacing/radius/type to a Figma **variable** (never raw); name
+variants `prop=value` then `combineAsVariants` into a `ComponentSet`; images as an `ImagePaint` fill on
+a shape (`createImage`/`createImageAsync`); icons via `createNodeFromSvg`; and a **read-back self-check**
+(`get_metadata`/`get_screenshot`) after every write — re-read and assert auto-layout, zero raw values,
+ComponentSet variants, non-empty image fills, and dsMatch elements as instances. This path is retained
+for parity only; the declarative bridge above is the default and preferred route.

@@ -2,11 +2,11 @@
 """
 check_violations.py — asserts pb/tools/lint_registry.py flags EVERY seeded violation.
 
-Runs lint_registry.py --strict on fixtures/violations.json and verifies all nine seeded
+Runs lint_registry.py --strict on fixtures/violations.json and verifies all twelve seeded
 rule codes appear in the output, and that lint_registry.py exits non-zero (error) on it.
 
 Usage:  python3 tests/check_violations.py
-Exit:   0 = all nine caught + non-zero exit · 1 = a miss
+Exit:   0 = all twelve caught + non-zero exit · 1 = a miss
 """
 import os
 import subprocess
@@ -18,7 +18,8 @@ FIXTURE = os.path.join(ROOT, "fixtures", "violations.json")
 
 EXPECTED = [
     "R-KEBAB", "R-HEX", "R-PX", "R-RENDERFN", "R-SCRIPT",
-    "R-DUPID", "R-KIND", "R-DANGER", "R-ORGID",
+    "R-DUPID", "R-DTCG-TYPE", "R-DANGER", "R-ORGID",
+    "R-LEVEL", "R-COMPOSE", "R-LEVEL-ORDER",
 ]
 
 

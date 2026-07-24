@@ -20,7 +20,14 @@ would do.
 - `renderFn` — `renderCmp{PascalCase(id)}` (e.g. `text-input` → `renderCmpTextInput`).
 - `renderSrc` — `render/components/<id>.js` (create this file with the body).
 - `properties[]` — including a **`state`** property if the component is interactive (options `{label,value}`).
-- `anatomy`, `spec`, `uiLogic[]`, `code` — for the UI Design spec drawer.
+  **Prompt-on-interaction:** when the user asks for state / click / hover / any interaction, *confirm the
+  component is interactive* and declare `state` (and/or the `data-*` wiring). The design-system site
+  auto-detects interactivity by that keyword — a `state` property **or** body `data-*`/`onclick`/control
+  tags — and gives such a component a **live clickable demo** (others get the variant grid only), so a
+  missing `state` silently downgrades an interactive component to a static one.
+- `anatomy`, `spec`, `uiLogic[]`, `code` — authored into the spec sidecar (`spec/<id>.json`, `specSrc`);
+  consumed by the Figma hand-off (anchor match + redlines). *(No longer a UI-Design drawer — that tab was
+  removed; components are surfaced on the design-system site.)*
 
 ## 3 · Write the body file (`render/components/<id>.js`)
 A function body that `return`s an HTML string from `props`:

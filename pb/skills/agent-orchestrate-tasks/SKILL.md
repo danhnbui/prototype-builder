@@ -13,8 +13,9 @@ Restate what is being built in one line and confirm scope. If intent is ambiguou
 first — don't plan against a guess.
 
 ## 2 · Decompose by tab, then by task
-Group work by the tab it lands in (Prototype · Project Summary · UX Design · UI Design · Data). Within each
-tab, list discrete tasks. A good task is one coherent change to one slice (a screen, a component, a flow).
+Group work by where it lands — the 4 prototype tabs (Prototype · Project Summary · UX Design · Data) plus
+the **design-system site** (components). Within each, list discrete tasks. A good task is one coherent
+change to one slice (a screen, a component, a flow).
 
 ## 3 · For each task, define
 Emit **every** field below on each task (all are consumed downstream — `deps:` / `slice:` / `agent:` drive

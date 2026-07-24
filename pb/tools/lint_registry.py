@@ -23,11 +23,9 @@ import os
 import re
 import sys
 
-# Token kinds the contract recognizes. Extend here, not inline.
-KIND_ENUM = {
-    "color", "radius", "space", "size", "fontSize", "font", "shadow",
-    "border", "opacity", "duration", "zIndex", "breakpoint", "other",
-}
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import tokens as _tok  # noqa: E402  (sibling module; the W3C DTCG token resolver)
+
 # Tokens the shell's runtime references by name; absence is a latent Principle-1 gap.
 RUNTIME_REQUIRED_TOKENS = ("danger",)
 
@@ -35,6 +33,17 @@ _KEBAB = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 _HEX = re.compile(r"#[0-9a-fA-F]{3,8}\b")
 _PX = re.compile(r"\b\d+(?:\.\d+)?px\b")
 _SCRIPT_CLOSE = re.compile(r"</\s*script", re.IGNORECASE)
+
+# Atomic-design levels + their composition rank (higher composes lower). `foundation` = tokens;
+# a screen is implicitly `page`. Component-first / atomic law: only atoms emit raw primitives;
+# every level above composes lower-level components via pbUse() (mirrors the shell runtime).
+LEVEL_ENUM = {"atom", "molecule", "organism", "template", "page"}
+LEVEL_RANK = {"foundation": 0, "atom": 1, "molecule": 2, "organism": 3, "template": 4, "page": 5}
+_CONTROL_TAGS = ("button", "input", "select", "textarea", "a", "form", "img", "video", "canvas", "iframe")
+_TEXT_TAGS = ("h1", "h2", "h3", "h4", "h5", "h6", "p", "label", "small", "strong", "em")
+_CONTROL_RE = re.compile(r"<(" + "|".join(_CONTROL_TAGS) + r")(?=[\s/>])", re.IGNORECASE)
+_TEXT_RE = re.compile(r"<(" + "|".join(_TEXT_TAGS) + r")(?=[\s/>])", re.IGNORECASE)
+_PBUSE = re.compile(r"pbUse\(\s*['\"]([a-z0-9][a-z0-9-]*)['\"]")
 
 ERROR, WARN = "ERROR", "WARN"
 
@@ -64,6 +73,10 @@ def check(reg, strict=False, base_dir=None):
     """
     findings = []
     hex_px_sev = ERROR if strict else WARN
+    # Component-first / atomic law: enforced (ERROR) under the strict contract (r0_hygiene / CI),
+    # WARN otherwise so an un-migrated project isn't hard-broken mid-flight (NS6). R-LEVEL is
+    # always ERROR — `level` is a required field like renderFn (schema 9).
+    compose_sev = ERROR if strict else WARN
 
     def add(sev, code, where, msg):
         findings.append(Finding(sev, code, where, msg))
@@ -78,6 +91,10 @@ def check(reg, strict=False, base_dir=None):
                             ("meta", dict, "object")):
         if key in reg and not isinstance(reg[key], typ):
             add(ERROR, "R-SHAPE", key, f"{key} must be a JSON {label}")
+
+    # Re-inline anatomy/spec/usage/uiLogic from specSrc sidecars (schema 10) before the
+    # anatomy-dependent checks read them; mutates `reg` in place so the loops below see them.
+    _resolve_specs(add, reg, base_dir)
 
     components = reg.get("components") if isinstance(reg.get("components"), list) else []
     screens = reg.get("screens") if isinstance(reg.get("screens"), list) else []
@@ -105,6 +122,9 @@ def check(reg, strict=False, base_dir=None):
         comp_ids.add(cid)
         comp_by_id.setdefault(cid, c)
         _check_renderfn(add, c, "renderCmp", where)
+        if c.get("level") not in LEVEL_ENUM:
+            add(ERROR, "R-LEVEL", where,
+                f"level {c.get('level')!r} missing or not in {sorted(LEVEL_ENUM)} — required (schema 9)")
         _scan_body(add, _resolve_body(add, c, where, base_dir), where, hex_px_sev)
 
     # ── anatomy nesting: declared globals must be instanced (R-NEST / R-NEST-HINT) ──
@@ -170,15 +190,82 @@ def check(reg, strict=False, base_dir=None):
                 add(ERROR, "R-ORGID", f"{where} elements[{j}]",
                     f"orgId {org!r} resolves to no component")
 
-    # ── tokens: kind enum, runtime-required presence ──────────────────────────
+    # ── composition law: only atoms emit primitives; molecules+ compose via pbUse() ─────
+    # R-COMPOSE (no inlined controls above atom level), R-COMPOSE-TEXT (prefer text atoms),
+    # R-COMPOSE-MATCH (the pbUse tree matches declared elements[]/anatomy.parts[] orgIds),
+    # R-LEVEL-ORDER (compose strictly lower levels; atoms are leaves). This is what lowers
+    # 1:1 to a clean Figma INSTANCE tree in the bridge.
+    def _declared_orgids(kind, item):
+        if kind == "screen":
+            return {el.get("orgId") for el in (item.get("elements") or [])
+                    if isinstance(el, dict) and el.get("orgId")}
+        an = item.get("anatomy")
+        parts = (an.get("parts") if isinstance(an, dict) else None) or []
+        return {p.get("orgId") for p in parts if isinstance(p, dict) and p.get("orgId")}
+
+    for kind, items in (("component", components), ("screen", screens)):
+        for i, item in enumerate(items):
+            if not isinstance(item, dict):
+                continue
+            where = f"{kind}s[{i}] id={item.get('id', '')!r}"
+            lvl = item.get("level") or ("page" if kind == "screen" else None)
+            rank = LEVEL_RANK.get(lvl)
+            body = _body_of(item, base_dir)
+            composed = set(_PBUSE.findall(body or ""))
+            declared = _declared_orgids(kind, item)
+            if lvl == "atom":
+                if composed:
+                    add(ERROR, "R-LEVEL-ORDER", where,
+                        f"an atom composes {sorted(composed)} via pbUse — atoms are leaves; only molecules+ compose")
+                continue
+            if lvl is None:
+                continue  # component missing level already flagged by R-LEVEL
+            ctl = sorted({m.lower() for m in _CONTROL_RE.findall(body or "")})
+            if ctl:
+                add(compose_sev, "R-COMPOSE", where,
+                    f"non-atom ({lvl}) body inlines raw control tag(s) <{'>, <'.join(ctl)}> — compose a component via pbUse() instead")
+            txt = sorted({m.lower() for m in _TEXT_RE.findall(body or "")})
+            if txt:
+                add(WARN, "R-COMPOSE-TEXT", where,
+                    f"non-atom body inlines raw text tag(s) <{'>, <'.join(txt)}> — prefer a heading/paragraph atom")
+            missing = declared - composed
+            extra = composed - declared
+            if missing:
+                add(compose_sev, "R-COMPOSE-MATCH", where,
+                    f"declared component(s) {sorted(missing)} are not composed (pbUse) in the render body")
+            if extra:
+                add(WARN, "R-COMPOSE-MATCH", where,
+                    f"body composes {sorted(extra)} not declared in "
+                    f"{'elements[]' if kind == 'screen' else 'anatomy.parts[]'}")
+            if rank is not None:
+                for oid in sorted(composed):
+                    child = comp_by_id.get(oid)
+                    crank = LEVEL_RANK.get(child.get("level")) if isinstance(child, dict) else None
+                    if crank is not None and crank >= rank:
+                        add(compose_sev, "R-LEVEL-ORDER", where,
+                            f"composes {oid!r} at level {child.get('level')!r} (>= its own {lvl!r}) — compose strictly lower levels")
+                if lvl in ("molecule", "organism", "template") and not composed:
+                    add(WARN, "R-LEVEL-ORDER", where,
+                        f"{lvl} composes no lower-level component (no pbUse) — inlining markup that should be a component?")
+
+    # ── tokens: W3C DTCG $type validity + legacy-shape + runtime-required presence ──
+    # tokens is a DTCG document (flat or nested-with-aliases). Validate each token's $type
+    # against the DTCG type set; flag any surviving legacy {value, kind} token; and confirm
+    # the runtime-required tokens resolve (by CSS-var name, so nesting is handled).
     for name, t in tokens.items():
-        if isinstance(t, dict):
-            kind = t.get("kind")
-            if kind is not None and kind not in KIND_ENUM:
-                add(ERROR, "R-KIND", f"tokens.{name}",
-                    f"kind {kind!r} is not in the enum ({', '.join(sorted(KIND_ENUM))})")
+        if isinstance(name, str) and name.startswith("$"):
+            continue
+        if isinstance(t, dict) and "$value" not in t and "value" in t and "kind" in t:
+            add(WARN, "R-DTCG-TYPE", f"tokens.{name}",
+                "legacy {value, kind} token — run /pb:update-version to convert to DTCG {$value, $type}")
+    for row in _tok.to_list(tokens):
+        typ = row.get("type")
+        if typ is not None and typ not in _tok.DTCG_TYPES:
+            add(ERROR, "R-DTCG-TYPE", f"tokens.{'.'.join(row['path'])}",
+                f"$type {typ!r} is not a W3C DTCG type ({', '.join(sorted(_tok.DTCG_TYPES))})")
+    resolved = _tok.resolve(tokens)
     for req in RUNTIME_REQUIRED_TOKENS:
-        if req not in tokens:
+        if req not in resolved:
             add(WARN, "R-DANGER", "tokens",
                 f"runtime-required token {req!r} is missing — the error runtime styles "
                 f"with var(--{req}); add it or fresh submits show no danger border")
@@ -251,6 +338,34 @@ def check_nesting_figma(reg, transfer):
     return findings
 
 
+def _resolve_specs(add, reg, base_dir):
+    """Re-inline anatomy/spec/usage/uiLogic from `specSrc` sidecars (schema 10) so the anatomy
+    checks (R-NEST/R-ORGID/R-COMPOSE-MATCH) see the real parts. Mirrors render.load_specs but,
+    like _resolve_body, emits an ERROR finding on a missing sidecar rather than raising."""
+    if base_dir is None:
+        return
+    for kind in ("components", "screens"):
+        items = reg.get(kind)
+        if not isinstance(items, list):
+            continue
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            src = item.get("specSrc")
+            if not src:
+                continue
+            where = f"{kind}[id={item.get('id')!r}]"
+            path = os.path.normpath(os.path.join(base_dir, src))
+            try:
+                with open(path, encoding="utf-8") as f:
+                    for k, v in json.load(f).items():
+                        item[k] = v
+            except FileNotFoundError:
+                add(ERROR, "R-SPECSRC", where, f"specSrc file not found: {src}")
+            except json.JSONDecodeError as e:
+                add(ERROR, "R-SPECSRC", where, f"specSrc is invalid JSON: {src} ({e.msg})")
+
+
 def _resolve_body(add, item, where, base_dir):
     """Return the render body to scan, resolving renderSrc (v1.4 schema 4).
 
@@ -274,6 +389,19 @@ def _resolve_body(add, item, where, base_dir):
     except FileNotFoundError:
         add(ERROR, "R-RENDERSRC", where, f"renderSrc file not found: {src}")
         return ""
+
+
+def _body_of(item, base_dir):
+    """Read a render body WITHOUT emitting findings — the compose pass re-reads bodies the
+    id/renderFn loops already resolved (via _resolve_body), so this avoids double warnings."""
+    src = item.get("renderSrc")
+    if src and base_dir is not None:
+        try:
+            with open(os.path.normpath(os.path.join(base_dir, src)), encoding="utf-8") as f:
+                return f.read()
+        except OSError:
+            return ""
+    return item.get("render", "") or ""
 
 
 def _check_renderfn(add, item, prefix, where):

@@ -3,7 +3,7 @@
 The standalone, CLAUDE.md-native architecture. Read the [router](../CLAUDE.md) first; the
 data contract lives in the [playbook](../prototype-builder.md). This doc covers the plugin
 layout, `registry.json` as source of truth, the generator + adapter, the memory layer, the
-5 tabs, and the command surface.
+two derived sites (a 4-tab prototype + the design-system site), and the command surface.
 
 ## What it is
 
@@ -55,8 +55,8 @@ slice** — a token, one component, one screen — never the whole file.
 |---|---|---|
 | `meta` | `name`, `overview{objectives, principles[]}`, `userInsights{quantitative, researchSummary, executiveSummary}`, `tradeoffs[]`, `others` | Project Summary |
 | `tokens` | `{ "<name>": { value, kind } }` — `kind ∈ color\|radius\|space\|size\|type\|shadow\|alias` | all tabs (CSS vars) |
-| `components[]` | organism shape: `id` (kebab, unique), `name`, `renderFn` (`renderCmp{PascalCase}`), `renderSrc` (`render/components/<id>.js`), `properties`, `anatomy`, `spec`, `uiLogic`, `usage` | UI Design · component |
-| `screens[]` | `id` (kebab), `name`, `renderFn`, `renderSrc` (`render/screens/<id>.js`), `layout`, `elements[]`, `logicNotes[]` | Prototype + UI Design · screen |
+| `components[]` | organism shape: `id` (kebab, unique), `name`, `renderFn` (`renderCmp{PascalCase}`), `renderSrc` (`render/components/<id>.js`), `properties`, `anatomy`, `spec`, `uiLogic`, `usage` | design-system site + Prototype (composed into screens) |
+| `screens[]` | `id` (kebab), `name`, `renderFn`, `renderSrc` (`render/screens/<id>.js`), `layout`, `elements[]`, `logicNotes[]` | Prototype · screen |
 | `staleness` | per-tab `{ lastSyncedPromptCount, currentPromptCount }` | flow / handoff / erd badges |
 | `flow` / `erd` | `{ populated, ... }` | UX Design / Data (decoupled tabs) |
 | `config` | `{ viewOnly, cover, iconCdn }` | view-only hand-off + DS-neutral icons |
@@ -64,9 +64,10 @@ slice** — a token, one component, one screen — never the whole file.
 **Data only.** Render-function *bodies* live as real `.js` files (`render/components/<id>.js`,
 `render/screens/<id>.js`) referenced by each entry's `renderSrc`; the generator reads those files and
 emits them (v1.4 schema 4 — a legacy inline `render` string still works for backward compatibility).
-The registry itself holds no render code. Figma fields
-(`figmaId`, `figmaComponentSetId`, `dsMatch`, `figmaFrameId`) are written back by
-`/pb:build-figma-handoff`. Ephemeral UI state (`handoff.view`, `selectedScreenId`,
+The registry itself holds no render code. The code→Figma bridge (`/pb:build-figma-handoff`) records
+portable DS keys/variable maps in `figma-transfer.json` / `figma-tokens.json` (bridge mode writes
+nothing back to the registry; the legacy `--mcp` path writes `figmaId`/`figmaFrameId` back). Ephemeral
+UI state (`handoff.view`, `selectedScreenId`,
 `selectedElementId`) is rebuilt fresh on each load and **never persisted** — which is why a click
 in the prototype never dirties `registry.json`.
 
@@ -88,8 +89,9 @@ Inside the shell, two thin functions bridge the registry onto the ported v0.4.0 
 machinery, which is **unchanged**:
 
 - **`adaptRegistryToPBData(PB_REGISTRY)`** maps the registry onto the in-memory `PB_DATA` shape
-  the crown-jewel render functions already read — so `renderPrototype`, `renderHandoff`, the
-  spec drawer, the wireflow, and the ERD renderer never had to change.
+  the crown-jewel render functions already read — so `renderPrototype`, the wireflow, and the ERD
+  renderer never had to change. *(The design-system site is the second projection — it renders
+  components directly from `registry.json` via the shared `runtime.js`, not through this adapter.)*
 - **`applyRegistryTokens(reg)`** injects `tokens{}` onto `:root` as CSS variables at boot.
 
 Because the render is deterministic and batched, it runs **only** on `/pb:build --render` and
@@ -125,20 +127,24 @@ command bodies — they write `meta.overview` / `meta.userInsights` / `meta.trad
 registry. This is what the v0.4.0 `after_*` hooks + `sync-tab2` used to do; there is no hook
 engine.
 
-## The 5 tabs
+## The 4 tabs (+ the design-system site)
 
-All five are rendered from the registry by the ported machinery:
+All four prototype tabs are rendered from the registry by the ported machinery:
 
 | Tab | Renders from | Sync |
 |---|---|---|
 | **Prototype** | `screens[]` | trio — auto on `/pb:build` |
 | **Project Summary** | `meta.overview` / `userInsights` / `tradeoffs` (PRD · Insights · Trade-offs) | trio — auto on `/pb:build` |
 | **UX Design** | `flow` (Mermaid wireflow + test checklist) | **decoupled** — `/pb:flow` only |
-| **UI Design** | `components[]` + `screens[]` (DS · Local · Screen, with the spec drawer) | component is trio; screen is decoupled |
 | **Data** | `erd` (field/type/example table + Mermaid ERD) | **decoupled** — `/pb:data` only |
 
-The **trio** (Prototype + Project Summary + UI Design · component) auto-syncs on `/pb:build`.
-Flow, Data, and UI Design · screen are decoupled — updated only by their explicit commands.
+The **design-system site** (`design-system.html`, served at `/design-system`) is the second
+projection of the same registry: it renders `components[]` (grouped `scope` → atomic `level`) as
+interactive demos + variant grids + Push-to-Figma snippets, over the token foundations. Components
+are a trio member (auto-sync on `/pb:build`) — the site is not a tab, it's a sibling site.
+
+The **trio** (Prototype + Project Summary + the component slice) auto-syncs on `/pb:build`.
+Flow and Data are decoupled — updated only by their explicit commands.
 
 ## Design-system-agnostic core
 
@@ -190,5 +196,5 @@ flowchart TD
   CMDS -- "--render / hand-off / validate" --> GEN
   GEN -- "emit render bodies + inline registry" --> SHELL
   SHELL -- "adaptRegistryToPBData + applyRegistryTokens" --> HTML
-  REG -. "5 tabs: Prototype · Project Summary · UX Design · UI Design · Data" .-> HTML
+  REG -. "4 tabs: Prototype · Project Summary · UX Design · Data (+ /design-system site)" .-> HTML
 ```

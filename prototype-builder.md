@@ -27,7 +27,7 @@ tokens are applied onto `:root` at boot via `applyRegistryTokens`.
 | `meta.shell` | `'browser'\|'app'` | Prototype | default preview chrome — `browser` (tab strip + back/reload/URL bar) or `app` (plain titlebar on desktop; a contrast-aware device status bar on tablet/mobile). Viewer can toggle live; set at `/pb:init`. Defaults to `'browser'` |
 | `meta.device` | `'monitor'\|'laptop'\|'tablet'\|'mobile'` | Prototype | default device for the preview frame; set at `/pb:init`. Falls back to `'laptop'`. Legacy `'desktop'` → `'laptop'` |
 | `meta.devices` | `('monitor'\|'laptop'\|'tablet'\|'mobile')[]` | Prototype | the fixed sizes this project supports (`monitor 1920×1080 · laptop 1280×832 · tablet 834×1112 · mobile 390×844`) — unsupported sizes are disabled in the switcher. Optional; defaults to all four. Legacy `'desktop'` expands to `monitor`+`laptop` |
-| `meta.designSystem` | `{ name, designLink, codeLibrary, linked }` | UI Design | the linked design system — `designLink` (Figma/doc URL), `codeLibrary` (folder path or repo URL). Seeded from the DS Lock at `/pb:init`. Optional/tolerated-absent → the DS bar shows an "add one" affordance |
+| `meta.designSystem` | `{ name, designLink, codeLibrary, linked }` | design-system site | the linked design system — `designLink` (Figma/doc URL), `codeLibrary` (folder path or repo URL). Seeded from the DS Lock at `/pb:init`. Optional/tolerated-absent → the DS bar shows an "add one" affordance |
 | `meta.platform` | `'web'\|'ios'\|'android'\|'desktop'` | — | the DS/target platform; set at `/pb:init`. Defaults to `'web'`. Schema 5 (v1.6) |
 | `meta.dsSource` | `{ type, ref, clonedAt } \| null` | — | provenance of the cloned DS: `type ∈ figma\|code-library\|mcp\|common`, `ref` the literal URL/path/name, `clonedAt` ISO stamp. `null` until `/pb:pull-ds` clones. The full token/component snapshot lives in `design-system/<name>/.source.json`; `/pb:check-drift` §5 diffs the live source against it. Schema 5 (v1.6) |
 | `meta.outputTier` | `'host'\|'scaffold'\|'hardened'` | — | which export tier `/pb:handoff-dev` targets. `host` = the runnable single-file prototype; `scaffold` = deterministic React+Tailwind (`render_react.py`); `hardened` = idiomatic/DS-integrated (deferred). Defaults to `host`. Schema 6 (v1.7) |
@@ -37,9 +37,9 @@ tokens are applied onto `:root` at boot via `applyRegistryTokens`.
 | `meta.userInsights` | `{ quantitative, researchSummary, executiveSummary }` | Project Summary | from `/pb:clarify` |
 | `meta.tradeoffs[]` | `[{ title, question, options, decision, why, tabsAffected }]` | Project Summary | UI Logic Trade-offs |
 | `meta.others` | string \| null | Project Summary | freeform |
-| `tokens{}` | `{ "<name>": { value, kind } }` | all (CSS vars) | injected onto `:root`; `kind ∈ color\|radius\|space\|size\|type\|shadow\|alias` |
-| `components[]` | organism objects | UI Design · component | the component library — shape below |
-| `screens[]` | screen objects | Prototype + UI Design · screen | shape below |
+| `tokens{}` | a **W3C DTCG** document — `{ "<name>": { $value, $type } }` (flat or nested groups + `{alias}` refs) | all (CSS vars) | `pb/tools/tokens.py` (+ the shell's `pbResolveTokens`) resolves it → CSS custom properties on `:root`; `$type ∈ color\|dimension\|fontFamily\|fontWeight\|number\|duration\|shadow\|…` (space/size/radius/fontSize all → `dimension`) |
+| `components[]` | organism objects | design-system site | the component library — shape below |
+| `screens[]` | screen objects | Prototype | shape below |
 | `staleness{}` | per-tab `{ lastSyncedPromptCount, currentPromptCount }` | flow / handoff / erd badges | |
 | `flow{}` | `{ populated, mermaid, stories[], html? }` | UX Design | structured — shape below; `html` is legacy fallback only |
 | `erd{}` | `{ populated, table[], mermaid, warnings[], html? }` | Data | structured — shape below; `html` is legacy fallback only |
@@ -56,24 +56,29 @@ Ported **verbatim** from the v0.4.0 `PB_DATA.handoff.organisms` shape:
   uiLogic[], usage{ demoProps, topics[], placement } }
 ```
 
-- **`scope`** — `'global' | 'local'`. Drives the UI Design **Global | Local** sub-tabs. A component reads as
+- **`scope`** — `'global' | 'local'`. Drives the design-system site's **Global | Local** grouping. A component reads as
   global when `scope === 'global'` **or** a `dsMatch` exists; otherwise local.
-- **`level`** — `'atom' | 'molecule' | 'organism'` — the atomic-design layer. Optional; when present, the UI
-  Design Global/Local lists group components by level (atoms → molecules → organisms). Compose upward:
-  atoms into molecules, molecules into organisms, organisms onto screens — never inline a one-off (see the
-  atomic-composition principle in `constitution.md`).
+- **`level`** — `'atom' | 'molecule' | 'organism' | 'template'` — the atomic-design layer. **Required**
+  (schema 9; `lint_registry.py` R-LEVEL). Screens are implicitly `page`. The design-system site's Global/Local lists
+  group components by level. **Component-first / atomic law (enforced, ERROR under `--strict`):** ONLY
+  `level:atom` render bodies may emit raw HTML primitives; every molecule/organism/template/screen body is
+  **pure composition** — layout containers + `pbUse('<child-id>', props)` calls to lower-level components
+  (R-COMPOSE), whose set matches the declared `elements[]`/`anatomy.parts[]` orgIds (R-COMPOSE-MATCH), each
+  composing strictly lower levels (R-LEVEL-ORDER). This is what lowers 1:1 to a Figma INSTANCE tree. A
+  component that maps to a single DS component (`dsMatch`) is an `atom` even if visually composite.
 - **`state` property convention** — if `properties[]` contains a property with `id: 'state'` (each option
-  `{ label, value }`), it appears as a dropdown alongside the component's other enum properties; the UI Design
+  `{ label, value }`), it appears as a dropdown alongside the component's other enum properties; the design-system site
   demo shows **one live, interactive instance of the currently-selected variant** (changing any dropdown,
   including `state`, re-renders it). **Interactive components MUST declare it** (e.g. `default / error /
   disabled`, `default / loading / disabled`).
 - **`anatomy` / `spec`** — either a **prose string** (rendered as a description beside a live preview) or a
   **structured object** (`anatomy.parts[]` / `spec.stack[]`) that drives the numbered redline annotations. The
-  UI Design drawer renders whichever form is present; author the structured object when you want measured
+  spec metadata carries whichever form is present (hand-off / bridge); author the structured object when you want measured
   redlines, the string when a plain description suffices.
 
-Figma fields (`figmaId`, `figmaComponentSetId`, `dsMatch`) are added by `/pb:build-figma-handoff`.
-`token.kind ∈ color | radius | space | size | type`.
+Figma fields are recorded by `/pb:build-figma-handoff` in `figma-transfer.json` (bridge mode: the
+portable `dsKey` + `propertyMapping`; the `--mcp` legacy path also writes `figmaId`/`figmaComponentSetId`
+back onto the registry). `dsMatch` may be authored to hint the DS component match.
 
 ### `screens[]` (one per screen)
 
@@ -153,7 +158,7 @@ and **data-set variant chips** on the table. Per-entity tables share fixed colum
   no-data state). Use standard review scenarios — e.g. `New user`, `Empty`, `Returning`. Each set: `label` +
   `rows[]` (objects keyed by field names). Authored by `/pb:data --mock`.
 
-## The 5 tabs
+## The 4 tabs (prototype shell) + the design-system site
 
 - **Prototype** — the live **interactive** app driven by the `data-*` runtime (above). Header-line tools (a
   **Browser | App** chrome toggle + an icon-only device switcher over 4 fixed sizes — monitor 1920×1080 /
@@ -165,25 +170,31 @@ and **data-set variant chips** on the table. Per-entity tables share fixed colum
   navigates on click. One viewport, internal scroll.
 - **UX Design** — the wireflow from `flow.mermaid` (fills one viewport), with **User stories | Test cases**
   sidebar sub-tabs; hovering a story highlights the flow path it satisfies (above).
-- **UI Design** — the DS bar sits on the title line; components split into **Global | Local** sub-tabs (by
-  `scope`), each card a single dropdown-driven demo (incl. `state`) + a **Copy code** dialog, plus the
-  per-component spec drawer (string-or-structured anatomy/spec) and the Screen view.
 - **Data** — single-column **Diagram | Table** toggle over `erd` (above): relationship-legend popover on the
   diagram, data-set variant chips on the aligned tables.
 
+**Design-system site** (`design-system.html`, served at `/design-system` — a second projection of the same
+registry, not a tab): every component auto-collected, grouped by `scope` → atomic `level`. Each
+**interactive** component (auto-detected — a `state` property OR body `data-*`/`onclick`/control tags) gets a
+**live, clickable demo**; **all** get a **variant grid** (the cartesian product of enum `properties`) + a
+**Push to Figma** bridge node-JSON snippet (paste into the plugin's *Code → Figma* tab). Token foundations
+render as swatches. Same `renderCmp*` functions the prototype uses (shared `pb/template/runtime.js`) — never
+duplicated.
+
 ## Render-function inventory
 
-_(Phase 3)_ — ported from v0.4.0: `render`, `renderMetaNav`, `renderMetaPanel`, `renderPrototype`,
-`renderMetaSummary` (+ `pbRenderOverview/UserInsights/Tradeoffs/Others`), `renderHandoff`
-(+ `pbRenderHandoff*` component/screen/drawer), `renderMetaFlow`/`renderFlowPopulated`,
-`renderMetaERD`/`renderERDPopulated`. The per-component `renderCmp*` / per-screen `renderScreen*`
-bodies are generated from the registry.
+_(Phase 3)_ — the **prototype** shell: `render`, `renderMetaNav`, `renderMetaPanel`, `renderPrototype`,
+`renderMetaSummary` (+ `pbRenderOverview/UserInsights/Tradeoffs/Others`), `renderMetaFlow`/`renderFlowPopulated`,
+`renderMetaERD`/`renderERDPopulated`. (The former UI Design `renderHandoff*` cluster is retired with the tab.)
+The **design-system** site (`design-system.html`) has its own workbench builder (`buildDS` → the interactive
+demo + variant-grid enumerator + push dialog). Both sites share `pb/template/runtime.js` and the per-component
+`renderCmp*` / per-screen `renderScreen*` bodies, generated from the registry by `render.py` (`--ds` for the DS site).
 
 ## Sync rules
 
-The **trio** (Prototype + Project Summary + UI Design · component) auto-syncs on `/pb:build`.
-Flow, Data, and UI Design · screen are **decoupled** — updated only by `/pb:flow`,
-`/pb:data`, and the screen pass. _(folded from the v0.4.0 hooks: Phase 4–5)_
+A component edit re-renders **both sites** on `/pb:build` (the prototype's composed screens + the
+design-system site) — they're two projections of the one `registry.json`, never separately maintained.
+Flow and Data are **decoupled** — updated only by `/pb:flow` and `/pb:data`. _(folded from the v0.4.0 hooks: Phase 4–5)_
 
 ## Component governance
 

@@ -21,6 +21,9 @@ import sys
 import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import tokens as _tokens  # noqa: E402  (sibling module; the DTCG token resolver)
+
 _COLOR_KINDS = {"color"}
 _BAR_KINDS = {"space", "size", "radius"}
 
@@ -50,8 +53,9 @@ def _pick_ds(registry_path, name):
     return None
 
 
-def _swatch(name, tok):
-    kind, val = tok.get("kind", "other"), html.escape(str(tok.get("value", "")))
+def _swatch(row):
+    name = row["name"]
+    kind, val = row.get("displayKind", "other"), html.escape(str(row.get("value", "")))
     label = f"<code>--{html.escape(name)}</code><span class='v'>{val}</span>"
     if kind in _COLOR_KINDS:
         return (f"<div class='sw'><div class='chip' style='background:var(--{html.escape(name)})'></div>"
@@ -80,15 +84,16 @@ def build_html(registry_path, name):
     src = reg.get("meta", {}).get("dsSource") or {}
     src_line = f"{src.get('type','?')} · {html.escape(str(src.get('ref','—')))}" if src else "not cloned"
 
-    root_vars = ";".join(f"--{html.escape(n)}:{html.escape(str(t.get('value','')))}" for n, t in tokens.items())
+    resolved = _tokens.resolve(tokens)
+    root_vars = ";".join(f"--{html.escape(n)}:{html.escape(str(v))}" for n, v in resolved.items())
 
-    # foundations grouped by kind
+    # foundations grouped by display-kind (DTCG $type=dimension is split back by name for display)
     by_kind = {}
-    for n, t in sorted(tokens.items()):
-        by_kind.setdefault(t.get("kind", "other"), []).append((n, t))
+    for row in sorted(_tokens.to_list(tokens), key=lambda r: r["name"]):
+        by_kind.setdefault(row["displayKind"], []).append(row)
     found = []
     for kind in sorted(by_kind):
-        chips = "".join(_swatch(n, t) for n, t in by_kind[kind])
+        chips = "".join(_swatch(row) for row in by_kind[kind])
         found.append(f"<h3>{html.escape(kind)} <span class='n'>{len(by_kind[kind])}</span></h3><div class='grid'>{chips}</div>")
     found_html = "".join(found) or "<p class='empty'>No tokens yet — run <code>/pb:pull-ds</code>.</p>"
 
@@ -121,7 +126,7 @@ h3{{font-size:13px;margin:20px 0 8px}}h3 .n{{color:var(--_mut);font-weight:400}}
 .variants em{{color:var(--_mut);font-size:11px}}.empty{{color:var(--_mut)}}code{{font-family:ui-monospace,Menlo,monospace}}
 </style></head><body>
 <header><h1>{html.escape(title)} <span style="font-weight:400;color:var(--_mut)">· {html.escape(plat)}</span></h1>
-<div class="sub">source: {src_line} · {len(tokens)} tokens · {len(comps)} components — <code>ds_serve.py</code></div></header>
+<div class="sub">source: {src_line} · {len(resolved)} tokens · {len(comps)} components — <code>ds_serve.py</code></div></header>
 <main>
 <h2>Foundations</h2>{found_html}
 <h2>Component catalog</h2>{cat_html}

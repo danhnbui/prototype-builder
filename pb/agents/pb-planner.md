@@ -17,7 +17,7 @@ sequences, and defines done. It plans; it does **not** build.
 
 ## Slice it owns
 - `memory/plan.md` — the approach per user story, honoring the Stack + DS locks.
-- `memory/tasks.md` — the per-tab task breakdown (Prototype · Project Summary · UX Design · UI Design · Data).
+- `memory/tasks.md` — the task breakdown grouped by where work lands (Prototype · Project Summary · UX Design · Data, plus the design-system site for components).
 
 **Every task** in `memory/tasks.md` lists:
 - **acceptance:** — the testable done condition.

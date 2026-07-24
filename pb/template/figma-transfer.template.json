@@ -1,6 +1,6 @@
 {
-  "schemaVersion": "1.0",
-  "_comment": "Persistent contract for /pb:build-figma-handoff. Seeded at /pb:init; updated after every successful push. NEVER hand-edit between pushes — let the command write to it.",
+  "schemaVersion": "2.0",
+  "_comment": "Persistent contract for /pb:build-figma-handoff. Seeded at /pb:init; updated after every successful push. NEVER hand-edit between pushes. v2 (bridge): per-component `dsKey` is the DS component's PORTABLE publish key (what the GHN DS Bridge plugin rebuilds instances from) + name-keyed `propertyMapping`; file-local Figma node ids live under `_figma` and are used ONLY by the legacy Figma-MCP push ledger. registry_to_figma.py reads `dsKey`/`propertyMapping` (falling back to the ds-catalog) to emit INSTANCE nodes.",
 
   "target": {
     "fileKey": null,
@@ -22,35 +22,27 @@
 
   "components": {
     "_example_text-input": {
-      "figmaComponentSetId": "1:33",
-      "figmaId": "1:34",
+      "dsKey": "10:200",
       "dsMatch": {
         "library": "{design-system}",
-        "figmaComponentId": "5678:910",
+        "componentName": "Input",
         "matchedAt": "0000-00-00T00:00:00Z",
         "matchedBy": "name"
       },
       "propertyMapping": {
-        "state": {
-          "figmaPropertyId": "1:35",
-          "options": ["default", "error", "success"]
-        }
+        "placeholder": { "dsPropName": "Placeholder" },
+        "state": { "dsPropName": "State", "options": { "default": "Default", "error": "Error" } }
       },
-      "figmaModifiedAt": null
+      "nestedInstances": {},
+      "_figma": { "figmaComponentSetId": "1:33", "figmaId": "1:34", "figmaModifiedAt": null }
     }
   },
 
   "screens": {
     "_example_sign-in": {
-      "figmaFrameId": "1:50",
       "lastPushedAt": "0000-00-00T00:00:00Z",
-      "elementMapping": {
-        "title": "1:51",
-        "emailFld": "1:52",
-        "passwordFld": "1:53",
-        "cta": "1:54"
-      },
-      "figmaModifiedAt": null
+      "_figma": { "figmaFrameId": "1:50", "figmaModifiedAt": null,
+        "elementMapping": { "title": "1:51", "emailFld": "1:52", "passwordFld": "1:53", "cta": "1:54" } }
     }
   },
 

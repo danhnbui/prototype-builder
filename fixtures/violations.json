@@ -1,5 +1,5 @@
 {
-  "_about": "Seeded-violations fixture for pb/tools/lint_registry.py. Valid JSON on purpose (so lint_registry.py parses it), but contains exactly nine distinct contract violations — one per rule code. CI asserts lint_registry.py --strict flags ALL of them. Do not 'clean up' this file; it is a negative test.",
+  "_about": "Seeded-violations fixture for pb/tools/lint_registry.py. Valid JSON on purpose (so lint_registry.py parses it), but contains twelve distinct contract violations — one per rule code. CI asserts lint_registry.py --strict flags ALL of them. Do not 'clean up' this file; it is a negative test.",
   "_seeded_violations": [
     "R-KEBAB  : component id 'GoodButton' is not kebab-case",
     "R-HEX    : raw hex (#ffffff) in a render body",
@@ -7,9 +7,12 @@
     "R-RENDERFN: component 'card' renderFn 'renderCard' breaks the renderCmp<PascalCase> contract",
     "R-SCRIPT : '</script>' literal in a render body (page-killer)",
     "R-DUPID  : id 'card' used by both a global and a local component",
-    "R-KIND   : token 'brand' has kind 'colour' (not in the enum)",
+    "R-DTCG-TYPE: token 'brand' has $type 'colour' (not a W3C DTCG type)",
     "R-DANGER : no 'danger' token, but the error runtime needs var(--danger)",
-    "R-ORGID  : screen element orgId 'nonexistent' resolves to no component"
+    "R-ORGID  : screen element orgId 'nonexistent' resolves to no component",
+    "R-LEVEL  : component 'bad-level' has an invalid atomic level 'gizmo'",
+    "R-COMPOSE: non-atom 'bad-level' inlines a raw <button> instead of composing (pbUse)",
+    "R-LEVEL-ORDER: molecule 'bad-order' composes the organism 'card' (>= its own level)"
   ],
   "meta": {
     "name": "Violations Fixture",
@@ -21,7 +24,7 @@
     "others": null
   },
   "tokens": {
-    "brand": { "value": "#4f46e5", "kind": "colour" }
+    "brand": { "$value": "#4f46e5", "$type": "colour" }
   },
   "components": [
     {
@@ -50,6 +53,24 @@
       "level": "organism",
       "properties": [],
       "render": "return '<div>local card</div>';"
+    },
+    {
+      "id": "bad-level",
+      "name": "BadLevel",
+      "renderFn": "renderCmpBadLevel",
+      "scope": "local",
+      "level": "gizmo",
+      "properties": [],
+      "render": "return '<div><button>x</button></div>';"
+    },
+    {
+      "id": "bad-order",
+      "name": "BadOrder",
+      "renderFn": "renderCmpBadOrder",
+      "scope": "local",
+      "level": "molecule",
+      "properties": [],
+      "render": "return pbUse('card');"
     }
   ],
   "screens": [

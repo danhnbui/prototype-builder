@@ -46,7 +46,6 @@ Everything else pb uses ships with the plugin — there is nothing else to insta
      # Derived + transient artifacts; the registry/render/memory sources stay trackable.
      # To ignore the whole sidecar instead, replace the lines below with:  .prototype/
      .prototype/prototype.html
-     .prototype/history/
      .prototype/.preview/
      ```
   4. **Read-only-outside rule** — append this Principle to `.prototype/memory/constitution.md`
@@ -117,7 +116,8 @@ target?"* Use the answer to seed:
 Seed **`meta.designSystem`** from the Design System Lock (step 2): `name` = the DS name; `codeLibrary` =
 its source when that's a repo URL or local path (**required** — a DS must have a code home); `designLink` =
 a Figma/doc URL if one was given (else `null`); `linked: true` once both name and codeLibrary are set.
-This drives the UI Design design-system bar.
+This records the project's design system (name + design/code links) for `/pb:pull-ds` and the
+design-system reference.
 
 Also set **`meta.platform`** from the DS Lock (step 2) — `web` / `ios` / `android` / `desktop`
 (default `web`). Leave **`meta.dsSource: null`** unless the DS was cloned in 2b (then `/pb:pull-ds`

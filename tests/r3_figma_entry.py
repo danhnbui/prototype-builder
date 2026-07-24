@@ -7,7 +7,7 @@ r3_figma_entry.py — the R3 "Figma-frame entry" acceptance, fixture-driven (no 
      placeholders + a gaps.md entry. Sets meta.entry = "figma".
   2. DS fidelity at entry: every emitted `orgId` is a KNOWN component id — nothing is invented. Every
      unmapped layer is accounted for (placeholder element AND a gaps.md line), never silently dropped.
-  3. Migration 0005 adds meta.entry, is up→down reversible, and template + golden track CURRENT_SCHEMA==7.
+  3. Migration 0005 adds meta.entry (schema 6→7), is up→down reversible, and the template tracks CURRENT_SCHEMA.
 
 Usage:  python3 tests/r3_figma_entry.py
 Exit:   0 = clean · 1 = a regression
@@ -82,7 +82,7 @@ up = m5.up(v6)
 check(up["meta"].get("entry") == "prd" and up["meta"]["schemaVersion"] == 7, "up adds entry=prd, stamps 7")
 check(m5.down(up) == v6, "down is reversible")
 tmpl = json.load(open(TEMPLATE))
-check(tmpl["meta"]["schemaVersion"] == man.CURRENT_SCHEMA == 7, "template schemaVersion == CURRENT_SCHEMA == 7")
+check(tmpl["meta"]["schemaVersion"] == man.CURRENT_SCHEMA, "template schemaVersion == CURRENT_SCHEMA")
 check(tmpl["meta"].get("entry") == "prd", "template carries entry=prd")
 
 print()

@@ -115,11 +115,18 @@ flowchart LR
 
 ## Figma hand-off (`/pb:build-figma-handoff`)
 
-A **one-way** registry → Figma transfer through the Figma MCP, gated G-FP0 → G-FP5 before any
-irreversible write. DS-neutral: the match library is `dsMatch.library` from config, never
-hardcoded. After a successful push it writes the Figma IDs **back** onto the matching
-`components[]` / `screens[]` entries (`figmaId`, `figmaComponentSetId`, `dsMatch`, `figmaFrameId`)
-and only those keys — so the next push reconciles instead of duplicating. Roll-forward only.
+A **one-way** registry → Figma transfer. Default is **BRIDGE mode**: `registry_to_figma.py`
+deterministically lowers the registry's composition tree to **GHN DS Bridge node JSON** (each screen
+element → an INSTANCE of its DS component's publish `key` + `componentProperties`; local components →
+FRAMEs with nested instances; spacing → token refs; auto-layout on every frame) — pasted into the
+plugin's *Code → Figma* tab and rebuilt as linked instances. Gated G-FP0 → G-FP5 (the Figma MCP is a
+read-only **context** provider for matching, never the writer), then an **offline G-FP6 audit** on the
+emitted JSON (auto-layout everywhere · every element an INSTANCE-by-key · nested globals instanced).
+DS-neutral: the library is `dsMatch.library` from config. Portable publish keys + variable maps live in
+`figma-transfer.json` / `figma-tokens.json` (sourced from `design-system/<name>/ds-catalog.json`);
+bridge mode writes nothing back to the registry. Unmatched components/tokens are flagged **gaps**, never
+invented. The legacy Figma-MCP write path (writing `figmaId`/`figmaFrameId` back) stays behind `--mcp`.
+Roll-forward only.
 
 ## The two exits
 
@@ -141,7 +148,7 @@ flowchart TD
 ```
 
 - **`--people`** renders, flips `config.viewOnly` + writes `config.cover`, and re-renders — the
-  shell then hides every authoring CTA across all 5 tabs and shows the cover. Safe to share with
+  shell then hides every authoring CTA across all 4 tabs and shows the cover. Safe to share with
   non-builders.
 - **`--context`** exports a portable bundle (registry + DS + the why-log + the locks) that
   `/pb:init --import` ingests to continue the work elsewhere.

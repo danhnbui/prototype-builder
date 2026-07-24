@@ -13,8 +13,9 @@ Invoke `ref-prd` (structured context), `think-layout` (structure), `think-logic`
 honoring the Stack + DS locks.
 
 ## 2 · Task breakdown (grouped by tab)
-Invoke `agent-orchestrate-tasks`. Produce `memory/tasks.md` — tasks grouped by the 5 tabs
-(Prototype · Project Summary · UX Design · UI Design · Data). **Each task** lists:
+Invoke `agent-orchestrate-tasks`. Produce `memory/tasks.md` — tasks grouped by the 4 prototype tabs
+(Prototype · Project Summary · UX Design · Data) **plus the design-system site** (where components land).
+**Each task** lists:
 - **acceptance** — how you'll know it's done.
 - **skill** — which skill the build step invokes (`think-layout`, `think-logic`,
   `design-component-build`, `craft-connect-flow`, …).

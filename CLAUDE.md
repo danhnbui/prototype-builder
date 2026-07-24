@@ -1,4 +1,4 @@
-# Product Builder v1.10.0 — router (read first)
+# Product Builder v1.11.0 — router (read first)
 
 Standalone, CLAUDE.md-native prototype builder. **No SpecKit** — no `extension.yml`,
 `preset.yml`, or `after_*` hooks. State lives in `registry.json`; commands are native
@@ -16,12 +16,12 @@ the playbook, [prototype-builder.md](prototype-builder.md) (authored in Phase 2)
 | `/pb:plan` | Implementation plan **+** per-tab task breakdown (each task: acceptance + skill + **agent · deps · slice**) | P4 |
 | `/pb:orchestrate` | Dispatch `memory/tasks.md` to the agent roster in dependency **waves** — serial registry writes, render once per wave, `acceptance`-gated | P4 |
 | `/pb:build` | The cheap loop: targeted `registry.json` patches, trio-gated, **no per-tweak render** | P3 |
-| `/pb:preview` | Live preview dev server: watch `registry.json` → deterministic render → browser live-reload | P3 |
-| `/pb:preview-ds` | Storybook-style server for the **cloned DS**: token foundations as swatches + the component catalog (read-only) | P3 |
+| `/pb:preview` | Live preview dev server: watch `registry.json` → deterministic render → live-reload. **Serves both sites**: the prototype at `/` and the **design system** at `/design-system` | P3 |
+| `/pb:preview-ds` | Open the **design-system site** (the `/design-system` route of `/pb:preview`) — live components: interactive demo + variant grid + push-to-figma + token foundations. *(Supersedes the old `ds_serve.py` upstream-clone browser.)* | P3 |
 | `/pb:test` | Sandbox testing: run scenario `test{}` blocks (functional), `--roles`, `--server`, `--security`, `--explore`; writes `lastResult` → live ✓/✗ glyphs | P3 |
 | `/pb:explore` | Parallel design options: N `pb-builder` sub-agents propose alternatives → compare → keep one | P3 |
 | `/pb:build-check-design-system` | *(sub)* DS-first: reuse vs extend-variant vs build-local; enforce the naming contract | P3 |
-| `/pb:build-figma-handoff` | *(sub)* ported `figma-push` — 6 gates (incl. G-FP6 render audit), DS-neutral match, auto-layout, one-way | P3 |
+| `/pb:build-figma-handoff` | *(sub)* code→Figma via the **GHN DS Bridge plugin** (declarative node JSON, default) — clarify gates G-FP0–G-FP5 + an offline G-FP6 audit on the emitted JSON; `registry_to_figma.py` lowers the composition tree to INSTANCE-by-key + token refs; the Figma MCP is a read-only **context** provider (match/enrich), never the writer; legacy MCP write behind `--mcp`. DS-neutral, auto-layout (R3), one-way | P3 |
 | `/pb:flow` | UX flow (Mermaid wireflow + test checklist) — decoupled, manual | P5 |
 | `/pb:data` | Data (field/type/example table + Mermaid ERD) — decoupled, manual | P5 |
 | `/pb:check-drift` | Read-only drift audit of the trio vs `constitution.md` | P5 |
@@ -29,7 +29,6 @@ the playbook, [prototype-builder.md](prototype-builder.md) (authored in Phase 2)
 | `/pb:validate` | Wrap `prototype.html` in a runnable reference build (Vite/Next) — serves the single file, not a component export | P6 |
 | `/pb:handoff-dev` | Export at a tier — `--tier=host` (runnable prototype) · `scaffold` (deterministic React+Tailwind app) · `hardened` (idiomatic/DS-integrated — **deferred**); records `meta.outputTier` + `meta.exportTarget` | P6 |
 | `/pb:update-version` | Versioned schema update: dry-run / `--apply` / `--rollback` / `--to <N>` | P6 |
-| `/pb:snapshot` | History model: timestamped `registry.json` copies under `<project>/history/`; `--list` / `--restore`. Never branches, never touches host git | — |
 
 > **Aliases (deprecated, still resolve):** `/pb:sync-flow` → `/pb:flow` · `/pb:sync-erd` → `/pb:data` · `/pb:hand-off` → `/pb:handoff-close`. The old command files are thin redirect stubs; they'll be removed in a future major release.
 
@@ -53,15 +52,18 @@ the playbook, [prototype-builder.md](prototype-builder.md) (authored in Phase 2)
 3. **Gate-skip on non-trio tweaks.** The drift / Stack / DS gate runs only when a change touches
    the **trio** — a screen, a component, or logic. Pure cosmetic tweaks skip it.
 
-## One preview per project
+## One registry → two sites, one preview server
 
-Each project has **one** preview source of truth: the live `/pb:preview` server reading that project's
-`registry.json`. `prototype.html` is a derived hand-off snapshot — **never** a second preview, never
-hand-edited. When an in-app preview pane is used, `/pb:preview` keeps **one** canonical
-`.claude/launch.json` entry per project (`pb-preview · <folder>`) via `pb/tools/preview_register.py` —
-upserted, never duplicated; entries it doesn't own are left alone.
+The registry is the single source of truth, projected into **two** deterministic sites (both built by
+`/pb:build --render`, both served live by the one `/pb:preview` server, both ~0 model tokens — the token
+lever): the **prototype** (`prototype.html`, `/` — flows/screens, **4 tabs**) and the **design system**
+(`design-system.html`, `/design-system` — the component workbench: interactive demo + variant grid +
+push-to-figma + tokens). Neither HTML file is ever hand-edited (they're derived); a component edit
+re-renders both. `/pb:preview` keeps **one** canonical `.claude/launch.json` entry per project
+(`pb-preview · <folder>`) via `pb/tools/preview_register.py` — **one server, two routes**; entries it
+doesn't own are left alone.
 
-## Tab render behaviors (the shell, `pb/template/prototype.html`)
+## Tab render behaviors (the prototype shell, `pb/template/prototype.html` — 4 tabs)
 
 **Unified page chrome (v1.2).** Every tab shares one layout: a `pb-page-header` (title + a `?`
 **info-dialog** explaining the tab's commands/skills + an optional CTA, shown only when the tab has data),
@@ -78,16 +80,6 @@ card that owns the CTA — no dead controls. (Replaces the old `meta-tag`/`meta-
   from `meta.device`, sizes not in `meta.devices` **disabled**. The device-framed preview scales to fit;
   **right** = a structure tree (screen → component level).
 - **Project Summary** — split: **left** = the `meta-subtab` sub-tabs (Overview · Insights · Trade-offs · Others) over a scrolling content column; **right** = a **scroll-spy table of contents** (built from the content's headings) that highlights the section in view and navigates on click. One viewport, internal scroll.
-- **UI Design** — split layout under a **Global | Local | Screen** control; the **design-system bar**
-  (`meta.designSystem`: name + design link + code-library link, or an "add one" affordance) sits on the
-  title line. Global/Local list components by `scope`, **grouped by `level`** (atom → molecule → organism);
-  each card shows **one dropdown-driven demo** (the selected variant, incl. `state`) centered, with a **Copy
-  code** action on the title row. The **Screen** view auto-selects a screen and, by default, lists the
-  **components used inside it** (click to open in the Component tab). Clicking a component/screen-element opens
-  its spec in the **persistent right aside** — anatomy (numbered element markers + per-element token list) ·
-  specification (margin/padding/gap measurement lines) · UI-logic · usage; anatomy/spec accept a **string**
-  (prose) *or* a **structured object** (redlines). Components here are the **same** registry components the
-  Prototype renders — never duplicated.
 - **UX Design** — split: **left** = the `flow.mermaid` canvas (multi-flow dropdown + legend, straight **orthogonal**
   connectors anchored at node side-centers, nodes recolored by shape and **Yes/No branches drawn green/red**),
   filling **one viewport** — no W×H controls; **right** = **User stories | Test cases** from `flow.stories[]`.
@@ -98,13 +90,27 @@ card that owns the CTA — no dead controls. (Replaces the old `meta-tag`/`meta-
   (`erd.mock` sets) gets its own variant switcher** (Schema · its scenarios) that swaps that table's Example
   column.
 
+## Design system site (the shell, `pb/template/design-system.html` — served at `/design-system`)
+
+A **second projection of the registry**, not a tab — the component home. `render.py --ds` builds it and
+`serve.py` serves it beside the prototype. Every registry component is auto-collected, grouped by `scope`
+→ atomic `level`. Each **interactive** component (auto-detected — a `state` property OR body
+`data-*`/`onclick`/`<button>`/`<input>`) gets a **live, clickable demo**; **all** components get a
+**variant grid** (the cartesian product of enum `properties`). Each component carries a **Push to Figma**
+action that emits the bridge **node JSON** (`registry_to_figma.build_component_nodes`) to paste into the
+plugin's *Code → Figma* tab. **Token foundations** render as swatches. The shared runtime
+(`pb/template/runtime.js`, injected into both shells) renders these with the SAME `renderCmp*` functions
+the prototype uses — never duplicated. (Replaces the old UI Design tab; the retired `ds_serve.py` browsed
+the upstream `.source.json` clone instead of the project's live components.)
+
 ## Memory layout (per project)
 
-- `registry.json` — the database: `tokens`, `components` (global refs + `local`), `screens`, `meta`, `staleness`, `flow`/`erd`. Render code is **not** here — each component/screen's `renderSrc` points at a real body file.
+- `registry.json` — the database: `tokens` (a **W3C DTCG** document — `{$value,$type}`, flat or nested-with-aliases; resolved to CSS vars by `pb/tools/tokens.py`), `components` (global refs + `local`; each carries a required atomic `level`), `screens`, `meta`, `staleness`, `flow`/`erd`. **Component-first / atomic law:** only `level:atom` render bodies emit raw HTML; molecules/organisms/screens are pure composition via `pbUse('<id>', props)` (enforced by `lint_registry.py` R-LEVEL/R-COMPOSE/R-LEVEL-ORDER, ERROR under `--strict`). Render code is **not** here — each component/screen's `renderSrc` points at a real body file.
 - `render/components/<id>.js` · `render/screens/<id>.js` — the render bodies (v1.4 schema 4): real, lintable `.js` files compiled into `prototype.html` by `render.py`. Edit these directly; the registry stays pure data.
+- `spec/components/<id>.json` · `spec/screens/<id>.json` — the handoff docs (**schema 10**): `anatomy`/`spec`/`usage`/`uiLogic` moved out of the registry (its bulkiest fields, ~half the file on a real project) into a sidecar per item, referenced by each entry's `specSrc`. Edit these directly; `render.py`'s `load_specs` re-inlines them into the inlined registry (hand-off / Figma-bridge metadata — the two sites render demo + grid, not a redline drawer). Do **not** re-add inline `anatomy`/`spec` to `registry.json`.
 - `memory/constitution.md` — durable rules: Principles + **Stack Lock** + **DS Lock** (lean, rules-only).
 - `memory/decisions.md` — the why-log (trade-offs, gate overrides).
-- `design-system/{name}/{name}.md` — the global DS reference (scannable component index + rules R0–R4 + naming contract). Cloned by `/pb:pull-ds`; a sibling `.source.json` snapshots the source (tokens + components) for `/pb:check-drift`. `meta.dsSource` (provenance) + `meta.platform` record where it came from.
+- `design-system/{name}/{name}.md` — the global DS reference (scannable component index + rules R0–R4 + naming contract). Cloned by `/pb:pull-ds`; a sibling `.source.json` snapshots the source (tokens + components) for `/pb:check-drift`, and `ds-catalog.json` holds the **GHN DS Bridge Scan DS** output (portable publish keys + variables + variant/property metadata) that `registry_to_figma.py` reads for the code→Figma bridge. `meta.dsSource` (provenance) + `meta.platform` record where it came from.
 - `prototype.html` — rendered view, regenerated from `registry.json`.
 
 ## Schema compatibility
@@ -113,7 +119,7 @@ Write-path commands (`/pb:build`, `/pb:flow`, `/pb:data`, `/pb:pull-ds`, `/pb:ha
 this check before patching `registry.json`:
 
 1. Read `meta.schemaVersion` from `registry.json` (absent → treat as schema 2).
-2. Read `CURRENT_SCHEMA` from `pb/migrations/manifest.py` (currently **7**).
+2. Read `CURRENT_SCHEMA` from `pb/migrations/manifest.py` (currently **10** — 8 = W3C DTCG tokens, 9 = required atomic `level` / component-first, 10 = `anatomy`/`spec`/`usage`/`uiLogic` externalized to `spec/<kind>/<id>.json` sidecars via `specSrc`).
 3. If `schemaVersion < CURRENT_SCHEMA`: print a one-line banner —
    `⚠ Schema gap (v<from> → v<to>): <pending version update's describe() text>. Run /pb:update-version.`
 4. Proceed — **unless** the current write touches a slice a pending version update changes,

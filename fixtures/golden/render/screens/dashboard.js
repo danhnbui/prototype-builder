@@ -1,3 +1,8 @@
 function renderScreenDashboard(props) {
-return '<div style="min-height:100%;padding:var(--space-8);background:var(--bg-soft)"><h1 style="font-family:var(--font-heading);font-size:var(--text-2xl);font-weight:700;margin:0 0 var(--space-2)">Welcome back</h1><p style="font-family:var(--font-body);font-size:var(--text-sm);color:var(--text-muted)">You are signed in.</p><button data-roles="admin" data-nav="account" style="margin-top:var(--space-4);height:var(--size-control);padding:0 var(--space-5);border:0;border-radius:var(--radius-small);background:var(--brand);color:var(--on-brand);font-family:var(--font-body);font-size:var(--text-sm);font-weight:600;cursor:pointer">Admin settings</button></div>';
+  // Page: pure composition — a layout shell + atoms via pbUse(). No inlined controls.
+  return '<div style="min-height:100%;padding:var(--space-8);background:var(--bg-soft);display:flex;flex-direction:column;align-items:flex-start;gap:var(--space-2)">'
+    + pbUse('heading', { level: 1, text: 'Welcome back' })
+    + pbUse('paragraph', { text: 'You are signed in.', tone: 'muted' })
+    + pbUse('button', { label: 'Admin settings', dataRoles: 'admin', dataNav: 'account' })
+    + '</div>';
 }

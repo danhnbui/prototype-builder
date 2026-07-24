@@ -33,10 +33,14 @@ Per `ref-design-system`, produce **one** normalized export (write it to a temp f
 ```json
 { "name": "<ds-name>", "platform": "web|ios|android|desktop",
   "source": { "type": "figma|code-library|mcp|common", "ref": "<url|path|name>" },
-  "tokens": { "<kebab-name>": { "value": "<v>", "kind": "color|type|space|size|radius|…" }, … },
+  "tokens": { "<kebab-name>": { "$value": "<v>", "$type": "color|dimension|fontFamily|shadow|…" }, … },
   "components": [ { "id": "<kebab>", "level": "atom|molecule|organism",
                     "variants": [ … ], "purpose": "<one line>", "renderFn": "renderCmp<Pascal>" }, … ] }
 ```
+`tokens` is a **W3C DTCG** document (`$value`/`$type`; `$description` optional). A tiered DS (e.g. the
+`ghn-ds` MCP's semantic → primitive tiers) maps naturally to **nested DTCG groups** with `"{group.token}"`
+**aliases** — keep the tiering rather than flattening it (both flat and nested are valid; `clone_ds.py` /
+`tokens.py` resolve either). `clone_ds.py` still accepts a legacy `{ value, kind }` map and upgrades it.
 
 ## 3 · Materialize (deterministic)
 ```
@@ -45,7 +49,10 @@ python3 "${CLAUDE_PLUGIN_ROOT}/tools/clone_ds.py" --from .pb-ds-export.json regi
 This merges tokens into `registry.json` (additive; pass `--overwrite-tokens` to replace clashes),
 sets `meta.designSystem` / `meta.platform` / `meta.dsSource`, and writes
 `design-system/<name>/<name>.md` (the reference) + `design-system/<name>/.source.json` (the drift
-snapshot). Delete the temp export after. Report the tool's summary to the user.
+snapshot) + — when the export carries a `catalog` (the **GHN DS Bridge Scan DS** output: publish
+keys + variables + variant/property metadata) — `design-system/<name>/ds-catalog.json`, the key
+source `registry_to_figma.py` reads for the code→Figma bridge. Delete the temp export after; report
+the tool's summary.
 
 ## Result
 A cloned DS: registry tokens seeded, a scannable `design-system/<name>/<name>.md`, provenance in

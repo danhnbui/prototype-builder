@@ -25,7 +25,7 @@ inline-SVG fallback.
 | _(one row per component in `registry.components[]`; populated by `/pb:build`)_ | | | | global / local | atom / molecule / organism |
 
 > **Scope** = where it lives (`global` shared DS · `local` this project). **Level** = its atomic layer
-> (`atom` → `molecule` → `organism`). The UI Design tab groups each scope's list by level.
+> (`atom` → `molecule` → `organism`). The design-system site groups each scope's list by level.
 
 ## Rules
 

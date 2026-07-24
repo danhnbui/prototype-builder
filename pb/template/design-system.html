@@ -1,0 +1,248 @@
+<!doctype html>
+<!-- pb design-system site — a deterministic projection of registry.json (components + tokens).
+     render.py inlines the registry + per-component node JSON and injects the shared runtime plus the
+     emitted render functions at the markers in the script below. Sibling of prototype.html; both are
+     built from the same registry by /pb:build --render and served by /pb:preview. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Design system</title>
+<style>
+  :root {
+    /* Brand */
+    --brand:                  #1c4ed8;
+    --brand-soft:             #eef2ff;
+    --brand-strong:           #1e3aa3;
+    /* Neutrals */
+    --neutral-0:#ffffff; --neutral-5:#f8f9fb; --neutral-10:#eff1f5; --neutral-20:#c1c9d2;
+    --neutral-40:#8a94a0; --neutral-60:#5e6873; --neutral-80:#2d343c; --neutral-90:#1c1f22;
+    /* Semantic */
+    --bg-soft:var(--neutral-5); --text-active-primary:var(--neutral-90); --text-active-secondary:var(--neutral-60);
+    --text-tertiary:var(--neutral-40); --border:var(--neutral-20); --border-strong:var(--neutral-40);
+    --fill-active-primary:var(--brand); --fill-active-secondary:var(--brand-soft); --fill-hover-secondary:var(--neutral-10);
+    --danger:#dc2626; --success:#16a34a;
+    /* Nested-DS aliases so interactive checkboxes style on flat-pb-token projects too */
+    --color-brand-primary:var(--brand); --color-bg-surface:var(--neutral-0); --color-border:var(--border);
+    /* Fonts */
+    --font-heading:'Inter',system-ui,-apple-system,sans-serif; --font-body:'Inter',system-ui,-apple-system,sans-serif;
+    --font-size-xxs:10px; --font-size-xs:12px; --font-size-s:14px; --font-size-base:16px; --font-size-l:18px; --font-size-xl:20px; --font-size-xxl:24px; --font-size-xxxl:32px;
+    --font-weight-medium:500; --font-weight-bold:700;
+    --line-height-l:24px; --line-height-ui:1; --line-height-copy:1.5;
+    --radius-small:8px; --radius-medium:16px; --radius-large:24px; --radius-full:9999px;
+    --shadow-sm:0 1px 3px rgba(28,31,34,0.08); --shadow-md:0 4px 12px rgba(28,31,34,0.08);
+    /* workbench chrome */
+    --ds-bg:#fbfbfc; --ds-surface:#ffffff; --ds-ink:#101319; --ds-mut:#5e6873; --ds-faint:#98a1ac;
+    --ds-line:#e7e9ee; --ds-stage:#f6f7f9; --ds-accent:#1c4ed8;
+    --ds-mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+    --ds-sans:ui-sans-serif,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  }
+  @media (prefers-color-scheme:dark){ :root{ --ds-bg:#0b0c0e; --ds-surface:#16181c; --ds-ink:#f2f3f5; --ds-mut:#a0a7b0; --ds-faint:#6b7280; --ds-line:#24272d; --ds-stage:#101216; --ds-accent:#7aa2ff; } }
+  :root[data-theme="dark"]{ --ds-bg:#0b0c0e; --ds-surface:#16181c; --ds-ink:#f2f3f5; --ds-mut:#a0a7b0; --ds-faint:#6b7280; --ds-line:#24272d; --ds-stage:#101216; --ds-accent:#7aa2ff; }
+  :root[data-theme="light"]{ --ds-bg:#fbfbfc; --ds-surface:#ffffff; --ds-ink:#101319; --ds-mut:#5e6873; --ds-faint:#98a1ac; --ds-line:#e7e9ee; --ds-stage:#f6f7f9; --ds-accent:#1c4ed8; }
+
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--ds-bg);color:var(--ds-ink);font-family:var(--ds-sans);font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased}
+  header.ds-top{position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:16px;padding:14px 24px;background:color-mix(in srgb,var(--ds-bg) 88%,transparent);backdrop-filter:blur(8px);border-bottom:1px solid var(--ds-line)}
+  header.ds-top h1{margin:0;font-size:17px;font-weight:650;letter-spacing:-.01em}
+  header.ds-top .eyebrow{font-family:var(--ds-mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--ds-faint);margin:0}
+  .ds-switch{margin-left:auto;display:inline-flex;border:1px solid var(--ds-line);border-radius:9px;overflow:hidden;font-size:13px}
+  .ds-switch a{padding:6px 12px;color:var(--ds-mut);text-decoration:none}
+  .ds-switch a.on{background:var(--ds-accent);color:#fff}
+  main{max-width:1040px;margin:0 auto;padding:32px 24px 80px}
+  h2.ds-h{font-family:var(--ds-mono);font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--ds-faint);font-weight:600;margin:40px 0 14px;padding-bottom:8px;border-bottom:1px solid var(--ds-line)}
+  h2.ds-h:first-of-type{margin-top:8px}
+
+  .cmp{margin:0 0 30px;border:1px solid var(--ds-line);border-radius:14px;overflow:hidden;background:var(--ds-surface)}
+  .cmp-head{display:flex;align-items:center;gap:10px;padding:13px 16px;border-bottom:1px solid var(--ds-line)}
+  .cmp-head .nm{font-weight:640;font-size:15px}
+  .cmp-head .id{font-family:var(--ds-mono);font-size:12px;color:var(--ds-faint)}
+  .lvl{font-family:var(--ds-mono);font-size:10px;letter-spacing:.04em;text-transform:uppercase;color:var(--ds-accent);border:1px solid color-mix(in srgb,var(--ds-accent) 32%,transparent);border-radius:5px;padding:1px 6px}
+  .tagi{font-family:var(--ds-mono);font-size:10px;letter-spacing:.04em;text-transform:uppercase;color:var(--success);border:1px solid color-mix(in srgb,var(--success) 34%,transparent);border-radius:5px;padding:1px 6px}
+  .cmp-head .push{margin-left:auto;font:inherit;font-size:12px;padding:5px 11px;border:1px solid var(--ds-line);border-radius:8px;background:var(--ds-surface);color:var(--ds-ink);cursor:pointer}
+  .cmp-head .push:hover{border-color:var(--ds-accent);color:var(--ds-accent)}
+  .cmp-body{padding:0}
+  .sub{font-family:var(--ds-mono);font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--ds-faint);padding:14px 16px 0}
+  .stage{margin:10px 16px 4px;background:var(--ds-stage);border:1px solid var(--ds-line);border-radius:10px;padding:22px;display:flex;flex-wrap:wrap;gap:16px;align-items:center}
+  .grid{margin:6px 16px 16px;display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px}
+  .cell{display:flex;flex-direction:column;gap:8px}
+  .cell .lab{font-family:var(--ds-mono);font-size:11px;color:var(--ds-mut)}
+  .cell .box{background:var(--ds-stage);border:1px solid var(--ds-line);border-radius:9px;padding:16px;display:flex;align-items:center;justify-content:center;min-height:52px;overflow:auto}
+
+  .tok-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:2px;background:var(--ds-line);border:1px solid var(--ds-line);border-radius:12px;overflow:hidden}
+  .tok{display:flex;align-items:center;gap:11px;padding:10px 13px;background:var(--ds-surface)}
+  .sw{width:24px;height:24px;border-radius:7px;border:1px solid rgba(0,0,0,.14);flex:none}
+  .sw.dim{display:flex;align-items:center;justify-content:center;color:var(--ds-faint);border-style:dashed;font-family:var(--ds-mono);font-size:11px}
+  .tok .tn{font-family:var(--ds-mono);font-size:11.5px;word-break:break-word}
+  .tok .tv{font-family:var(--ds-mono);font-size:11px;color:var(--ds-mut)}
+  .tok .tc{display:flex;flex-direction:column;min-width:0}
+  .empty{color:var(--ds-mut);padding:20px 0}
+
+  dialog.pushdlg{border:1px solid var(--ds-line);border-radius:14px;padding:0;max-width:640px;width:92vw;background:var(--ds-surface);color:var(--ds-ink)}
+  dialog.pushdlg::backdrop{background:rgba(0,0,0,.45)}
+  .pd-head{display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid var(--ds-line)}
+  .pd-head b{font-size:14px}
+  .pd-head .x{margin-left:auto;cursor:pointer;border:0;background:none;color:var(--ds-mut);font-size:18px}
+  .pd-body{padding:14px 16px}
+  .pd-body p{margin:0 0 10px;color:var(--ds-mut);font-size:13px}
+  .pd-body textarea{width:100%;height:300px;font-family:var(--ds-mono);font-size:11.5px;border:1px solid var(--ds-line);border-radius:9px;padding:10px;background:var(--ds-stage);color:var(--ds-ink);resize:vertical}
+  .pd-foot{display:flex;gap:8px;padding:12px 16px;border-top:1px solid var(--ds-line)}
+  .pd-foot button{font:inherit;font-size:13px;padding:7px 13px;border-radius:8px;border:1px solid var(--ds-line);background:var(--ds-surface);color:var(--ds-ink);cursor:pointer}
+  .pd-foot .primary{background:var(--ds-accent);border-color:var(--ds-accent);color:#fff}
+  .gapnote{color:var(--ds-mut);font-size:12px;margin-top:8px}
+
+  #ds-toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%) translateY(20px);opacity:0;transition:opacity .18s,transform .18s;background:var(--neutral-90);color:#fff;padding:9px 15px;border-radius:9px;font-size:13px;pointer-events:none;z-index:20}
+  #ds-toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+</style>
+</head>
+<body>
+<header class="ds-top">
+  <div>
+    <p class="eyebrow">Design system</p>
+    <h1 id="ds-title">Components</h1>
+  </div>
+  <nav class="ds-switch"><a href="/">Prototype</a><a href="/design-system" class="on">Design system</a></nav>
+</header>
+<main id="ds-root"><p class="empty">Loading…</p></main>
+<div id="ds-toast"></div>
+
+<script>
+  const PB_REGISTRY = /*__PB_REGISTRY_START__*/ null /*__PB_REGISTRY_END__*/;
+  const PB_NODES = /*__PB_NODES_START__*/ {} /*__PB_NODES_END__*/;
+
+  function pbEscape(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+
+  /*__PB_RUNTIME__*/
+
+  /*__PB_RENDER_FNS__*/
+
+  // ── workbench ────────────────────────────────────────────────────────────────────
+  var LEVEL_ORDER = { atom:0, molecule:1, organism:2, template:3, page:4 };
+  var INTERACT_RE = /data-action|data-nav|data-go|data-redirect|data-required|data-validate|onclick=|<button|<input|<select|<textarea/i;
+  var MAX_CELLS = 16;
+
+  function defaultProps(c){ var p={}; (c.properties||[]).forEach(function(pr){ if(pr.default!==undefined) p[pr.id]=pr.default; }); return p; }
+  function safeRender(c, props){
+    var fn = window[c.renderFn];
+    if (typeof fn !== 'function') return '<span style="color:var(--danger);font:12px var(--ds-mono)">no render fn: '+pbEscape(c.renderFn||c.id)+'</span>';
+    try { return fn(props||{}); } catch(e){ return '<span style="color:var(--danger);font:12px var(--ds-mono)">render error: '+pbEscape(String(e && e.message || e))+'</span>'; }
+  }
+  function hasStateProp(c){ return (c.properties||[]).some(function(p){ return p.id === 'state'; }); }
+  function isInteractive(c){
+    if (hasStateProp(c)) return true;
+    return INTERACT_RE.test(safeRender(c, defaultProps(c)));
+  }
+  function enumProps(c){ return (c.properties||[]).filter(function(p){ return p.type === 'enum' && p.options && p.options.length; }); }
+  function variantCombos(c){
+    var base = defaultProps(c), enums = enumProps(c);
+    if (!enums.length) return { combos:[base], axes:[], capped:false };
+    var combos = [{}];
+    enums.forEach(function(p){
+      var next = [];
+      p.options.forEach(function(o){ combos.forEach(function(cc){ var n=Object.assign({},cc); n[p.id]=o.value; next.push(n); }); });
+      combos = next;
+    });
+    var capped = combos.length > MAX_CELLS;
+    combos = combos.slice(0, MAX_CELLS).map(function(cc){ return Object.assign({}, base, cc); });
+    return { combos:combos, axes:enums.map(function(p){ return p.id; }), capped:capped };
+  }
+  function comboLabel(combo, axes){ return axes.length ? axes.map(function(a){ return a+'='+combo[a]; }).join(' · ') : 'default'; }
+
+  function componentSection(c){
+    var interactive = isInteractive(c);
+    var head = '<div class="cmp-head"><span class="nm">'+pbEscape(c.name||c.id)+'</span><span class="id">'+pbEscape(c.id)+'</span>'
+      + '<span class="lvl">'+pbEscape(c.level||'?')+'</span>'
+      + (interactive ? '<span class="tagi">interactive</span>' : '')
+      + (PB_NODES[c.id] ? '<button class="push" data-push="'+pbEscape(c.id)+'">Push to Figma ↗</button>' : '')
+      + '</div>';
+    var body = '';
+    if (interactive) {
+      body += '<div class="sub">Interactive demo — click it</div><div class="stage">' + safeRender(c, defaultProps(c)) + '</div>';
+    }
+    var vc = variantCombos(c);
+    body += '<div class="sub">All variants' + (vc.capped ? ' (first '+MAX_CELLS+')' : '') + '</div><div class="grid">'
+      + vc.combos.map(function(combo){
+          return '<div class="cell"><span class="lab">'+pbEscape(comboLabel(combo, vc.axes))+'</span><div class="box">'+safeRender(c, combo)+'</div></div>';
+        }).join('')
+      + '</div>';
+    return '<div class="cmp">'+head+'<div class="cmp-body">'+body+'</div></div>';
+  }
+
+  function buildComponents(comps){
+    if (!comps.length) return '<p class="empty">No components yet — build one with <code>/pb:build</code>.</p>';
+    var out = '';
+    [['global','Global'],['local','Local']].forEach(function(sc){
+      var group = comps.filter(function(c){ return (c.scope||'local') === sc[0] || (sc[0]==='global' && c.dsMatch); });
+      // de-dup: a dsMatch'd local still reads global; keep simple by scope only
+      group = comps.filter(function(c){ return (c.scope||'local') === sc[0]; });
+      if (!group.length) return;
+      group.sort(function(a,b){ return (LEVEL_ORDER[a.level]||9) - (LEVEL_ORDER[b.level]||9); });
+      out += '<h2 class="ds-h">'+sc[1]+'</h2>' + group.map(componentSection).join('');
+    });
+    return out;
+  }
+
+  function buildFoundations(tokens){
+    var rows = pbResolveTokens(tokens || {});
+    var list = [];
+    Object.keys(rows.byName).forEach(function(name){ var t=rows.byName[name]; list.push({ name:name, value:t.value, kind:t.displayKind }); });
+    if (!list.length) return '';
+    list.sort(function(a,b){ return a.name < b.name ? -1 : 1; });
+    var cells = list.map(function(t){
+      var sw = (t.kind==='color')
+        ? '<span class="sw" style="background:var(--'+t.name+')"></span>'
+        : '<span class="sw dim">'+(t.kind==='radius'?'◜':t.kind==='font'||t.kind==='fontSize'?'Aa':'↔')+'</span>';
+      return '<div class="tok">'+sw+'<span class="tc"><span class="tn">'+pbEscape(t.name)+'</span><span class="tv">'+pbEscape(String(t.value))+'</span></span></div>';
+    }).join('');
+    return '<h2 class="ds-h">Token foundations</h2><div class="tok-grid">'+cells+'</div>';
+  }
+
+  function buildDS(){
+    var reg = PB_REGISTRY || {};
+    try { applyRegistryTokens(reg); } catch(e){}
+    document.getElementById('ds-title').textContent = (reg.meta && reg.meta.name) || 'Components';
+    document.title = ((reg.meta && reg.meta.name) || 'Design system') + ' — design system';
+    document.getElementById('ds-root').innerHTML = buildComponents(reg.components || []) + buildFoundations(reg.tokens || {});
+  }
+
+  // ── contained interactions for demos (self-contained toggles/sorts already work via the
+  //    runtime's inline onclick; here we wire flow controls so submit/nav respond on a screenless page) ──
+  function pbToast(msg){ var t=document.getElementById('ds-toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(t._h); t._h=setTimeout(function(){ t.classList.remove('show'); },1600); }
+  document.addEventListener('click', function(e){
+    var push = e.target.closest('[data-push]');
+    if (push){ openPush(push.getAttribute('data-push')); return; }
+    var el = e.target.closest('[data-action],[data-nav],[data-go]');
+    if (!el) return;
+    var action = el.getAttribute('data-action');
+    var nav = el.getAttribute('data-nav') || el.getAttribute('data-go');
+    if (action === 'submit'){
+      e.preventDefault();
+      var scope = el.closest('.stage') || document;
+      var bad = 0;
+      Array.prototype.forEach.call(scope.querySelectorAll('.field__input[data-required], input[data-required]'), function(inp){
+        if (!String(inp.value||'').trim()){ bad++; inp.style.outline='2px solid var(--danger)'; }
+        else inp.style.outline='';
+      });
+      pbToast(bad ? (bad+' required field'+(bad>1?'s':'')+' empty') : (nav ? '✓ submitted → '+nav : '✓ submitted'));
+    } else if (nav){ pbToast('→ navigates to “'+nav+'”'); }
+  });
+
+  function openPush(id){
+    var json = JSON.stringify(PB_NODES[id] || {}, null, 2);
+    var gaps = (PB_NODES[id] && PB_NODES[id].gaps) || [];
+    var dlg = document.getElementById('pushdlg') || (function(){
+      var d = document.createElement('dialog'); d.id='pushdlg'; d.className='pushdlg'; document.body.appendChild(d); return d;
+    })();
+    dlg.innerHTML = '<div class="pd-head"><b>Push “'+pbEscape(id)+'” to Figma</b><button class="x" onclick="document.getElementById(\'pushdlg\').close()">×</button></div>'
+      + '<div class="pd-body"><p>GHN DS Bridge node JSON — paste into the plugin’s <b>Code → Figma</b> tab, then Build.</p>'
+      + '<textarea readonly id="pushta">'+pbEscape(json)+'</textarea>'
+      + (gaps.length ? '<div class="gapnote">⚠ '+gaps.length+' gap(s): a DS key/variable is missing — resolve at /pb:pull-ds (Scan DS). Never invented.</div>' : '')
+      + '</div><div class="pd-foot"><button class="primary" onclick="pbCopyPush()">Copy</button><button onclick="document.getElementById(\'pushdlg\').close()">Close</button></div>';
+    dlg.showModal();
+  }
+  function pbCopyPush(){ var ta=document.getElementById('pushta'); ta.select(); try{ document.execCommand('copy'); pbToast('Copied node JSON'); }catch(e){} }
+
+  buildDS();
+</script>
+</body>
+</html>

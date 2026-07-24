@@ -1,0 +1,313 @@
+{
+  "_about": "Fixture: a GHN DS Bridge 'Scan DS' catalog for the golden's DS (Acme DS). Publish keys + variant/property metadata for registry_to_figma.py + tests/r4_figma_bridge.py. Not a real library.",
+  "meta": {
+    "fileName": "Acme DS",
+    "summary": "1 collection · 21 variables · 4 components"
+  },
+  "collections": [
+    {
+      "name": "Acme DS",
+      "id": "VariableCollectionId:1:2",
+      "modes": [
+        {
+          "modeId": "1:0",
+          "name": "Default"
+        }
+      ]
+    }
+  ],
+  "variables": [
+    {
+      "name": "border-width",
+      "id": "VariableID:5:1",
+      "key": "var_border_width",
+      "resolvedType": "FLOAT",
+      "collectionId": "VariableCollectionId:1:2"
+    },
+    {
+      "name": "brand",
+      "id": "VariableID:5:2",
+      "key": "var_brand",
+      "resolvedType": "COLOR",
+      "collectionId": "VariableCollectionId:1:2"
+    },
+    {
+      "name": "danger",
+      "id": "VariableID:5:3",
+      "key": "var_danger",
+      "resolvedType": "COLOR",
+      "collectionId": "VariableCollectionId:1:2"
+    },
+    {
+      "name": "on-brand",
+      "id": "VariableID:5:4",
+      "key": "var_on_brand",
+      "resolvedType": "COLOR",
+      "collectionId": "VariableCollectionId:1:2"
+    },
+    {
+      "name": "radius-medium",
+      "id": "VariableID:5:5",
+      "key": "var_radius_medium",
+      "resolvedType": "FLOAT",
+      "collectionId": "VariableCollectionId:1:2"
+    },
+    {
+      "name": "radius-small",
+      "id": "VariableID:5:6",
+      "key": "var_radius_small",
+      "resolvedType": "FLOAT",
+      "collectionId": "VariableCollectionId:1:2"
+    },
+    {
+      "name": "size-control",
+      "id": "VariableID:5:7",
+      "key": "var_size_control",
+      "resolvedType": "FLOAT",
+      "collectionId": "VariableCollectionId:1:2"
+    },
+    {
+      "name": "size-field",
+      "id": "VariableID:5:8",
+      "key": "var_size_field",
+      "resolvedType": "FLOAT",
+      "collectionId": "VariableCollectionId:1:2"
+    },
+    {
+      "name": "space-2",
+      "id": "VariableID:5:9",
+      "key": "var_space_2",
+      "resolvedType": "FLOAT",
+      "collectionId": "VariableCollectionId:1:2"
+    },
+    {
+      "name": "space-3",
+      "id": "VariableID:5:10",
+      "key": "var_space_3",
+      "resolvedType": "FLOAT",
+      "collectionId": "VariableCollectionId:1:2"
+    },
+    {
+      "name": "space-4",
+      "id": "VariableID:5:11",
+      "key": "var_space_4",
+      "resolvedType": "FLOAT",
+      "collectionId": "VariableCollectionId:1:2"
+    },
+    {
+      "name": "space-5",
+      "id": "VariableID:5:12",
+      "key": "var_space_5",
+      "resolvedType": "FLOAT",
+      "collectionId": "VariableCollectionId:1:2"
+    },
+    {
+      "name": "space-6",
+      "id": "VariableID:5:13",
+      "key": "var_space_6",
+      "resolvedType": "FLOAT",
+      "collectionId": "VariableCollectionId:1:2"
+    },
+    {
+      "name": "space-8",
+      "id": "VariableID:5:14",
+      "key": "var_space_8",
+      "resolvedType": "FLOAT",
+      "collectionId": "VariableCollectionId:1:2"
+    },
+    {
+      "name": "surface",
+      "id": "VariableID:5:15",
+      "key": "var_surface",
+      "resolvedType": "COLOR",
+      "collectionId": "VariableCollectionId:1:2"
+    },
+    {
+      "name": "text-2xl",
+      "id": "VariableID:5:16",
+      "key": "var_text_2xl",
+      "resolvedType": "FLOAT",
+      "collectionId": "VariableCollectionId:1:2"
+    },
+    {
+      "name": "text-lg",
+      "id": "VariableID:5:17",
+      "key": "var_text_lg",
+      "resolvedType": "FLOAT",
+      "collectionId": "VariableCollectionId:1:2"
+    },
+    {
+      "name": "text-muted",
+      "id": "VariableID:5:18",
+      "key": "var_text_muted",
+      "resolvedType": "COLOR",
+      "collectionId": "VariableCollectionId:1:2"
+    },
+    {
+      "name": "text-sm",
+      "id": "VariableID:5:19",
+      "key": "var_text_sm",
+      "resolvedType": "FLOAT",
+      "collectionId": "VariableCollectionId:1:2"
+    },
+    {
+      "name": "text-xl",
+      "id": "VariableID:5:20",
+      "key": "var_text_xl",
+      "resolvedType": "FLOAT",
+      "collectionId": "VariableCollectionId:1:2"
+    },
+    {
+      "name": "w-card",
+      "id": "VariableID:5:21",
+      "key": "var_w_card",
+      "resolvedType": "FLOAT",
+      "collectionId": "VariableCollectionId:1:2"
+    }
+  ],
+  "styles": {
+    "paint": [],
+    "text": [],
+    "effect": [],
+    "grid": []
+  },
+  "components": [
+    {
+      "name": "Button",
+      "key": "10:100",
+      "atomicLevel": "atom",
+      "type": "COMPONENT_SET",
+      "propertyDefinitions": {
+        "Label": {
+          "type": "TEXT",
+          "defaultValue": "Continue"
+        },
+        "Variant": {
+          "type": "VARIANT"
+        },
+        "State": {
+          "type": "VARIANT"
+        }
+      },
+      "variants": [
+        {
+          "name": "Variant=Primary, State=Default",
+          "key": "10:101",
+          "variantValues": {
+            "Variant": "Primary",
+            "State": "Default"
+          }
+        },
+        {
+          "name": "Variant=Primary, State=Disabled",
+          "key": "10:102",
+          "variantValues": {
+            "Variant": "Primary",
+            "State": "Disabled"
+          }
+        },
+        {
+          "name": "Variant=Link, State=Default",
+          "key": "10:103",
+          "variantValues": {
+            "Variant": "Link",
+            "State": "Default"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Input",
+      "key": "10:200",
+      "atomicLevel": "atom",
+      "type": "COMPONENT_SET",
+      "propertyDefinitions": {
+        "Placeholder": {
+          "type": "TEXT",
+          "defaultValue": "you@example.com"
+        },
+        "State": {
+          "type": "VARIANT"
+        }
+      },
+      "variants": [
+        {
+          "name": "State=Default",
+          "key": "10:201",
+          "variantValues": {
+            "State": "Default"
+          }
+        },
+        {
+          "name": "State=Error",
+          "key": "10:202",
+          "variantValues": {
+            "State": "Error"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Heading",
+      "key": "10:300",
+      "atomicLevel": "atom",
+      "type": "COMPONENT_SET",
+      "propertyDefinitions": {
+        "Text": {
+          "type": "TEXT",
+          "defaultValue": "Heading"
+        },
+        "Level": {
+          "type": "VARIANT"
+        }
+      },
+      "variants": [
+        {
+          "name": "Level=1",
+          "key": "10:301",
+          "variantValues": {
+            "Level": "1"
+          }
+        },
+        {
+          "name": "Level=2",
+          "key": "10:302",
+          "variantValues": {
+            "Level": "2"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Paragraph",
+      "key": "10:400",
+      "atomicLevel": "atom",
+      "type": "COMPONENT_SET",
+      "propertyDefinitions": {
+        "Text": {
+          "type": "TEXT",
+          "defaultValue": "Body text"
+        },
+        "Tone": {
+          "type": "VARIANT"
+        }
+      },
+      "variants": [
+        {
+          "name": "Tone=Default",
+          "key": "10:401",
+          "variantValues": {
+            "Tone": "Default"
+          }
+        },
+        {
+          "name": "Tone=Muted",
+          "key": "10:402",
+          "variantValues": {
+            "Tone": "Muted"
+          }
+        }
+      ]
+    }
+  ]
+}

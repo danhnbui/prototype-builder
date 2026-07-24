@@ -46,6 +46,31 @@ def _kebab(s):
     return re.sub(r"[^a-z0-9]+", "-", str(s).lower()).strip("-")
 
 
+def _normalize_input(data):
+    """Accept EITHER a frame-export ({frame, layers[]}) OR **GHN DS Bridge serialize output**
+    ({meta, roots[<node>]}) — the plugin's Figma→Code direction. A bridge node is normalized to a
+    frame-export: the first root's children become layers, and an INSTANCE's component reference
+    (set / name / mainComponentName) becomes the DS-component hint (kebab), matched against known
+    component ids exactly as an authored frame-export is. Anything else passes through unchanged."""
+    if not isinstance(data, dict) or "layers" in data or "roots" not in data:
+        return data
+    roots = data.get("roots") or []
+    root = roots[0] if roots and isinstance(roots[0], dict) else {}
+    layers = []
+    for ch in root.get("children", []) or []:
+        if not isinstance(ch, dict):
+            continue
+        layer = {"name": ch.get("name", "layer"), "type": ch.get("type", "?")}
+        comp = ch.get("component") if isinstance(ch.get("component"), dict) else None
+        hint = comp and (comp.get("set") or comp.get("name") or comp.get("mainComponentName"))
+        if hint:
+            layer["component"] = _kebab(hint)
+        layers.append(layer)
+    return {"frame": {"id": root.get("id") or (data.get("meta") or {}).get("fileName"),
+                      "name": root.get("name") or "screen"},
+            "layers": layers}
+
+
 def _known_components(registry_path, reg):
     ids = {c.get("id") for c in reg.get("components", []) if c.get("id")}
     root = os.path.dirname(os.path.abspath(registry_path))
@@ -69,6 +94,7 @@ def _uniq(base, taken):
 
 
 def resolve(frame, registry_path):
+    frame = _normalize_input(frame)
     reg = _load(registry_path)
     known = _known_components(registry_path, reg)
     frame_meta = frame.get("frame", {})

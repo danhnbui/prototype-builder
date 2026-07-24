@@ -2,13 +2,12 @@
 """
 r0_hygiene.py — guards the v1.5.1 R0 groundwork so it can't silently regress:
 
-  1. Command renames landed: flow.md / data.md / handoff-close.md / snapshot.md exist.
+  1. Command renames landed: flow.md / data.md / handoff-close.md exist.
   2. Backward-compat aliases resolve: sync-flow.md / sync-erd.md / hand-off.md are thin
      redirect stubs that name their new target, and the target exists.
   3. No stale /pb: invocations of the old names anywhere but changelog.md + the alias stubs.
   4. lint_registry.py is the tool; check.py is a working shim (import + CLI, same exit codes).
   5. handoff-close writes handoff/ (prototype + bundle + AGENTS.md) and AGENTS.template.md ships.
-  6. /pb:snapshot round-trips: take → list (newest-first) → restore.
 
 Usage:  python3 tests/r0_hygiene.py
 Exit:   0 = clean · 1 = a regression
@@ -34,7 +33,7 @@ def check(cond, msg):
 
 
 print("1 · renamed command files exist")
-for f in ("flow.md", "data.md", "handoff-close.md", "snapshot.md"):
+for f in ("flow.md", "data.md", "handoff-close.md"):
     check(os.path.isfile(os.path.join(CMDS, f)), f"pb/commands/{f}")
 
 print("2 · alias stubs resolve to their new target")
@@ -85,21 +84,6 @@ print("5 · handoff-close writes handoff/ + AGENTS template ships")
 hc = open(os.path.join(CMDS, "handoff-close.md"), encoding="utf-8").read()
 check("handoff/" in hc and "bundle/" in hc and "AGENTS.md" in hc, "handoff-close names handoff/ + bundle/ + AGENTS.md")
 check(os.path.isfile(os.path.join(ROOT, "pb", "template", "AGENTS.template.md")), "pb/template/AGENTS.template.md")
-
-print("6 · /pb:snapshot round-trips")
-snap = os.path.join(TOOLS, "snapshot.py")
-with tempfile.TemporaryDirectory() as d:
-    reg = os.path.join(d, "registry.json")
-    open(reg, "w").write(json.dumps({"meta": {"name": "V1"}}))
-    subprocess.run([sys.executable, snap, reg], cwd=d, capture_output=True)
-    open(reg, "w").write(json.dumps({"meta": {"name": "V2"}}))
-    subprocess.run([sys.executable, snap, reg], cwd=d, capture_output=True)
-    lst = subprocess.run([sys.executable, snap, reg, "--list"], cwd=d, capture_output=True, text=True)
-    snaps = [ln for ln in lst.stdout.splitlines() if ln.strip()]
-    oldest = os.path.join(d, snaps[-1])  # newest-first → last line is oldest = V1
-    subprocess.run([sys.executable, snap, reg, "--restore", oldest], cwd=d, capture_output=True)
-    restored = json.load(open(reg))["meta"]["name"]
-    check(len(snaps) == 2 and restored == "V1", f"take×2, list newest-first, restore oldest→V1 (got {restored})")
 
 print()
 if fails:

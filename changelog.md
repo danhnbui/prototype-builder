@@ -2,6 +2,37 @@
 
 All notable changes to Product Builder. Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [1.11.0] — 2026-07-24
+
+*One registry, two sites. `registry.json` now projects into a 4-tab prototype **and** a live design-system site — both deterministic renders, both served by one `/pb:preview`. The UI Design tab is retired.*
+
+### Added
+- **Design-system site (`design-system.html`, served at `/design-system`).** A component workbench that
+  auto-collects **every** registry component, grouped `scope` → atomic `level`. Each component gets a
+  **variant grid** (cartesian product over its enum properties) and — when **interactive** — a **live
+  clickable demo**. Interactivity is auto-detected by keyword: a `state` property *or* body wiring
+  (`data-action`/`data-nav`/`onclick`/`<button>`/`<input>`/…). Token foundations render as swatches.
+- **Push to Figma, per component.** Each component carries its GHN DS Bridge node JSON (pre-computed by
+  `registry_to_figma.build_component_nodes`) in a copy dialog — paste into the plugin's *Code → Figma* tab.
+  Unresolved DS keys are honest gaps, never invented.
+- **Shared runtime (`pb/template/runtime.js`).** The render/interaction helper set is single-sourced and
+  injected into the design-system site; a drift-guard test keeps it in sync with the prototype shell.
+- **Second render target.** `render.py --ds` + `render.build_ds()` render the design-system site;
+  `serve.py` serves **both** routes from the one registry and live-reloads both on any registry/body/token
+  edit. `tests/r5_ds_site.py` is the new acceptance.
+
+### Changed
+- **`/pb:preview` and `/pb:build --render` build/serve both sites.** One server, two routes (a header
+  switcher **Prototype | Design system**); `--render`/`--write` emit both HTML files. ~0 model tokens —
+  a second deterministic Python projection of the same registry.
+- **`/pb:preview-ds`** now focuses the `/design-system` route of the live server (registry-driven),
+  superseding the old `ds_serve.py` clone browser (which read the upstream `.source.json` snapshot).
+
+### Removed
+- **UI Design tab.** The prototype shell is now **4 tabs** (Prototype · Project Summary · UX Design ·
+  Data). Its live-component role moves to the design-system site — components are never duplicated across
+  the two. `.source.json` remains only for `/pb:check-drift`.
+
 ## [1.10.0] — 2026-07-19
 
 *UI Design tab reworked into a Figma-style inspector — master-detail, redline anatomy/spec, a box model, and an inline component playground.*
