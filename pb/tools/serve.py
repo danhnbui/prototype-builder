@@ -84,9 +84,11 @@ def error_page(detail, reg_path):
 class State:
     """Shared between the watcher thread and the request handler threads."""
 
-    def __init__(self, reg_path, shell_path, out_path, write):
+    def __init__(self, reg_path, shell_path, out_path, write, ds_shell_path=None, runtime_path=None):
         self.reg_path = reg_path
         self.shell_path = shell_path
+        self.ds_shell_path = ds_shell_path      # the design-system.html template (2nd site)
+        self.runtime_path = runtime_path        # shared runtime.js injected into the DS site
         self.out_path = out_path
         self.write = write
         self.render_path = os.path.abspath(render.__file__)
@@ -97,6 +99,9 @@ class State:
         self._cache_version = -1
         self._cache_html = None
         self._cache_err = None
+        self._cache_ds_version = -1       # separate cache for the design-system site
+        self._cache_ds_html = None
+        self._cache_ds_err = None
 
     @property
     def base_dir(self):
@@ -111,7 +116,8 @@ class State:
     @property
     def watched(self):
         # body_files is recomputed each poll so newly added/removed .js files are noticed.
-        return [self.reg_path, self.shell_path, self.render_path] + self.body_files
+        extra = [p for p in (self.ds_shell_path, self.runtime_path) if p]
+        return [self.reg_path, self.shell_path, self.render_path] + extra + self.body_files
 
     def bump(self):
         with self.cond:
@@ -132,6 +138,7 @@ def render_current(state):
         with open(state.shell_path, encoding="utf-8") as f:
             shell = f.read()
         reg = render.load_bodies(reg, state.base_dir)  # resolve renderSrc body files (v1.4)
+        reg = render.load_specs(reg, state.base_dir)   # resolve specSrc sidecars (schema 10)
         version = render.plugin_version()
         html, _missing = render.build_html(reg, shell, version)
         if state.write and state.out_path:
@@ -154,6 +161,44 @@ def render_current(state):
         state._cache_version = state.version
         state._cache_html = html
         state._cache_err = err
+    return html, err
+
+
+def render_ds_current(state):
+    """Render the design-system site as it is on disk now → (html, error_str). Cached per version.
+    Uses the SAME render.build_ds() the CLI (`render.py --ds`) uses, so both sites stay one truth."""
+    if not (state.ds_shell_path and state.runtime_path):
+        return None, "design-system site not configured (missing --ds-shell / --runtime)"
+    with state._cache_lock:
+        if state._cache_ds_version == state.version:
+            return state._cache_ds_html, state._cache_ds_err
+
+    html, err = None, None
+    try:
+        with open(state.reg_path, encoding="utf-8") as f:
+            reg = json.load(f)
+        with open(state.ds_shell_path, encoding="utf-8") as f:
+            ds_shell = f.read()
+        with open(state.runtime_path, encoding="utf-8") as f:
+            runtime_js = f.read()
+        reg = render.load_bodies(reg, state.base_dir)
+        reg = render.load_specs(reg, state.base_dir)
+        catalog = render._find_catalog(state.base_dir, reg)
+        html, _missing = render.build_ds(reg, ds_shell, runtime_js, catalog, render.plugin_version())
+    except FileNotFoundError as e:
+        err = "File not found: %s" % e
+    except json.JSONDecodeError as e:
+        err = "%s is not valid JSON — line %d, column %d:\n  %s" % (
+            os.path.basename(state.reg_path), e.lineno, e.colno, e.msg)
+    except render.RenderError as e:
+        err = "Render error: %s" % e
+    except Exception:
+        err = traceback.format_exc()
+
+    with state._cache_lock:
+        state._cache_ds_version = state.version
+        state._cache_ds_html = html
+        state._cache_ds_err = err
     return html, err
 
 
@@ -210,12 +255,21 @@ class Handler(BaseHTTPRequestHandler):
             return self.serve_events()
         if path in ("/", "/index.html"):
             return self.serve_preview()
+        if path in ("/design-system", "/design-system/", "/design-system.html"):
+            return self.serve_ds()
         if path == "/favicon.ico":
             return self._send(b"", ctype="image/x-icon", status=204)
         return self.serve_static(path)
 
     def serve_preview(self):
         html, err = render_current(self.state)
+        body = (error_page(err, self.state.reg_path) if err is not None
+                else inject_reload(html)).encode("utf-8")
+        self._send(body)
+
+    def serve_ds(self):
+        """The design-system site (component workbench) — the second projection of the registry."""
+        html, err = render_ds_current(self.state)
         body = (error_page(err, self.state.reg_path) if err is not None
                 else inject_reload(html)).encode("utf-8")
         self._send(body)
@@ -308,14 +362,21 @@ def startup_summary(reg_path):
 def main():
     here = os.path.dirname(os.path.abspath(__file__))
     default_shell = os.path.normpath(os.path.join(here, "..", "template", "prototype.html"))
+    default_ds_shell = os.path.normpath(os.path.join(here, "..", "template", "design-system.html"))
+    default_runtime = os.path.normpath(os.path.join(here, "..", "template", "runtime.js"))
 
     ap = argparse.ArgumentParser(
         prog="pb-serve",
-        description="Preview dev server: watch registry.json → render → live-reload the browser.")
+        description="Preview dev server: watch registry.json → render → live-reload the browser. "
+                    "Serves TWO projections of the registry: the prototype at / and the design system at /design-system.")
     ap.add_argument("registry", nargs="?", default="registry.json",
                     help="path to registry.json (default: ./registry.json)")
     ap.add_argument("--shell", default=default_shell,
                     help="the shell prototype.html template (default: the plugin template)")
+    ap.add_argument("--ds-shell", default=default_ds_shell,
+                    help="the design-system.html template served at /design-system")
+    ap.add_argument("--runtime", default=default_runtime,
+                    help="the shared runtime.js injected into the design-system site")
     ap.add_argument("--port", type=int, default=8000,
                     help="port (default: 8000, auto-incremented if busy)")
     ap.add_argument("--host", default="127.0.0.1", help="bind host (default: 127.0.0.1)")
@@ -344,7 +405,9 @@ def main():
     except OSError:
         pass
 
-    state = State(reg_path, shell_path, out_path, args.write)
+    ds_shell_path = os.path.abspath(args.ds_shell) if (args.ds_shell and os.path.isfile(args.ds_shell)) else None
+    runtime_path = os.path.abspath(args.runtime) if (args.runtime and os.path.isfile(args.runtime)) else None
+    state = State(reg_path, shell_path, out_path, args.write, ds_shell_path, runtime_path)
     Handler.state = state
 
     explicit_port = ("--port" in sys.argv) or any(a.startswith("--port=") for a in sys.argv)
@@ -364,8 +427,10 @@ def main():
     else:
         log("  registry  %s" % rel(reg_path))
     log("  shell     %s  ·  pb v%s" % (rel(shell_path), render.plugin_version()))
-    log("  preview   %s" % url)
-    log("  watching  registry.json, shell, render.py, render/**/*.js — saving any reloads the browser")
+    log("  prototype %s" % url)
+    if ds_shell_path and runtime_path:
+        log("  design    %sdesign-system  ·  the component workbench" % url)
+    log("  watching  registry.json, shells, render.py, render/**/*.js — saving any reloads the browser")
     log("  to disk   %s" % ("ON → %s" % rel(out_path) if args.write
                             else "off (in-memory preview; --write to update prototype.html)"))
 

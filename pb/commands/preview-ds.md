@@ -1,29 +1,31 @@
 ---
-description: Browse the cloned design system — a storybook-style server that renders the token foundations as visual swatches plus the component catalog from the clone. The DS analogue of /pb:preview. Read-only; re-reads on every refresh.
+description: Open the design-system site — the /design-system route of the /pb:preview server, which live-renders THIS project's registry components (interactive demo + variant grid + push-to-figma + token foundations). One of the two sites projected from registry.json. Live-reloads on every registry/body/token edit.
 ---
 
 # /pb:preview-ds
 
-Serve a browsable reference of the **cloned** design system (from `/pb:pull-ds`): token
-foundations as visual swatches (colors, space, radius, type, …) + the component catalog from
-`design-system/<name>/.source.json`. Read-only — it never writes the registry or the clone.
+The **design-system site** — the component workbench, one of the two sites `/pb:preview` serves from
+`registry.json` (the other is the prototype). It live-renders **this project's** components (not the
+upstream clone): every component grouped by `scope` → atomic `level`, each **interactive** one with a
+live demo, all with a variant grid, plus a Push-to-Figma bridge snippet and the token foundations.
 
-## 1 · Preflight
-- Confirm a DS has been cloned: `meta.dsSource` is set and `design-system/<name>/.source.json`
-  exists. If not, tell the user to run `/pb:pull-ds` first and stop.
-
-## 2 · Serve
+## Serve
+`/pb:preview` already serves it — the design system is the **`/design-system` route** of the same server:
 ```
-python3 "${CLAUDE_PLUGIN_ROOT}/tools/ds_serve.py" registry.json [--name <ds>] [--port N] [--no-open]
+python3 "${CLAUDE_PLUGIN_ROOT}/tools/serve.py" registry.json      # then open  http://…/design-system
 ```
-- It re-reads `registry.json` + the clone snapshot on every request, so editing a token and
-  refreshing shows the change — no rebuild step.
-- `--name` selects which `design-system/<name>/` to show (defaults to `meta.designSystem.name`,
-  else the first cloned DS). `--port` defaults to 5174 and auto-advances if busy.
-- Leave it running in a terminal; stop with Ctrl-C.
+- Deterministic render via `render.build_ds()` (the SAME renderer `render.py --ds` uses) — `~0` model
+  tokens, the token lever. The site inlines the registry + the shared `runtime.js` + the emitted
+  `renderCmp*` bodies, so components render identically to the prototype (never duplicated).
+- **Live-reload:** the server watches `registry.json` + `render/**/*.js` + the tokens and re-renders
+  BOTH sites on any change. Editing a component and refreshing shows it immediately — no rebuild step.
+- To write the site to disk (hand-off snapshot): `python3 render.py --ds registry.json design-system.html runtime.js design-system.out.html [ds-catalog.json]`.
 
 ## Notes
-- This previews the **DS clone**, not the prototype — use `/pb:preview` for the prototype itself.
-- Component cards show the clone's **metadata** (id · level · variants · purpose). A DS component
-  becomes a live render only once it's built into the project as a component (via `/pb:build`).
-- Never use this as a hand-off artifact — it's a local dev server.
+- **Interactive = auto-detected**: a component gets a live clickable demo if it declares a `state`
+  property OR its body wires interaction (`data-action`/`data-nav`/`onclick`/`<button>`/`<input>`); others
+  get the variant grid only. Confirm + declare `state` when you add interaction (see `/pb:build`).
+- **Push to Figma** on a component emits its GHN DS Bridge node JSON — paste into the plugin's *Code →
+  Figma* tab. Unresolved DS keys are honest gaps (resolve at `/pb:pull-ds` Scan DS), never invented.
+- *(Retired: the old `ds_serve.py` browsed the upstream `.source.json` clone's metadata — superseded by
+  this live, registry-driven site. The `.source.json` snapshot remains for `/pb:check-drift`.)*

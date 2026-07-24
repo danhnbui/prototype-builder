@@ -1,25 +1,24 @@
 {
-  "schemaVersion": "1.0",
-  "_comment": "Code token name → Figma variable ID mapping. Seeded empty at /pb:init; populated as the user accepts proposed matches at Gate G-FP3 of /pb:build-figma-handoff.",
+  "schemaVersion": "2.0",
+  "_comment": "DTCG token name (the CSS-var name, no --) → its Figma Variable. Portable: `key` is the publish key (stable across files); `id` is a per-file cache. Seeded empty at /pb:init; populated from the Scan DS catalog at /pb:pull-ds and as the user accepts matches at Gate G-FP3 of /pb:build-figma-handoff. registry_to_figma.py reads this (then the ds-catalog) to emit token refs.",
 
   "collections": {
-    "_example_{design-system}-Colors": "VariableCollectionId:1:2",
-    "_example_{design-system}-Spacing": "VariableCollectionId:1:3",
-    "_example_Prototype-tokens": "VariableCollectionId:1:99"
+    "_example_{design-system}": { "id": "VariableCollectionId:1:2", "key": "col_ds" },
+    "_example_Prototype-tokens": { "id": "VariableCollectionId:1:99", "key": null }
   },
 
   "tokens": {
-    "_example_--brand":           "VariableID:5:34",
-    "_example_--text-secondary":  "VariableID:5:35",
-    "_example_--space-md":        "VariableID:5:40"
+    "_example_brand":         { "name": "Colors/brand",   "key": "var_brand",   "id": "VariableID:5:34" },
+    "_example_text-secondary":{ "name": "Colors/text/secondary", "key": "var_text_secondary" },
+    "_example_space-4":       { "name": "Spacing/4",       "key": "var_space_4" }
   },
 
   "unresolved": [
-    "_example_--custom-orange"
+    "_example_custom-orange"
   ],
 
   "decisions": {
     "defaultCollectionForLocalCreates": "Prototype tokens",
-    "matchStrategy": "name-first-then-prompt"
+    "matchStrategy": "catalog-then-name-then-prompt"
   }
 }

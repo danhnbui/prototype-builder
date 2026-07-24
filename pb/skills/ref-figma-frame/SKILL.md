@@ -28,12 +28,21 @@ rule is **DS fidelity at entry: map to components that already exist; never inve
 
 ## How to read the frame
 
+**Preferred — GHN DS Bridge plugin (no MCP needed):** select the frame → the plugin's *Figma → Code*
+tab → **Serialize selection** → paste the node JSON. `resolve_frame.py --from` accepts that
+`{ meta, roots[] }` shape **directly** — it normalizes each root child to a layer and maps an
+INSTANCE's `component` reference (set / name) to a known DS id. Fastest and offline.
+
+**Fallback — Figma MCP** (context provider, when the plugin isn't available):
+
 1. Use the Figma MCP on the frame URL/id: `get_metadata` for the layer tree + names + types,
    `get_code_connect_map` / `get_libraries` to resolve instances → published component identities.
 2. For each top-level child layer, record `{ name, type }`. If it's an instance of a component that
    maps to a known DS component id (from the cloned `design-system/<name>/.source.json` or
    `registry.components[]`), set `component` to that id.
 3. Write the frame-export to a temp file for `resolve_frame.py --from`.
+
+Either way, the deterministic mapping + gap-logging is `resolve_frame.py`'s job — never invent a component.
 
 ## Rules
 

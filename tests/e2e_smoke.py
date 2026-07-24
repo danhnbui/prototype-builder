@@ -5,11 +5,11 @@ e2e_smoke.py — the browser smoke test for the Product Builder shell.
 Boots pb/tools/serve.py on the golden fixture and drives a real Chromium via
 Playwright, asserting the behaviours the CPTO audit verified by hand:
 
-  1. all 5 doc tabs render
+  1. all 4 doc tabs render (Prototype · Project Summary · UX Design · Data — components live on the DS site)
   2. a registry design token reaches :root (Principle 1, runtime side)
   3. an empty submit shows >= 2 inline errors with the danger-token border
   4. a valid submit navigates to the next screen
-  5. a view-only (/pb:handoff-close --people) artifact hides EVERY authoring CTA, on all 5 tabs
+  5. a view-only (/pb:handoff-close --people) artifact hides EVERY authoring CTA, on all 4 tabs
   6. zero console / page errors throughout
 
 Dev/CI-only dependency (NS4 — never shipped to users, never pip-installed by the plugin):
@@ -120,8 +120,8 @@ def run():
             page.goto(srv.url, wait_until="domcontentloaded")
             page.wait_for_selector(".meta-tab", timeout=10000)
 
-            # 1. five tabs
-            check(page.locator(".meta-tab").count() == 5, "5 doc tabs render")
+            # 1. four tabs (Prototype · Project Summary · UX Design · Data — components live on the DS site)
+            check(page.locator(".meta-tab").count() == 4, "4 doc tabs render")
 
             # 1b. build_html fills {{PB_SHELL_VERSION}}; the version now lives in the Sandbox menu footer.
             page.click(".meta-sandbox")
@@ -157,17 +157,8 @@ def run():
             check("Welcome back" in page.locator("#proto-frame").inner_text(),
                   "valid submit navigates to the dashboard")
 
-            # T1.4 — a component named with an apostrophe ("User's Login Card") must
-            # render in the UI Design list and open its detail (pbEscape escapes quotes).
-            page.click('.meta-tab >> nth=3')  # UI Design tab
-            page.wait_for_timeout(150)
-            row = page.locator(".uid-row", has_text="User's Login Card")
-            check(row.count() >= 1, "apostrophe-named component renders in the UI Design list")
-            if row.count():
-                row.first.click()
-                page.wait_for_timeout(150)
-                check(page.locator(".uid-detail-title", has_text="User's Login Card").count() >= 1,
-                      "apostrophe-named component opens its detail (stacked, no tabs)")
+            # (The UI Design tab was removed — components now live on the design-system site;
+            #  the apostrophe-named "User's Login Card" render is covered by tests/r5_ds_site.py.)
 
             check(not errors, f"zero console errors on golden ({errors})")
             page.close()
@@ -195,12 +186,12 @@ def run():
                 page.on("pageerror", lambda e: errors.append(str(e)))
                 page.goto(srv.url, wait_until="domcontentloaded")
                 page.wait_for_selector(".meta-tab", timeout=10000)
-                check(page.locator(".meta-tab").count() == 5,
-                      "page with a </script> body still boots (5 tabs render)")
+                check(page.locator(".meta-tab").count() == 4,
+                      "page with a </script> body still boots (4 tabs render)")
                 check(not errors, f"zero console errors on the page-killer fixture ({errors})")
                 page.close()
 
-        # ── view-only artifact hides every authoring CTA, on all 5 tabs ─────────
+        # ── view-only artifact hides every authoring CTA, on all 4 tabs ─────────
         print("view-only (--people) artifact:")
         with tempfile.TemporaryDirectory() as tmp:
             # unpopulate=True empties flow/erd so the UX Design + Data tabs render their
@@ -216,7 +207,7 @@ def run():
                 check(page.evaluate("document.body.classList.contains('view-only')"),
                       "body.view-only is set")
                 cta_sel = ".sync-button, .fp-panel, .empty-state-cta, .empty-state-actions"
-                for i in range(5):
+                for i in range(4):
                     page.click(f".meta-tab >> nth={i}")
                     page.wait_for_timeout(120)
                     visible = page.locator(f"{cta_sel} >> visible=true").count()

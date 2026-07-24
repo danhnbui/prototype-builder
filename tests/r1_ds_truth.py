@@ -71,7 +71,7 @@ with tempfile.TemporaryDirectory() as d:
     print("3 · drift: in-sync then detected")
     r0 = subprocess.run([sys.executable, CLONE, "--drift", export, "--registry", reg], capture_output=True, text=True)
     check(r0.returncode == 0, f"in-sync source → exit 0 ({r0.stdout.strip()[:50]})")
-    src["tokens"]["color-brand"]["value"] = "#7c3aed"  # change one token at source
+    src["tokens"]["color-brand"]["$value"] = "#7c3aed"  # change one token at source (DTCG)
     json.dump(src, open(export, "w"))
     r3 = subprocess.run([sys.executable, CLONE, "--drift", export, "--registry", reg], capture_output=True, text=True)
     check(r3.returncode == 3 and "color-brand" in r3.stdout, "changed source token → exit 3, names color-brand")

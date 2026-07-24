@@ -26,10 +26,13 @@ import os
 import re
 import sys
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import tokens as _tokens  # noqa: E402  (sibling module; the DTCG token resolver)
+
 _FN_RE = re.compile(r"function\s+([A-Za-z_$][\w$]*)\s*\(")
-# token kind → tailwind theme bucket
+# token display-kind → tailwind theme bucket (DTCG $type=dimension is bucketed by display-kind)
 _TW_BUCKET = {"color": "colors", "space": "spacing", "size": "spacing", "radius": "borderRadius",
-              "fontSize": "fontSize", "type": "fontFamily", "font": "fontFamily", "shadow": "boxShadow"}
+              "fontSize": "fontSize", "font": "fontFamily", "shadow": "boxShadow"}
 
 
 def _pascal(kebab):
@@ -60,8 +63,34 @@ def _module(body):
     return body.rstrip() + f"\n\nexport default {fn};\n"
 
 
+def _pbruntime_js(entries):
+    """The composition runtime for the scaffold — mirrors the shell's pbUse/pbSlot/pbFrame.
+    Composed render bodies call pbUse(id, props) as a global; this registers every render body
+    by id and installs the helpers on globalThis so those bodies resolve at call time.
+    `entries` is a list of (id, pascal, kind_dir)."""
+    imports = "".join(f"import R{i} from './{kd}/{p}.render.js';\n" for i, (_id, p, kd) in enumerate(entries))
+    reg = "".join(f"  {json.dumps(iid)}: R{i},\n" for i, (iid, _p, _kd) in enumerate(entries))
+    return (
+        "// pbRuntime.js — composition runtime for the scaffold (mirrors the shell's pbUse/pbFrame).\n"
+        "// Composed render bodies call pbUse(id, props); every render body is registered by id here\n"
+        "// and the helpers are installed as globals so those bodies resolve at call time.\n"
+        + imports + "\nconst PB_REG = {\n" + reg + "};\n\n"
+        "function pbEscape(s){ return String(s==null?'':s).replace(/[&<>\"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',\"'\":'&#39;'}[c])); }\n"
+        "function pbUse(id, props){ const fn = PB_REG[id]; return (typeof fn==='function') ? fn(props||{}) : '<span data-pb-missing=\"'+pbEscape(id)+'\"></span>'; }\n"
+        "function pbSlot(h){ return h==null ? '' : String(h); }\n"
+        "function pbFrame(spec, children){ spec=spec||{}; const s=['display:flex','flex-direction:'+(spec.dir==='row'?'row':'column')];\n"
+        "  if(spec.gap) s.push('gap:var(--'+spec.gap+')'); if(spec.padding) s.push('padding:var(--'+spec.padding+')');\n"
+        "  if(spec.align) s.push('align-items:'+spec.align); if(spec.justify) s.push('justify-content:'+spec.justify);\n"
+        "  if(spec.maxWidth) s.push('max-width:var(--'+spec.maxWidth+')','width:100%'); if(spec.grow) s.push('flex:1 1 auto');\n"
+        "  return '<div class=\"pb-frame\" style=\"'+s.join(';')+'\">'+(children||[]).join('')+'</div>'; }\n\n"
+        "Object.assign(globalThis, { pbUse, pbSlot, pbFrame, pbEscape, PB_REG });\n"
+        "export { pbUse, pbSlot, pbFrame, pbEscape };\n"
+    )
+
+
 def _wrapper(pascal, kind_dir):
     return (f"import render from './{pascal}.render.js';\n"
+            f"import '../pbRuntime.js';\n"
             f"import '../tokens.css';\n\n"
             f"// SCAFFOLD wrapper — reuses the registry render body verbatim. The hardened tier\n"
             f"// replaces this with idiomatic Tailwind JSX.\n"
@@ -71,19 +100,20 @@ def _wrapper(pascal, kind_dir):
 
 
 def _tokens_css(tokens):
+    """tokens is a W3C DTCG document; resolve() flattens groups + aliases → CSS vars."""
     lines = [":root {"]
-    for name, t in sorted(tokens.items()):
-        lines.append(f"  --{name}: {t.get('value', '')};")
+    for name, value in sorted(_tokens.resolve(tokens).items()):
+        lines.append(f"  --{name}: {value};")
     lines += ["}", ""]
     return "\n".join(lines)
 
 
 def _tailwind_config(tokens):
     buckets = {}
-    for name, t in sorted(tokens.items()):
-        bucket = _TW_BUCKET.get(t.get("kind", "other"))
+    for row in _tokens.to_list(tokens):
+        bucket = _TW_BUCKET.get(row["displayKind"])
         if bucket:
-            buckets.setdefault(bucket, {})[name] = f"var(--{name})"
+            buckets.setdefault(bucket, {})[row["name"]] = f"var(--{row['name']})"
     extend = json.dumps(buckets, indent=6).replace('"var(', "'var(").replace(')"', ")'")
     return ("/** Deterministic Tailwind theme — every design token mapped to a utility scale,\n"
             " *  so you can restyle with Tailwind utilities that resolve to the DS tokens. */\n"
@@ -157,7 +187,7 @@ def emit(registry_path, out_dir, screen=None, component=None):
         open(p, "w", encoding="utf-8").write(content)
         written.append(rel)
 
-    comp_pascals, screen_pascal = [], None
+    comp_pascals, screen_pascal, entries = [], None, []
     for kind_dir, items, want in (("components", comps, want_comp), ("screens", screens, want_screen)):
         for item in items:
             iid = item.get("id")
@@ -173,12 +203,17 @@ def emit(registry_path, out_dir, screen=None, component=None):
             open(os.path.join(out_dir, "src", kind_dir, f"{pascal}.render.js"), "w", encoding="utf-8").write(mod)
             open(os.path.join(out_dir, "src", kind_dir, f"{pascal}.jsx"), "w", encoding="utf-8").write(_wrapper(pascal, kind_dir))
             written += [f"src/{kind_dir}/{pascal}.render.js", f"src/{kind_dir}/{pascal}.jsx"]
+            entries.append((iid, pascal, kind_dir))
             if kind_dir == "components":
                 comp_pascals.append(pascal)
             elif screen and iid == screen:
                 screen_pascal = pascal
             elif not screen and screen_pascal is None:
                 screen_pascal = pascal  # default the app to the first screen when exporting all
+
+    # composition runtime (pbUse/pbFrame + the by-id render registry the composed bodies need)
+    open(os.path.join(out_dir, "src", "pbRuntime.js"), "w", encoding="utf-8").write(_pbruntime_js(entries))
+    written.append("src/pbRuntime.js")
 
     # app + static scaffolding
     open(os.path.join(out_dir, "src", "App.jsx"), "w", encoding="utf-8").write(_app(screen_pascal, comp_pascals))

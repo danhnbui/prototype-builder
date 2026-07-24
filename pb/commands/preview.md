@@ -1,27 +1,31 @@
 ---
-description: Live preview dev server. Watches registry.json (+ the shell template + render.py), re-renders through the same generator render.py uses, and live-reloads the browser on every change. It's the one preview per project; view it in any browser. In-memory by default; --write also updates prototype.html on disk.
+description: Live preview dev server. Watches registry.json (+ the shell templates + runtime + render.py), re-renders through the same generator render.py uses, and live-reloads the browser on every change. One server, two routes from the one registry — the prototype at / and the design system at /design-system. In-memory by default; --write also writes both HTML files to disk.
 ---
 
 # /pb:preview
 
 A live preview of the build loop. The cheap loop (`/pb:build`) edits `registry.json` and
 **stops without rendering** — this server closes the gap so you can *see* each edit: it watches
-the registry, re-renders through the **same** deterministic generator (`render.py` → `build_html`,
-so the preview is byte-identical to `/pb:build --render`), and reloads the browser the instant a
-watched file changes. Start it once, then run `/pb:build` (no `--render`) and watch the page update.
+the registry, re-renders through the **same** deterministic generator (`render.py` → `build_html` /
+`build_ds`, so the preview is byte-identical to `/pb:build --render`), and reloads the browser the
+instant a watched file changes. Start it once, then run `/pb:build` (no `--render`) and watch it update.
 
-Renders **in memory** — it never hand-edits or clobbers `prototype.html` (router rule #1). It serves
-on its own port and never writes back to `registry.json`.
+**One server, two routes — both projected from the one `registry.json`:**
+- **`/`** — the **prototype** (`prototype.html`): flows + screens, the 4 doc tabs.
+- **`/design-system`** — the **design-system** site (`design-system.html`): every component as an
+  interactive demo + variant grid + Push-to-Figma snippet, over the token foundations.
 
-**One preview per project.** This live server is the **one** preview source of truth for a project
-(`registry.json` → the live render). `prototype.html` is a derived hand-off snapshot, **never** a second
-preview. The simplest way to view it is a normal **browser** (Chrome/Safari) at the printed URL — the
-server opens it for you. (An in-app preview pane is optional; see the macOS note.)
+A header switcher links between them; a component/token edit re-renders **both**. Renders **in memory** —
+it never hand-edits or clobbers either HTML file (router rule #1), serves on its own port, and never
+writes back to `registry.json`. Both HTML files are derived hand-off snapshots, **never** a second
+preview. View it in a normal **browser** (Chrome/Safari) at the printed URL — the server opens it for
+you. (An in-app preview pane is optional; see the macOS note.)
 
 ## 0 · Flags
 - `--port <N>` — bind a specific port (default: 8000, auto-incremented if busy).
-- `--write` — *also* write `prototype.html` to disk on every change (a watch-mode `/pb:build --render`).
-  The written file is clean — the live-reload script is injected into the served page only.
+- `--write` — *also* write **both** `prototype.html` and `design-system.html` to disk on every change
+  (a watch-mode `/pb:build --render`). The written files are clean — the live-reload script is injected
+  into the served pages only.
 - `--no-open` — don't open the browser on start.
 - `<registry.json>` — preview a registry other than `./registry.json`.
 
@@ -50,8 +54,9 @@ collapses any duplicates for this project, and **never touches entries it doesn'
 `/pb:preview` so the pane shows one preview, not a pile.
 
 ## Result
-A watching dev server at `http://127.0.0.1:<port>/` that mirrors `registry.json` live, viewable in any
-browser. Stop it with Ctrl-C (or by killing the background process).
+A watching dev server at `http://127.0.0.1:<port>/` (prototype) + `/design-system` (the component
+workbench) that mirrors `registry.json` live on both routes, viewable in any browser. Stop it with
+Ctrl-C (or by killing the background process).
 
 ## macOS note (in-app preview pane + ~/Desktop)
 Viewing in a **browser always works**, wherever the project lives — the server reads `~/Desktop` fine

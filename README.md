@@ -1,17 +1,19 @@
-# Product Builder v1.10.0
+# Product Builder v1.11.0
 
-A standalone, CLAUDE.md-native prototype builder for Claude Code. Turn a PRD into an interactive,
-self-documenting **5-tab prototype** — a real click-through flow you preview at desktop / tablet /
-mobile — with a cheap build loop, a small memory layer, and a
-**design-system-agnostic** core. State lives in a compact `registry.json`; `prototype.html` is a
-rendered view, regenerated deterministically (so the build loop edits tens of lines of JSON, not a
-3,600-line file).
+A standalone, CLAUDE.md-native prototype builder for Claude Code. Turn a PRD into two interactive,
+self-documenting sites from **one `registry.json`** — a **4-tab prototype** (a real click-through flow
+you preview at desktop / tablet / mobile) and a live **design-system site** (every component as an
+interactive demo + variant grid + Push-to-Figma snippet) — with a cheap build loop, a small memory
+layer, and a **design-system-agnostic** core. State lives in a compact `registry.json`; both
+`prototype.html` and `design-system.html` are rendered views, regenerated deterministically (so the
+build loop edits tens of lines of JSON, not a 3,600-line file).
 
 Every tab shares **one unified, two-column layout** (v1.4): a header with a `?` info dialog (what the tab
 does, its commands and skills) over a main canvas + a context aside. Highlights — a device-framed Prototype
-with a component structure tree; a UI Design tab that groups components by atomic level, links your design
-system, and previews Figma-push reuse + affected screens; QA-authored UX test cases with coverage-gap
-warnings; and an ERD mock-data viewer for checking empty / sparse / overflow edge cases.
+with a component structure tree; a standalone **design-system site** (served at `/design-system`) that
+auto-collects every registry component into a live interactive demo + variant grid + Push-to-Figma bridge
+snippet over the token foundations; QA-authored UX test cases with coverage-gap warnings; and an ERD
+mock-data viewer for checking empty / sparse / overflow edge cases.
 
 **New in v1.5** — an agent-powered testing **sandbox** (`/pb:test`: run authored scenarios, preview as
 role-gated users, plus server-reachability and secrets/PII checks), a **multi-agent orchestrator**
@@ -19,12 +21,20 @@ role-gated users, plus server-reachability and secrets/PII checks), a **multi-ag
 `/pb:explore` proposes parallel design options), and an ⌥-hover **element inspector** that copies a precise
 `screen › element › component` reference to feed the AI. All additive — a pre-v1.5 project behaves unchanged.
 
-**New in v1.10** — the **UI Design** tab is now a Figma-style inspector: a master-detail layout (component
-list → stacked detail) with an inline **component playground** (live preview + prop controls + light/dark
-canvas toggle), redline **Anatomy** and **Specification** callouts placed cleanly outside the component, a
-**Layer properties** box model (margin → border → padding → content), and a **Component information**
-inspect list. The **Prototype** tab preview now runs edge-to-edge, and every tab's header tools collapse
-into one **Sandbox** control in the nav (v1.9). Registry/CLI behavior is unchanged — this release is shell UI.
+**New in v1.11** — **one registry, two sites.** `registry.json` now projects into **two** deterministic
+sites, both served by the one `/pb:preview` server (a header switcher between them) and both written by
+`/pb:build --render`: the **prototype** at `/` (4 tabs — Prototype · Project Summary · UX Design · Data)
+and a new **design-system site** at `/design-system`. The design-system site auto-collects **every**
+registry component, grouped by atomic level, each with a **live interactive demo** (auto-detected — a
+`state` property or `data-*`/`onclick` wiring) **plus** a full variant grid, over the token foundations,
+with a per-component **Push-to-Figma** bridge snippet (paste into the plugin's *Code → Figma* tab). The
+old **UI Design** tab is retired — components now live on the design-system site, never duplicated. Both
+sites are ~0 model tokens (Python renders); a component edit re-renders both.
+
+**Earlier, in v1.10** — the component surface was a Figma-style inspector tab (an inline component
+playground with redline Anatomy/Specification callouts and a Layer-properties box model); v1.11 moves
+that role to the standalone design-system site above. The Prototype preview runs edge-to-edge and every
+tab's header tools collapse into one **Sandbox** control in the nav (v1.9).
 
 ## Install (it's a Claude Code plugin)
 
@@ -87,7 +97,6 @@ If `/pb:init` says Python isn't installed, it will tell you exactly how to fix i
 | `/pb:validate` | Wrap `prototype.html` in a runnable reference build (Vite/Next) — serves the single file, not a component export |
 | `/pb:handoff-dev` | Export at a tier — `--tier=host` (runnable prototype) · `scaffold` (deterministic React+Tailwind app) · `hardened` (idiomatic/DS-integrated — deferred) |
 | `/pb:update-version` | Schema version update: dry-run / `--apply` / `--rollback` / `--to <N>` |
-| `/pb:snapshot` | Timestamped `registry.json` history under `<project>/history/` (`--list` / `--restore`); never branches |
 
 ## Quickstart
 

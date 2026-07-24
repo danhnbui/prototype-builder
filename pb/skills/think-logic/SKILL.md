@@ -11,7 +11,8 @@ Prototype tab is a real, testable flow — no hand-written event code.
 ## 1 · States
 - Enumerate the states the thing can be in (e.g. `default / loading / error / disabled`).
 - **Interactive components MUST declare a `state` property** (`properties[]` entry `id:'state'`, options
-  `{label,value}`) — the UI Design tab renders one labeled demo per state.
+  `{label,value}`) — the design-system site renders one labeled demo per state (plus a live clickable demo).
+  Confirm interactivity with the user before declaring it; a `state`-less interactive component is a defect.
 
 ## 2 · Validation (per input)
 Express validation with data-attributes on `.field__input` elements:

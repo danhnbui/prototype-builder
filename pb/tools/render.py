@@ -20,6 +20,9 @@ Usage:  python3 render.py <registry.json> <shell.html> <out.html>
 import json, sys, re, copy, os
 from datetime import datetime, timezone
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import registry_to_figma as _r2f  # noqa: E402  (sibling; per-component node JSON for the DS site)
+
 
 class RenderError(Exception):
     """A render precondition failed (e.g. the shell is missing a placeholder).
@@ -54,6 +57,35 @@ def load_bodies(reg, base_dir):
             except FileNotFoundError:
                 raise RenderError(
                     "renderSrc not found for %s %r: %s" % (kind[:-1], item.get("id"), src))
+    return reg
+
+
+def load_specs(reg, base_dir):
+    """Resolve `specSrc` file references into in-memory anatomy/spec/usage/uiLogic fields.
+
+    Schema 10 moves those four handoff fields out of the registry into
+    spec/{components,screens}/<id>.json sidecars referenced by `specSrc` (mirrors renderSrc /
+    load_bodies). The spec drawer in prototype.html reads them client-side off the inlined
+    PB_REGISTRY, so they must be re-inlined here BEFORE build_html serializes the registry.
+    Sidecar fields win over any stray inline copy.
+
+    A `specSrc` pointing at a missing file raises RenderError (NS6 — never silently drop the
+    handoff docs). Returns a NEW dict; the input is not mutated.
+    """
+    reg = copy.deepcopy(reg)
+    for kind in ("components", "screens"):
+        for item in reg.get(kind, []):
+            src = item.get("specSrc")
+            if not src:
+                continue
+            path = os.path.normpath(os.path.join(base_dir, src))
+            try:
+                with open(path, encoding="utf-8") as f:
+                    for k, v in json.load(f).items():
+                        item[k] = v
+            except FileNotFoundError:
+                raise RenderError(
+                    "specSrc not found for %s %r: %s" % (kind[:-1], item.get("id"), src))
     return reg
 
 
@@ -101,6 +133,41 @@ def stamp(html, version):
     return comment + "\n" + html
 
 
+def _render_fn_bodies(reg):
+    """Emit `window[renderFn] = function(props){…}` for every component/screen render body.
+    Shared by build_html (prototype) and build_ds_html (design system) so both sites get the
+    SAME callable render functions. Returns (bodies_str, missing_fn_names)."""
+    parts, missing = [], []
+    for kind in ("components", "screens"):
+        for item in reg.get(kind, []):
+            fn = item.get("renderFn")
+            if not fn:
+                continue
+            if "render" in item and item["render"]:
+                escaped = _escape_body(item["render"])
+                if escaped.lstrip().startswith('function '):
+                    parts.append('%s\n    window[%s] = %s;' % (escaped, json.dumps(fn), fn))
+                else:
+                    parts.append('    window[%s] = function(props){\n%s\n    };' % (json.dumps(fn), escaped))
+            else:
+                missing.append(fn)
+    bodies = ""
+    if parts:
+        bodies = ("\n\n    /* ===== generated render bodies — from registry; do not hand-edit, "
+                  "edit the `render` field in registry.json and re-run /pb:build --render ===== */\n"
+                  + "\n".join(parts) + "\n")
+    return bodies, missing
+
+
+def _strip_render(reg):
+    """A deep copy of reg with the bulky `render` strings removed (they're emitted separately)."""
+    reg_inline = copy.deepcopy(reg)
+    for kind in ("components", "screens"):
+        for item in reg_inline.get(kind, []):
+            item.pop("render", None)
+    return reg_inline
+
+
 def build_html(reg, shell, version="unknown"):
     """Render a registry dict + shell HTML string into the populated prototype HTML.
 
@@ -114,34 +181,10 @@ def build_html(reg, shell, version="unknown"):
     body (rendered as empty). Raises RenderError if the shell lacks an anchor.
     """
     # 1) generated render-fn bodies (from components[].render / screens[].render)
-    parts = []
-    missing = []
-    for kind in ("components", "screens"):
-        for item in reg.get(kind, []):
-            fn = item.get("renderFn")
-            if not fn:
-                continue
-            if "render" in item and item["render"]:
-                escaped = _escape_body(item["render"])
-                if escaped.lstrip().startswith('function '):
-                    # File-based body already has a full function declaration — emit + register
-                    parts.append('%s\n    window[%s] = %s;' % (escaped, json.dumps(fn), fn))
-                else:
-                    # Legacy inline body (bare function body) — wrap it
-                    parts.append('    window[%s] = function(props){\n%s\n    };' % (json.dumps(fn), escaped))
-            else:
-                missing.append(fn)
-    bodies = ""
-    if parts:
-        bodies = ("\n\n    /* ===== generated render bodies — from registry; do not hand-edit, "
-                  "edit the `render` field in registry.json and re-run /pb:build --render ===== */\n"
-                  + "\n".join(parts) + "\n")
+    bodies, missing = _render_fn_bodies(reg)
 
     # 2) inline the registry (without the bulky render strings) into PB_REGISTRY
-    reg_inline = copy.deepcopy(reg)
-    for kind in ("components", "screens"):
-        for item in reg_inline.get(kind, []):
-            item.pop("render", None)
+    reg_inline = _strip_render(reg)
     # JSON is valid JS, but a literal `</` in a value could close the <script> tag — escape it to
     # `<\/` (identical string in JS, safe in HTML). The re.sub lambda returns its value literally,
     # so no other backslash handling is needed (doubling backslashes here corrupts JSON escapes).
@@ -168,7 +211,9 @@ def render_file(reg_path, shell_path, out_path):
     Returns (reg, html, missing). `html` is the stamped, on-disk form."""
     reg = json.load(open(reg_path, encoding="utf-8"))
     shell = open(shell_path, encoding="utf-8").read()
-    reg = load_bodies(reg, os.path.dirname(os.path.abspath(reg_path)))
+    base_dir = os.path.dirname(os.path.abspath(reg_path))
+    reg = load_bodies(reg, base_dir)
+    reg = load_specs(reg, base_dir)  # resolve specSrc sidecars (schema 10)
     version = plugin_version()
     html, missing = build_html(reg, shell, version)
     html = stamp(html, version)
@@ -176,15 +221,116 @@ def render_file(reg_path, shell_path, out_path):
     return reg, html, missing
 
 
+# ── design-system site (the second render target) ───────────────────────────────────────
+
+def _default_props(comp):
+    """A component's default variant props (from properties[].default) — for the push node."""
+    p = {}
+    for pr in comp.get("properties", []) or []:
+        if isinstance(pr, dict) and pr.get("id") and pr.get("default") is not None:
+            p[pr["id"]] = pr["default"]
+    return p
+
+
+def _find_catalog(base_dir, reg):
+    """Locate a Scan DS `ds-catalog.json` (publish keys/variables) for the push snippets, or None."""
+    import glob as _glob
+    name = (reg.get("meta") or {}).get("designSystem", {}).get("name")
+    cands = ([os.path.join(base_dir, "design-system", name, "ds-catalog.json")] if name else []) \
+        + _glob.glob(os.path.join(base_dir, "design-system", "*", "ds-catalog.json"))
+    for p in cands:
+        if os.path.isfile(p):
+            try:
+                return json.load(open(p, encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                pass
+    return None
+
+
+def build_ds_html(reg, ds_shell, runtime_js, nodes_by_id, version="unknown"):
+    """Render the design-system site (component workbench) from the registry. Pure. Injects the
+    shared runtime, the emitted window[renderCmp*], the inlined registry, and per-component node
+    JSON (PB_NODES). Returns (html, missing). Raises RenderError on a missing marker."""
+    bodies, missing = _render_fn_bodies(reg)
+    inlined = json.dumps(_strip_render(reg), ensure_ascii=False, separators=(",", ":")).replace("</", "<\\/")
+    nodes = json.dumps(nodes_by_id, ensure_ascii=False, separators=(",", ":")).replace("</", "<\\/")
+    for marker in ("/*__PB_REGISTRY_START__*/", "/*__PB_NODES_START__*/", "/*__PB_RUNTIME__*/", "/*__PB_RENDER_FNS__*/"):
+        if marker not in ds_shell:
+            raise RenderError("design-system shell is missing the %s marker" % marker)
+    html = re.sub(r"/\*__PB_REGISTRY_START__\*/.*?/\*__PB_REGISTRY_END__\*/",
+                  lambda m: "/*__PB_REGISTRY_START__*/" + inlined + "/*__PB_REGISTRY_END__*/",
+                  ds_shell, count=1, flags=re.S)
+    html = re.sub(r"/\*__PB_NODES_START__\*/.*?/\*__PB_NODES_END__\*/",
+                  lambda m: "/*__PB_NODES_START__*/" + nodes + "/*__PB_NODES_END__*/",
+                  html, count=1, flags=re.S)
+    html = html.replace("/*__PB_RUNTIME__*/", runtime_js, 1)
+    html = html.replace("/*__PB_RENDER_FNS__*/", bodies, 1)
+    html = html.replace("{{PB_SHELL_VERSION}}", version)
+    return html, missing
+
+
+def build_ds(reg, ds_shell, runtime_js, catalog=None, version="unknown"):
+    """Pure: a loaded registry (bodies resolved) + DS shell + runtime.js → the DS-site HTML.
+    Pre-computes each component's push node JSON. The single DS render truth — both the CLI
+    (render_ds_file) and the preview server (serve.py) go through here. Returns (html, missing)."""
+    nodes_by_id = {}
+    for c in reg.get("components", []) or []:
+        cid = c.get("id")
+        if not cid:
+            continue
+        try:
+            nodes_by_id[cid] = _r2f.build_component_nodes(reg, cid, catalog=catalog, props=_default_props(c))
+        except Exception as e:  # a bad component must not take down the whole DS render
+            nodes_by_id[cid] = {"error": str(e), "roots": [], "gaps": []}
+    return build_ds_html(reg, ds_shell, runtime_js, nodes_by_id, version)
+
+
+def render_ds_file(reg_path, ds_shell_path, runtime_path, out_path, catalog_path=None):
+    """Read registry + design-system shell + runtime.js, render + stamp + write the DS site.
+    Returns (reg, html, missing)."""
+    reg = json.load(open(reg_path, encoding="utf-8"))
+    base_dir = os.path.dirname(os.path.abspath(reg_path))
+    reg = load_bodies(reg, base_dir)
+    reg = load_specs(reg, base_dir)
+    ds_shell = open(ds_shell_path, encoding="utf-8").read()
+    runtime_js = open(runtime_path, encoding="utf-8").read()
+    catalog = (json.load(open(catalog_path, encoding="utf-8"))
+               if (catalog_path and os.path.isfile(catalog_path)) else _find_catalog(base_dir, reg))
+    version = plugin_version()
+    html, missing = build_ds(reg, ds_shell, runtime_js, catalog, version)
+    html = stamp(html, version)
+    open(out_path, "w", encoding="utf-8").write(html)
+    return reg, html, missing
+
+
 def main():
-    if len(sys.argv) != 4:
-        sys.exit("usage: render.py <registry.json> <shell.html> <out.html>")
+    args = sys.argv[1:]
+    # design-system site: render.py --ds <registry> <design-system.html> <runtime.js> <out> [ds-catalog.json]
+    if args and args[0] == "--ds":
+        rest = args[1:]
+        if len(rest) not in (4, 5):
+            sys.exit("usage: render.py --ds <registry.json> <design-system.html> <runtime.js> <out.html> [ds-catalog.json]")
+        try:
+            reg, html, missing = render_ds_file(rest[0], rest[1], rest[2], rest[3], rest[4] if len(rest) == 5 else None)
+        except json.JSONDecodeError as e:
+            sys.exit("error: %s is not valid JSON (line %d, column %d): %s" % (rest[0], e.lineno, e.colno, e.msg))
+        except FileNotFoundError as e:
+            sys.exit("error: file not found: %s" % (e.filename or e))
+        except RenderError as e:
+            sys.exit("error: %s" % e)
+        name = (reg.get("meta") or {}).get("name") or "(unnamed)"
+        print("rendered design system for %s: %d components, %d tokens -> %s (%d bytes)" % (
+            name, len(reg.get("components", [])), len(reg.get("tokens", {})), rest[3], len(html)))
+        return
+
+    if len(args) != 3:
+        sys.exit("usage: render.py <registry.json> <shell.html> <out.html>  |  "
+                 "render.py --ds <registry.json> <design-system.html> <runtime.js> <out.html> [ds-catalog.json]")
     try:
-        reg, html, missing = render_file(sys.argv[1], sys.argv[2], sys.argv[3])
+        reg, html, missing = render_file(args[0], args[1], args[2])
     except json.JSONDecodeError as e:
-        # Fail closed with a one-line, human-readable message — never a traceback.
         print("error: %s is not valid JSON (line %d, column %d): %s"
-              % (sys.argv[1], e.lineno, e.colno, e.msg), file=sys.stderr)
+              % (args[0], e.lineno, e.colno, e.msg), file=sys.stderr)
         sys.exit(2)
     except FileNotFoundError as e:
         print("error: file not found: %s" % (e.filename or e), file=sys.stderr)
@@ -194,7 +340,7 @@ def main():
     name = (reg.get("meta") or {}).get("name") or "(unnamed)"
     msg = "rendered %s: %d components, %d screens, %d tokens -> %s (%d bytes)" % (
         name, len(reg.get("components", [])), len(reg.get("screens", [])),
-        len(reg.get("tokens", {})), sys.argv[3], len(html))
+        len(reg.get("tokens", {})), args[2], len(html))
     if missing:
         msg += "\n  note: %d render fn(s) had no `render` body and will be empty: %s" % (len(missing), ", ".join(missing))
     print(msg)

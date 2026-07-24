@@ -2,7 +2,7 @@
   "_about": "Golden fixture — a clean, fully-tokenized 3-component / 3-screen dogfood project. CI renders this twice and asserts byte-identical output, checks render-time budget, and runs lint_registry.py --strict (must be CLEAN: no raw hex/px in render bodies, every orgId resolves, danger token present). e2e_smoke.py + test_sandbox.py boot it through serve.py. v1.4.3 layers the ADDITIVE roles + scenario-test contract on top (all optional; absence == pre-roles behavior): meta.roles/defaultRole, one role-gated screen (account -> admin), one data-roles element (dashboard admin control), and two runnable flow.stories[].scenarios[].test blocks (empty-submit-errors + valid-submit-navigates). Keep it token-only — it is the reference for Principle 2 (token-only styling) and must stay lint_registry.py --strict CLEAN.",
   "meta": {
     "name": "Acme Onboarding (golden)",
-    "schemaVersion": 7,
+    "schemaVersion": 9,
     "entry": "prd",
     "platform": "web",
     "dsSource": null,
@@ -77,88 +77,88 @@
   },
   "tokens": {
     "brand": {
-      "value": "#4f46e5",
-      "kind": "color"
+      "$value": "#4f46e5",
+      "$type": "color"
     },
     "on-brand": {
-      "value": "#ffffff",
-      "kind": "color"
+      "$value": "#ffffff",
+      "$type": "color"
     },
     "danger": {
-      "value": "#dc2626",
-      "kind": "color"
+      "$value": "#dc2626",
+      "$type": "color"
     },
     "surface": {
-      "value": "#ffffff",
-      "kind": "color"
+      "$value": "#ffffff",
+      "$type": "color"
     },
     "text-muted": {
-      "value": "#5e6873",
-      "kind": "color"
+      "$value": "#5e6873",
+      "$type": "color"
     },
     "radius-small": {
-      "value": "8px",
-      "kind": "radius"
+      "$value": "8px",
+      "$type": "dimension"
     },
     "radius-medium": {
-      "value": "16px",
-      "kind": "radius"
+      "$value": "16px",
+      "$type": "dimension"
     },
     "border-width": {
-      "value": "1px",
-      "kind": "size"
+      "$value": "1px",
+      "$type": "dimension"
     },
     "space-2": {
-      "value": "8px",
-      "kind": "space"
+      "$value": "8px",
+      "$type": "dimension"
     },
     "space-3": {
-      "value": "12px",
-      "kind": "space"
+      "$value": "12px",
+      "$type": "dimension"
     },
     "space-4": {
-      "value": "16px",
-      "kind": "space"
+      "$value": "16px",
+      "$type": "dimension"
     },
     "space-5": {
-      "value": "20px",
-      "kind": "space"
+      "$value": "20px",
+      "$type": "dimension"
     },
     "space-6": {
-      "value": "24px",
-      "kind": "space"
+      "$value": "24px",
+      "$type": "dimension"
     },
     "space-8": {
-      "value": "32px",
-      "kind": "space"
+      "$value": "32px",
+      "$type": "dimension"
     },
     "size-control": {
-      "value": "44px",
-      "kind": "size"
+      "$value": "44px",
+      "$type": "dimension"
     },
     "size-field": {
-      "value": "42px",
-      "kind": "size"
+      "$value": "42px",
+      "$type": "dimension"
     },
     "text-sm": {
-      "value": "14px",
-      "kind": "fontSize"
+      "$value": "14px",
+      "$type": "dimension"
     },
     "text-lg": {
-      "value": "18px",
-      "kind": "fontSize"
+      "$value": "18px",
+      "$type": "dimension"
     },
     "text-xl": {
-      "value": "22px",
-      "kind": "fontSize"
+      "$value": "22px",
+      "$type": "dimension"
     },
     "text-2xl": {
-      "value": "26px",
-      "kind": "fontSize"
+      "$value": "26px",
+      "$type": "dimension"
     },
     "w-card": {
-      "value": "360px",
-      "kind": "size"
+      "$value": "360px",
+      "$type": "dimension"
     }
   },
   "components": [
@@ -188,10 +188,25 @@
               "value": "disabled"
             }
           ]
+        },
+        {
+          "id": "variant",
+          "type": "enum",
+          "default": "primary",
+          "options": [
+            {
+              "label": "Primary",
+              "value": "primary"
+            },
+            {
+              "label": "Link",
+              "value": "link"
+            }
+          ]
         }
       ],
-      "anatomy": "A pressable primary action.",
-      "spec": "Control-height tall, brand fill, small radius.",
+      "anatomy": "A pressable action. The primary variant is a filled brand button; the link variant is an inline text action.",
+      "spec": "Control-height tall, brand fill, small radius (primary); inline brand text (link).",
       "code": {
         "lang": "html",
         "snippet": "<button class=\"btn\">Continue</button>"
@@ -317,6 +332,80 @@
       "renderSrc": "render/components/text-input.js"
     },
     {
+      "id": "heading",
+      "name": "Heading",
+      "renderFn": "renderCmpHeading",
+      "scope": "global",
+      "level": "atom",
+      "properties": [
+        {
+          "id": "text",
+          "type": "string",
+          "default": "Heading"
+        },
+        {
+          "id": "level",
+          "type": "enum",
+          "default": "1",
+          "options": [
+            {
+              "label": "H1",
+              "value": "1"
+            },
+            {
+              "label": "H2",
+              "value": "2"
+            }
+          ]
+        }
+      ],
+      "anatomy": "A section or screen title.",
+      "spec": "Heading font; H1 is 2xl, H2 is lg.",
+      "code": {
+        "lang": "html",
+        "snippet": "<h1>Title</h1>"
+      },
+      "uiLogic": [],
+      "renderSrc": "render/components/heading.js"
+    },
+    {
+      "id": "paragraph",
+      "name": "Paragraph",
+      "renderFn": "renderCmpParagraph",
+      "scope": "global",
+      "level": "atom",
+      "properties": [
+        {
+          "id": "text",
+          "type": "string",
+          "default": "Body text"
+        },
+        {
+          "id": "tone",
+          "type": "enum",
+          "default": "default",
+          "options": [
+            {
+              "label": "Default",
+              "value": "default"
+            },
+            {
+              "label": "Muted",
+              "value": "muted"
+            }
+          ]
+        }
+      ],
+      "anatomy": "A block of body copy.",
+      "spec": "Body font, small size.",
+      "code": {
+        "lang": "html",
+        "snippet": "<p>Body text</p>"
+      },
+      "uiLogic": [],
+      "renderSrc": "render/components/paragraph.js"
+    },
+    {
       "id": "login-card",
       "name": "User's Login Card",
       "renderFn": "renderCmpLoginCard",
@@ -344,36 +433,17 @@
         "parts": [
           {
             "n": 1,
-            "name": "Card container",
-            "anchor": ".card",
-            "required": true,
-            "token": {
-              "name": "--radius-medium",
-              "value": "12px",
-              "kind": "radius"
-            }
+            "name": "Title",
+            "anchor": ".card__title",
+            "orgId": "heading",
+            "required": true
           },
           {
             "n": 2,
-            "name": "Title",
-            "anchor": ".card__title",
-            "required": true,
-            "token": {
-              "name": "--text-lg",
-              "value": "18px",
-              "kind": "type"
-            }
-          },
-          {
-            "n": 3,
             "name": "Subtitle",
             "anchor": ".card__sub",
-            "required": false,
-            "token": {
-              "name": "--text-sm",
-              "value": "14px",
-              "kind": "type"
-            }
+            "orgId": "paragraph",
+            "required": false
           }
         ]
       },
@@ -388,10 +458,6 @@
           {
             "color": "#2563eb",
             "label": "Gap between elements"
-          },
-          {
-            "color": "#16a34a",
-            "label": "Container padding"
           }
         ],
         "stack": [
@@ -428,13 +494,32 @@
       },
       "elements": [
         {
+          "id": "title",
+          "label": "Title",
+          "orgId": "heading",
+          "tokens": [],
+          "state": "default",
+          "props": {
+            "level": 1,
+            "text": "Sign in"
+          }
+        },
+        {
           "id": "email",
           "label": "Email field",
           "orgId": "text-input",
           "tokens": [
             "--border-strong"
           ],
-          "state": "default"
+          "state": "default",
+          "props": {
+            "label": "Email",
+            "placeholder": "you@example.com",
+            "type": "text",
+            "dataHandoffEl": "email",
+            "dataRequired": true,
+            "dataValidate": "email"
+          }
         },
         {
           "id": "password",
@@ -443,7 +528,15 @@
           "tokens": [
             "--border-strong"
           ],
-          "state": "default"
+          "state": "default",
+          "props": {
+            "label": "Password",
+            "placeholder": "Password",
+            "type": "password",
+            "dataHandoffEl": "password",
+            "dataRequired": true,
+            "dataMinlength": 8
+          }
         },
         {
           "id": "submit",
@@ -452,14 +545,36 @@
           "tokens": [
             "--brand"
           ],
-          "state": "default"
+          "state": "default",
+          "props": {
+            "label": "Sign in",
+            "full": true,
+            "dataAction": "submit",
+            "dataGo": "dashboard",
+            "dataHandoffEl": "submit"
+          }
+        },
+        {
+          "id": "create-link",
+          "label": "Create account link",
+          "orgId": "button",
+          "tokens": [
+            "--brand"
+          ],
+          "state": "default",
+          "props": {
+            "label": "Create an account",
+            "variant": "link",
+            "dataNav": "account"
+          }
         }
       ],
       "logicNotes": [
         "Submit is disabled until both fields are valid.",
         "Successful submit redirects to the dashboard."
       ],
-      "renderSrc": "render/screens/login.js"
+      "renderSrc": "render/screens/login.js",
+      "level": "page"
     },
     {
       "id": "dashboard",
@@ -474,19 +589,49 @@
       "elements": [
         {
           "id": "welcome",
-          "label": "Welcome banner",
-          "orgId": "login-card",
+          "label": "Welcome heading",
+          "orgId": "heading",
+          "tokens": [],
+          "state": "default",
+          "props": {
+            "level": 1,
+            "text": "Welcome back"
+          }
+        },
+        {
+          "id": "subtitle",
+          "label": "Subtitle",
+          "orgId": "paragraph",
+          "tokens": [
+            "--text-muted"
+          ],
+          "state": "default",
+          "props": {
+            "text": "You are signed in.",
+            "tone": "muted"
+          }
+        },
+        {
+          "id": "admin",
+          "label": "Admin settings control",
+          "orgId": "button",
           "tokens": [
             "--brand"
           ],
-          "state": "default"
+          "state": "default",
+          "props": {
+            "label": "Admin settings",
+            "dataRoles": "admin",
+            "dataNav": "account"
+          }
         }
       ],
       "logicNotes": [
         "Landing screen after a successful sign-in.",
         "The 'Admin settings' control is gated (data-roles=\"admin\") — hidden for member/guest, shown for admin."
       ],
-      "renderSrc": "render/screens/dashboard.js"
+      "renderSrc": "render/screens/dashboard.js",
+      "level": "page"
     },
     {
       "id": "account",
@@ -503,13 +648,32 @@
       },
       "elements": [
         {
+          "id": "title",
+          "label": "Title",
+          "orgId": "heading",
+          "tokens": [],
+          "state": "default",
+          "props": {
+            "level": 1,
+            "text": "Create account"
+          }
+        },
+        {
           "id": "email2",
           "label": "Email field",
           "orgId": "text-input",
           "tokens": [
             "--border-strong"
           ],
-          "state": "default"
+          "state": "default",
+          "props": {
+            "label": "Email",
+            "placeholder": "you@example.com",
+            "type": "text",
+            "dataHandoffEl": "email2",
+            "dataRequired": true,
+            "dataValidate": "email"
+          }
         },
         {
           "id": "create",
@@ -518,14 +682,36 @@
           "tokens": [
             "--brand"
           ],
-          "state": "default"
+          "state": "default",
+          "props": {
+            "label": "Create account",
+            "full": true,
+            "dataAction": "submit",
+            "dataGo": "dashboard",
+            "dataHandoffEl": "create"
+          }
+        },
+        {
+          "id": "back",
+          "label": "Back to sign in link",
+          "orgId": "button",
+          "tokens": [
+            "--brand"
+          ],
+          "state": "default",
+          "props": {
+            "label": "Back to sign in",
+            "variant": "link",
+            "dataNav": "login"
+          }
         }
       ],
       "logicNotes": [
         "Admin-only screen (screens[].roles = [\"admin\"]) — a member/guest may not navigate here.",
         "Successful submit redirects to the dashboard."
       ],
-      "renderSrc": "render/screens/account.js"
+      "renderSrc": "render/screens/account.js",
+      "level": "page"
     }
   ],
   "staleness": {

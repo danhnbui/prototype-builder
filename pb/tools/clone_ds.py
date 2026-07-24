@@ -38,8 +38,27 @@ import os
 import sys
 from datetime import datetime, timezone
 
-_KINDS_ORDER = ["color", "type", "font", "fontSize", "space", "size", "radius",
-                "shadow", "border", "opacity", "duration", "zIndex", "breakpoint", "other"]
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import tokens as _tokens  # noqa: E402  (sibling module; the DTCG token resolver)
+
+# display-kind grouping order for the DS reference (DTCG $type=dimension is split by name)
+_KINDS_ORDER = ["color", "font", "fontWeight", "fontSize", "space", "size", "radius",
+                "shadow", "other"]
+
+
+def _normalize_tokens(toks):
+    """Upgrade a flat legacy `{ value, kind }` token map to DTCG. A DTCG doc (nested, or any
+    token already carrying `$value`) is returned unchanged — so import is tolerant of a code
+    library that still speaks the old shape while pb stores W3C DTCG."""
+    if not isinstance(toks, dict):
+        return toks
+    out = {}
+    for name, t in toks.items():
+        if isinstance(t, dict) and "$value" not in t and "value" in t and "kind" in t:
+            out[name] = _tokens.from_legacy(name, t.get("value"), t.get("kind"))
+        else:
+            out[name] = t
+    return out
 
 
 def _now():
@@ -57,10 +76,10 @@ def _ds_dir(registry_path, name):
 
 
 def _render_reference_md(name, tokens, components):
-    """Deterministic DS reference: foundations grouped by kind + a component index + the rules."""
+    """Deterministic DS reference: foundations grouped by display-kind + a component index + rules."""
     by_kind = {}
-    for tname, t in sorted(tokens.items()):
-        by_kind.setdefault(t.get("kind", "other"), []).append(tname)
+    for row in sorted(_tokens.to_list(tokens), key=lambda r: r["name"]):
+        by_kind.setdefault(row["displayKind"], []).append(row["name"])
     lines = [f"# {name}", "",
              "> The global design-system reference for this project, cloned by `/pb:pull-ds`.",
              "> The build loop reads this **DS-first** (R0) before creating any component.",
@@ -72,8 +91,8 @@ def _render_reference_md(name, tokens, components):
         names = ", ".join(f"`--{n}`" for n in by_kind[k])
         lines.append(f"| {k} | {names} |")
     lines += ["",
-              f"Foundations map to the `tokens{{}}` block of `registry.json` (`{{ name, value, kind }}`) "
-              "and are applied onto `:root` at render.", "",
+              "Foundations are the `tokens{}` block of `registry.json` — a **W3C DTCG** document "
+              "(`{ \"$value\", \"$type\" }`) — flattened onto `:root` as CSS vars at render.", "",
               "## Component index  ← scan this first", "",
               "| Component | renderFn | Variants | Purpose | Level |", "|---|---|---|---|---|"]
     if components:
@@ -93,7 +112,7 @@ def _render_reference_md(name, tokens, components):
               "- **R3 · Auto-layout.** Every Figma frame uses auto-layout; no absolutely positioned children.",
               "- **R4 · Naming.** Kebab-case `id`, unique; `renderFn` = `renderCmp{PascalCase}`.", "",
               "## Naming contract  (enforced by `/pb:build-check-design-system` and `/pb:build-figma-handoff`)", "",
-              "- `id` — kebab-case, globally unique. tokens — `kind ∈ color|type|space|size|radius|…`; no raw hex/px.", ""]
+              "- `id` — kebab-case, globally unique. tokens — DTCG `$type ∈ color|dimension|fontFamily|shadow|…`; no raw hex/px.", ""]
     return "\n".join(lines)
 
 
@@ -102,7 +121,7 @@ def clone(export, registry_path, name=None, overwrite_tokens=False):
     name = name or export.get("name") or reg.get("meta", {}).get("designSystem", {}).get("name") or "design-system"
     source = export.get("source") or {"type": "common", "ref": name}
     platform = export.get("platform", "web")
-    ex_tokens = export.get("tokens", {})
+    ex_tokens = _normalize_tokens(export.get("tokens", {}))
     ex_components = export.get("components", [])
 
     # 1 · merge tokens (additive by default)
@@ -141,13 +160,23 @@ def clone(export, registry_path, name=None, overwrite_tokens=False):
     with open(os.path.join(dsdir, ".source.json"), "w", encoding="utf-8") as f:
         json.dump(snapshot, f, indent=2, sort_keys=True)
 
+    # The GHN DS Bridge "Scan DS" catalog (portable publish keys + variables), if the export carries
+    # it — the source of truth registry_to_figma.py reads for INSTANCE keys + variable refs (WS3).
+    catalog = export.get("catalog")
+    wrote_catalog = isinstance(catalog, dict)
+    if wrote_catalog:
+        with open(os.path.join(dsdir, "ds-catalog.json"), "w", encoding="utf-8") as f:
+            json.dump(catalog, f, indent=2, ensure_ascii=False)
+
     with open(registry_path, "w", encoding="utf-8") as f:
         json.dump(reg, f, indent=2)
 
     print(f"✓ cloned DS '{name}' ({platform}) from {source.get('type')}:{source.get('ref')}")
     print(f"  tokens: +{len(added)} added, {len(updated)} updated, {len(skipped)} unchanged "
           f"({len(reg['tokens'])} total) · components: {len(ex_components)}")
-    print(f"  wrote design-system/{name}/{name}.md + design-system/{name}/.source.json")
+    print(f"  wrote design-system/{name}/{name}.md + design-system/{name}/.source.json"
+          + (f" + ds-catalog.json ({len(catalog.get('components', []))} components, "
+             f"{len(catalog.get('variables', []))} variables)" if wrote_catalog else ""))
     print(f"  meta.dsSource = {json.dumps(meta['dsSource'])}")
     return 0
 
@@ -170,7 +199,10 @@ def drift(current_export, registry_path, name=None):
         print(f"⚠ no clone to audit: {os.path.relpath(snap_path)} missing — run /pb:pull-ds first")
         return 2
     snap = _load(snap_path)
-    added, removed, changed = _diff_tokens(snap.get("tokens", {}), current_export.get("tokens", {}))
+    # Normalize the fresh export the same way clone() did before snapshotting, so a legacy
+    # {value,kind} source doesn't read as drift against a DTCG snapshot (shape ≠ content).
+    added, removed, changed = _diff_tokens(
+        _normalize_tokens(snap.get("tokens", {})), _normalize_tokens(current_export.get("tokens", {})))
     snap_c = {c.get("id") for c in snap.get("components", [])}
     cur_c = {c.get("id") for c in current_export.get("components", [])}
     comp_added, comp_removed = sorted(cur_c - snap_c), sorted(snap_c - cur_c)

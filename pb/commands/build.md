@@ -13,21 +13,26 @@ Apply the **Schema compatibility** check from `CLAUDE.md` before writing any reg
 (do not write) if the current write touches a slice a pending version update changes.
 
 ## 0 · Flags
-- `--render` — after applying the patch (or on its own), regenerate `prototype.html` from
-  `registry.json` via the deterministic generator (step 5). This is the **only** way HTML is produced
-  (besides `/pb:handoff-close` and `/pb:validate`, which render automatically).
+- `--render` — after applying the patch (or on its own), regenerate **both derived sites** from
+  `registry.json` via the deterministic generator (step 5): `prototype.html` (flows/screens) **and**
+  `design-system.html` (the component workbench). One registry → two projections, ~0 model tokens. This
+  is the **only** way HTML is produced (besides `/pb:handoff-close` and `/pb:validate`, which render
+  automatically). A component/token edit re-renders both; a screen-only edit still just re-runs the
+  generator (cheap) — no need to reason about which site changed.
 - no flag — apply the registry patch and **stop. Do NOT render.**
 
 ## 1 · Read the touched slice (only)
-Identify the target and read ONLY that from `registry.json`:
+Identify the target and read ONLY that from `registry.json` — use `pb/tools/slice.py get` so
+a big registry never loads whole into context:
 | Prompt targets | Read |
 |---|---|
-| a token | `tokens.<name>` |
-| a component | `components[]` entry by id (+ the DS index first if it's NEW — step 3) |
-| a screen / element | `screens[]` entry by id |
-| Project Summary copy | `meta.*` |
+| a token | `slice.py get tokens <name>` |
+| a component | `slice.py get components <id>` (+ the DS index first if it's NEW — step 3) |
+| a screen / element | `slice.py get screens <id>` |
+| Project Summary copy | `slice.py get meta <key>` |
 
-Do not load the whole registry, and never read `prototype.html` to make an edit.
+`slice.py list <components\|screens\|tokens\|meta>` enumerates ids/keys when you need to locate a
+target first. Do not load the whole registry, and never read `prototype.html` to make an edit.
 
 ## 2 · Classify: trio or non-trio
 The **trio** = a **screen**, a **component**, or **logic** (states, validation, conditional render).
@@ -54,13 +59,16 @@ The **trio** = a **screen**, a **component**, or **logic** (states, validation, 
    `think-layout` (layout), `think-logic` (state/rules), `design-component-build` (new custom component).
 
 ## 4 · Apply the targeted patch
-Edit the **one** touched slice in `registry.json` (changed keys only):
-- **token** → set `tokens.<name>.value` (create one tagged `"scope":"local"` if none fits; never a raw hex/px elsewhere).
-- **component** → patch the `components[]` entry: a `properties` default, `anatomy`/`spec`, etc. To
-  change what it renders, **edit its body file** — `render/components/<id>.js` (pointed at by
-  `renderSrc`). The registry holds no render code (v1.4).
+Patch the **one** touched slice — `pb/tools/slice.py set <kind> <id>` (patch JSON on stdin) merges
+into just that entry and rewrites the file, so no other slice enters context. Changed keys only:
+- **token** → set `tokens.<name>.$value` (create one tagged `"scope":"local"` if none fits; never a raw hex/px elsewhere).
+- **component** → patch the `components[]` entry (a `properties` default, etc.). To change
+  `anatomy`/`spec`/`usage`/`uiLogic`, **edit the sidecar** `spec/components/<id>.json` (pointed at by
+  `specSrc`, schema 10) — not the registry entry. To change what it renders, **edit its body file**
+  `render/components/<id>.js` (pointed at by `renderSrc`). The registry holds no render code (v1.4)
+  and no handoff docs (v schema 10).
 - **screen** → patch the `screens[]` entry: add/zorder an element, change `layout`, a `label`, a
-  `logicNotes` line. To change what it renders, edit `render/screens/<id>.js`.
+  `logicNotes` line. Handoff docs → `spec/screens/<id>.json`; render → `render/screens/<id>.js`.
 - **new component / screen** → append an entry with a **kebab-case** `id`, a `renderFn`
   (`renderCmp{PascalCase}` / `renderScreen{PascalCase}`), and a `renderSrc`
   (`render/components/<id>.js` / `render/screens/<id>.js`); create that `.js` body file with the render
@@ -80,8 +88,9 @@ attributes in screen/component `render` bodies; the shell's runtime handles them
 
 Two more rules:
 - **Interactive components MUST declare a `state` property** (`properties[]` entry `id:'state'`, options
-  `{label,value}`) — e.g. `default / error / disabled`, `default / loading / disabled`. The UI Design demo
-  renders one labeled variant per state. A `state`-less interactive component is a defect.
+  `{label,value}`) — e.g. `default / error / disabled`, `default / loading / disabled`. The design-system
+  site renders one labeled variant per state (and a live clickable demo for interactive ones). A
+  `state`-less interactive component is a defect. Confirm interactivity with the user before you declare it.
 - **`meta.device`** (`'desktop'|'tablet'|'mobile'`) sets the Prototype's default device frame. It's seeded at
   `/pb:init`; change it here only if the prototype's target form factor changes.
 

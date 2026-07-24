@@ -1,19 +1,25 @@
 ---
-description: Sub-command of /pb:build. One-way registry → Figma transfer via the Figma MCP, with a 5-gate clarify pass (G-FP0–G-FP5) before any irreversible Figma write, then a mandatory render audit (G-FP6) that blocks completion until the pushed result verifies. DS-neutral (the matched library is read from config, never hardcoded). Auto-layout on every created frame (R3). v1 is one-way only; bi-directional sync is out of scope.
+description: Sub-command of /pb:build. One-way registry → Figma transfer via the GHN DS Bridge plugin (declarative node JSON), with a clarify pass (G-FP0–G-FP5) then an offline render audit (G-FP6) on the emitted node JSON. Default is BRIDGE mode: emit node JSON to paste into the plugin's Code → Figma tab (deterministic, offline, linked instances). The Figma MCP is a read-only CONTEXT provider (match/enrich), never the writer; the legacy MCP write path stays behind --mcp (deprecated). DS-neutral. Auto-layout on every frame (R3). One-way.
 ---
 
 # /pb:build-figma-handoff
 
-Push the prototype's components and screens to a Figma file. Reads from **`registry.json`**
-(`components[]` / `screens[]`) — the same data the prototype renders from. **DS-neutral:** the design
-system to match against is read from `memory/constitution.md` → Design System Lock and mirrored in
-`figma-transfer.json` as `dsMatch.library` — there is no hardcoded library name anywhere.
+Push the prototype's components and screens to Figma. Reads from **`registry.json`**
+(`components[]` / `screens[]`) — the same composition tree the prototype renders from — and the DS
+**catalog** (`design-system/<name>/ds-catalog.json`, the publish keys/variables from the GHN DS
+Bridge *Scan DS*, cloned by `/pb:pull-ds`). **DS-neutral:** the library is read from
+`memory/constitution.md` → Design System Lock, mirrored in `figma-transfer.json.dsMatch.library`.
 
-> **Mandatory path — this is the ONLY sanctioned way to put prototype content into Figma.**
-> NEVER hand-draw or hand-emit frames into Figma outside this command — that yields untokenized,
-> untracked, non-reusable pixels (the anti-pattern). Run every gate in order; the push is
-> **done only when Gate G-FP6 (render audit) passes**. A failing audit blocks Step 7 and the
-> hand-off is reported incomplete — never silently accepted.
+> **How the push happens (BRIDGE mode, default).** `pb/tools/registry_to_figma.py` deterministically
+> lowers the registry to **GHN DS Bridge node JSON** (~0 model tokens — a token lever). You paste it
+> into the plugin's **Code → Figma** tab; the plugin rebuilds it as real, **linked component
+> INSTANCES**. Because the registry is a machine-readable composition tree (component-first / atomic),
+> the lowering is 1:1: every screen element is an INSTANCE of its DS component's publish key. pb never
+> hand-emits Figma nodes and never depends on a write-time MCP connection.
+>
+> **The Figma MCP is a CONTEXT provider only** — used at G-FP3/G-FP4 to *propose* token/component
+> matches (`search_design_system`, `get_variable_defs`, `get_screenshot`) when the catalog is thin.
+> It never writes. The legacy MCP write path is retained behind `--mcp` (deprecated).
 
 ## User input
 ```text
@@ -23,122 +29,107 @@ $ARGUMENTS
 |---|---|---|
 | `--scope=components\|screens\|both` | ask in G-FP0 | What to push |
 | `--screen=<id>` | all in scope | Restrict screens push to one screen |
-| `--organism=<id>` | all in scope | Restrict components push to one component |
+| `--component=<id>` | all in scope | Restrict components push to one component |
+| `--out=<path>` | `figma-nodes.json` | Where to write the emitted node JSON (bridge mode) |
 | `--batch` | refuse if >1 screen or >5 components | Allow large pushes |
-| `--dry-run` | false | Run all gates + show the plan, skip the actual Figma writes |
+| `--dry-run` | false | Run all gates + show the plan, emit nothing |
 | `--force` | false | Skip the no-op hash check (G-FP1.5) |
 | `--rematch` | false | Re-prompt DS matches even for already-bound components |
+| `--mcp` | false | **Legacy**: use the Figma MCP `use_figma` write path instead of the plugin (deprecated) |
 
 ## Gate G-FP0 — Scope selection
-If `--scope` is absent, ask:
-```
-What's the push scope?
-  1) components — push the component library to Figma
-  2) screens    — push screen frames using existing components
-  3) both       — components first, then screens consume them as instances
-Choose 1-3:
-```
-Wait for prompt + Enter. Save to `figma-transfer.json.lastScope`.
+If `--scope` is absent, ask (1 components · 2 screens · 3 both). Save to `figma-transfer.json.lastScope`.
 
 ## Gate G-FP1 — Pre-flight integrity (always runs)
-Sequential. ANY failure → HARD FAIL with the exact message; no Figma writes yet.
-1. **Figma MCP reachable** — call Figma `whoami`. On error → HARD FAIL with: `Figma MCP not reachable. Configure the Figma connector and re-run.`
-2. **Registry loaded** — read `registry.json`; confirm it parses and has `components[]` / `screens[]`. If empty → HARD FAIL: `registry.json has no components/screens. Run /pb:build first.`
-3. **`figma-transfer.json` exists OR seed it** — if absent, prompt for the Figma file URL (`https://www.figma.com/{file|design}/<key>/...`), extract `<key>` as `fileKey`, and write `figma-transfer.json` from `figma-transfer.template.json`. Set `dsMatch.library` to the Design System Lock name from `memory/constitution.md`.
-4. **Target page + root frame** — if `target.pageId` is null: `Figma:get_metadata`, list pages, ask which page; then create/pick a root frame. Persist `pageId/pageName/rootFrameId/rootFrameName`.
-5. **No-op detection** — SHA-256 the in-scope slice of `registry.json` (`components` / `screens` / both). If it equals `figma-transfer.json.lastPushedHash[<scope>]` and `--force` is absent → STOP (`✓ No changes since last push.`).
+Sequential. ANY failure → HARD FAIL with the exact message; nothing emitted.
+1. **DS catalog present** — confirm `design-system/<name>/ds-catalog.json` exists (the Scan DS publish
+   keys/variables). On absence → HARD FAIL: `No DS catalog. Run /pb:pull-ds (with the GHN DS Bridge Scan DS output) first.` *(In `--mcp` mode this check becomes "Figma MCP reachable — call `whoami`" instead.)*
+2. **Registry loaded** — `registry.json` parses and has `components[]` / `screens[]`. Empty → HARD FAIL: `registry.json has no components/screens. Run /pb:build first.`
+3. **`figma-transfer.json` exists OR seed it** — if absent, seed from `figma-transfer.template.json`; set `dsMatch.library` to the Design System Lock name.
+4. **No-op detection (G-FP1.5)** — SHA-256 the in-scope slice; if it equals `lastPushedHash[<scope>]` and `--force` absent → STOP (`✓ No changes since last push.`).
+
+*(In `--mcp` mode only, also resolve the target file/page/root frame as before — the bridge builds on the plugin's current page, so no target is needed.)*
 
 ## Gate G-FP2 — Identity audit (per scope)
-- **components / both:** each component with a `figmaComponentSetId` in `figma-transfer.json` → `update`; else `new`.
-- **screens / both:** each screen with a `figmaFrameId` → `update`; else `new`.
-- **Variant-axis change (components):** compare `properties[]` to `figma-transfer.json.propertyMapping`. A new property or new option values → flag `axis-change`. **NEVER auto-add a variant axis** — it surfaces as its own group here.
-- **Affected-screen analysis (components):** for every `update` / `axis-change` component, list the **screens that reference it** (`screens[].elements[].orgId === <component id>`). Re-pushing the component re-renders its instances on those frames — name them so the blast radius is explicit before confirming. (This mirrors the "⚠ affects N screens" line shown in the UI Design push panel.)
+- **components / both:** each component with a `dsKey` in `figma-transfer.json` → `bound` (reference); else `unmatched` (needs G-FP4). A component that maps to a DS key is a **reference**, not a local build.
+- **screens / both:** always emitted as root frames of INSTANCEs (screens have no Figma identity in bridge mode — the plugin builds fresh each paste).
+- **Affected-screen analysis:** for each changed component, list the screens that reference it (`screens[].elements[].orgId === <id>`) so the blast radius is explicit.
 
-Output the audit (new / updated / axis-change counts + ids + total writes estimate + **affected screens per updated component**) and ask `Proceed to G-FP3? (yes / cancel)`. On `cancel` → stop.
+Output the audit (bound / unmatched / local counts + ids + affected screens) and ask `Proceed to G-FP3? (yes / cancel)`.
 
-**Batch guard:** if (new+updated screens) > 1 OR (new+updated components) > 5 and `--batch` is absent → HARD FAIL (re-run with `--batch` or scope down).
+**Batch guard:** if in-scope screens > 1 OR components > 5 and `--batch` absent → HARD FAIL.
 
 ## Gate G-FP3 — Token resolution (always runs)
-Collect every token reference in scope — the **union** of component `anatomy.parts[].token.name` + `spec.stack[]`, screen `elements[].tokens[]`, **and every `var(--name)` used in the in-scope render body files** (each entry's `renderSrc` →
-`render/components/<id>.js` / `render/screens/<id>.js`; resolve and scan it, falling back to a legacy
-inline `render` string if present) (so a token that is used but not separately declared — e.g. spacing — is never silently skipped). Load `figma-tokens.json`. For each unique token: use the existing mapping, or propose one via `Figma:search_design_system` (query built from the token name). Pause:
+Collect every token reference in scope — the **union** of component `anatomy.parts[].token.name` + `spec.stack[]`, screen `elements[].tokens[]`, and every `var(--name)` in the in-scope render body files (`renderSrc`). Load `figma-tokens.json`. Resolve each token to a Figma **variable** from, in order: (a) `figma-tokens.json`, (b) the **ds-catalog** `variables[]` by name, (c) an MCP `search_design_system` / `get_variable_defs` proposal (context only). Pause:
 ```
 ⏸ TOKEN MAPPING NEEDED
-  --brand           → {DS}/Colors/brand              (VariableID:…)  [match by name]
-  --text-secondary  → {DS}/Colors/text/secondary     (VariableID:…)  [match by name]
-  --custom-orange   → NO MATCH FOUND                                 [will create local]
-Accept all proposed?  (yes / edit / cancel)
-```
-`{DS}` is the configured library name. On `yes` → save to `figma-tokens.json`. NO-MATCH tokens default to a local variable in a `Prototype tokens` collection (persisted; never coerced to a raw hex/px).
-
-## Gate G-FP4 — DS component match (components or both only)
-Skip if scope is `screens`. For each `new` component: if `dsMatch.figmaComponentId` is set and `--rematch` absent → reuse it (instance-swap); else propose via `Figma:search_design_system` on the component `name`. Pause:
-```
-⏸ DS COMPONENT MATCH   (library: {DS})
-  text-input     → {DS}/Forms/Text input    (…)
-  primary-button → {DS}/Buttons/Primary     (…)
-  alert-banner   → NO MATCH FOUND                       [will create local]
+  brand      → {DS} Colors/brand      (var_brand)     [catalog]
+  space-4    → {DS} Spacing/4         (var_space_4)   [catalog]
+  custom-orange → NO MATCH                            [gap — stays numeric + flagged]
 Accept all?  (yes / edit / cancel)
 ```
-On `yes` → save to `figma-transfer.json.components[<id>].dsMatch`. NO-MATCH → **create local** under the root frame (not into the library); persisted so future pushes update in place.
+On `yes` → save to `figma-tokens.json`. A no-match is a **gap** (never coerced to raw): the transformer emits the numeric fallback + a `<prop>Token` sidecar and logs it to `gaps.md`.
 
-## Gate G-FP5 — Push plan + confirmation (irreversible)
-**The ONLY gate for the irreversible write.** Output the full plan: scope · target · page · root · components (create-local / update / instance-swap to `{DS}`) · screens (create / update) · tokens (bind / create-local) · the auto-layout policy. Then ask `Proceed? (yes / no / show-detail)`.
+## Gate G-FP4 — DS component match (components or both only)
+Skip if scope is `screens`. For each `unmatched` component: resolve its DS publish key from, in order: (a) `figma-transfer.components[<id>].dsKey`, (b) the **ds-catalog** `components[]` by `dsMatch.component` / name / id, (c) an MCP `search_design_system` proposal (context only). Pause:
+```
+⏸ DS COMPONENT MATCH   (library: {DS})
+  text-input → {DS} Input     (key 10:200)   [catalog]
+  button     → {DS} Button    (key 10:100)   [catalog]
+  alert-banner → NO MATCH                    [local build from anatomy]
+Accept all?  (yes / edit / cancel)
+```
+On `yes` → save `figma-transfer.components[<id>].dsKey` + `propertyMapping`. NO-MATCH → the transformer emits a **local FRAME from anatomy** (parts with an `orgId` nested as INSTANCEs) + a gap. Never invent a key.
 
-**Auto-layout (R3):** **every created frame uses auto-layout — no absolutely positioned children.** Sizing axis defaults to hug-V / fill-H; frames with explicit `sizing.width`/`sizing.height` use those. A child whose layout can't be expressed as auto-layout is a HARD FAIL, not an absolute-position fallback.
+## Gate G-FP5 — Emit plan + confirmation
+Output the full plan: scope · library · components (reference-by-key / local-build) · screens (root frames of INSTANCEs) · tokens (bound / gap) · the auto-layout policy (R3: every frame auto-layout). Ask `Proceed to emit? (yes / no / show-detail)`. If `--dry-run` → print and STOP. *(This gate is not "irreversible" in bridge mode — emitting node JSON writes nothing to Figma. The irreversible act is you pasting it into the plugin.)*
 
-If `--dry-run` → print the plan and STOP (no writes, no contract updates).
+## Step 6 — Emit (BRIDGE mode; only after G-FP5 `yes`)
+Run the deterministic transformer (load the `figma-use` bridge skill first for the authoring rules):
+```
+python3 "${CLAUDE_PLUGIN_ROOT}/tools/registry_to_figma.py" registry.json \
+  --scope <scope> [--screen <id>|--component <id>] \
+  --catalog design-system/<name>/ds-catalog.json \
+  --tokens figma-tokens.json --transfer figma-transfer.json \
+  --out <out> --gaps gaps.md
+```
+It emits `{ meta, roots[], gaps[] }`: each screen → a root FRAME (auto-layout from `layout`) of element **INSTANCEs** (by DS key + `componentProperties` from the element's props/state); each local component → a FRAME with its anatomy parts nested as INSTANCEs; spacing → numeric + a `<prop>Token` variable sidecar. **Hand the user the exact steps:** open the GHN DS Bridge plugin → **Code → Figma** tab → paste `<out>` → **Build / Run**. Report the gap list (unmatched components/tokens) plainly.
 
-## Step 6 — Execute (only after G-FP5 `yes`)
-Ordered, each a `Figma:use_figma` call (load the `figma-use` skill first):
-1. **Tokens** — create each local token in the chosen collection; record VariableIDs.
-2. **Components** (skip if scope=screens) — build each `create-local` from `anatomy.parts[]` + `spec.stack[]` + `properties[]` **with auto-layout**; apply diffs for `update`; record `componentSetId`/`componentId`. DS-matched components: no write, just record the binding. **Any `anatomy.parts[]` entry with an `orgId` is a NESTED GLOBAL — do NOT redraw it as a local frame: `createInstance` of that global's `dsMatch.componentKey` (`importComponentSetByKeyAsync` → pick the variant → `createInstance`), place it in the parent's auto-layout, and apply the part's text override. Record each under `figma-transfer.components[<parent>].nestedInstances[<orgId>]` (`{instanceId, componentKey, dsName}`). Do this per variant of the parent ComponentSet.**
-3. **Screens** (skip if scope=components) — create a frame in `rootFrameId` per screen; for each element create a child node **with auto-layout** per the sizing heuristic; DS-matched element components inserted as **instances**, not local copies; record `frameId` + element map.
-4. **Token bindings** — bind each element's computed property to its VariableID.
-5. **Instance bindings** — ensure each instance points at the correct `{DS}` library component.
+*(Legacy `--mcp` mode: instead run the ordered `Figma:use_figma` writes as before — tokens → components → screens → bindings — per the deprecated MCP rituals. Retained for environments without the plugin.)*
 
-**Progress reporting:** as each component / screen completes, print a one-line tick (`✓ pushed <name> (3/7)`). If the live `/pb:preview` server is up, also drive the in-app progress widget by evaluating `window.pbSetPushProgress({ components:{done,total,current}, screens:{done,total,current} })` in the preview so the user sees the bars advance in the UI Design tab; the chat ticks are the source of truth.
+## Gate G-FP6 — Render audit (split: offline blocks the emit; round-trip verifies the paste)
+**Offline (mandatory, before handing over the JSON — deterministic, machine-checkable on `<out>`):**
 
-**Roll-forward only:** on partial failure, persist every node ID written; the next push reconciles via G-FP2. Never roll back.
-
-## Gate G-FP6 — Render audit (mandatory; blocks Step 7)
-The push is **not done** until this passes. After Step 6, re-read the pushed result from Figma — `Figma:get_metadata` on `rootFrameId` and every created component/screen, plus `Figma:get_screenshot` of the root — and assert EVERY invariant below. This is a **deterministic, machine-checkable** audit, not an eyeball pass. If ANY invariant fails → **HARD FAIL**: do NOT run Step 7, do NOT report the push as done; name the exact node + failing invariant and stop (roll-forward — written nodes stay for the next push to reconcile via G-FP2).
-
-| # | Invariant (all must hold) |
+| # | Invariant (must hold on the emitted node JSON) |
 |---|---|
-| 1 | **Auto-layout everywhere** — every created frame / component / screen has `layoutMode ≠ NONE`. |
-| 2 | **Zero absolute children** — no created node has a child with `layoutPositioning = 'ABSOLUTE'`. |
-| 3 | **Zero raw values** — every fill / stroke / corner radius / itemSpacing / padding on a created node is **bound to a variable** (no raw hex, no arbitrary px) — color, space, AND radius. |
-| 4 | **Variants in a ComponentSet** — any component with `properties[]` is a `COMPONENT_SET` whose variants match the declared `prop=value` axis. |
-| 5 | **Screens = instances** — every library / DS-matched element on a screen is an `INSTANCE` (has `mainComponent`), never a local copy. |
-| 6 | **Token coverage** — bound-variable count ≥ the G-FP3 token union; no in-scope token left unbound. |
-| 7 | **Nested globals = instances** — every component `anatomy.parts[]` entry with an `orgId` resolves to an `INSTANCE` (has `mainComponent`) of that global's DS match inside the built component (in EVERY variant), never a redrawn local frame/text. Verifiable offline over the two committed contracts: `python3 tools/lint_registry.py --figma registry.json figma-transfer.json`. |
+| 1 | **Auto-layout everywhere** — every FRAME has `layout.mode ≠ NONE`. |
+| 2 | **Zero absolute children** — no node uses absolute positioning. |
+| 4 | **Variants as component props** — each INSTANCE's `componentProperties` match the DS component's declared axes (from the catalog). |
+| 5 | **Screens = instances** — every screen element is an `INSTANCE` carrying a `component.key` (component-first), never inlined markup. |
+| 7 | **Nested globals = instances** — every local component's `anatomy.parts[]` with an `orgId` is a nested `INSTANCE` (instance, don't bake). |
 
-Print the result as a ✅/❌ checklist (one row per invariant + counts). Only an **all-✅** result proceeds to Step 7.
+`tests/r4_figma_bridge.py` asserts 1/2/4/5/7 on the transformer output; a build session can also eyeball `<out>`. Any failure → do NOT hand over the JSON; fix the registry/mapping and re-emit.
 
-## Step 7 — Update contracts + log (only after G-FP6 passes all invariants)
-- **`figma-transfer.json`** — new `components[<id>].figmaComponentSetId`/`figmaId`, `components[<id>].nestedInstances` (one entry per nested-global `orgId`: `{instanceId, componentKey, dsName}`), `screens[<id>].figmaFrameId`/`elementMapping`, `components[<id>].dsMatch`; `lastPushedAt`, `lastPushedHash[<scope>]`, `lastScope`.
-- **`registry.json`** — write the Figma IDs back onto the matching `components[]` / `screens[]` entries (`figmaId`, `figmaComponentSetId`, `dsMatch`, `figmaFrameId`) and **only** those keys. Re-read to confirm valid JSON; on parse failure, restore and report — never leave a broken registry.
-- **Push log** — append the plan + Figma responses + the contract diff to `memory/figma-pushes/<ISO-timestamp>.log`.
+**Round-trip (optional, verifies the actual paste — invariants 3/5/6 need the built result):** after you paste + Build, serialize the built frame back (plugin *Figma → Code*), paste it to pb, and pb diffs it against `<out>` — confirming spacing/radius/color are **variable-bound** (inv #3, once the plugin's spacing-binding fix from `docs/figma-bridge-plugin.md` is applied), every element resolved to a real instance (inv #5), and token coverage (inv #6). Report the diff.
 
-Confirm to the user with the counts and the contracts updated. Re-running without changes is a no-op (content-hash deduped); `--force` to re-push.
+## Step 7 — Update contracts + log (after the offline audit passes)
+- **`figma-transfer.json`** — `components[<id>].dsKey` + `propertyMapping`, `nestedInstances`, `lastPushedAt`, `lastPushedHash[<scope>]`, `lastScope`. (Bridge mode records **portable keys**, not file-local node ids.)
+- **`figma-tokens.json`** — the accepted token → variable `{name,key}` map from G-FP3.
+- **`registry.json`** — bridge mode writes back NOTHING to the registry (the plugin builds locally; there are no Figma node ids to record). *(Only `--mcp` mode writes `figmaId`/`figmaFrameId` back.)*
+- **Push log** — append the plan + emitted node count + gaps + contract diff to `memory/figma-pushes/<ISO-timestamp>.log`.
 
-## NEVER rules (ported)
-- NEVER push without a target (stop at G-FP1).
-- NEVER coerce a token to a raw value — unmapped = pause at G-FP3.
-- NEVER overwrite a Figma node not tracked in `figma-transfer.json` (it was designer-created).
-- NEVER publish to the team library (a designer action in the Figma UI).
-- NEVER push if the in-scope hash matches the last push, unless `--force`.
-- NEVER auto-add a variant axis (surfaces as `axis-change` in G-FP2).
+Confirm counts + the contracts updated. Re-running without changes is a no-op (content-hash deduped); `--force` to re-emit.
+
+## NEVER rules
+- NEVER invent a DS publish key or a variable — an unmatched component/token is a **gap** (local build / numeric fallback + `gaps.md`), never a fabricated reference.
+- NEVER coerce a token to a raw value — unmapped = pause at G-FP3, then a flagged gap.
+- NEVER auto-add a variant axis (surfaces as its own group in G-FP2).
 - NEVER push > 1 screen or 5 components without `--batch`.
-- NEVER roll back on partial failure — roll-forward only.
-- NEVER mutate a bound `dsMatch` without `--rematch`.
-- NEVER attempt bi-directional sync (one-way only; warn at G-FP5 if Figma is newer).
-- NEVER skip Step 7's `registry.json` write-back (without identity, the next push duplicates).
-- NEVER hardcode a design-system name — always read `dsMatch.library` from config.
-- NEVER position a frame child absolutely — auto-layout on every frame (R3).
-- NEVER hand-emit / hand-draw prototype content into Figma outside this command — every export runs these gates.
-- NEVER redraw a nested global as a local frame — an `anatomy.parts[]` entry with an `orgId` MUST be instanced from the global's DS match (G-FP6 inv #7); baking it in is a hard fail.
-- NEVER run Step 7 or report a push "done" while any G-FP6 invariant fails — the render audit is a hard completion gate.
+- NEVER hardcode a design-system name — read `dsMatch.library` from config.
+- NEVER emit a non-auto-layout frame or an absolutely-positioned child (R3) — the transformer sets `layout.mode` on every frame by construction.
+- NEVER redraw a nested global as a local frame — an `anatomy.parts[]` `orgId` MUST be a nested INSTANCE (G-FP6 inv #7).
+- NEVER hand over node JSON while an offline G-FP6 invariant fails.
+- NEVER write to Figma from pb in bridge mode — pb emits JSON; the plugin (driven by the user) is the only writer. In `--mcp` mode the write goes through the (deprecated) MCP path.
+- NEVER attempt bi-directional sync (one-way only).
 
 > **Skill degrade (NS6).** If a skill this command invokes fails to load, say so explicitly and proceed with its core intent — never silently skip the step.
