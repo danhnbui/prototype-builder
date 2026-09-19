@@ -165,6 +165,21 @@
       letter-spacing: 0.02em;
       user-select: all;                          /* easy to copy when reporting an issue */
     }
+    /* The link to the second site. NOT `.meta-tab` — two tests assert that class appears
+       exactly 4 times, and this is another site rather than a fifth tab. `margin-left:auto`
+       lives here now so the pair sits at the right end even when the link is absent (it is
+       hidden over file://, where /design-system would 404). */
+    .meta-ds-link {
+      margin-left: auto;
+      display: inline-flex; align-items: center; gap: 7px;
+      height: 30px; padding: 0 12px; border-radius: var(--radius, 8px);
+      color: var(--neutral-30, #b6bcc6); text-decoration: none;
+      font-family: var(--font-heading);
+      font-size: var(--font-size-s); font-weight: var(--font-weight-bold);
+      border: 1px solid transparent; transition: background 0.12s, color 0.12s;
+    }
+    .meta-ds-link:hover { background: rgba(255,255,255,0.08); color: var(--neutral-10, #e5e7eb); }
+    .meta-ds-link + .meta-sandbox { margin-left: 4px; }
     /* v1.9 — the consolidated Sandbox control at the right end of the meta nav. */
     .meta-sandbox {
       margin-left: auto;                         /* push to the far-right of the flex strip */
@@ -2299,6 +2314,34 @@
       background: var(--bg-soft); border: 1px solid var(--border); border-radius: var(--radius-small);
       padding: 1px 5px; color: var(--text-active-secondary); }
     /* v1.5 — Data single-column toolbar, data-set variants, fixed column alignment, legend */
+    /* D-24 — the Data tab at real scale (16 tables / 200 rows / 15,911px of scroll). */
+    .erd-search {
+      margin-left: auto; width: min(340px, 40vw);
+      height: 32px; padding: 0 12px;
+      border: 1px solid var(--border); border-radius: var(--radius, 8px);
+      background: var(--bg-surface, #fff); color: var(--text-primary);
+      font-family: inherit; font-size: var(--font-size-s);
+    }
+    .erd-search:focus { outline: 2px solid var(--brand, #4f46e5); outline-offset: -1px; }
+    .erd-entity-table th { cursor: pointer; user-select: none; }
+    .erd-entity-table th:hover { color: var(--text-primary); }
+    /* A clamped note: a few lines, expanded by click. The full text stays in the DOM so the
+       filter and copy-paste still see it. */
+    .erd-note.is-clamped {
+      display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;
+      overflow: hidden; cursor: pointer;
+    }
+    .erd-note:not(.is-clamped) { cursor: pointer; }
+    /* `origin` as a row tint. Deliberately faint — it is context for every row, not an alert
+       about a few, and at 200 rows anything stronger reads as an error state. */
+    .erd-entity-table tr.erd-row--keep   { background: rgba(79, 70, 229, 0.045); }
+    .erd-entity-table tr.erd-row--rename { background: rgba(217, 119, 6, 0.05); }
+    .erd-origin-legend { display: flex; flex-wrap: wrap; gap: 16px; margin: 4px 0 14px; font-size: var(--font-size-xs); color: var(--text-tertiary); }
+    .erd-origin-key { display: inline-flex; align-items: center; gap: 6px; }
+    .erd-origin-swatch { width: 11px; height: 11px; border-radius: 3px; border: 1px solid var(--border); }
+    .erd-origin-swatch--keep   { background: rgba(79, 70, 229, 0.16); }
+    .erd-origin-swatch--rename { background: rgba(217, 119, 6, 0.18); }
+    .erd-origin-swatch--adopt  { background: transparent; }
     .erd-toolbar { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:16px; }
     .erd-entity-head { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-bottom:8px; }
     .erd-entity-head .erd-entity-title { margin:0; }
@@ -2312,6 +2355,98 @@
     .erd-legend-mini svg { width:38px; height:12px; display:block; }
     .erd-legend-svgwrap { display:inline-flex; width:56px; flex-shrink:0; }
     .erd-legend-svgwrap svg { width:56px; height:14px; }
+      /* ── UX Design sub-tabs: Information Architecture · User Flow · Logic ──── */
+    .ux-subtabs { margin: 0 0 12px; }
+    .ux-scroll-wrap { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+    .ux-scroll-wrap > .summary-scroll,
+    .ux-scroll-wrap > .ia-scroll { flex: 1; min-height: 0; overflow: auto; padding-right: 8px; }
+    .lg-views { display: flex; align-items: center; gap: 4px; margin: 4px 0 16px; }
+    .lg-view {
+      border: 1px solid var(--border); background: transparent; color: inherit;
+      font: inherit; font-size: var(--font-size-s); padding: 5px 12px;
+      border-radius: 999px; cursor: pointer;
+    }
+    .lg-view.active { background: var(--brand, #4f46e5); color: #fff; border-color: transparent; }
+    .lg-stats { margin-left: auto; font-size: var(--font-size-xs); color: var(--text-tertiary); }
+    .lg-warn { color: #c2410c; font-weight: var(--font-weight-bold); }
+    .lg-dim { color: var(--text-tertiary); font-size: var(--font-size-xs); }
+    .lg-link { color: var(--brand, #4f46e5); text-decoration: none; }
+    .lg-link:hover { text-decoration: underline; }
+    .lg-link--write { font-weight: var(--font-weight-bold); }
+    .lg-card { border: 1px solid var(--border); border-radius: 12px; padding: 16px 18px; margin: 0 0 18px; }
+    .lg-chip { display: inline-block; font-size: 11px; line-height: 18px; padding: 0 8px; border-radius: 999px; background: rgba(127,127,127,.12); vertical-align: middle; }
+    .lg-chip--kind { background: rgba(79,70,229,.12); color: var(--brand, #4f46e5); }
+    .lg-chip--save { background: rgba(22,163,74,.15); color: #15803d; }
+    .lg-chip--dead { background: rgba(194,65,12,.15); color: #c2410c; text-decoration: line-through; }
+    .lg-c-yes { background: rgba(22,163,74,.15); color: #15803d; }
+    .lg-c-no { background: transparent; color: var(--text-tertiary); }
+    .lg-c-edit { background: rgba(22,163,74,.15); color: #15803d; }
+    .lg-c-read { background: rgba(79,70,229,.12); color: var(--brand, #4f46e5); }
+    .lg-c-hidden { background: rgba(127,127,127,.12); color: var(--text-tertiary); }
+    .lg-svg-wrap { overflow-x: auto; margin: 8px 0 12px; }
+    .lg-st { fill: rgba(79,70,229,.06); stroke: var(--brand, #4f46e5); stroke-width: 1.2; }
+    .lg-st-t { font-size: 13px; font-weight: 600; text-anchor: middle; fill: currentColor; }
+    .lg-st-k { font-size: 11px; text-anchor: middle; fill: var(--text-tertiary); font-family: var(--font-mono, ui-monospace, monospace); }
+    .lg-arrow { stroke: var(--text-tertiary); stroke-width: 1.4; fill: none; }
+    .lg-arrow--back { stroke-dasharray: 4 3; }
+    .lg-arrow-head { fill: var(--text-tertiary); }
+    .lg-ov { fill: rgba(194,65,12,.10); stroke: #c2410c; stroke-width: 1; stroke-dasharray: 3 2; }
+    .lg-ov-t { font-size: 11px; text-anchor: middle; fill: #c2410c; }
+    .lg-table { width: 100%; border-collapse: collapse; font-size: var(--font-size-s); margin: 6px 0 12px; }
+    .lg-table th { text-align: left; font-size: 11px; letter-spacing: .04em; text-transform: uppercase; color: var(--text-tertiary); padding: 6px 10px; border-bottom: 1px solid var(--border); }
+    .lg-table td { padding: 8px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+    .lg-tr-ov td { background: rgba(194,65,12,.04); }
+    .lg-matrix td, .lg-matrix th { text-align: center; }
+    .lg-matrix td:first-child, .lg-matrix th:first-child { text-align: left; }
+    .lg-foot { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 24px; font-size: var(--font-size-s); border-top: 1px dashed var(--border); padding-top: 12px; margin-top: 8px; }
+    .lg-foot-k { display: block; font-size: 11px; letter-spacing: .04em; text-transform: uppercase; color: var(--text-tertiary); margin-bottom: 3px; }
+    .lg-ripple { display: grid; grid-template-columns: 260px minmax(0, 1fr); gap: 18px; align-items: start; }
+    /* The filter input is rendered once, outside the repainted region — the same rule as the
+       Data tab's search. Focus is structurally safe, not restored. */
+    .lg-list-wrap { border: 1px solid var(--border); border-radius: 12px; padding: 10px; max-height: 70vh; overflow: auto; position: sticky; top: 0; }
+    .lg-search { width: 100%; box-sizing: border-box; font: inherit; font-size: var(--font-size-s); padding: 6px 10px; border: 1px solid var(--border); border-radius: 8px; background: transparent; color: inherit; margin-bottom: 8px; }
+    .lg-group-h { font-size: 11px; letter-spacing: .04em; text-transform: uppercase; color: var(--text-tertiary); margin: 10px 6px 4px; }
+    .logic-row { display: flex; justify-content: space-between; gap: 8px; padding: 5px 8px; border-radius: 8px; cursor: pointer; font-size: var(--font-size-s); }
+    .logic-row:hover { background: rgba(127,127,127,.10); }
+    .logic-row.active { background: rgba(79,70,229,.12); color: var(--brand, #4f46e5); }
+    .logic-row span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .lg-detail { border: 1px solid var(--border); border-radius: 12px; padding: 16px 18px; min-height: 300px; }
+    .lg-sec { margin: 12px 0; }
+    .lg-sec-h { font-size: 11px; letter-spacing: .04em; text-transform: uppercase; color: var(--text-tertiary); margin-bottom: 4px; }
+    .lg-line { padding: 3px 0; font-size: var(--font-size-s); }
+    /* Information Architecture */
+    .ia-roles { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin: 6px 0 16px; }
+    .ia-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 4px; vertical-align: middle; }
+    .ia-job { display: inline-flex; align-items: center; gap: 2px; font-size: var(--font-size-s); line-height: 20px; padding: 3px 10px; border-radius: 999px; border: 1px solid var(--border); background: rgba(127,127,127,.05); margin: 0 6px 6px 0; }
+    .ia-job--new { border-style: dashed; border-color: #c2410c; background: rgba(194,65,12,.06); }
+    .ia-card { border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; margin: 0 0 14px; }
+    .ia-card--new { border-color: #c2410c; background: rgba(194,65,12,.03); }
+    .ia-new-row { display: grid; grid-template-columns: 1fr auto auto; gap: 12px; align-items: center; padding: 6px 0; border-top: 1px dashed var(--border); }
+    .ia-new-actions { display: flex; gap: 6px; }
+    .ia-jrow { display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: baseline; padding: 7px 0; border-top: 1px solid var(--border); font-size: var(--font-size-s); line-height: 1.45; }
+    .ia-jrow--new .ia-jrow-text { color: #c2410c; }
+    .ia-jrow-text em { font-style: normal; color: var(--text-secondary, #555); }
+    .ia-jrow-meta { white-space: nowrap; }
+    .ia-map-head, .ia-map-row { display: grid; gap: 12px; align-items: start; }
+    .ia-map-head { margin: 10px 0 6px; }
+    .ia-layer { border-top: 3px solid var(--brand, #4f46e5); padding: 8px 2px 6px; }
+    .ia-layer--ov { border-top-color: #c2410c; margin-top: 14px; }
+    .ia-layer-n { font-weight: var(--font-weight-bold); font-size: var(--font-size-s); }
+    .ia-layer-p { font-size: var(--font-size-xs); color: var(--text-tertiary); margin-top: 4px; line-height: 1.4; }
+    .ia-layer-r, .ia-layer-so { margin-top: 4px; font-size: var(--font-size-xs); line-height: 1.4; }
+    .ia-map-row { position: relative; border-top: 1px dashed var(--border); padding: 14px 0 8px; }
+    .ia-map-group { position: absolute; top: -9px; left: 0; background: var(--bg-page, #fff); padding: 0 6px 0 0; font-size: 11px; letter-spacing: .04em; text-transform: uppercase; color: var(--text-tertiary); }
+    .ia-node { border: 1px solid var(--border); border-radius: 10px; padding: 8px 10px; margin: 0 0 8px; cursor: pointer; background: rgba(79,70,229,.03); }
+    .ia-node:hover { border-color: var(--brand, #4f46e5); }
+    .ia-node--empty { border-style: dashed; border-color: #c2410c; background: rgba(194,65,12,.03); }
+    .ia-node-t { display: flex; align-items: center; gap: 6px; font-size: var(--font-size-s); }
+    .ia-node-j { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+    .ia-mini { font-size: 11px; line-height: 16px; padding: 1px 7px; border-radius: 999px; background: rgba(127,127,127,.10); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .ia-node-ov { margin-top: 6px; font-size: 11px; display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+    .ia-ov { font-size: 11px; padding: 0 6px; border-radius: 6px; border: 1px dashed #c2410c; color: #c2410c; cursor: pointer; }
+    .ia-from { font-size: 11px; margin: 0 0 2px 4px; }
+    .ia-orphans { margin-top: 8px; font-size: var(--font-size-xs); }
+    .pb-ux-tabstrip { padding: 0 var(--space-page-x, 24px); }
   </style>
 
   <!-- Mermaid CDN — used by the ERD tab. Keep this even if you don't ship ERD;
@@ -2334,6 +2469,11 @@
        on the in-memory PB_DATA only and never write back to registry.json.
        ========================================================================= */
     const PB_REGISTRY = /*__PB_REGISTRY_START__*/ null /*__PB_REGISTRY_END__*/;
+    /* The derived logic graph (render.py's load_logic). Absent on an older project or a
+       hand-off rendered before it existed — every view that reads it degrades to an empty
+       state rather than breaking. */
+    const PB_LOGIC = /*__PB_LOGIC_START__*/ null /*__PB_LOGIC_END__*/;
+    window.PB_LOGIC = PB_LOGIC;
     const PB_SHELL_VERSION = "{{PB_SHELL_VERSION}}";   /* filled by render.build_html; 'unknown' if unfilled */
 
     function pbEmptyData() {
@@ -2553,6 +2693,12 @@
       handoffScope: null,            // 'global' | 'local' — UI Design component sub-tab
       erdView: null,                 // 'diagram' | 'table' — Data tab view mode
       erdVariant: {},                // { <entity>: 'schema' | <mock label> } — per-table data set (4.4)
+      uxView: null,                  // UX Design sub-tab: 'ia' | 'flow' | 'logic' (D-14)
+      iaRole: 'all',                 // Information Architecture role filter
+      logicView: null,               // 'rules' | 'ripple'
+      logicFocus: null,              // { type: 'handler'|'slice'|'item', id }
+      erdQuery: '',                  // the Data-tab filter text (D-24). Survives a view repaint
+                                     // because the input is rendered into the toolbar, not the rows.
       flowIndex: 0,                  // index into flow.flows[] (multi-flow dropdown)
       activeRole: null,              // resolved meta.defaultRole — the role the sandbox previews as (v1.5)
       /* TODO: add your app state here, e.g.:
@@ -2609,11 +2755,28 @@
           : '';
         return `<button class="meta-tab ${state.metaView === id ? 'active' : ''}"
                  onclick="setMetaView('${id}')">${label}${badge}</button>`;
-      }).join('') +
+      }).join('') + pbDsLink() +
         `<button class="meta-sandbox" onclick="openSandboxMenu(this)" aria-haspopup="dialog" aria-label="Sandbox tools">
            <span class="meta-sandbox-dot" aria-hidden="true"></span><span>Sandbox</span>
            <svg class="meta-sandbox-car" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
          </button>`;
+    }
+
+    /* One registry, two sites — and until now only one of them was reachable. Links to the
+       design-system site served beside this one by /pb:preview.
+
+       Two constraints, both load-bearing:
+       - It must NOT carry `.meta-tab`. Two tests assert that class appears exactly 4 times;
+         this is a second SITE, not a fifth tab, so `.meta-ds-link` is the honest class anyway.
+       - It is PROTOCOL-GATED. A `--people` hand-off is opened over file://, where there is no
+         server and /design-system 404s. A link that is dead in the most-shared artifact pb
+         produces is worse than no link. */
+    function pbDsLink() {
+      if (!/^https?:$/.test(location.protocol)) return '';
+      return `<a class="meta-ds-link" href="/design-system" title="The component workbench — every component as a live demo + variant grid">
+           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+           <span>Design system</span>
+         </a>`;
     }
 
     /* Returns the # of prompts elapsed since this tab's last sync, or 0 if fresh. */
@@ -3284,13 +3447,14 @@
       },
       flow: {
         title: 'UX Design',
-        blurb: 'The user-flow wireflow plus the user stories and test cases that validate it. A single Mermaid flow whose node labels match your screens.',
+        blurb: 'How the product is wired, in three views: the jobs each role needs done and the screens that serve them, the user-flow wireflow, and the rules and ripple behind the behaviour.',
         howItWorks: [
-          'Sync builds one flowchart covering the whole prototype from your spec.',
-          'User stories list jobs-to-be-done; test cases turn acceptance scenarios into a checklist.',
-          'Set the screen width/height to size the flow canvas to your target device.',
+          'Information Architecture — every job as "when / I want to / so I can", the derived site map, and coverage per screen. A job with no screen is unfinished work; a screen with no job is a question.',
+          'User Flow — one flowchart covering the prototype, with user stories and test cases beside it. Hovering a story highlights the path it satisfies.',
+          'Logic — declared rules (state machines, permission matrices) linked to the code that implements them, plus the derived ripple of every handler: what it reads, which store slice it touches, what it re-renders.',
+          'Layers, edges and overlays in the site map are DERIVED from the sidebar and the render bodies — only each job and each layer’s purpose are authored.',
         ],
-        commands: ['/pb:flow'],
+        commands: ['/pb:flow', '/pb:init', '/pb:plan'],
         skills: ['build-flow', 'craft-connect-flow'],
       },
       handoff: {
@@ -3669,6 +3833,11 @@
       const screens = (PB_DATA.handoff && PB_DATA.handoff.screens) || [];
       state.protoScreenId = screens.length ? screens[0].id : null;
       state.protoHistory = [];
+      // Reset the previewed role too. Without this line the sandbox reset cleared the screen,
+      // the history, the inputs and the toasts but left state.activeRole set, so every scenario
+      // after a role switch silently inherited that role and results became order-dependent —
+      // the defect that made the test runner's per-role verdicts meaningless.
+      state.activeRole = pbRolesList().length ? pbResolveDefaultRole() : null;
       document.querySelectorAll('#proto-frame .field__input').forEach(function (i) { i.value = ''; });
       const tw = document.getElementById('proto-toast-wrap');
       if (tw) tw.innerHTML = '';
@@ -4100,6 +4269,419 @@
       `;
     }
 
+    /* =========================================================================
+       TAB 3 — UX DESIGN · three sub-tabs
+         Information Architecture — jobs → screens, over the DERIVED site map
+         User Flow               — the wireflow + stories/test cases (unchanged)
+         Logic                   — declared Rules | derived Ripple
+
+       Everything the IA and Logic views draw beyond the two authored slices
+       (`registry.ia` and the rules) is DERIVED at render time into `PB_LOGIC`
+       by pb/tools/logic_extract.py. When that data is absent — an older
+       project, or a hand-off rendered before it existed — each view renders an
+       honest empty state rather than a broken one.
+       ========================================================================= */
+    const UX_SUBTABS = [['ia', 'Information Architecture'], ['flow', 'User Flow'], ['logic', 'Logic']];
+
+    function pbUxDefaultView() {
+      const L = window.PB_LOGIC;
+      // IA leads when there are jobs to show; otherwise the flow, which is the
+      // long-standing content of this tab and should not be displaced by an empty state.
+      return (L && L.ia && L.ia.jobs && L.ia.jobs.length) ? 'ia' : 'flow';
+    }
+    function pbUxView() {
+      if (!state.uxView) state.uxView = pbUxDefaultView();
+      return state.uxView;
+    }
+    function pbSetUxView(v) { state.uxView = v; renderMetaFlow(); }
+
+    function pbUxSubtabs() {
+      const L = window.PB_LOGIC || {};
+      const counts = {
+        ia: (L.ia && L.ia.jobs) ? L.ia.jobs.length : 0,
+        flow: (PB_DATA.flow && PB_DATA.flow.flows) ? PB_DATA.flow.flows.length : 0,
+        logic: (L.rules || []).length,
+      };
+      const cur = pbUxView();
+      return `<div class="meta-subtabs ux-subtabs">` + UX_SUBTABS.map(([id, label]) =>
+        `<button class="meta-subtab ${cur === id ? 'active' : ''}" onclick="pbSetUxView('${id}')">`
+        + `${label}${counts[id] ? ` <span class="meta-subtab-count">${counts[id]}</span>` : ''}</button>`
+      ).join('') + `</div>`;
+    }
+
+    /* ── shared bits ─────────────────────────────────────────────────────── */
+    const pbLgChip = (t, cls) => `<span class="lg-chip ${cls || ''}">${pbEscape(t)}</span>`;
+    const pbLgBase = f => String(f || '').split('/').pop();
+    const pbLgLink = (type, id, label, cls) =>
+      `<a class="lg-link ${cls || ''}" href="#" onclick="pbLogicGo('${pbEscape(type)}','${pbEscape(id)}');return false">${pbEscape(label || id)}</a>`;
+    function pbRoleName(id) {
+      const r = (((PB_REGISTRY || {}).meta || {}).roles || []).find(x => x.id === id);
+      return r ? (r.name || r.id) : id;
+    }
+    const PB_ROLE_HUE = {};
+    (function () {
+      const hues = [214, 152, 28, 282, 340, 190, 60];
+      ((((PB_REGISTRY || {}).meta || {}).roles) || []).forEach((r, i) => { PB_ROLE_HUE[r.id] = hues[i % hues.length]; });
+    })();
+    const pbRoleDot = id =>
+      `<i class="ia-dot" style="background:hsl(${PB_ROLE_HUE[id] || 0} 70% 45%)" title="${pbEscape(pbRoleName(id))}"></i>`;
+
+    function pbUxEmpty(title, body, ctaLabel, command) {
+      return `<div class="pb-content">${renderEmptyState({
+        icon: EMPTY_STATE_ICONS.flow, title, body, ctaLabel, command,
+      })}</div>`;
+    }
+
+    /* ── Information Architecture ─────────────────────────────────────────── */
+    function pbSetIaRole(r) { state.iaRole = r; renderMetaFlow(); }
+
+    const pbJtbd = j =>
+      `When <em>${pbEscape(j.when || '…')}</em>, I want to <strong>${pbEscape(j.want || j.job || '')}</strong>, so I can <em>${pbEscape(j.so || '…')}</em>`;
+    const pbJobPill = j =>
+      `<span class="ia-job ${(j.screens || []).length ? '' : 'ia-job--new'}" title="${pbEscape('When ' + (j.when || '') + ', I want to ' + (j.want || '') + ', so I can ' + (j.so || ''))}">`
+      + `${(j.roles || []).map(pbRoleDot).join('')}${pbEscape(j.want || j.job || '')}</span>`;
+    const pbJobRow = j =>
+      `<div class="ia-jrow ${(j.screens || []).length ? '' : 'ia-jrow--new'}">`
+      + `<span class="ia-jrow-roles">${(j.roles || []).map(pbRoleDot).join('')}</span>`
+      + `<span class="ia-jrow-text">${pbJtbd(j)}</span>`
+      + `<span class="lg-dim ia-jrow-meta">${pbEscape(j.priority || '')} · `
+      + ((j.screens || []).length ? `${j.screens.length} screen${j.screens.length > 1 ? 's' : ''}` : `<span class="lg-warn">no screen</span>`)
+      + `</span></div>`;
+
+    function pbRenderIA() {
+      const L = window.PB_LOGIC;
+      const ia = L && L.ia;
+      if (!ia || !(ia.jobs || []).length) {
+        return pbUxEmpty('No jobs yet',
+          'List what each role needs done, as "when … I want to … so I can …". Each job maps to the screens that serve it, so a job with no screen shows up as unfinished work and a screen with no job as a question worth asking.',
+          'Capture the jobs', '/pb:init');
+      }
+      const roles = (((PB_REGISTRY || {}).meta || {}).roles) || [];
+      const rf = state.iaRole || 'all';
+      const jobs = ia.jobs.filter(j => rf === 'all' || (j.roles || []).includes(rf));
+      const screens = (PB_REGISTRY.screens || []).filter(s =>
+        rf === 'all' || (s.roles || []).includes(rf) || jobs.some(j => (j.screens || []).includes(s.id)));
+      const covered = jobs.filter(j => (j.screens || []).length);
+      const unassigned = jobs.filter(j => !(j.screens || []).length);
+      const emptyScreens = screens.filter(s => !jobs.some(j => (j.screens || []).includes(s.id)));
+
+      const chips = `<div class="ia-roles"><span class="lg-dim">Role</span>
+          <button class="lg-view ${rf === 'all' ? 'active' : ''}" onclick="pbSetIaRole('all')">All <span class="meta-subtab-count">${ia.jobs.length}</span></button>
+          ${roles.map(r => `<button class="lg-view ${rf === r.id ? 'active' : ''}" onclick="pbSetIaRole('${pbEscape(r.id)}')">${pbRoleDot(r.id)}${pbEscape(r.name || r.id)} <span class="meta-subtab-count">${ia.jobs.filter(j => (j.roles || []).includes(r.id)).length}</span></button>`).join('')}
+          <span class="lg-stats">${jobs.length} jobs · ${covered.length} covered · <span class="${unassigned.length ? 'lg-warn' : ''}">${unassigned.length} unassigned</span> · <span class="${emptyScreens.length ? 'lg-warn' : ''}">${emptyScreens.length} screen${emptyScreens.length === 1 ? '' : 's'} without a job</span></span>
+        </div>`;
+
+      const newBlock = unassigned.length ? `
+        <div class="ia-card ia-card--new">
+          <div class="meta-h3">New jobs — no screen serves them yet <span class="lg-chip lg-chip--dead" style="text-decoration:none">${unassigned.length}</span></div>
+          <p class="meta-p lg-dim">Added after the pages were planned. Each needs a decision: give it a screen, fold it into an existing one, or drop it.</p>
+          ${unassigned.map(j => `<div class="ia-new-row">
+              <span class="ia-jrow-text">${(j.roles || []).map(pbRoleDot).join('')}${pbJtbd(j)}</span>
+              <span class="lg-dim">${pbEscape(j.source || '')}</span>
+              <span class="ia-new-actions">
+                <button class="sync-button" onclick="openCopyPopover('/pb:plan --job ${pbEscape(j.id)}', this)">Plan a screen</button>
+                <button class="lg-view" onclick="openCopyPopover('/pb:build --job ${pbEscape(j.id)} --into &lt;screen-id&gt;', this)">Fold into…</button>
+              </span></div>`).join('')}
+        </div>` : '';
+
+      return `<div class="summary-scroll ia-scroll">
+        <div class="meta-section">
+          <div class="meta-h2">3.1 Information Architecture</div>
+          <p class="meta-p" style="color:var(--text-tertiary)">Every job a role needs done, and the screens that serve it. A job with no screen is unfinished work; a screen with no job is a question.</p>
+          ${chips}
+          ${newBlock}
+          ${pbRenderSiteMap(ia, jobs, rf)}
+          <div class="ia-card">
+            <div class="meta-h3">All jobs <span class="meta-subtab-count">${jobs.length}</span></div>
+            <p class="meta-p lg-dim">Jobs-to-be-done form: <em>when</em> [situation], <em>I want to</em> [motivation], <em>so I can</em> [outcome].</p>
+            ${jobs.map(pbJobRow).join('')}
+          </div>
+        </div></div>`;
+    }
+
+    /* The site map. Layer membership and every edge are DERIVED — layer 0 is each screen a
+       sidebar item targets, deeper layers come from data-nav / data-go / setProtoScreen in the
+       render bodies, and overlays are the drawer/modal/dialog components a screen composes.
+       Only each layer's PURPOSE is authored; asking an author to redraw a hierarchy the code
+       already encodes is how the two drift apart. */
+    function pbRenderSiteMap(ia, jobs, rf) {
+      const N = (window.PB_LOGIC || {}).nav;
+      if (!N || !N.depth) return '';
+      const S = {};
+      (PB_REGISTRY.screens || []).forEach(s => { S[s.id] = s; });
+      const title = id => (S[id] && (S[id].title || S[id].name)) || id;
+      const jobsOf = id => jobs.filter(j => (j.screens || []).includes(id));
+      const visible = id => rf === 'all' || (S[id] && (S[id].roles || []).includes(rf)) || jobsOf(id).length;
+
+      const declared = (ia.layers || []).filter(l => l.depth !== 'overlay').sort((a, b) => a.depth - b.depth);
+      const overlayLayer = (ia.layers || []).find(l => l.depth === 'overlay');
+      const maxDepth = Math.max(0, ...Object.values(N.depth), declared.length - 1);
+      const cols = [];
+      for (let d = 0; d <= maxDepth; d++) {
+        cols.push(declared.find(l => l.depth === d) || { depth: d, name: 'Layer ' + d, purpose: '' });
+      }
+      const stats = cols.map(l => {
+        const scr = Object.keys(N.depth).filter(id => N.depth[id] === l.depth && visible(id));
+        const js = jobs.filter(j => (j.screens || []).some(id => N.depth[id] === l.depth));
+        const rs = [...new Set(scr.flatMap(id => (S[id] || {}).roles || []))];
+        return { scr, js, rs, so: [...new Set(js.map(j => j.so).filter(Boolean))].slice(0, 3) };
+      });
+
+      const head = `<div class="ia-map-head" style="grid-template-columns:repeat(${cols.length}, minmax(0,1fr))">`
+        + cols.map((l, i) => `<div class="ia-layer">
+            <div class="ia-layer-n">L${l.depth} · ${pbEscape(l.name)} <span class="meta-subtab-count">${stats[i].scr.length} screens · ${stats[i].js.length} jobs</span></div>
+            <div class="ia-layer-p">${l.purpose ? pbEscape(l.purpose) : '<span class="lg-warn">Describe what this layer is for — /pb:init asks for one sentence per layer</span>'}</div>
+            ${stats[i].rs.length ? `<div class="ia-layer-r">${stats[i].rs.map(pbRoleDot).join('')}<span class="lg-dim">${pbEscape(stats[i].rs.map(pbRoleName).join(', '))}</span></div>` : ''}
+            ${stats[i].so.length ? `<div class="ia-layer-so"><span class="lg-dim">Solves:</span> ${stats[i].so.map(s => '“' + pbEscape(s) + '”').join(' · ')}</div>` : ''}
+          </div>`).join('') + `</div>`;
+
+      const node = id => {
+        const js = jobsOf(id);
+        const ov = (N.overlays || {})[id] || [];
+        return `<div class="ia-node ${js.length ? '' : 'ia-node--empty'}" onclick="pbLogicGo('item','${pbEscape(id)}')">
+            <div class="ia-node-t"><strong>${pbEscape(title(id))}</strong>${((S[id] || {}).roles || []).map(pbRoleDot).join('')}</div>
+            <div class="lg-dim">${pbEscape(id)}</div>
+            <div class="ia-node-j">${js.length ? js.map(j => `<span class="ia-mini" title="${pbEscape(j.want || '')}">${pbEscape(j.want || j.job || '')}</span>`).join('') : '<span class="lg-warn">no job</span>'}</div>
+            ${ov.length ? `<div class="ia-node-ov"><span class="lg-dim">overlays</span> ${ov.map(o => `<span class="ia-ov" onclick="event.stopPropagation();pbLogicGo('item','${pbEscape(o)}')">${pbEscape(o)}</span>`).join('')}</div>` : ''}
+          </div>`;
+      };
+
+      const rows = (N.hubs || []).map(h => {
+        const members = [h.key].concat((h.children || []).map(c => c.key)).filter(k => S[k]);
+        if (!members.filter(visible).length) return '';
+        const byDepth = cols.map(() => []);
+        const seen = new Set();
+        const walk = (id, d) => {
+          if (seen.has(id)) return;
+          seen.add(id);
+          if (visible(id)) byDepth[Math.min(d, cols.length - 1)].push(id);
+          ((N.children || {})[id] || []).forEach(c => walk(c, d + 1));
+        };
+        members.forEach(m => walk(m, 0));
+        return `<div class="ia-map-row" style="grid-template-columns:repeat(${cols.length}, minmax(0,1fr))">
+            <div class="ia-map-group">${pbEscape(h.label || h.key)}${(h.children || []).length ? ` <span class="lg-dim">${h.children.length} sub-items</span>` : ''}</div>
+            ${byDepth.map((ids, d) => `<div class="ia-col">${ids.map(id =>
+              (d ? `<div class="ia-from lg-dim">↳ from ${pbEscape(title((N.parent || {})[id] || ''))}</div>` : '') + node(id)).join('')}</div>`).join('')}
+          </div>`;
+      }).join('');
+
+      const orphans = Object.keys(S).filter(id => N.depth[id] == null && visible(id));
+      const overlayCount = [...new Set(Object.values(N.overlays || {}).flat())].length;
+      return `<div class="ia-card">
+          <div class="meta-h3">Site map <span class="meta-subtab-count">${cols.length} layer${cols.length === 1 ? '' : 's'}${overlayLayer ? ' + overlays' : ''}</span></div>
+          <p class="meta-p lg-dim">Layers and edges are derived from the sidebar and every <code>data-nav</code> / <code>setProtoScreen</code> in the render bodies. Only each layer's purpose is authored. Click a screen for its ripple.</p>
+          ${head}${rows}
+          ${overlayLayer ? `<div class="ia-layer ia-layer--ov"><div class="ia-layer-n">Overlay · ${pbEscape(overlayLayer.name)} <span class="meta-subtab-count">${overlayCount} components</span></div><div class="ia-layer-p">${pbEscape(overlayLayer.purpose || '')}</div></div>` : ''}
+          ${orphans.length ? `<div class="ia-orphans"><span class="lg-warn">Reachable from no hub:</span> ${orphans.map(id => `<span class="ia-ov">${pbEscape(id)}</span>`).join(' ')}</div>` : ''}
+        </div>`;
+    }
+
+    /* ── Logic · Rules | Ripple ───────────────────────────────────────────── */
+    function pbSetLogicView(v) { state.logicView = v; renderMetaFlow(); }
+    function pbLogicGo(type, id) {
+      state.logicFocus = { type, id };
+      state.logicView = 'ripple';
+      state.uxView = 'logic';
+      renderMetaFlow();
+    }
+    function pbLogicFilter(inp) {
+      const q = (inp.value || '').toLowerCase();
+      document.querySelectorAll('#logic-list .logic-row').forEach(r => { r.hidden = q && r.dataset.k.indexOf(q) === -1; });
+      document.querySelectorAll('#logic-list .logic-group').forEach(g => { g.hidden = !g.querySelector('.logic-row:not([hidden])'); });
+    }
+
+    function pbRenderLogic() {
+      const L = window.PB_LOGIC;
+      if (!L || !L.stats) {
+        return pbUxEmpty('No logic graph yet',
+          'The ripple view is derived from your render bodies at render time — what each handler reads, which store slice it touches, what it re-renders — and rules you declare are linked to the code that implements them. Re-render to generate it.',
+          'Render', '/pb:build --render');
+      }
+      if (!state.logicView) state.logicView = (L.rules || []).length ? 'rules' : 'ripple';
+      const v = state.logicView;
+      const S = L.stats;
+      return `<div class="meta-section">
+          <div class="meta-h2">3.3 Logic</div>
+          <p class="meta-p" style="color:var(--text-tertiary)">Declared <strong>rules</strong> — state machines, permission matrices — linked to the code that implements them, and the derived <strong>ripple</strong> of every handler: what it reads, which store slice it touches, what it re-renders.</p>
+          <div class="lg-views">
+            <button class="lg-view ${v === 'rules' ? 'active' : ''}" onclick="pbSetLogicView('rules')">Rules <span class="meta-subtab-count">${(L.rules || []).length}</span></button>
+            <button class="lg-view ${v === 'ripple' ? 'active' : ''}" onclick="pbSetLogicView('ripple')">Ripple <span class="meta-subtab-count">${S.handlers}</span></button>
+            <span class="lg-stats">${S.handlers} handlers · ${S.exported} shared · ${S.saves} saves · ${S.slices} store slices · <span class="${S.deadReads ? 'lg-warn' : ''}">${S.deadReads} dead read${S.deadReads === 1 ? '' : 's'}</span></span>
+          </div>
+          ${v === 'rules' ? pbRenderLogicRules(L) : pbRenderLogicRipple(L)}
+        </div>`;
+    }
+
+    function pbRenderLogicRules(L) {
+      const rules = L.rules || [];
+      if (!rules.length) {
+        return `<p class="meta-p lg-dim">No rules declared yet. A rule is a state machine or a matrix you write down once — the lifecycle of a cycle, who may edit what — so the diagram, the code that implements it and the screens that display it stay linked.</p>`;
+      }
+      return rules.map(r => `
+        <div class="lg-card" id="rule-${pbEscape(r.id)}">
+          <div class="meta-h3">${pbEscape(r.title)} ${pbLgChip(r.kind, 'lg-chip--kind')}</div>
+          <p class="meta-p">${pbEscape(r.summary || '')}</p>
+          ${r.kind === 'state-machine' ? pbRuleStateMachine(r) : r.kind === 'matrix' ? pbRuleMatrix(r) : ''}
+          <div class="lg-foot">
+            <div><span class="lg-foot-k">Implemented by</span>${(r.implemented || []).map(i => pbLgLink('handler', i.name, i.name + '()') + `<span class="lg-dim"> ${pbEscape(pbLgBase(i.file))}:${i.line} · ${i.lines} lines</span>`).join('<br>') || '<span class="lg-dim">— not linked</span>'}</div>
+            <div><span class="lg-foot-k">Read by</span>${(r.readers || []).slice(0, 8).map(n => pbLgLink('handler', n)).join(', ') || '<span class="lg-dim">—</span>'}${(r.readers || []).length > 8 ? ` <span class="lg-dim">+${r.readers.length - 8}</span>` : ''}</div>
+            <div><span class="lg-foot-k">Displayed in</span>${(r.displayedIn || []).map(id => pbLgLink('item', id)).join(', ') || '<span class="lg-dim">—</span>'}</div>
+            <div><span class="lg-foot-k">Decided in</span><span>${pbEscape(r.decidedIn || '—')}</span></div>
+          </div>
+        </div>`).join('');
+    }
+
+    /* A state machine, drawn. The overlay states are bands ABOVE the stages they cover rather
+       than nodes in the chain, because that is what they are: a deadline overlay sits on top of
+       whatever stage the thing is in. No Mermaid state diagram can express that, which is why
+       this is hand-drawn SVG. */
+    function pbRuleStateMachine(r) {
+      const W = 190, H = 54, GAP = 46, y = 74, x0 = 12;
+      const states = r.states || [], overlays = r.overlays || [];
+      if (!states.length) return '';
+      const idx = {};
+      states.forEach((s, i) => { idx[s.key] = i; });
+      const box = (s, i) => {
+        const x = x0 + i * (W + GAP);
+        return `<g><rect x="${x}" y="${y}" width="${W}" height="${H}" rx="10" class="lg-st"/>`
+          + `<text x="${x + W / 2}" y="${y + 23}" class="lg-st-t">${pbEscape(s.label)}</text>`
+          + `<text x="${x + W / 2}" y="${y + 41}" class="lg-st-k">${pbEscape(s.key)}</text></g>`;
+      };
+      const arrows = (r.transitions || []).map(t => {
+        const ia = idx[t[0]], ib = idx[t[1]];
+        if (ia == null || ib == null) return '';
+        if (ib === ia + 1) {
+          const x1 = x0 + ia * (W + GAP) + W, x2 = x0 + ib * (W + GAP);
+          return `<line x1="${x1}" y1="${y + H / 2}" x2="${x2 - 2}" y2="${y + H / 2}" class="lg-arrow" marker-end="url(#lgArr)"/>`;
+        }
+        const xa = x0 + ia * (W + GAP) + W / 2, xb = x0 + ib * (W + GAP) + W / 2, yy = y + H + 34;
+        return `<path d="M${xa} ${y + H} C ${xa} ${yy}, ${xb} ${yy}, ${xb} ${y + H + 2}" class="lg-arrow lg-arrow--back" marker-end="url(#lgArr)"/>`;
+      }).join('');
+      const bands = overlays.map((o, j) => {
+        const cols = (o.over || []).map(k => idx[k]).filter(i => i != null);
+        if (!cols.length) return '';
+        const x = x0 + Math.min.apply(null, cols) * (W + GAP) - 6 + j * 4;
+        const w = (Math.max.apply(null, cols) - Math.min.apply(null, cols) + 1) * (W + GAP) - GAP + 12 - j * 8;
+        const oy = 14 + j * 22;
+        return `<g><rect x="${x}" y="${oy}" width="${w}" height="18" rx="9" class="lg-ov"/>`
+          + `<text x="${x + w / 2}" y="${oy + 13}" class="lg-ov-t">${pbEscape(o.label)} — ${pbEscape(o.condition || '')}</text></g>`;
+      }).join('');
+      const total = x0 * 2 + states.length * (W + GAP) - GAP;
+      const rows = states.map(s => `<tr><td><strong>${pbEscape(s.label)}</strong> <span class="lg-dim">${pbEscape(s.key)}</span></td><td>${pbEscape(s.condition || '')}</td></tr>`).join('')
+        + overlays.map(o => `<tr class="lg-tr-ov"><td><strong>${pbEscape(o.label)}</strong> <span class="lg-dim">overlay · ${pbEscape(o.key)}</span></td><td>${pbEscape(o.condition || '')}</td></tr>`).join('');
+      return `<div class="lg-svg-wrap"><svg viewBox="0 0 ${total} 176" width="100%" style="max-width:${total}px;display:block">
+          <defs><marker id="lgArr" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" class="lg-arrow-head"/></marker></defs>
+          ${bands}${states.map(box).join('')}${arrows}
+        </svg></div>
+        <table class="lg-table"><thead><tr><th>State</th><th>Condition</th></tr></thead><tbody>${rows}</tbody></table>`;
+    }
+
+    function pbRuleMatrix(r) {
+      const cell = v => v === true ? pbLgChip('✓', 'lg-c-yes')
+        : v === false ? pbLgChip('—', 'lg-c-no')
+        : pbLgChip(v, 'lg-c-' + String(v).replace(/[^a-z]/gi, ''));
+      return `<table class="lg-table lg-matrix">
+          <thead><tr><th>${pbEscape(r.rowLabel || 'role')}</th>${(r.cols || []).map(c => `<th>${pbEscape(c)}</th>`).join('')}</tr></thead>
+          <tbody>${(r.rows || []).map(row => `<tr><td><strong>${pbEscape(row)}</strong></td>${(r.cols || []).map(c => `<td>${cell((r.cells[row] || {})[c])}</td>`).join('')}</tr>`).join('')}</tbody>
+        </table>`;
+    }
+
+    /* Ripple. Pick a handler, a store slice or a component; see what it touches and what
+       touches it. Every fact here is derived from the bodies — nothing is authored. */
+    function pbRenderLogicRipple(L) {
+      if (!state.logicFocus) {
+        const firstSave = (L.handlers || []).find(h => h.isSave);
+        state.logicFocus = firstSave ? { type: 'handler', id: firstSave.name } : { type: 'none', id: '' };
+      }
+      const f = state.logicFocus;
+      const H = {}; (L.handlers || []).forEach(h => { H[h.name] = h; });
+      const I = {}; (L.items || []).forEach(i => { I[i.id] = i; });
+      const row = (type, id, label, meta) =>
+        `<div class="logic-row ${f.type === type && f.id === id ? 'active' : ''}" data-k="${pbEscape((id + ' ' + (label || '')).toLowerCase())}" onclick="pbLogicGo('${type}','${pbEscape(id)}')">`
+        + `<span>${pbEscape(label || id)}</span>${meta ? `<span class="lg-dim">${pbEscape(meta)}</span>` : ''}</div>`;
+      const group = (title, rows) => rows.length
+        ? `<div class="logic-group"><div class="lg-group-h">${title} <span class="meta-subtab-count">${rows.length}</span></div>${rows.join('')}</div>` : '';
+
+      const saves = (L.handlers || []).filter(h => h.isSave);
+      const shared = (L.handlers || []).filter(h => h.exported && !h.isSave);
+      const withLogic = (L.items || []).filter(i => (i.ownLogic || []).length || (i.wires || []).length);
+      const list = `<div class="lg-list-wrap">
+          <input class="lg-search" placeholder="Filter…" oninput="pbLogicFilter(this)" autocomplete="off">
+          <div id="logic-list">
+            ${group('Store slices', Object.keys(L.slices || {}).map(k => row('slice', k, k, `${(L.slices[k].writers || []).length}w · ${(L.slices[k].readers || []).length}r`)))}
+            ${group('Save handlers', saves.map(h => row('handler', h.name, h.name + '()', pbLgBase(h.file))))}
+            ${group('Screens', (L.items || []).filter(i => i.kind === 'screen').map(i => row('item', i.id, i.id, `${(i.ownLogic || []).length} fns`)))}
+            ${group('Components with logic', withLogic.filter(i => i.kind === 'component').map(i => row('item', i.id, i.id, `${(i.ownLogic || []).length} fns`)))}
+            ${group('Shared helpers', shared.map(h => row('handler', h.name, h.name + '()', `${(h.calledFrom || []).length} files`)))}
+          </div></div>`;
+
+      let detail = `<p class="meta-p lg-dim">Pick something on the left.</p>`;
+      if (f.type === 'handler' && H[f.id]) detail = pbRippleHandler(H[f.id], H, I, L);
+      else if (f.type === 'slice' && (L.slices || {})[f.id]) detail = pbRippleSlice(f.id, L.slices[f.id], H);
+      else if (f.type === 'item' && I[f.id]) detail = pbRippleItem(I[f.id], H, L);
+      return `<div class="lg-ripple">${list}<div class="lg-detail">${detail}</div></div>`;
+    }
+
+    function pbLgSec(title, body) {
+      return body ? `<div class="lg-sec"><div class="lg-sec-h">${title}</div><div>${body}</div></div>` : '';
+    }
+
+    function pbRippleHandler(h, H, I, L) {
+      const byProd = {};
+      (h.reads || []).forEach(r => {
+        const k = (r.producers || []).length ? r.producers.join(', ') : '∅ nothing emits this';
+        (byProd[k] = byProd[k] || []).push(r);
+      });
+      const reads = Object.keys(byProd).map(prod => {
+        const rs = byProd[prod];
+        const who = prod.charAt(0) === '∅'
+          ? `<span class="lg-warn">${pbEscape(prod)}</span>`
+          : prod.split(', ').map(p => I[p] ? pbLgLink('item', p) : pbEscape(p)).join(', ');
+        return `<div class="lg-line">${who} <span class="lg-dim">→</span> `
+          + rs.map(r => pbLgChip((r.kind === 'id' ? '#' : r.kind === 'class' ? '.' : 'data-') + r.token,
+              (r.producers || []).length ? '' : 'lg-chip--dead')).join(' ') + `</div>`;
+      }).join('');
+      const calls = Object.keys(h.calls || {}).map(n =>
+        pbLgLink('handler', n, n + '()') + `<span class="lg-dim"> ${pbEscape(H[n] ? pbLgBase(H[n].file) : '')}${h.calls[n] > 1 ? ' ×' + h.calls[n] : ''}</span>`).join(', ');
+      const then = (h.toast ? ['toast'] : []).concat((h.nav || []).map(n => 'go → ' + n), h.rerender || []);
+      const rules = (L.rules || []).filter(r => (r.implementedBy || []).includes(h.name) || (r.readers || []).includes(h.name));
+      return `<div class="meta-h3">${pbEscape(h.name)}() ${h.isSave ? pbLgChip('save', 'lg-chip--save') : h.exported ? pbLgChip('shared helper', 'lg-chip--kind') : pbLgChip('local')}</div>
+        <p class="meta-p lg-dim">${pbEscape(h.file)}:${h.line} · ${h.lines} lines · owned by ${pbLgLink('item', h.owner.id, h.owner.id)}</p>
+        ${pbLgSec('Rules', rules.map(r => `<a class="lg-link" href="#" onclick="pbSetLogicView('rules');return false">${pbEscape(r.title)}</a> <span class="lg-dim">${(r.implementedBy || []).includes(h.name) ? 'implements' : 'reads'}</span>`).join('<br>'))}
+        ${pbLgSec('Guards', (h.guards || []).map(g => pbLgLink('handler', g, g + '()')).join(' → '))}
+        ${pbLgSec('Reads from the DOM', reads)}
+        ${pbLgSec('Store', (h.slices || []).map(s => pbLgLink('slice', s, s, (h.writes || []).includes(s) ? 'lg-link--write' : '')
+            + ` <span class="lg-dim">${(h.writes || []).includes(s) ? 'write' : 'read'}`
+            + ((h.via || {})[s] ? ' via ' + pbEscape(h.via[s].join(', ')) + '()' : '') + `</span>`).join('<br>'))}
+        ${pbLgSec('Calls (other files)', calls)}
+        ${pbLgSec('Then', then.map(t => pbLgChip(t)).join(' '))}
+        ${pbLgSec('Wired from markup in', (h.wiredInline || []).map(x => pbEscape(pbLgBase(x))).join(', '))}
+        ${pbLgSec('Called from', (h.calledFrom || []).map(x => pbEscape(pbLgBase(x))).join(', '))}`;
+    }
+
+    function pbRippleSlice(name, s, H) {
+      const li = ns => ns.map(n => `<div class="lg-line">${pbLgLink('handler', n, n + '()')} <span class="lg-dim">${pbEscape(H[n] ? pbLgBase(H[n].file) : '')}</span> ${H[n] && (H[n].rerender || []).length ? pbLgChip(H[n].rerender[0]) : ''}</div>`).join('');
+      const owners = [...new Set((s.writers || []).concat(s.readers || []).map(n => H[n] && H[n].owner && H[n].owner.id).filter(Boolean))];
+      return `<div class="meta-h3">store.${pbEscape(name)} ${pbLgChip('slice', 'lg-chip--kind')}</div>
+        <p class="meta-p lg-dim">A session-store slice. Change its shape and every writer and reader below is affected.</p>
+        ${pbLgSec(`Writers (${(s.writers || []).length})`, li(s.writers || []))}
+        ${pbLgSec(`Readers (${(s.readers || []).length})`, li(s.readers || []))}
+        ${pbLgSec('Surfaces touched', owners.map(o => pbLgLink('item', o)).join(', '))}`;
+    }
+
+    function pbRippleItem(it, H, L) {
+      const rules = (L.rules || []).filter(r => (r.displayedIn || []).includes(it.id));
+      const li = ns => ns.map(n => pbLgLink('handler', n, n + '()')).join(', ');
+      return `<div class="meta-h3">${pbEscape(it.id)} ${pbLgChip(it.kind === 'screen' ? 'screen' : (it.level || '?') + ' · ' + (it.scope || '?'), 'lg-chip--kind')}</div>
+        <p class="meta-p lg-dim">${pbEscape(it.file || '')} · ${it.lines} lines${it.hasRules ? ` · ${it.hasRules} :has() rules` : ''}</p>
+        ${pbLgSec('Rules displayed here', rules.map(r => `<a class="lg-link" href="#" onclick="pbSetLogicView('rules');return false">${pbEscape(r.title)}</a>`).join('<br>'))}
+        ${pbLgSec(`Composed by (${(it.composedBy || []).length})`, (it.composedBy || []).map(c => pbLgLink('item', c)).join(', '))}
+        ${pbLgSec(`Composes (${(it.composes || []).length})`, (it.composes || []).map(c => pbLgLink('item', c)).join(', '))}
+        ${pbLgSec('Handlers wired in its markup', li(it.wires || []))}
+        ${pbLgSec('Handlers that read its DOM', li(it.readBy || []))}
+        ${pbLgSec(`Logic defined in this file (${(it.ownLogic || []).length})`, li(it.ownLogic || []))}`;
+    }
+
     function pbEscape(s) {
       if (s == null) return '';
       return String(s)
@@ -4123,12 +4705,27 @@
       const cta = populated
         ? `<button class="sync-button" onclick="openCopyPopover('/pb:flow', this)">Sync</button>` : '';
       const header = pbPageHeader({ title: 'UX Design', infoKey: 'flow', cta });
+      const uxTabs = pbUxSubtabs();
+      const view = pbUxView();
+
+      if (view === 'ia' || view === 'logic') {
+        $('#app').innerHTML = `
+          <div class="pb-page pb-page--viewport">
+            ${header}
+            <div class="pb-content pb-content--fill ux-scroll-wrap">
+              ${uxTabs}
+              ${view === 'ia' ? pbRenderIA() : `<div class="summary-scroll">${pbRenderLogic()}</div>`}
+            </div>
+          </div>`;
+        return;
+      }
 
       if (!populated) {
         $('#app').innerHTML = `
           <div class="pb-page">
             ${header}
             <div class="pb-content">
+              ${uxTabs}
               ${renderEmptyState({
                 icon: EMPTY_STATE_ICONS.flow,
                 title: 'No user flow yet',
@@ -4143,6 +4740,7 @@
       $('#app').innerHTML = `
         <div class="pb-page pb-page--viewport">
           ${header}
+          <div class="pb-ux-tabstrip">${uxTabs}</div>
           <div class="pb-content pb-content--split pb-content--fill">
             ${renderFlowPopulated()}
           </div>
@@ -5988,12 +6586,72 @@
 
     /* Data-tab (v1.5, single column): Diagram | Table toggle + relationship-legend button
        (diagram) / data-set variant chips (table). */
+    /* A notes cell, clamped. On a real ERD 50 of 200 notes run past 120 characters and the
+       longest is 1,444 — which is what turns this tab into 15,911px of scroll and makes one
+       entity fill a screen. Clamped to a few lines with an inline expand; the full text stays
+       in the DOM (and in `title`) so search and copy still see all of it. */
+    function pbErdNote(text) {
+      if (!text) return '';
+      const esc = pbEscape(text);
+      if (text.length <= 140) return esc;
+      return `<span class="erd-note is-clamped" title="${esc}"
+                onclick="this.classList.toggle('is-clamped')">${esc}</span>`;
+    }
+
+    /* The origin legend, rendered only for the values actually present. A chip for a value no
+       row carries is a dead control. */
+    function pbErdOriginLegend(byEntity) {
+      const LABEL = { keep: 'Kept from the current system', rename: 'Renamed', adopt: 'Newly adopted' };
+      const seen = new Set();
+      Object.keys(byEntity).forEach(ent => byEntity[ent].forEach(r => {
+        const o = (r.origin || '').toLowerCase();
+        if (LABEL[o]) seen.add(o);
+      }));
+      if (!seen.size) return '';
+      return `<div class="erd-origin-legend">` + ['keep', 'rename', 'adopt'].filter(o => seen.has(o)).map(o =>
+        `<span class="erd-origin-key"><i class="erd-origin-swatch erd-origin-swatch--${o}"></i>${LABEL[o]}</span>`
+      ).join('') + `</div>`;
+    }
+
+    /* Filter the table view. Repaints ONLY the rows — never the input, which lives in the
+       toolbar outside this subtree. Empty query restores everything. */
+    function pbErdFilter(q) {
+      state.erdQuery = q || '';
+      const needle = state.erdQuery.trim().toLowerCase();
+      const host = document.getElementById('erd-tables');
+      if (!host) return;
+      host.querySelectorAll('.erd-entity').forEach(function (block) {
+        let shown = 0;
+        block.querySelectorAll('tbody tr').forEach(function (tr) {
+          const hit = !needle || tr.textContent.toLowerCase().indexOf(needle) !== -1;
+          tr.hidden = !hit;
+          if (hit) shown++;
+        });
+        // An entity with no surviving row is hidden whole — a bare heading over an empty table
+        // reads as a rendering bug.
+        block.hidden = needle && shown === 0;
+      });
+    }
+
     function pbErdMain(e, byEntity) {
       const subtabs = [['diagram', 'Diagram'], ['table', 'Table']].map(([id, label]) =>
         `<button class="meta-subtab ${state.erdView === id ? 'active' : ''}" onclick="setErdView('${id}')">${label}</button>`).join('');
+      // The search input lives in the toolbar's right slot — empty in Table view, so it costs no
+      // new layout — and is rendered ONCE. Filtering repaints `#erd-tables` only, never the input.
+      //
+      // This is not a micro-optimisation. Every view setter here does `$('#app').innerHTML = …`,
+      // so an input rendered inside the repainted region loses focus on every keystroke. With a
+      // Vietnamese keyboard that breaks IME composition mid-word, not merely the caret, and
+      // focus restoration cannot fix it — by the time focus returns the composition is gone.
+      // Keeping the input outside the repainted subtree is the only correct answer.
+      const search = state.erdView === 'table'
+        ? `<input id="erd-search" class="erd-search" type="search" autocomplete="off"
+                  placeholder="Filter fields, types, notes…" value="${pbEscape(state.erdQuery || '')}"
+                  oninput="pbErdFilter(this.value)">`
+        : erdLegendButton();
       const toolbar = `<div class="erd-toolbar">
           <div class="meta-subtabs">${subtabs}</div>
-          ${state.erdView === 'table' ? '' : erdLegendButton()}
+          ${search}
         </div>`;
 
       if (state.erdView === 'table') {
@@ -6004,7 +6662,7 @@
         // definition) + one chip per label. Selecting one swaps just that table's Example column.
         if (!state.erdVariant || typeof state.erdVariant !== 'object') state.erdVariant = {};
         // 4.3 — fixed column widths (.erd-fixed) so every entity table lines up.
-        const tables = `<div class="erd-tables">` + ents.map(ent => {
+        const tables = `<div class="erd-tables" id="erd-tables">` + ents.map(ent => {
           const sets = ((e && e.mock) || []).filter(m => m.entity === ent);
           const variants = [{ key: 'schema', label: 'Schema' }].concat(sets.map(m => ({ key: m.label, label: m.label })));
           let v = state.erdVariant[ent] || 'schema';
@@ -6013,18 +6671,33 @@
             + variants.map(opt => `<button class="pb-mock-chip ${v === opt.key ? 'is-active' : ''}" onclick="setErdVariant('${pbEscape(ent)}','${pbEscape(opt.key)}')">${pbEscape(opt.label)}</button>`).join('')
             + `</div>` : '';
           const exHead = v === 'schema' ? 'Example' : v;
-          return `<div class="erd-entity">
+          // `pbSortTable(th)` has shipped in this shell for versions and was wired to nothing.
+          // It is numeric-aware and needs no new JS — the <th>s just had to call it.
+          const th = (label) =>
+            `<th onclick="pbSortTable(this)" title="Sort by ${pbEscape(label)}">${pbEscape(label)}</th>`;
+          return `<div class="erd-entity" data-entity="${pbEscape(ent)}">
               <div class="erd-entity-head"><h3 class="erd-entity-title">${pbEscape(ent)}</h3>${switcher}</div>
               <table class="erd-entity-table erd-fixed">
-                <thead><tr><th>Field</th><th>Type</th><th>${pbEscape(exHead)}</th><th>Notes</th></tr></thead>
+                <thead><tr>${th('Field')}${th('Type')}${th(exHead)}${th('Notes')}</tr></thead>
                 <tbody>${byEntity[ent].map(r => {
                   const ex = v === 'schema' ? (r.example || '') : pbErdExampleFor(e, ent, r.field, v);
-                  return `<tr><td>${pbEscape(r.field||'')}</td><td><code class="erd-type-chip">${pbEscape(r.type||'')}</code></td><td>${pbEscape(ex || '—')}</td><td>${pbEscape(r.notes||'')}</td></tr>`;
+                  // `origin` is authored on nearly every row of a real ERD and the shell ignored
+                  // it — which is why one real project forked this file to get it back. It rides
+                  // as a row tint + a legend rather than a fifth column: four columns already use
+                  // the width, and origin is a property OF the row, not another fact about it.
+                  const org = (r.origin || '').toLowerCase();
+                  const cls = ['keep', 'rename', 'adopt'].indexOf(org) >= 0 ? ` class="erd-row--${org}"` : '';
+                  const notes = String(r.notes || '');
+                  return `<tr${cls} data-origin="${pbEscape(org)}">`
+                    + `<td>${pbEscape(r.field||'')}</td>`
+                    + `<td><code class="erd-type-chip">${pbEscape(r.type||'')}</code></td>`
+                    + `<td>${pbEscape(ex || '—')}</td>`
+                    + `<td>${pbErdNote(notes)}</td></tr>`;
                 }).join('')}</tbody>
               </table>
             </div>`;
         }).join('') + `</div>`;
-        return toolbar + tables;
+        return toolbar + pbErdOriginLegend(byEntity) + tables;
       }
 
       const diagramView = `
