@@ -140,7 +140,8 @@ def render_current(state):
         reg = render.load_bodies(reg, state.base_dir)  # resolve renderSrc body files (v1.4)
         reg = render.load_specs(reg, state.base_dir)   # resolve specSrc sidecars (schema 10)
         version = render.plugin_version()
-        html, _missing = render.build_html(reg, shell, version)
+        logic = render.load_logic(state.base_dir, reg)  # derive the logic graph (fails open)
+        html, _missing = render.build_html(reg, shell, version, logic=logic)
         if state.write and state.out_path:
             try:
                 with open(state.out_path, "w", encoding="utf-8") as f:

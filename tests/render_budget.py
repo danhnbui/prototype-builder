@@ -10,11 +10,16 @@ Usage:  python3 tests/render_budget.py
 Exit:   0 = within budget · 1 = over budget
 """
 import importlib.util
+import json
 import os
 import time
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 BUDGET_MS = 100.0
+# The whole pipeline on this synthetic fixture. Generous next to build_html's 100 ms
+# because load_logic genuinely scans every render body — but far under the 3.7 s a
+# quadratic lookup cost before anyone measured it.
+PIPELINE_BUDGET_MS = 1500.0
 N_COMPONENTS = 50
 N_SCREENS = 20
 ITERATIONS = 7
@@ -71,6 +76,29 @@ def synthetic_registry():
     }
 
 
+
+def _write_pipeline_fixture(d, reg):
+    """Materialise the synthetic registry on disk as a real pb project.
+
+    load_specs and load_logic both read FILES, so the in-memory registry the build_html
+    budget uses cannot exercise them — they need renderSrc bodies that exist.
+    """
+    import copy as _copy
+    out = _copy.deepcopy(reg)
+    for kind, sub in (("components", "components"), ("screens", "screens")):
+        for item in out.get(kind, []) or []:
+            body = item.pop("render", "") or ""
+            rel = "render/%s/%s.js" % (sub, item["id"])
+            item["renderSrc"] = rel
+            full = os.path.join(d, rel)
+            os.makedirs(os.path.dirname(full), exist_ok=True)
+            with open(full, "w", encoding="utf-8") as f:
+                f.write(body if body.strip() else
+                        "function %s(props) { return ''; }\n" % item.get("renderFn", "renderCmpX"))
+    with open(os.path.join(d, "registry.json"), "w", encoding="utf-8") as f:
+        json.dump(out, f, ensure_ascii=False)
+
+
 def main():
     render = _load_render()
     reg = synthetic_registry()
@@ -86,10 +114,38 @@ def main():
     print("render budget: %d components / %d screens" % (N_COMPONENTS, N_SCREENS))
     print("  best=%.1f ms  median=%.1f ms  budget=%.0f ms  (output %d bytes)"
           % (best, median, BUDGET_MS, len(html)))
-    if best > BUDGET_MS:
+    over = best > BUDGET_MS
+    if over:
         print("::error::render over budget (%.1f ms > %.0f ms)" % (best, BUDGET_MS))
+    else:
+        print("✓ within budget")
+
+    # ---- the WHOLE pipeline, not just build_html ------------------------------------
+    # build_html was the only step measured, and it was never the slow one. Measured on a
+    # real project (133 components): build_html 21 ms, load_specs 29 ms, load_bodies 24 ms,
+    # and load_logic — which no test watched — 3,746 ms, because its call-site lookup was
+    # quadratic in (handlers x files). A preview server re-renders on every save, so that
+    # went unnoticed by every green test while making the tool unusable. Inverting the
+    # index took it to ~370 ms. This budget exists so the next such step cannot hide.
+    import tempfile
+    pipeline_ms = None
+    with tempfile.TemporaryDirectory() as d:
+        _write_pipeline_fixture(d, reg)
+        t0 = time.perf_counter()
+        r = render.load_bodies(json.load(open(os.path.join(d, "registry.json"), encoding="utf-8")), d)
+        r = render.load_specs(r, d)
+        logic = render.load_logic(d, r)
+        render.build_html(r, shell, "test", logic=logic)
+        pipeline_ms = (time.perf_counter() - t0) * 1000.0
+    print("  pipeline (load_bodies + load_specs + load_logic + build_html):"
+          " %.1f ms  budget=%.0f ms" % (pipeline_ms, PIPELINE_BUDGET_MS))
+    if pipeline_ms > PIPELINE_BUDGET_MS:
+        print("::error::render pipeline over budget (%.1f ms > %.0f ms)"
+              % (pipeline_ms, PIPELINE_BUDGET_MS))
+        over = True
+    if over:
         raise SystemExit(1)
-    print("✓ within budget")
+    print("✓ within budget (build_html and the whole pipeline)")
 
 
 if __name__ == "__main__":

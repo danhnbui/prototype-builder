@@ -89,6 +89,43 @@ def load_specs(reg, base_dir):
     return reg
 
 
+def load_logic(base_dir, reg=None):
+    """Derive the logic graph for the project at `base_dir`, or None.
+
+    Mirrors load_specs in spirit but derives rather than reads: logic_extract.py scans the
+    render bodies and the shell and returns the graph the UX Design tab's Information
+    Architecture and Logic views draw from. Authored input is only what the registry
+    already carries (`ia`, and any declared rules); everything else — the handler graph,
+    the store slices, the navigation layers, the overlays — is computed here so it can
+    never drift from the code it describes.
+
+    FAILS OPEN, ALWAYS. This is a view enhancement, not a render input: a project with no
+    render bodies, a missing extractor, or a malformed body must still render its four
+    tabs. The two views that read it degrade to an honest empty state on None. A logic
+    graph is never worth failing a render over.
+    """
+    try:
+        import logic_extract  # sibling; sys.path already carries this directory
+    except ImportError:
+        return None
+    try:
+        graph = logic_extract.extract(base_dir)
+    except Exception as exc:                                        # noqa: BLE001
+        print("pb-render: logic graph skipped (%s: %s)" % (type(exc).__name__, exc))
+        return None
+    if reg is not None:
+        # The authored half rides along beside the derived half, so the shell reads one object.
+        ia = reg.get("ia")
+        if isinstance(ia, dict):
+            graph["ia"] = ia
+        rules = (ia or {}).get("rules") if isinstance(ia, dict) else None
+        if isinstance(reg.get("rules"), list):
+            rules = reg["rules"]
+        if rules:
+            graph["rules"] = rules
+    return graph
+
+
 _SCRIPT_CLOSE_IN_BODY = re.compile(r"</(?=script\b)", re.IGNORECASE)
 
 
@@ -178,7 +215,7 @@ def _strip_render(reg):
     return reg_inline
 
 
-def build_html(reg, shell, version="unknown"):
+def build_html(reg, shell, version="unknown", logic=None):
     """Render a registry dict + shell HTML string into the populated prototype HTML.
 
     Pure: no file I/O, no globals. This is the single source of render truth — the
@@ -213,6 +250,15 @@ def build_html(reg, shell, version="unknown"):
 
     # Fill the shell's version placeholder (no-op on a shell that lacks it — never blocks).
     shell = shell.replace("{{PB_SHELL_VERSION}}", version)
+
+    # The derived logic graph. Absent (an older shell without the placeholder, or a project
+    # with nothing to derive) is a no-op: the shell ships `null` there and the two views that
+    # read it render an empty state.
+    if logic and "/*__PB_LOGIC_START__*/" in shell:
+        inlined_logic = json.dumps(logic, ensure_ascii=False, separators=(",", ":")).replace("</", "<\\/")
+        shell = re.sub(r"/\*__PB_LOGIC_START__\*/.*?/\*__PB_LOGIC_END__\*/",
+                       lambda m: "/*__PB_LOGIC_START__*/" + inlined_logic + "/*__PB_LOGIC_END__*/",
+                       shell, count=1, flags=re.S)
     return shell, missing
 
 
@@ -224,8 +270,9 @@ def render_file(reg_path, shell_path, out_path):
     base_dir = os.path.dirname(os.path.abspath(reg_path))
     reg = load_bodies(reg, base_dir)
     reg = load_specs(reg, base_dir)  # resolve specSrc sidecars (schema 10)
+    logic = load_logic(base_dir, reg)  # derive the logic graph (fails open → None)
     version = plugin_version()
-    html, missing = build_html(reg, shell, version)
+    html, missing = build_html(reg, shell, version, logic=logic)
     html = stamp(html, version)
     open(out_path, "w", encoding="utf-8").write(html)
     return reg, html, missing
@@ -233,12 +280,56 @@ def render_file(reg_path, shell_path, out_path):
 
 # ── design-system site (the second render target) ───────────────────────────────────────
 
+_COLLECTION_DEFAULT = re.compile(r"^\s*[\[{]")
+
+
+def _coerce_default(value, declared_type):
+    """A prop default, as DATA rather than as whatever the author happened to type.
+
+    The design-system site builds each demo from these defaults, so a component whose body
+    does `props.rows.map(...)` gets exactly what lands here. Measured on a real project, 11
+    of 133 components could not render because they got the two-character STRING `'[]'`, and
+    `'[]'.map` is not a function. The prototype never hit it: there a parent passes real
+    props via pbUse, so the default never fires.
+
+    Three steps, in order, each only firing when the one before it did not settle it:
+      1. already a list/dict → pass through untouched.
+      2. declared array/object, or a string that opens like a collection → try to parse it.
+      3. parse failed but the declaration says collection → an EMPTY one, never the string.
+         An empty table is a poor demo; a thrown exception is not a demo at all.
+
+    A real project also defaults an array prop to unquoted-key pseudo-JSON
+    (`[{name:'Đỗ Bảo'}]`), which no parser accepts — hence step 3 rather than step 2 alone.
+    `lint_registry.py`'s R-PROPTYPE reports both shapes so they get fixed at the source;
+    this keeps the site usable until they are.
+    """
+    if isinstance(value, (list, dict)):
+        return value
+    wants_collection = declared_type in ("array", "object")
+    if isinstance(value, str) and (wants_collection or _COLLECTION_DEFAULT.match(value)):
+        try:
+            return json.loads(value)
+        except (ValueError, TypeError):
+            if wants_collection:
+                return [] if declared_type == "array" else {}
+            if value.lstrip().startswith("["):
+                return []
+            return {}
+    return value
+
+
 def _default_props(comp):
     """A component's default variant props (from properties[].default) — for the push node."""
     p = {}
     for pr in comp.get("properties", []) or []:
         if isinstance(pr, dict) and pr.get("id") and pr.get("default") is not None:
-            p[pr["id"]] = pr["default"]
+            p[pr["id"]] = _coerce_default(pr.get("default"), pr.get("type"))
+    # A spec sidecar may carry `usage.example` — real sample data authored for the demo,
+    # which beats any default. Sidecar wins; defaults only fill the gaps.
+    usage = comp.get("usage")
+    example = usage.get("example") if isinstance(usage, dict) else None
+    if isinstance(example, dict):
+        p.update(example)
     return p
 
 

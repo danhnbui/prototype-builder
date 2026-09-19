@@ -1072,7 +1072,7 @@
     }
     .pb-test-run-btn:hover { border-color:var(--brand); color:var(--brand); }
     @media (max-width: 1100px) {
-      .pb-content--split { grid-template-columns: 1fr; }
+      .pb-content--split, .ux-flow-body, .ia-layout { grid-template-columns: 1fr; }
       .pb-aside { position: static; max-height: none; }
     }
 
@@ -1696,7 +1696,6 @@
       color: var(--text-active-secondary); transition: all .12s; }
     .flow-side-tab:hover { border-color: var(--brand); color: var(--brand); }
     .flow-side-tab.active { background: var(--brand); color: #fff; border-color: var(--brand); }
-    .flow-side-panel[hidden] { display: none; }
     .flow-doc-stories { padding-left: 22px; margin: 0; }
     .flow-doc-stories > li { margin-bottom: 18px; line-height: var(--line-height-copy); }
     .flow-doc-stories > li:last-child { margin-bottom: 0; }
@@ -2355,11 +2354,17 @@
     .erd-legend-mini svg { width:38px; height:12px; display:block; }
     .erd-legend-svgwrap { display:inline-flex; width:56px; flex-shrink:0; }
     .erd-legend-svgwrap svg { width:56px; height:14px; }
-      /* ── UX Design sub-tabs: Information Architecture · User Flow · Logic ──── */
+      /* ── UX Design sub-tabs: Logic · Information Architecture · User Flow · Test Cases ──── */
     .ux-subtabs { margin: 0 0 12px; }
     .ux-scroll-wrap { flex: 1; min-height: 0; display: flex; flex-direction: column; }
-    .ux-scroll-wrap > .summary-scroll,
-    .ux-scroll-wrap > .ia-scroll { flex: 1; min-height: 0; overflow: auto; padding-right: 8px; }
+    .ux-scroll-wrap > .summary-scroll { flex: 1; min-height: 0; overflow: auto; padding-right: 8px; }
+    /* IA (job list | site map) and User Flow (canvas | stories) are two-pane rows inside the
+       same tabstrip-on-top shell — each pane scrolls on its own, the row itself does not. */
+    .ux-scroll-wrap > .ia-layout,
+    .ux-scroll-wrap > .ux-flow-body { flex: 1; min-height: 0; overflow: hidden; }
+    .ia-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; align-items: stretch; }
+    .ia-jobs-col, .ia-map-col { min-height: 0; overflow: auto; padding-right: 8px; }
+    .ux-flow-body { display: grid; grid-template-columns: minmax(0, 1fr) clamp(320px, 26vw, 400px); gap: 24px; align-items: stretch; }
     .lg-views { display: flex; align-items: center; gap: 4px; margin: 4px 0 16px; }
     .lg-view {
       border: 1px solid var(--border); background: transparent; color: inherit;
@@ -2415,7 +2420,8 @@
     .lg-sec-h { font-size: 11px; letter-spacing: .04em; text-transform: uppercase; color: var(--text-tertiary); margin-bottom: 4px; }
     .lg-line { padding: 3px 0; font-size: var(--font-size-s); }
     /* Information Architecture */
-    .ia-roles { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin: 6px 0 16px; }
+    .ia-roles { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin: 6px 0 10px; }
+    .ia-stats { margin: 0 0 16px; font-size: var(--font-size-xs); color: var(--text-tertiary); }
     .ia-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 4px; vertical-align: middle; }
     .ia-job { display: inline-flex; align-items: center; gap: 2px; font-size: var(--font-size-s); line-height: 20px; padding: 3px 10px; border-radius: 999px; border: 1px solid var(--border); background: rgba(127,127,127,.05); margin: 0 6px 6px 0; }
     .ia-job--new { border-style: dashed; border-color: #c2410c; background: rgba(194,65,12,.06); }
@@ -2446,7 +2452,6 @@
     .ia-ov { font-size: 11px; padding: 0 6px; border-radius: 6px; border: 1px dashed #c2410c; color: #c2410c; cursor: pointer; }
     .ia-from { font-size: 11px; margin: 0 0 2px 4px; }
     .ia-orphans { margin-top: 8px; font-size: var(--font-size-xs); }
-    .pb-ux-tabstrip { padding: 0 var(--space-page-x, 24px); }
   </style>
 
   <!-- Mermaid CDN — used by the ERD tab. Keep this even if you don't ship ERD;
@@ -3018,14 +3023,6 @@
       { cls: 'shape-subprocess', glyph: '[[ ]]', name: 'Subprocess',      desc: 'Reusable sub-flow — detail lives in the test checklist' },
       { cls: 'shape-cylinder',   glyph: '( )',   name: 'External system', desc: 'Cylinder — database, API, third party' },
     ];
-    function setFlowSideTab(tab) {
-      document.querySelectorAll('.flow-side-panel').forEach(p => {
-        p.hidden = (p.dataset.tab !== tab);
-      });
-      document.querySelectorAll('[data-tab].proto-shell-btn').forEach(b => {
-        b.classList.toggle('active', b.dataset.tab === tab);
-      });
-    }
 
     function openFigmaPushPanel(anchorBtn) {
       closeFigmaPushPanel();
@@ -3447,11 +3444,12 @@
       },
       flow: {
         title: 'UX Design',
-        blurb: 'How the product is wired, in three views: the jobs each role needs done and the screens that serve them, the user-flow wireflow, and the rules and ripple behind the behaviour.',
+        blurb: 'How the product is wired, in four views: the rules and ripple behind the behaviour, the jobs each role needs done and the screens that serve them, the user-flow wireflow, and every test case.',
         howItWorks: [
-          'Information Architecture — every job as "when / I want to / so I can", the derived site map, and coverage per screen. A job with no screen is unfinished work; a screen with no job is a question.',
-          'User Flow — one flowchart covering the prototype, with user stories and test cases beside it. Hovering a story highlights the path it satisfies.',
           'Logic — declared rules (state machines, permission matrices) linked to the code that implements them, plus the derived ripple of every handler: what it reads, which store slice it touches, what it re-renders.',
+          'Information Architecture — job list on the left as "when / I want to / so I can", the derived site map on the right. A job with no screen is flagged unhandled; the site map flags the inverse — a screen with no job — per node, so screen coverage never needs its own summary.',
+          'User Flow — one flowchart covering every job in Information Architecture, with the matching user stories beside it. Hovering a story highlights the path it satisfies.',
+          'Test Cases — every scenario each user story must satisfy, by lens (UX · UI · Function · Business · System edge), with the coverage gaps and last-run results.',
           'Layers, edges and overlays in the site map are DERIVED from the sidebar and the render bodies — only each job and each layer’s purpose are authored.',
         ],
         commands: ['/pb:flow', '/pb:init', '/pb:plan'],
@@ -4281,7 +4279,7 @@
        project, or a hand-off rendered before it existed — each view renders an
        honest empty state rather than a broken one.
        ========================================================================= */
-    const UX_SUBTABS = [['ia', 'Information Architecture'], ['flow', 'User Flow'], ['logic', 'Logic']];
+    const UX_SUBTABS = [['logic', 'Logic'], ['ia', 'Information Architecture'], ['flow', 'User Flow'], ['tests', 'Test Cases']];
 
     function pbUxDefaultView() {
       const L = window.PB_LOGIC;
@@ -4297,10 +4295,12 @@
 
     function pbUxSubtabs() {
       const L = window.PB_LOGIC || {};
+      const tc = pbTestCounts();
       const counts = {
         ia: (L.ia && L.ia.jobs) ? L.ia.jobs.length : 0,
         flow: (PB_DATA.flow && PB_DATA.flow.flows) ? PB_DATA.flow.flows.length : 0,
         logic: (L.rules || []).length,
+        tests: tc.total + tc.manual,
       };
       const cur = pbUxView();
       return `<div class="meta-subtabs ux-subtabs">` + UX_SUBTABS.map(([id, label]) =>
@@ -4359,22 +4359,22 @@
       const roles = (((PB_REGISTRY || {}).meta || {}).roles) || [];
       const rf = state.iaRole || 'all';
       const jobs = ia.jobs.filter(j => rf === 'all' || (j.roles || []).includes(rf));
-      const screens = (PB_REGISTRY.screens || []).filter(s =>
-        rf === 'all' || (s.roles || []).includes(rf) || jobs.some(j => (j.screens || []).includes(s.id)));
       const covered = jobs.filter(j => (j.screens || []).length);
       const unassigned = jobs.filter(j => !(j.screens || []).length);
-      const emptyScreens = screens.filter(s => !jobs.some(j => (j.screens || []).includes(s.id)));
 
       const chips = `<div class="ia-roles"><span class="lg-dim">Role</span>
           <button class="lg-view ${rf === 'all' ? 'active' : ''}" onclick="pbSetIaRole('all')">All <span class="meta-subtab-count">${ia.jobs.length}</span></button>
           ${roles.map(r => `<button class="lg-view ${rf === r.id ? 'active' : ''}" onclick="pbSetIaRole('${pbEscape(r.id)}')">${pbRoleDot(r.id)}${pbEscape(r.name || r.id)} <span class="meta-subtab-count">${ia.jobs.filter(j => (j.roles || []).includes(r.id)).length}</span></button>`).join('')}
-          <span class="lg-stats">${jobs.length} jobs · ${covered.length} covered · <span class="${unassigned.length ? 'lg-warn' : ''}">${unassigned.length} unassigned</span> · <span class="${emptyScreens.length ? 'lg-warn' : ''}">${emptyScreens.length} screen${emptyScreens.length === 1 ? '' : 's'} without a job</span></span>
         </div>`;
+      const stats = `<div class="ia-stats">${jobs.length} jobs · ${covered.length} covered · <span class="${unassigned.length ? 'lg-warn' : ''}">${unassigned.length} not handled by anything</span></div>`;
 
+      // Every job with no screen is flagged twice: the callout below, and the "no screen"
+      // badge on its row in the All jobs list — the site map flags the inverse (a screen with
+      // no job) per node, so screen-side coverage never needs its own separate summary here.
       const newBlock = unassigned.length ? `
         <div class="ia-card ia-card--new">
-          <div class="meta-h3">New jobs — no screen serves them yet <span class="lg-chip lg-chip--dead" style="text-decoration:none">${unassigned.length}</span></div>
-          <p class="meta-p lg-dim">Added after the pages were planned. Each needs a decision: give it a screen, fold it into an existing one, or drop it.</p>
+          <div class="meta-h3">Not handled by anything <span class="lg-chip lg-chip--dead" style="text-decoration:none">${unassigned.length}</span></div>
+          <p class="meta-p lg-dim">No screen serves these jobs yet. Give one a screen, fold it into an existing screen, or drop it.</p>
           ${unassigned.map(j => `<div class="ia-new-row">
               <span class="ia-jrow-text">${(j.roles || []).map(pbRoleDot).join('')}${pbJtbd(j)}</span>
               <span class="lg-dim">${pbEscape(j.source || '')}</span>
@@ -4384,19 +4384,23 @@
               </span></div>`).join('')}
         </div>` : '';
 
-      return `<div class="summary-scroll ia-scroll">
-        <div class="meta-section">
-          <div class="meta-h2">3.1 Information Architecture</div>
-          <p class="meta-p" style="color:var(--text-tertiary)">Every job a role needs done, and the screens that serve it. A job with no screen is unfinished work; a screen with no job is a question.</p>
+      return `<div class="ia-layout">
+        <div class="ia-jobs-col">
+          <div class="meta-h2">3.2 Information Architecture</div>
+          <p class="meta-p" style="color:var(--text-tertiary)">Every job a role needs done. A job with no screen is unfinished work.</p>
           ${chips}
+          ${stats}
           ${newBlock}
-          ${pbRenderSiteMap(ia, jobs, rf)}
           <div class="ia-card">
             <div class="meta-h3">All jobs <span class="meta-subtab-count">${jobs.length}</span></div>
             <p class="meta-p lg-dim">Jobs-to-be-done form: <em>when</em> [situation], <em>I want to</em> [motivation], <em>so I can</em> [outcome].</p>
             ${jobs.map(pbJobRow).join('')}
           </div>
-        </div></div>`;
+        </div>
+        <div class="ia-map-col">
+          ${pbRenderSiteMap(ia, jobs, rf)}
+        </div>
+      </div>`;
     }
 
     /* The site map. Layer membership and every edge are DERIVED — layer 0 is each screen a
@@ -4501,7 +4505,7 @@
       const v = state.logicView;
       const S = L.stats;
       return `<div class="meta-section">
-          <div class="meta-h2">3.3 Logic</div>
+          <div class="meta-h2">3.1 Logic</div>
           <p class="meta-p" style="color:var(--text-tertiary)">Declared <strong>rules</strong> — state machines, permission matrices — linked to the code that implements them, and the derived <strong>ripple</strong> of every handler: what it reads, which store slice it touches, what it re-renders.</p>
           <div class="lg-views">
             <button class="lg-view ${v === 'rules' ? 'active' : ''}" onclick="pbSetLogicView('rules')">Rules <span class="meta-subtab-count">${(L.rules || []).length}</span></button>
@@ -4523,7 +4527,7 @@
           <p class="meta-p">${pbEscape(r.summary || '')}</p>
           ${r.kind === 'state-machine' ? pbRuleStateMachine(r) : r.kind === 'matrix' ? pbRuleMatrix(r) : ''}
           <div class="lg-foot">
-            <div><span class="lg-foot-k">Implemented by</span>${(r.implemented || []).map(i => pbLgLink('handler', i.name, i.name + '()') + `<span class="lg-dim"> ${pbEscape(pbLgBase(i.file))}:${i.line} · ${i.lines} lines</span>`).join('<br>') || '<span class="lg-dim">— not linked</span>'}</div>
+            <div><span class="lg-foot-k">Implemented by</span>${(r.implemented || []).map(i => pbLgLink('handler', i.name, i.name + '()') + `<span class="lg-dim"> ${pbEscape(pbLgBase(i.file))}:${i.line} · ${i.length} lines</span>`).join('<br>') || '<span class="lg-dim">— not linked</span>'}</div>
             <div><span class="lg-foot-k">Read by</span>${(r.readers || []).slice(0, 8).map(n => pbLgLink('handler', n)).join(', ') || '<span class="lg-dim">—</span>'}${(r.readers || []).length > 8 ? ` <span class="lg-dim">+${r.readers.length - 8}</span>` : ''}</div>
             <div><span class="lg-foot-k">Displayed in</span>${(r.displayedIn || []).map(id => pbLgLink('item', id)).join(', ') || '<span class="lg-dim">—</span>'}</div>
             <div><span class="lg-foot-k">Decided in</span><span>${pbEscape(r.decidedIn || '—')}</span></div>
@@ -4646,7 +4650,7 @@
       const then = (h.toast ? ['toast'] : []).concat((h.nav || []).map(n => 'go → ' + n), h.rerender || []);
       const rules = (L.rules || []).filter(r => (r.implementedBy || []).includes(h.name) || (r.readers || []).includes(h.name));
       return `<div class="meta-h3">${pbEscape(h.name)}() ${h.isSave ? pbLgChip('save', 'lg-chip--save') : h.exported ? pbLgChip('shared helper', 'lg-chip--kind') : pbLgChip('local')}</div>
-        <p class="meta-p lg-dim">${pbEscape(h.file)}:${h.line} · ${h.lines} lines · owned by ${pbLgLink('item', h.owner.id, h.owner.id)}</p>
+        <p class="meta-p lg-dim">${pbEscape(h.file)}:${h.line} · ${h.length} lines · owned by ${(h.owners || []).map(o => pbLgLink('item', o.id, o.id)).join(', ') || '<span class="lg-dim">—</span>'}</p>
         ${pbLgSec('Rules', rules.map(r => `<a class="lg-link" href="#" onclick="pbSetLogicView('rules');return false">${pbEscape(r.title)}</a> <span class="lg-dim">${(r.implementedBy || []).includes(h.name) ? 'implements' : 'reads'}</span>`).join('<br>'))}
         ${pbLgSec('Guards', (h.guards || []).map(g => pbLgLink('handler', g, g + '()')).join(' → '))}
         ${pbLgSec('Reads from the DOM', reads)}
@@ -4661,7 +4665,7 @@
 
     function pbRippleSlice(name, s, H) {
       const li = ns => ns.map(n => `<div class="lg-line">${pbLgLink('handler', n, n + '()')} <span class="lg-dim">${pbEscape(H[n] ? pbLgBase(H[n].file) : '')}</span> ${H[n] && (H[n].rerender || []).length ? pbLgChip(H[n].rerender[0]) : ''}</div>`).join('');
-      const owners = [...new Set((s.writers || []).concat(s.readers || []).map(n => H[n] && H[n].owner && H[n].owner.id).filter(Boolean))];
+      const owners = [...new Set((s.writers || []).concat(s.readers || []).flatMap(n => ((H[n] || {}).owners || []).map(o => o.id)).filter(Boolean))];
       return `<div class="meta-h3">store.${pbEscape(name)} ${pbLgChip('slice', 'lg-chip--kind')}</div>
         <p class="meta-p lg-dim">A session-store slice. Change its shape and every writer and reader below is affected.</p>
         ${pbLgSec(`Writers (${(s.writers || []).length})`, li(s.writers || []))}
@@ -4699,6 +4703,64 @@
        ========================================================================= */
     /* QA test-case lenses — categories a scenario / coverage-gap can be tagged with. */
     const QA_CAT_LABEL = { ux: 'UX', ui: 'UI', function: 'Function', business: 'Business', 'system-edge': 'System edge' };
+    // A scenario carrying a .test block shows its last-run status glyph (✓ pass · ✗ fail ·
+    // ○ untested); a scenario without .test stays a manual ☐. Shared by the Test Cases tab
+    // and the subtab badge count.
+    const scenarioLi = (sc) => {
+      const text = (typeof sc === 'string') ? sc : (sc && sc.text) || '';
+      const cat = (sc && typeof sc === 'object') ? sc.category : null;
+      const chip = cat ? `<span class="pb-qa-cat pb-qa-cat--${pbEscape(cat)}">${pbEscape(QA_CAT_LABEL[cat] || cat)}</span> ` : '';
+      if (!(sc && typeof sc === 'object' && sc.test)) return `<li>☐ ${chip}${pbEscape(text)}</li>`;
+      const lr = sc.lastResult || {};
+      const st = lr.status === 'pass' ? 'pass' : lr.status === 'fail' ? 'fail' : 'untested';
+      const glyphChar = st === 'pass' ? '✓' : st === 'fail' ? '✗' : '○';
+      const titleTxt = (st === 'pass' ? 'Passed' : st === 'fail' ? 'Failed' : 'Not run yet') + (lr.detail ? ' — ' + lr.detail : '') + (lr.ranAt ? ' (' + lr.ranAt + ')' : '');
+      const glyph = `<span class="pb-test-glyph pb-test-glyph--${st}" title="${escapeHtmlAttr(titleTxt)}">${glyphChar}</span>`;
+      return `<li>${glyph} ${chip}${pbEscape(text)}</li>`;
+    };
+    function pbTestCounts() {
+      const fStories = (PB_DATA.flow && PB_DATA.flow.stories) || [];
+      let total = 0, pass = 0, manual = 0;
+      fStories.forEach(s => (s.scenarios || []).forEach(sc => {
+        if (sc && typeof sc === 'object' && sc.test) { total++; if (sc.lastResult && sc.lastResult.status === 'pass') pass++; }
+        else manual++;
+      }));
+      return { total, pass, manual };
+    }
+    function pbRenderTestCases() {
+      const f = (PB_DATA && PB_DATA.flow) || {};
+      const fStories = f.stories || [];
+      if (!fStories.length) {
+        return pbUxEmpty('No test cases yet',
+          'Test cases ride the user flow — each story carries a checklist of scenarios across the UX, UI, Function, Business and System-edge lenses. Generate the user flow first.',
+          'Generate user flow', '/pb:flow');
+      }
+      const tc = pbTestCounts();
+      const runTestsBtn = VIEW_ONLY ? '' :
+        `<button class="pb-test-run-btn" type="button" onclick="openCopyPopover('/pb:test', this)" title="Copy the /pb:test command">Run tests</button>`;
+      const testsHeader = `<div class="pb-test-head"><span class="pb-test-summary">${tc.pass}/${tc.total} passing · ${tc.manual} manual</span>${runTestsBtn}</div>`;
+      const warns = f.coverageWarnings || [];
+      const warnBlock = warns.length ? `
+        <div class="pb-qa-warn">
+          <div class="pb-qa-warn-head">⚠ Coverage gaps (${warns.length})</div>
+          <ul class="pb-qa-warn-list">${warns.map(w => {
+            const note = (typeof w === 'string') ? w : (w && w.note) || '';
+            const cat = (w && typeof w === 'object') ? w.category : null;
+            const chip = cat ? `<span class="pb-qa-cat pb-qa-cat--${pbEscape(cat)}">${pbEscape(QA_CAT_LABEL[cat] || cat)}</span> ` : '';
+            return `<li>${chip}${pbEscape(note)}</li>`;
+          }).join('')}</ul>
+        </div>` : '';
+      const testsList = '<ol class="flow-doc-stories">' + fStories.map(s =>
+          `<li><strong>${pbEscape(s.title||'')}</strong><ul class="flow-doc-checks">`
+          + (s.scenarios||[]).map(scenarioLi).join('') + '</ul></li>').join('') + '</ol>';
+      return `<div class="meta-section">
+          <div class="meta-h2">3.4 Test Cases</div>
+          <p class="meta-p" style="color:var(--text-tertiary)">Every scenario each user story must satisfy, tagged by lens (UX · UI · Function · Business · System edge). A scenario wired to a <code>test{}</code> block shows its last run result.</p>
+          ${testsHeader}
+          ${warnBlock}
+          ${testsList}
+        </div>`;
+    }
 
     function renderMetaFlow() {
       const populated = !!(PB_DATA.flow && PB_DATA.flow.populated);
@@ -4708,13 +4770,16 @@
       const uxTabs = pbUxSubtabs();
       const view = pbUxView();
 
-      if (view === 'ia' || view === 'logic') {
+      if (view === 'ia' || view === 'logic' || view === 'tests') {
+        const body = view === 'ia' ? pbRenderIA()
+          : view === 'logic' ? `<div class="summary-scroll">${pbRenderLogic()}</div>`
+          : `<div class="summary-scroll">${pbRenderTestCases()}</div>`;
         $('#app').innerHTML = `
           <div class="pb-page pb-page--viewport">
             ${header}
             <div class="pb-content pb-content--fill ux-scroll-wrap">
               ${uxTabs}
-              ${view === 'ia' ? pbRenderIA() : `<div class="summary-scroll">${pbRenderLogic()}</div>`}
+              ${body}
             </div>
           </div>`;
         return;
@@ -4722,16 +4787,16 @@
 
       if (!populated) {
         $('#app').innerHTML = `
-          <div class="pb-page">
+          <div class="pb-page pb-page--viewport">
             ${header}
-            <div class="pb-content">
+            <div class="pb-content pb-content--fill ux-scroll-wrap">
               ${uxTabs}
-              ${renderEmptyState({
+              <div class="summary-scroll">${renderEmptyState({
                 icon: EMPTY_STATE_ICONS.flow,
                 title: 'No user flow yet',
-                body: 'Build your user flow from the project spec. Claude generates one combined left-to-right Mermaid flowchart that covers every story (including edge cases), with a per-story test checklist that maps each story to a path on the canvas.',
+                body: 'Build your user flow from the project spec. Claude generates one combined left-to-right Mermaid flowchart that covers every job in Information Architecture (including edge cases).',
                 ctaLabel: 'Generate user flow', command: '/pb:flow', label: 'Sync flow command copied',
-              })}
+              })}</div>
             </div>
           </div>`;
         return;
@@ -4740,9 +4805,9 @@
       $('#app').innerHTML = `
         <div class="pb-page pb-page--viewport">
           ${header}
-          <div class="pb-ux-tabstrip">${uxTabs}</div>
-          <div class="pb-content pb-content--split pb-content--fill">
-            ${renderFlowPopulated()}
+          <div class="pb-content pb-content--fill ux-scroll-wrap">
+            ${uxTabs}
+            <div class="ux-flow-body">${renderFlowPopulated()}</div>
           </div>
         </div>
       `;
@@ -4832,6 +4897,8 @@
       const stage = current ? `<div class="mermaid">${current.mermaid}</div>` : buildFlowSvg();
 
       // 2.2 — hovering a story highlights the flow path that satisfies it (and dims the rest).
+      // Stories are phrased as JTBDs (s.jtbd) — the same jobs Information Architecture lists —
+      // so this panel is that job list, filtered down to "which flow satisfies it".
       const storiesList = fStories.length
         ? '<ol class="flow-doc-stories flow-doc-stories--interactive">' + fStories.map((s, i) =>
             `<li data-story-idx="${i}" onmouseenter="pbFlowHighlight(${i}, true)" onmouseleave="pbFlowHighlight(${i}, false)">`
@@ -4839,49 +4906,6 @@
             + (s.jtbd ? ` — ${pbEscape(s.jtbd)}` : '')
             + (s.path ? `<div class="flow-doc-path"><em>Path:</em> ${pbEscape(s.path)}</div>` : '') + '</li>').join('') + '</ol>'
         : '<p class="flow-doc-side-sub">No user stories yet.</p>';
-      // QA test cases: scenarios may be plain strings or { text, category } across the QA lenses
-      // (UX · UI · Function · Business · System edge). f.coverageWarnings flags edges the UI misses.
-      // v1.5 — a scenario carrying a .test block shows its last-run status glyph
-      // (✓ pass · ✗ fail · ○ untested); a scenario without .test stays a manual ☐.
-      const scenarioLi = (sc) => {
-        const text = (typeof sc === 'string') ? sc : (sc && sc.text) || '';
-        const cat = (sc && typeof sc === 'object') ? sc.category : null;
-        const chip = cat ? `<span class="pb-qa-cat pb-qa-cat--${pbEscape(cat)}">${pbEscape(QA_CAT_LABEL[cat] || cat)}</span> ` : '';
-        if (!(sc && typeof sc === 'object' && sc.test)) return `<li>☐ ${chip}${pbEscape(text)}</li>`;
-        const lr = sc.lastResult || {};
-        const st = lr.status === 'pass' ? 'pass' : lr.status === 'fail' ? 'fail' : 'untested';
-        const glyphChar = st === 'pass' ? '✓' : st === 'fail' ? '✗' : '○';
-        const titleTxt = (st === 'pass' ? 'Passed' : st === 'fail' ? 'Failed' : 'Not run yet') + (lr.detail ? ' — ' + lr.detail : '') + (lr.ranAt ? ' (' + lr.ranAt + ')' : '');
-        const glyph = `<span class="pb-test-glyph pb-test-glyph--${st}" title="${escapeHtmlAttr(titleTxt)}">${glyphChar}</span>`;
-        return `<li>${glyph} ${chip}${pbEscape(text)}</li>`;
-      };
-      // Tests-panel summary: N/M functional passing · K manual (☐) scenarios.
-      let testTotal = 0, testPass = 0, manualCount = 0;
-      fStories.forEach(s => (s.scenarios || []).forEach(sc => {
-        if (sc && typeof sc === 'object' && sc.test) { testTotal++; if (sc.lastResult && sc.lastResult.status === 'pass') testPass++; }
-        else manualCount++;
-      }));
-      const runTestsBtn = VIEW_ONLY ? '' :
-        `<button class="pb-test-run-btn" type="button" onclick="openCopyPopover('/pb:test', this)" title="Copy the /pb:test command">Run tests</button>`;
-      const testsHeader = fStories.length
-        ? `<div class="pb-test-head"><span class="pb-test-summary">${testPass}/${testTotal} passing · ${manualCount} manual</span>${runTestsBtn}</div>`
-        : '';
-      const testsList = fStories.length
-        ? '<ol class="flow-doc-stories">' + fStories.map(s =>
-            `<li><strong>${pbEscape(s.title||'')}</strong><ul class="flow-doc-checks">`
-            + (s.scenarios||[]).map(scenarioLi).join('') + '</ul></li>').join('') + '</ol>'
-        : '<p class="flow-doc-side-sub">No test cases yet.</p>';
-      const warns = f.coverageWarnings || [];
-      const warnBlock = warns.length ? `
-        <div class="pb-qa-warn">
-          <div class="pb-qa-warn-head">⚠ Coverage gaps (${warns.length})</div>
-          <ul class="pb-qa-warn-list">${warns.map(w => {
-            const note = (typeof w === 'string') ? w : (w && w.note) || '';
-            const cat = (w && typeof w === 'object') ? w.category : null;
-            const chip = cat ? `<span class="pb-qa-cat pb-qa-cat--${pbEscape(cat)}">${pbEscape(QA_CAT_LABEL[cat] || cat)}</span> ` : '';
-            return `<li>${chip}${pbEscape(note)}</li>`;
-          }).join('')}</ul>
-        </div>` : '';
 
       const legendBtn = `
         <button class="flow-doc-legend-btn" type="button" aria-label="Show legend" onclick="openLegendPopover(this)">
@@ -4915,18 +4939,8 @@
 
       const aside = `
         <aside class="pb-aside">
-          <div class="proto-shell-toggle" role="group" aria-label="Flow view" style="margin-bottom:14px;width:100%">
-            <button class="proto-shell-btn active" data-tab="stories" onclick="setFlowSideTab('stories')" style="flex:1;justify-content:center">User stories</button>
-            <button class="proto-shell-btn"        data-tab="tests"   onclick="setFlowSideTab('tests')"   style="flex:1;justify-content:center">Test cases</button>
-          </div>
-          <div class="flow-side-panel" data-tab="stories">
-            ${storiesList}
-          </div>
-          <div class="flow-side-panel" data-tab="tests" hidden>
-            ${testsHeader}
-            ${warnBlock}
-            ${testsList}
-          </div>
+          <div class="meta-h3" style="margin:0 0 12px">User stories <span class="meta-subtab-count">${fStories.length}</span></div>
+          ${storiesList}
         </aside>`;
 
       return main + aside;
