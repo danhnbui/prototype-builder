@@ -54,6 +54,59 @@ with tempfile.TemporaryDirectory() as d:
     check(run("get", "components", "does-not-exist", *R).returncode != 0, "get on a missing id exits non-zero")
     check(run("get", "meta", "nope", *R).returncode != 0, "get on a missing dotted key exits non-zero")
 
+    print("get — --no-prose projection (D-17)")
+    full_button = json.loads(run("get", "components", "button", *R).stdout)
+    r = run("get", "components", "button", *R, "--no-prose")
+    noprose_button = json.loads(r.stdout)
+    check(r.returncode == 0, "--no-prose on a component returns 0")
+    check(
+        "anatomy" not in noprose_button and "spec" not in noprose_button and "uiLogic" not in noprose_button,
+        "--no-prose drops anatomy/spec/uiLogic from a component",
+    )
+    check(
+        set(noprose_button) == set(full_button) - {"anatomy", "spec", "uiLogic"},
+        "--no-prose on a component keeps every non-prose key",
+    )
+    check(noprose_button.get("id") == "button", "--no-prose keeps ordinary field values intact")
+
+    full_login = json.loads(run("get", "screens", "login", *R).stdout)
+    r = run("get", "screens", "login", *R, "--no-prose")
+    noprose_login = json.loads(r.stdout)
+    check(r.returncode == 0, "--no-prose on a screen returns 0")
+    check("logicNotes" not in noprose_login, "--no-prose drops logicNotes from a screen")
+    check(
+        set(noprose_login) == set(full_login) - {"logicNotes"},
+        "--no-prose on a screen keeps every non-prose key",
+    )
+
+    print("get — --fields projection (D-17)")
+    r = run("get", "components", "button", *R, "--fields", "level,id,name")
+    fields_button = json.loads(r.stdout)
+    check(r.returncode == 0, "--fields on a component returns 0")
+    check(list(fields_button.keys()) == ["level", "id", "name"], "--fields emits exactly the named keys, in the caller's order")
+    check(fields_button == {"level": "atom", "id": "button", "name": "Button"}, "--fields values match the source entry")
+
+    print("get — --fields + --no-prose combined (D-17)")
+    r = run("get", "components", "button", *R, "--fields", "id,anatomy,level", "--no-prose")
+    combined = json.loads(r.stdout)
+    check(r.returncode == 0, "--fields + --no-prose together return 0")
+    check(list(combined.keys()) == ["id", "level"], "--no-prose drops a prose key that --fields selected, keeping the rest in order")
+    check("anatomy" not in combined, "the selected prose key (anatomy) does not survive --no-prose")
+
+    print("get — --fields with an unknown key (D-17: erroring, not a silent partial/empty result)")
+    r = run("get", "components", "button", *R, "--fields", "id,does-not-exist")
+    check(r.returncode != 0, "an unknown --fields name exits non-zero")
+    check(r.stdout.strip() == "", "an unknown --fields name prints nothing to stdout (no silent partial object)")
+
+    print("get — projection never writes")
+    before_bytes = open(reg, "rb").read()
+    run("get", "components", "button", *R, "--no-prose")
+    run("get", "screens", "login", *R, "--fields", "id,name")
+    run("get", "components", "button", *R, "--fields", "id,anatomy", "--no-prose")
+    run("get", "components", "button", *R, "--fields", "nope")  # even an error path must not write
+    after_bytes = open(reg, "rb").read()
+    check(after_bytes == before_bytes, "get — plain or projected — never mutates the registry file")
+
     print("list — enumeration")
     r = run("list", "components", *R)
     check(r.returncode == 0 and "button" in r.stdout and "[atom]" in r.stdout, "list components shows ids + level")
