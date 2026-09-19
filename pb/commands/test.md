@@ -10,12 +10,24 @@ pass / fail / untested. **Read-only on the design** — the only thing it writes
 scenario's `lastResult` (status + detail + `ranAt`), which the UX-tab glyph reads.
 
 ## 0 · Flags
-- (default) — **functional**: run every scenario that has a `test` block, in the starting role.
-- `--server` — reuse the **already-running `/pb:preview` server** instead of booting a headless
-  one. Never start a second preview (one preview per project); if none is running, start `/pb:preview`
-  first, then pass `--server`.
-- `--roles` — run each scenario once **per role** in `meta.roles`, asserting role-gated screens /
-  elements are visible only to permitted roles (admin bypasses).
+- (default) — **functional**: run every scenario that has a `test` block. A scenario declaring
+  `test.roles` runs **once per declared role**; one declaring none runs at `meta.defaultRole`.
+  The role is set explicitly before every run, never inherited from the previous scenario, and
+  `lastResult` records which role produced each verdict. A scenario passes only when every
+  declared role passes. `test.seed` is applied too.
+- `--attach [URL]` — **transport, not a mode.** Reuse the already-running `/pb:preview` server
+  instead of booting a headless one; it composes with *every* mode. Never start a second preview
+  (one per project); if none is running, start `/pb:preview` first. Bare `--attach` discovers the
+  URL, or pass one. Not reachable → exit **3**, not a wall of failed scenarios.
+- `--server` — a **mode**: server health (`GET /` 200, `/__pb_events` is an SSE stream), every
+  screen rendered with no console errors, and every `data-nav`/`data-go`/`data-redirect` target
+  resolved. (It has never been the transport flag; `--attach` is.)
+- `--roles` — walk every screen per role asserting gated screens/elements are visible only to
+  permitted roles (admin bypasses), **then run the authored scenarios per role**. Visibility
+  sampling alone cannot tell you whether a role's flow works, and a role-gated write control
+  carries no `data-roles` attribute at all — the render body omits it entirely. Use `present` /
+  `absent` expects to assert those: they test **presence, not visibility**, so a CSS-hidden
+  element still counts as present.
 - `--explore` — exploratory pass: crawl reachable screens from the entry, click every `data-nav` /
   `data-action`, and report dead ends, console errors, and unreachable screens (no assertions).
 - `--security` — also run the static security scan (`security_scan.py`) over the registry + render
@@ -44,11 +56,12 @@ test a registry that violates the contract.
 Invoke the **sandbox-test** skill for the `test{}` vocabulary, target resolution, and the role / server /
 fail-closed discipline. Then run the tester, mapping the flags through:
 ```
-python3 "${CLAUDE_PLUGIN_ROOT}/tools/test_run.py" registry.json [--functional|--roles|--explore] \
-        [--server] [--story <id|title>] [--json <out>]
+python3 "${CLAUDE_PLUGIN_ROOT}/tools/test_run.py" registry.json [--functional|--roles|--server|--explore] \
+        [--attach [URL]] [--story <id|title>] [--json <out>]
 ```
 - default → `--functional`; `--roles` → per-role; `--explore` → exploratory crawl.
-- `--server` passes through so the tester attaches to the running `/pb:preview` server (never a second one).
+- `--attach` passes through so the tester reuses the running `/pb:preview` server (never a second one);
+  it combines with any mode. `--server` is its own mode (health + reachability), not a transport flag.
 - `--story <id|title>` passes through to scope the run.
 
 For each scenario the tester sets `state.protoScreenId = test.start`, performs each `steps[]` action
@@ -65,8 +78,9 @@ python3 "${CLAUDE_PLUGIN_ROOT}/tools/security_scan.py" registry.json
 ## 4 · Report + exit codes
 Print the tester's report verbatim (it mirrors `lint_registry.py`: `<SEVERITY> [<CODE>] <where>: <msg>`; `✓ … clean`
 when all pass). **Honor the exit codes** across every tool run: `0` = clean, `1` = warnings only, `2` = any
-error / failing scenario. If several tools ran, the command's outcome is the **worst** exit seen (a failing
-scenario or a security error is a `2`).
+error / failing scenario, `3` = **could not run** (no Playwright, no reachable preview). If several tools
+ran, the command's outcome is the **worst** exit seen — but treat `3` as *unknown*, never as a pass:
+it means the check did not happen, which is a different thing from the check succeeding.
 
 ## 5 · Render (only with `--render`)
 ```

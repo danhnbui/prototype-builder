@@ -12,6 +12,10 @@ like tests/e2e_smoke.py) and verifies prototype behaviour four ways:
   --roles                 For each meta.roles entry, drive setProtoRole() and walk the
                           screens: screens/elements gated to OTHER roles must be absent
                           for a non-admin role and present for an admin one. Leaks = ERROR.
+                          THEN runs the authored scenarios once per role — visibility
+                          sampling cannot tell you whether a role's flow actually works,
+                          and a role-gated write control carries no data-roles attribute
+                          at all (the render body omits it).
   --server                Assert server health (GET / == 200, /__pb_events is an SSE
                           stream), render every screen with zero console errors + a live
                           render fn, and statically verify every data-nav / data-go /
@@ -22,14 +26,22 @@ like tests/e2e_smoke.py) and verifies prototype behaviour four ways:
 
 Playwright is a dev/CI-only dependency (NS4 — never shipped to users, never pip-installed
 by the plugin). It is imported lazily; if absent the runner prints the install hint and
-exits 2 instead of crashing. --explore needs no browser.
+exits 3 (cannot run) instead of crashing. --explore needs no browser.
+
+`--attach [URL]` is TRANSPORT, not a mode: it reuses an already-running /pb:preview server
+instead of booting a headless one, and composes with every mode. (`--server` remains a MODE —
+server health + per-screen render + reachability.) A scenario's `roles` and `seed` are both
+honoured: it runs once per declared role, with the role set EXPLICITLY every time rather than
+inherited, and `lastResult` records which role produced the verdict.
 
 Findings mirror lint_registry.py exactly — each prints as `<SEVERITY> [<CODE>] <where>: <msg>`;
-exit 0 = clean, 1 = warnings only, 2 = any error; a clean run prints `✓ <label>: <ok>`.
+exit 0 = clean, 1 = warnings only, 2 = any error, 3 = COULD NOT RUN (no browser, no reachable
+preview) — so CI can tell "the sandbox is not installed here" from "this prototype is broken";
+a clean run prints `✓ <label>: <ok>`.
 
 Usage:
   python3 test_run.py <registry.json> [--functional] [--roles] [--server] [--explore]
-                      [--story <id|title>] [--json <out>]
+                      [--attach [URL]] [--story <id|title>] [--json <out>]
 """
 import argparse
 import json
@@ -120,6 +132,68 @@ def _now_z():
 # Server — boot serve.py on a registry, parse the chosen URL from its stdout.
 # (Same pattern as tests/e2e_smoke.py's Server.)
 # ─────────────────────────────────────────────────────────────────────────────
+def _resolve_attach(value, reg_path):
+    """Resolve --attach into a live preview URL, or exit 3. Never boots a server.
+
+    `--attach http://…` is taken as given. Bare `--attach` looks for the project's canonical
+    `.claude/launch.json` preview entry, then probes the usual local ports. Reachability is
+    checked here so "the preview is not running" surfaces as cannot-run (3), not as a wall of
+    failing scenarios (2).
+    """
+    import urllib.error
+    import urllib.request
+
+    def reachable(u):
+        try:
+            with urllib.request.urlopen(u, timeout=2) as r:
+                return 200 <= r.status < 400
+        except (urllib.error.URLError, OSError, ValueError):
+            return False
+
+    if value:
+        url = value if value.endswith("/") else value + "/"
+        if not reachable(url):
+            _cannot_run(f"--attach {value} is not reachable — start /pb:preview first")
+        return url
+
+    cands = []
+    lj = os.path.join(os.path.dirname(reg_path), ".claude", "launch.json")
+    if os.path.isfile(lj):
+        try:
+            for entry in (json.load(open(lj, encoding="utf-8")) or {}).get("configurations", []):
+                for v in (entry or {}).values():
+                    if isinstance(v, str):
+                        for m in re.finditer(r"https?://[\w.\-]+:\d+/?", v):
+                            cands.append(m.group(0))
+        except (OSError, json.JSONDecodeError, AttributeError):
+            pass
+    cands += [f"http://127.0.0.1:{p}/" for p in (5173, 8000, 8080, 8100, 8200)]
+    for u in dict.fromkeys(cands):
+        u = u if u.endswith("/") else u + "/"
+        if reachable(u):
+            print(f"attached to the running preview at {u}")
+            return u
+    _cannot_run("--attach found no running preview — start /pb:preview, or pass --attach <url>")
+
+
+class _Attached:
+    """A Server-shaped handle over an already-running preview. Starts and stops nothing."""
+
+    def __init__(self, url):
+        self.url = url
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+
+def _transport(reg_path, attach):
+    """The context manager a mode should use: an attached preview, or a fresh headless one."""
+    return _Attached(attach) if attach else Server(reg_path)
+
+
 class Server:
     def __init__(self, registry):
         self.registry = registry
@@ -164,12 +238,24 @@ class Server:
 # ─────────────────────────────────────────────────────────────────────────────
 # Playwright bootstrap — lazy import; degrade gracefully when absent.
 # ─────────────────────────────────────────────────────────────────────────────
+# Exit codes. 0/1/2 keep their meanings exactly (0 clean, 1 warnings, 2 an error or a failing
+# scenario). 3 is new (D-27): "could not run at all". Before it, a missing browser and a genuinely
+# failing assertion both exited 2, so a CI step could not tell "the sandbox is not installed here"
+# from "this prototype is broken" — and the two want opposite responses.
+EXIT_CANNOT_RUN = 3
+
+
+def _cannot_run(msg):
+    """Exit 3 — the runner could not start. Never used for a test that ran and failed."""
+    print(f"⚠ cannot run: {msg}")
+    sys.exit(EXIT_CANNOT_RUN)
+
+
 def _require_playwright():
     try:
         from playwright.sync_api import sync_playwright  # noqa: F401
     except ImportError:
-        print("Playwright not installed — pip install playwright && playwright install chromium")
-        sys.exit(2)
+        _cannot_run("Playwright not installed — pip install playwright && playwright install chromium")
     return sync_playwright
 
 
@@ -439,14 +525,82 @@ def _check_expect(page, exp, console_errors):
         if exp.get("no-console-error"):
             return (len(console_errors) == 0, f"console error(s): {console_errors[:5]}")
         return (True, "")
+    # present / absent — PRESENCE, not visibility (D-27).
+    #
+    # A role-gated write control is omitted from the HTML string entirely by the render body when
+    # the resolved bucket lacks the capability, so `querySelector` is the honest question. A
+    # control that is merely CSS-hidden PASSES `present` and should: hiding is the `:has()` reveal
+    # mechanism, a different concern with its own checks. Conflating the two is what makes a
+    # visibility-based role audit noisy enough to be ignored.
+    for key in ("present", "absent"):
+        if key in exp:
+            sel = exp[key]
+            try:
+                n = page.evaluate(
+                    "(s) => { const f=document.getElementById('proto-frame');"
+                    " if (!f) return -1; try { return f.querySelectorAll(s).length; }"
+                    " catch (e) { return -2; } }", sel)
+            except Exception as e:                                    # noqa: BLE001
+                return (False, f"{key} {sel!r}: page evaluate failed: {e}")
+            if n == -1:
+                return (False, f"{key} {sel!r}: no #proto-frame on the page")
+            if n == -2:
+                return (False, f"{key} {sel!r}: not a valid CSS selector")
+            if key == "present":
+                return (n > 0, f"{sel!r} not present in #proto-frame (matched 0)")
+            return (n == 0, f"{sel!r} present in #proto-frame (matched {n}) but expected absent")
     return (False, f"unknown expect key(s): {list(exp.keys())}")
 
 
-def _run_scenario(page, console_errors, test):
+def _apply_role(page, role_id):
+    """Drive the shell's setProtoRole seam. Returns (ok, detail).
+
+    Set EXPLICITLY before every scenario, never inherited. The shell's pbResetSandbox() clears
+    the screen, history, inputs and toasts but NOT state.activeRole, so a scenario that follows a
+    role switch would otherwise silently run as the previous role — the order-dependence this
+    whole change exists to remove. Setting it every time is correct both before and after the
+    shell learns to reset it.
+    """
+    if role_id is None:
+        return (True, "")
+    if page.evaluate("() => typeof setProtoRole") != "function":
+        return (False, "setProtoRole seam not found — cannot run per-role")
+    page.evaluate("(id) => setProtoRole(id)", role_id)
+    page.wait_for_timeout(60)
+    return (True, "")
+
+
+def _apply_seed(page, seed):
+    """Apply a scenario's `seed` through the shell's scenario seam. Returns (ok, detail).
+
+    A seed names a data scenario the project authored. It is reported when it cannot be applied
+    rather than ignored: the real project authors `seed` on every test block, and a silently
+    discarded authored field is exactly the defect this change exists to fix.
+    """
+    if not seed:
+        return (True, "")
+    fn = page.evaluate(
+        "() => (typeof pbScenarioSwitch === 'function') ? 'pbScenarioSwitch'"
+        " : (typeof pbApplyScenario === 'function') ? 'pbApplyScenario' : null")
+    if not fn:
+        return (False, f"seed {seed!r} declared but the shell exposes no scenario seam "
+                       f"(pbScenarioSwitch / pbApplyScenario) — seed NOT applied")
+    page.evaluate("([f, s]) => window[f](s)", [fn, seed])
+    page.wait_for_timeout(120)
+    return (True, "")
+
+
+def _run_scenario(page, console_errors, test, role_id=None):
     """Drive one scenario's test block; return (status, detail)."""
     del console_errors[:]
     # Fresh sandbox + toast buffer before each scenario.
     page.evaluate("() => { if (typeof pbResetSandbox === 'function') pbResetSandbox(); window.__pbToasts = []; }")
+    ok, detail = _apply_role(page, role_id)
+    if not ok:
+        return ("skip", detail)
+    ok, detail = _apply_seed(page, test.get("seed"))
+    if not ok:
+        return ("fail", detail)
     start = test.get("start")
     if start:
         page.evaluate("(id) => { if (typeof setProtoScreen === 'function') setProtoScreen(id); }", start)
@@ -469,7 +623,7 @@ def _run_scenario(page, console_errors, test):
 # ─────────────────────────────────────────────────────────────────────────────
 # Modes
 # ─────────────────────────────────────────────────────────────────────────────
-def run_functional(reg_path, story_filter, json_out):
+def run_functional(reg_path, story_filter, json_out, attach=None):
     reg = _load_json(reg_path)
     tests = list(_iter_test_scenarios(reg, story_filter))
     if not tests:
@@ -482,19 +636,37 @@ def run_functional(reg_path, story_filter, json_out):
     sync_playwright = _require_playwright()
     findings, results = [], []
     with sync_playwright() as p:
-        with Server(reg_path) as srv:
+        with _transport(reg_path, attach) as srv:
             browser, page, cerr = _open_page(p, srv.url)
             page.evaluate(_TOAST_OBS_JS)
+            roles = (reg.get("meta") or {}).get("roles") or []
+            fallback = _default_role_id(reg, roles)
             for (story, sc, test) in tests:
                 title = sc.get("text") or story.get("title") or "(scenario)"
-                status, detail = _run_scenario(page, cerr, test)
-                sc["lastResult"] = {"status": status, "detail": detail, "ranAt": _now_z()}
-                results.append({"story": story.get("title"), "scenario": title,
-                                "status": status, "detail": detail})
-                if status == "fail":
-                    findings.append(Finding(
-                        ERROR, "T-FUNC",
-                        f"flow.stories[{story.get('title')!r}] scenario {title!r}", detail))
+                # D-27: honour test.roles — run the scenario once per declared role. The field is
+                # already authored on real projects and was being discarded, so every scenario ran
+                # as whatever role happened to be active and reported `pass` for an unknown one.
+                want = [r for r in (test.get("roles") or []) if isinstance(r, str)] or [fallback]
+                per_role = []
+                for rid in want:
+                    status, detail = _run_scenario(page, cerr, test, role_id=rid)
+                    per_role.append({"role": rid, "status": status, "detail": detail})
+                    results.append({"story": story.get("title"), "scenario": title,
+                                    "role": rid, "status": status, "detail": detail})
+                    if status == "fail":
+                        findings.append(Finding(
+                            ERROR, "T-FUNC",
+                            f"flow.stories[{story.get('title')!r}] scenario {title!r} "
+                            f"as role {rid!r}", detail))
+                # lastResult records WHICH role produced the verdict; a scenario is only `pass`
+                # when every declared role passes.
+                worst = ("fail" if any(r["status"] == "fail" for r in per_role)
+                         else "skip" if any(r["status"] == "skip" for r in per_role) else "pass")
+                sc["lastResult"] = {
+                    "status": worst, "ranAt": _now_z(),
+                    "detail": "; ".join(f"{r['role']}: {r['status']}" for r in per_role),
+                    "roles": per_role,
+                }
             browser.close()
 
     _write_registry(reg_path, reg)  # persist lastResult verdicts (read by the UX-tab glyph)
@@ -517,7 +689,7 @@ def _default_role_id(reg, roles):
     return roles[0].get("id") if roles else None
 
 
-def run_roles(reg_path, json_out):
+def run_roles(reg_path, json_out, attach=None):
     reg = _load_json(reg_path)
     roles = ((reg.get("meta") or {}).get("roles")) or []
     if not roles:
@@ -528,9 +700,9 @@ def run_roles(reg_path, json_out):
 
     screens = reg.get("screens") or []
     sync_playwright = _require_playwright()
-    findings, checked = [], []
+    findings, checked, ran = [], [], []
     with sync_playwright() as p:
-        with Server(reg_path) as srv:
+        with _transport(reg_path, attach) as srv:
             browser, page, cerr = _open_page(p, srv.url)
             if page.evaluate("() => typeof setProtoRole") != "function":
                 findings.append(Finding(
@@ -571,13 +743,31 @@ def run_roles(reg_path, json_out):
                                     ERROR, "T-ROLE-EL", f"role {rid!r} screen {sid!r}",
                                     f"{g['hiddenForAdmin']} data-roles element(s) hidden despite admin bypass"))
                             checked.append({"role": rid, "screen": sid, "gatedEls": g["total"]})
+
+                # D-27: --roles RUNS the authored scenarios per role. Visibility sampling above
+                # answers "is a data-roles element hidden"; it cannot answer "does this role's
+                # flow work", and a role-gated write control carries no data-roles attribute at
+                # all — the render body omits it. Running the scenarios is the only way to see
+                # that. `present`/`absent` expects are what a scenario uses to assert it.
+                for (story, sc, test) in _iter_test_scenarios(reg, None):
+                    title = sc.get("text") or story.get("title") or "(scenario)"
+                    want = [r for r in (test.get("roles") or []) if isinstance(r, str)] \
+                        or [r.get("id") for r in roles]
+                    for rid in want:
+                        status, detail = _run_scenario(page, cerr, test, role_id=rid)
+                        ran.append({"scenario": title, "role": rid, "status": status})
+                        if status == "fail":
+                            findings.append(Finding(
+                                ERROR, "T-ROLE-FUNC",
+                                f"scenario {title!r} as role {rid!r}", detail))
             browser.close()
 
     if json_out:
-        _write_json(json_out, {"mode": "roles", "roles": len(roles),
-                               "checked": checked, "findings": _findings_json(findings)})
+        _write_json(json_out, {"mode": "roles", "roles": len(roles), "checked": checked,
+                               "scenarios": ran, "findings": _findings_json(findings)})
     _report(findings, "test_run.py --roles",
-            f"role gating verified across {len(roles)} role(s) — {reg_path}")
+            f"role gating verified across {len(roles)} role(s); "
+            f"{len(ran)} scenario run(s) — {reg_path}")
 
 
 def _check_health(url):
@@ -605,7 +795,7 @@ def _check_health(url):
     return (True, "server healthy (GET / 200, /__pb_events SSE)")
 
 
-def run_server(reg_path, json_out):
+def run_server(reg_path, json_out, attach=None):
     reg = _load_json(reg_path)
     base_dir = os.path.dirname(os.path.abspath(reg_path))
     screens = reg.get("screens") or []
@@ -617,7 +807,7 @@ def run_server(reg_path, json_out):
     health = {}
     sync_playwright = _require_playwright()
     with sync_playwright() as p:
-        with Server(reg_path) as srv:
+        with _transport(reg_path, attach) as srv:
             ok, detail = _check_health(srv.url)
             health = {"ok": ok, "detail": detail}
             if not ok:
@@ -663,7 +853,7 @@ def run_server(reg_path, json_out):
             f"server + {len(screens)} screen(s) healthy, reachability clean — {reg_path}")
 
 
-def run_explore(reg_path, json_out):
+def run_explore(reg_path, json_out, attach=None):
     reg = _load_json(reg_path)
     base_dir = os.path.dirname(os.path.abspath(reg_path))
     screens = [s for s in (reg.get("screens") or []) if isinstance(s, dict)]
@@ -759,19 +949,28 @@ def run(argv=None):
     ap.add_argument("--explore", action="store_true", help="print a reachability / dead-end / untested report")
     ap.add_argument("--story", default=None, help="limit --functional to one story (id or title)")
     ap.add_argument("--json", dest="json_out", default=None, help="write a machine-readable result JSON")
+    # TRANSPORT, not a mode (D-27). `--server` is and stays a MODE (server health + per-screen
+    # render + reachability); repurposing it into a transport flag would be a repurpose-in-place,
+    # which AGENTS.md forbids. `--attach` is the transport the docs were really describing: it
+    # composes with every mode instead of replacing one, and it never boots a second preview.
+    ap.add_argument("--attach", nargs="?", const="", default=None, metavar="URL",
+                    help="reuse an already-running /pb:preview server instead of booting a headless "
+                         "one; bare --attach discovers it from .claude/launch.json or 127.0.0.1")
     args = ap.parse_args(argv)
 
     reg_path = os.path.abspath(args.registry)
+    # Mode and transport are independent: any mode may be combined with --attach.
+    attach = _resolve_attach(args.attach, reg_path) if args.attach is not None else None
 
     # Mode precedence: explore > server > roles > functional (the default).
     if args.explore:
-        run_explore(reg_path, args.json_out)
+        run_explore(reg_path, args.json_out, attach=attach)
     elif args.server:
-        run_server(reg_path, args.json_out)
+        run_server(reg_path, args.json_out, attach=attach)
     elif args.roles:
-        run_roles(reg_path, args.json_out)
+        run_roles(reg_path, args.json_out, attach=attach)
     else:
-        run_functional(reg_path, args.story, args.json_out)
+        run_functional(reg_path, args.story, args.json_out, attach=attach)
 
 
 if __name__ == "__main__":
