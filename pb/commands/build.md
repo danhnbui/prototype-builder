@@ -51,7 +51,23 @@ The **trio** = a **screen**, a **component**, or **logic** (states, validation, 
    Violates  #N — "<principle text>"   because <one-line reason>
    Approve override? (yes / no / revise)
    ```
-   On `yes` → append an entry to `memory/decisions.md`, then proceed. On `no/revise` → stop / adjust.
+   **Before you print that prompt, read what was already decided.** Grep `memory/decisions*.md`
+   for the slice id being touched (and for the principle number). If a past entry covers it, show
+   it above the prompt:
+   ```
+   ↩ ALREADY DECIDED  <date> — <title>
+     Decision  <the decision line>
+     ...proposing the opposite? Say so in the new entry and reference this one.
+   ```
+   This is not optional politeness. Three commands write this log and — until this line existed —
+   none read it, which is why a real project accumulated entries marked SUPERSEDED on the same day
+   they were written. The glob is `decisions*.md`, not `decisions.md`: rotation moves older entries
+   to dated siblings, and a bare name silently skips them.
+
+   On `yes` → append an entry to `memory/decisions.md` **in the template's shape** (`## <date> —
+   <title>`, then `- **Decision:**`, `- **Why:**`, `- **Alternatives:**`, `- **Affects:**`). Keep the
+   field names exactly as written; a grep that has to guess between `Verified` and `Verification`
+   is a grep that misses. On `no/revise` → stop / adjust.
 2. **Stack Lock.** Honor `memory/constitution.md` → Stack Lock. A language/framework switch needs
    explicit approval **and** a `decisions.md` entry.
 3. **DS / component.** For any new or changed component, run **`/pb:build-check-design-system`**
@@ -69,6 +85,10 @@ into just that entry and rewrites the file, so no other slice enters context. Ch
   and no handoff docs (v schema 10).
 - **screen** → patch the `screens[]` entry: add/zorder an element, change `layout`, a `label`, a
   `logicNotes` line. Handoff docs → `spec/screens/<id>.json`; render → `render/screens/<id>.js`.
+- **new screen, and `registry.ia.jobs[]` is populated** → check whether any job's `screens[]`
+  names it. If none does, say so plainly: `⚠ no declared job is served by <id> — add one to
+  registry.ia.jobs[], point an existing job at it, or say why it exists.` Never block on it; a
+  screen without a job is a question, not an error.
 - **new component / screen** → append an entry with a **kebab-case** `id`, a `renderFn`
   (`renderCmp{PascalCase}` / `renderScreen{PascalCase}`), and a `renderSrc`
   (`render/components/<id>.js` / `render/screens/<id>.js`); create that `.js` body file with the render

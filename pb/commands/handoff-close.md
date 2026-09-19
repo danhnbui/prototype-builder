@@ -15,7 +15,8 @@ handoff/
     render/           # the render body files (renderSrc targets — required)
     design-system/
     memory/constitution.md
-    memory/decisions.md
+    memory/decisions*.md      # the log AND its rotated siblings — a bare
+                              # `decisions.md` silently drops rotated history
 ```
 
 Default (no flag) writes **all three**. `--people` writes only the view-only prototype;
@@ -51,7 +52,9 @@ Copy into `handoff/bundle/`, preserving the shape `/pb:init --import` expects:
   older schema and suggest `/pb:update-version`)
 - `render/` — the body files (**required**, or `renderSrc` references dangle)
 - `design-system/`
-- `memory/constitution.md` · `memory/decisions.md` (the why + the locks)
+- `memory/constitution.md` · `memory/decisions*.md` (the why + the locks). **The glob is
+  load-bearing.** Rotation moves older entries to dated siblings (`decisions-2026.md`), so a bare
+  `decisions.md` ships a hand-off whose history stops at the last rotation — silently.
 
 `/pb:init --import handoff/bundle` ingests this to continue the work in a fresh project.
 
@@ -69,7 +72,8 @@ view-only snapshot (never hand-edit it), and how to continue building from `bund
 ## NEVER
 - NEVER ship a view-only `prototype.html` with authoring CTAs visible — must set `config.viewOnly`.
 - NEVER hand off a stale render — `--render` first.
-- NEVER omit `constitution.md` / `decisions.md` from the bundle (they carry the why + the locks).
+- NEVER omit `constitution.md` / `decisions*.md` from the bundle (they carry the why + the locks).
+- NEVER narrow that glob to `decisions.md` — rotated siblings would vanish from every hand-off.
 - NEVER hand-edit anything under `handoff/` — regenerate by re-running `/pb:handoff-close`.
 
 > **Skill degrade (NS6).** If a step's tool or template fails to load, say so explicitly and

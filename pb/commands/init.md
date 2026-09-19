@@ -69,6 +69,36 @@ Never start empty. Source it one of two ways:
 
 Write a short PRD (objective + key screens + success criteria) to `memory/prd.md`.
 
+## 1b · Jobs intake — what each role needs done
+
+Seeds `registry.ia`, which drives the **Information Architecture** sub-tab: every job a role needs
+done, and the screens that serve it. A job with no screen is unfinished work; a screen with no job
+is a question. Neither is visible unless the jobs are written down.
+
+**Source.** Extract from the PRD when one was supplied, then confirm each with the user. Otherwise
+ask per role, a few at a time — not one long interrogation.
+
+**Shape.** Three fields, never one sentence. Splitting them is what lets the tab derive what each
+layer of the product is *for*:
+
+```json
+{ "id": "j01", "roles": ["hr"], "priority": "P1",
+  "when": "a new unit is created or the previous cycle just closed",
+  "want": "create a review cycle for that unit",
+  "so":   "the review calendar never has a gap" }
+```
+
+It reads back as *When …, I want to …, so I can …*. Show the user that worked example before asking
+— a job written as a feature name ("export to Excel") produces a useless answer, and the outcome
+clause is what the tab composes into each layer's purpose.
+
+**Then one sentence per layer.** After the screens exist, ask what each navigation layer is *for*
+(e.g. layer 0 "pick a scope of responsibility", layer 1 "decide about one unit or one person").
+Layer membership, the parent/child edges and the overlays are **derived** from the sidebar and the
+render bodies — never ask for those, and never store them.
+
+Leave `screens: []` on every job here. `/pb:plan` maps jobs to screens once the screens exist.
+
 ## 2 · Set the locks (confirm with the user)
 - **Stack Lock** — language + framework (e.g. TypeScript + React).
 - **Design System Lock** — name + **platform** (`web` / `ios` / `android` / `desktop`) + the

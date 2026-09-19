@@ -31,6 +31,26 @@ excerpt · a one-line reason.
 
 If `--save` is in `$ARGUMENTS`, also write the report to `memory/drift-reports/<YYYY-MM-DD-HHMMSS>.md`.
 
+## 3b · Project health (read-only, never gates)
+
+Run the ranked health report and print it under the drift report:
+
+```
+python3 "${CLAUDE_PLUGIN_ROOT}/tools/lint_registry.py" registry.json --report
+```
+
+It **always exits 0** — it ranks, it never fails a build. It gives a histogram by finding code, the
+items carrying the most findings, the shape metrics (registry size, oversized render bodies, the
+largest slice, the decisions-log size), and a "fix first" list. Thresholds come from an optional
+`memory/doctor.json`; absent, the built-in defaults apply.
+
+Two lines in its output are **information, never defects**, and should be reported as such:
+unreferenced tokens (a design system ships full ramps) and a present-but-all-zero `staleness` slice
+(deprecated — nothing writes it). Do not propose "fixes" for either.
+
+At real scale a flat finding list is unreadable — on a live project lint emits 87 warnings — so the
+ordering is the product here, not the detection.
+
 ## 4 · Shell coherence (advisory · read-only)
 
 A separate, advisory check that does **not** touch the trio and **never** blocks. It catches the case

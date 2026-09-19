@@ -12,6 +12,22 @@ Invoke `ref-prd` (structured context), `think-layout` (structure), `think-logic`
 `memory/spec.md` + `memory/constitution.md`. Produce `memory/plan.md`: the approach per user story,
 honoring the Stack + DS locks.
 
+## 1b · Map jobs to screens
+
+If `registry.ia.jobs[]` is populated (seeded by `/pb:init`), fill each job's `screens[]` with the
+screen ids that serve it. A job may be served by several screens, and a screen may serve several
+jobs — neither is a problem.
+
+Two outcomes are worth saying out loud in the plan rather than leaving for someone to notice:
+
+- **A job no screen serves** is scope the plan has not covered. List it, and either plan a screen for
+  it or fold it into one explicitly.
+- **A screen no job points at** is a screen nobody has justified. Ask whether it is needed.
+
+Also link the two directions: give each `flow.stories[]` entry a `jobs[]` list of the ids it
+exercises, so a flow path and a standing need reference each other. Leave the story's prose `jtbd`
+untouched; it is a narrative, and a job is a standing need — they are not the same thing.
+
 ## 2 · Task breakdown (grouped by tab)
 Invoke `agent-orchestrate-tasks`. Produce `memory/tasks.md` — tasks grouped by the 4 prototype tabs
 (Prototype · Project Summary · UX Design · Data) **plus the design-system site** (where components land).
