@@ -9,6 +9,43 @@ Phase A (solution discovery) logs decisions here as each problem is walked throu
 
 ---
 
+## D-29 · Flow and Data ride the trio: `/pb:build` reconciles them, the Sync button goes — 2026-09-20
+**Problem:** the `flow` and `erd` slices were documented "decoupled, manual — never auto-fires", so
+nothing refreshed them as the prototype evolved. A build session that added screens left both tabs
+describing a product that no longer existed. The only nudge was a **Sync** button that synced nothing —
+it called `openCopyPopover('/pb:flow')`, copying a command string to the clipboard for a human to paste.
+A reminder dressed as a control.
+**Decision:** the trio classifier drives one more thing. After a **trio-touching** patch, `/pb:build`
+reconciles `flow` and `erd` in the same turn (canonical rule: `CLAUDE.md` § *Auto-sync*, `build.md` §4.5,
+once per wave in `/pb:orchestrate` §2.3). Four bounds keep it cheap: **reconcile, never regenerate**
+(read the patch, never `memory/spec.md`); **populated slices only** (first authoring stays with
+`/pb:flow` / `/pb:data`); **never re-author** (rewriting a scenario would discard the `lastResult`
+`/pb:test` wrote); **defer restructuring** (past 9 nodes, a new flow, a new entity with relationships →
+name the owning command). Non-trio tweaks skip it exactly as they skip the gate — rule 3 is unchanged.
+Both Sync buttons and the dead `.meta-tab-stale` badge are removed from the shell.
+**Why:** the cost of a reconcile scales with how structural the change was, and structural changes
+already pay for a gate. The common trio write (a component body, a prop, a label) reconciles to nothing;
+the rare one (a new screen) pays a small insertion. Nothing ever re-derives, so the token levers hold.
+The button had to go with it — a control that only copies text is worse than no control once the thing
+it nagged about happens by itself.
+**Alternatives rejected:** firing a full `/pb:flow` + `/pb:data` regeneration every turn (undercuts the
+three load-bearing rules — flow.md's five-lens QA pass and data.md's 5 guardrails are the expensive
+things this design exists to avoid); syncing only at `--render` (tabs stay stale through a multi-tweak
+session); letting the reconcile populate an empty slice (flipping `populated` is a one-way door that
+buries the empty-state CTA behind a one-node diagram); deleting `staleness` from the registry (breaks
+`AGENTS.md` §3 — see the D-19 amendment below).
+**Affects:** `CLAUDE.md`, `prototype-builder.md`, `pb/commands/{build,flow,data,plan,orchestrate}.md`,
+`pb/agents/pb-{flow,data}.md`, `pb/skills/agent-dispatch/SKILL.md`, `pb/template/prototype.html`,
+`pb/tools/slice.py`, `tests/slice_cli.py`, `README.md`, `docs/{architecture,data-flow}.md`
+**Reviewed via:** golden-fixture render (Sync CTAs 2 → 0, `meta-tab-stale` 3 → 0, `pbStalenessGap`
+2 → 0, `sync-button` 9 → 7 — Plan-a-screen and Push-to-Figma survive); test sweep 20 pass / 3 skip /
+0 fail, unchanged; `slice.py` gained `flow`/`erd` dict kinds (+11 assertions), which exposed and fixed a
+real bug — `cmd_list`'s fallback hardcoded the tokens tree, so every non-`meta` dict kind listed token
+names.
+**Caveat:** no deterministic test can assert that a model reconciled a flow. The behavior rests on the
+`build.md` §4.5 rules and must be re-rehearsed by hand (trio / non-trio / unpopulated) whenever that
+step is edited — the same footing as every other command rule in this repo.
+
 ## D-28 · The logic contract (schema 11): derived by default, two verbs that earned it, and a lossless migration — 2026-09-19
 **Problem:** #1 deep half — the logic contract + runtime verbs
 **Decision — the contract.** A sidecar `logic/{components,screens}/<id>.json` referenced by `logicSrc`,
@@ -247,6 +284,10 @@ pipeline, so the envelope has to be real before that lands.
 **Reviewed via:** timings above, taken through the repo's own `render.py` on the real registry
 
 ## D-19 · `staleness` is deprecated, not deleted — 2026-09-19
+**Extended by [D-29] (2026-09-20):** the shell's `pbStalenessGap` reader and the `.meta-tab-stale` badge
+are **removed** — once `/pb:build` keeps `flow`/`erd` in sync there is nothing for a staleness badge to
+report. The registry field is unchanged: still present, still deprecated, still never written, still
+reported as information by lint. Removal from the contract still waits for a major release.
 **Problem:** #3 project health — a dead slice
 **Decision:** Stop seeding `staleness` in `registry.template.json`, mark it deprecated in the schema
 notes, and leave the shell's `pbStalenessGap` reader tolerant of its absence (it already returns 0).

@@ -114,7 +114,46 @@ Two more rules:
 - **`meta.device`** (`'desktop'|'tablet'|'mobile'`) sets the Prototype's default device frame. It's seeded at
   `/pb:init`; change it here only if the prototype's target form factor changes.
 
-## 4.5 · Validate the contract (advisory, after every patch)
+## 4.5 · Auto-sync the flow + erd slices (trio writes only)
+A trio write changed what the product *is*, so the two slices that describe it move with it — same
+turn, no Sync button, no second command. Apply the **Auto-sync** rules from `CLAUDE.md` (canonical).
+Non-trio tweaks (step 2) **skip this**, exactly as they skip the gate.
+
+**Reconcile, never regenerate.** Read the patch you just applied — not `memory/spec.md`, not
+`memory/plan.md` (that is `/pb:flow` / `/pb:data`'s job, and it is the expensive one).
+
+| The patch did | `flow` | `erd` |
+|---|---|---|
+| added a screen | one node in its shape + an edge per `data-nav`/`data-go`/`data-redirect` target; append a story stub (`title`/`priority`/`jtbd`/`path`/`nodes` + one `function` scenario for the happy path) | — |
+| removed a screen | drop its node, repair the edges that pointed at it, drop or re-path any story whose `nodes[]` names it | — |
+| renamed a screen | rename the node label; update the affected `path` strings | — |
+| changed navigation | add / remove / re-point that one edge | — |
+| added or changed branching logic (validation, a role gate, a conditional) | add or adjust the decision node and its `-- Yes -->` / `-- No -->` branches | — |
+| added a data-bearing field | — | append its `{ entity, field, type, example, notes }` row; a new entity arrives as a **stub** (PK + this field) with a `warnings[]` line |
+| removed a data-bearing field | — | drop that row |
+| anything else — a component body, a prop, a label | — | — |
+
+**Read narrowly.** `slice.py get flow mermaid` is ~15 lines and is all you need to place a node. Do
+**not** pull `flow.stories[].scenarios[]` into context to append a story, and read only the touched
+entity's rows out of `erd.table[]`.
+
+### NEVER, in this step
+- NEVER touch an unpopulated slice. `flow.populated` / `erd.populated` false → skip and say so in one
+  line. Flipping `populated` here buries the empty-state CTA behind a one-node diagram.
+- NEVER re-author. Existing `scenarios[]`, `jtbd`, priorities, coverage warnings, entities and rows stay
+  exactly as written — rewriting a scenario silently discards the `lastResult` `/pb:test` wrote. No second
+  five-lens QA pass. No re-running the 5 ERD guardrails across the model — guardrails 1–4 only, on the
+  entity you touched only (guardrail 5 is spec-wide and stays with `/pb:data`).
+- NEVER restructure. If the reconcile is bigger than an insertion — the flow would pass 9 nodes, it needs
+  a new `flows[]` entry, or the entity needs relationships — **stop** and print the owning command:
+  `↻ flow needs restructuring (10 nodes) — run /pb:flow`.
+- NEVER render, NEVER re-gate. This writes registry slices only. The gate (step 3) already ran for the
+  patch; a representation of an approved change is not a second decision.
+
+**Say it in one line.** Wrote → `↻ synced  flow +1 node (checkout) +1 story · erd +1 field (Order.total)`.
+Deferred → one line naming the command. Nothing to reconcile → **silent**.
+
+## 4.6 · Validate the contract (advisory, after every patch)
 Run the contract validator on the patched registry — **read-only, no render** (so the
 token levers NS2/NS3 stay intact). From the project root:
 ```

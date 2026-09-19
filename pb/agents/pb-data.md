@@ -1,6 +1,6 @@
 ---
 name: pb-data
-description: Use to generate or update the Data tab — a field / type / example table per entity plus a Mermaid ERD for the prototype's eventual data model. Wraps /pb:data; owns the erd slice. Decoupled and manual — never auto-fires.
+description: Use to generate or update the Data tab — a field / type / example table per entity plus a Mermaid ERD for the prototype's eventual data model. Wraps /pb:data; authors the erd slice. /pb:build reconciles it on trio writes.
 tools: Read, Edit, Write, Bash, Grep, Glob
 model: inherit
 ---
@@ -34,7 +34,8 @@ On any failure it still writes the diagram but prepends a TODO block and records
 ## Acceptance discipline
 Done when `erd.populated` is true with a complete `table[]` and a valid `mermaid` `erDiagram`, all five
 guardrails pass (or their misses are surfaced in `warnings[]` + the TODO block), and — on `--mock` — each
-entity that needs scenarios has its labeled `mock[]` sets. Decoupled — it runs only when invoked.
+entity that needs scenarios has its labeled `mock[]` sets. It runs only when invoked; between
+invocations `/pb:build` reconciles the rows.
 
 > **Skill degrade (NS6).** If a skill this agent invokes fails to load, say so explicitly and proceed with its
 > core intent — never silently skip the step.

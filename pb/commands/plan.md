@@ -41,8 +41,10 @@ Invoke `agent-orchestrate-tasks`. Produce `memory/tasks.md` — tasks grouped by
 - **slice** — the one registry slice it touches: `screen` · `component` · `logic` · `tokens` · `flow` · `erd` · `meta`.
 
 These five per-task fields are what `/pb:orchestrate` reads to dispatch each task to its agent in dependency
-waves. Bake in the sync rules: the **trio** auto-syncs on `/pb:build`; Flow / Data / handoff-screen are manual
-(`/pb:flow`, `/pb:data`).
+waves. Bake in the sync rules: the **trio** auto-syncs on `/pb:build`, and `flow` / `erd` ride it — reconciled
+in the same turn (`CLAUDE.md` § *Auto-sync*). Plan a `flow` or `erd` task only for work the reconcile will
+**not** do: first population, a re-authored QA pass, a restructured diagram, a new entity's relationships. A
+wave that carries such a task **owns** that slice for the wave — the reconcile stands down.
 
 ## Result
 `memory/plan.md` + `memory/tasks.md` (per-tab tasks with acceptance · skill · agent · deps · slice).

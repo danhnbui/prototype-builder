@@ -1,6 +1,6 @@
 # Data flow — Product Builder v1.3.0
 
-How data moves through Product Builder: the cheap build loop, the Tab-2 sync fold, the decoupled
+How data moves through Product Builder: the cheap build loop, the Tab-2 sync fold, the flow/erd authoring
 syncs, and the two exits. See [architecture](architecture.md) for the static picture and the
 [router](../CLAUDE.md) for the load-bearing rules.
 
@@ -83,23 +83,27 @@ flowchart LR
 
 These bodies write data and **do not render** — the view catches up at the next `--render`.
 
-## The decoupled syncs (UX Design + Data)
+## Authoring flow + erd (and the loop's reconcile)
 
-Flow (Tab 3) and Data (Tab 5) are **decoupled** — they never auto-fire from `/pb:build` and run no
-drift check. Each writes its own slice of the registry, then renders.
+Flow (Tab 3) and Data (Tab 5) are **authored** by their own commands and run no drift check. Each writes
+its own slice of the registry, then renders. Between those invocations they **ride the trio**: a
+trio-touching `/pb:build` reconciles both slices in the same turn — inserting nodes, repairing edges and
+appending rows, never re-authoring (`CLAUDE.md` § *Auto-sync*).
 
 ```mermaid
 flowchart LR
-  subgraph flow["/pb:flow (manual)"]
+  subgraph flow["/pb:flow (authoring)"]
     F1["read memory/spec.md + plan.md"] --> F2["build ONE Mermaid wireflow<br/>+ user-story test checklist"]
     F2 --> F3["write registry.flow<br/>{ populated, mermaid, stories[], wireflowScreens, wireflowNotes }"]
   end
-  subgraph erd["/pb:data (manual)"]
+  subgraph erd["/pb:data (authoring)"]
     E1["read spec.md + plan.md;<br/>extract entities"] --> E2["field/type/example table<br/>+ Mermaid erDiagram (5 guardrails)"]
     E2 --> E3["write registry.erd<br/>{ populated, table[], mermaid, warnings[] }"]
   end
   F3 --> RENDER["/pb:build --render"]
   E3 --> RENDER
+  BUILD["/pb:build (trio write)"] -- "reconcile: nodes, edges, rows" --> F3
+  BUILD -- "reconcile" --> E3
   RENDER --> VIEW["UX Design / Data tabs refreshed"]
 ```
 

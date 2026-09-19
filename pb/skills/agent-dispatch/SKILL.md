@@ -41,15 +41,21 @@ finish and gate green.
    any `render/<kind>/<id>.js` body) — **not** to write `registry.json`.
 2. **Apply serially.** The coordinator applies patches **one at a time** to `registry.json` (concurrent
    writes race the file and lose edits). Trio writes still honor the `/pb:build` drift / Stack / DS gate.
-3. **Render once per wave.** After all of the wave's patches land, run `render.py` **exactly once**. Never
-   render per task (token lever NS2 — the win is batching).
-4. **Acceptance gate.** Dispatch **pb-tester** (`/pb:test` on the wave's acceptance / scenarios) **and**
+3. **Sync once per wave.** After the patches land, the coordinator reconciles `flow` and `erd` **once**
+   for the whole wave (`CLAUDE.md` § *Auto-sync*) — from the patches it just applied, never by dispatching
+   an agent, never per task. **Skip a slice the wave already owns:** a `flow` (or `erd`) task in the wave
+   *is* that slice's sync. Skip entirely when every task was a non-trio slice (`tokens`, `meta`).
+4. **Render once per wave.** After all of the wave's patches land and are synced, run `render.py`
+   **exactly once**. Never render per task (token lever NS2 — the win is batching).
+5. **Acceptance gate.** Dispatch **pb-tester** (`/pb:test` on the wave's acceptance / scenarios) **and**
    **pb-reviewer** (`/pb:check-drift` + `lint_registry.py`). A red gate **stops the loop** — report and hand back;
    do not proceed to the next wave.
 
 ## Rules
 - **Serialize every registry write** — one patch at a time; agents return patches, they don't write.
 - **Render once per wave** — never per task.
+- **Sync once per wave** — reconcile `flow`/`erd` after the patches, before the render; skip a slice a
+  task in the same wave authored.
 - **Gate every wave** — pb-tester + pb-reviewer between waves; never steamroll a red gate.
 - **Route by slice first** — skill only breaks the component / meta tie.
 - **Final fail-closed** — the plan isn't done until `lint_registry.py --strict` is clean.

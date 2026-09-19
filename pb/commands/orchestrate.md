@@ -25,7 +25,7 @@ with no unmet dependency; each later wave unlocks once its deps' waves complete.
 task ids, their `agent:` and `slice:`. Surface any `ERROR`/`WARN` (a missing dep id, a cycle, an unknown
 agent/slice) and **stop on a cycle** — an unschedulable plan can't run.
 
-## 2 · Per wave: dispatch → apply → render → gate
+## 2 · Per wave: dispatch → apply → sync → render → gate
 Invoke the **agent-dispatch** skill for the skill/slice→agent mapping and the wave discipline. Then, for
 each wave in order:
 
@@ -38,12 +38,18 @@ each wave in order:
 2. **Apply serially.** The coordinator applies each returned patch to `registry.json` **one at a time**
    (never concurrent writes — that races the file), writing any body files. Trio writes still honor the
    `/pb:build` gate (drift / Stack / DS) — a drift PAUSE here bubbles up to the user.
-3. **Render once.** After all of the wave's patches are applied, render **exactly once**:
+3. **Sync once.** After all of the wave's patches are applied, reconcile `flow` and `erd` **once** for
+   the whole wave (`CLAUDE.md` § *Auto-sync*) — never once per task. The **coordinator** does it, as one
+   more serial write, from the patches it just applied; it does not dispatch an agent (an agent would
+   re-read the slice it already knows how to change). **Skip a slice the wave already owns:** if the wave
+   contained a `flow` (or `erd`) task, that task *is* the sync — reconciling on top of it puts two writers
+   on one slice. Skip entirely when every task in the wave was a non-trio slice (`tokens`, `meta`).
+4. **Render once.** After the wave's patches are applied and synced, render **exactly once**:
    ```
    python3 "${CLAUDE_PLUGIN_ROOT}/tools/render.py" registry.json \
            "${CLAUDE_PLUGIN_ROOT}/template/prototype.html" prototype.html
    ```
-4. **Acceptance gate.** Dispatch **pb-tester** (run the wave's acceptance conditions / authored scenarios
+5. **Acceptance gate.** Dispatch **pb-tester** (run the wave's acceptance conditions / authored scenarios
    via `/pb:test`) and **pb-reviewer** (drift + contract sanity via `/pb:check-drift` + `lint_registry.py`). If the
    gate fails, **stop the wave loop**, report which task/acceptance failed, and hand back to the user — do
    not steamroll into the next wave on a red gate.
@@ -63,6 +69,8 @@ each wave acceptance-gated, and passing a final strict contract check. Next: `/p
 ## NEVER
 - NEVER apply two agents' patches concurrently — serialize every registry write.
 - NEVER render per task — render **once per wave** (token lever NS2).
+- NEVER reconcile per task — sync `flow`/`erd` **once per wave**, after the patches and before the render.
+- NEVER reconcile a slice a task in the same wave just authored — one writer per slice, per wave.
 - NEVER skip a wave's acceptance gate or proceed past a red gate.
 - NEVER let an agent write `registry.json` directly — agents return patches; the coordinator applies them.
 

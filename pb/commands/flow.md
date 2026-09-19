@@ -1,11 +1,13 @@
 ---
-description: Generate or update the UX Design / Flow tab — a Mermaid wireflow diagram plus a numbered user-story test checklist. Decoupled and manual; never auto-fires.
+description: Generate or update the UX Design / Flow tab — a Mermaid wireflow diagram plus a numbered user-story test checklist. The author of the flow slice; /pb:build reconciles it on trio writes.
 ---
 
 # /pb:flow
 
-Generate the **UX Design · Flow** content. **Decoupled** — only the user invokes it; it never
-auto-fires and runs no drift check (trio principles don't constrain flow representation).
+Generate the **UX Design · Flow** content. This command **authors** the slice — the whole wireflow and
+the full five-lens QA pass. `/pb:build` keeps it in agreement afterwards (`CLAUDE.md` § *Auto-sync*): it
+inserts nodes, repairs edges and appends story stubs on a trio write, and defers anything structural back
+here. It runs no drift check (trio principles don't constrain flow representation).
 
 ## Pre-write schema check
 Apply the **Schema compatibility** check from `CLAUDE.md` before writing to the registry. If
@@ -80,9 +82,10 @@ Set each story's **`path`** to its route through the flow (`"Start → Login →
 story highlights that path on the canvas. The runtime matches `path` tokens to the rendered node labels;
 add **`nodes`** (the exact Mermaid node ids the story traverses, e.g. `["Start","Login","Dashboard"]`) to
 make the highlight precise and robust. The canvas fills one viewport and self-fits — there are no W×H controls.
-Then `/pb:build --render`. The shell builds the tab from this data: the left sidebar has two sub-tabs —
-**User stories** (title / priority / jtbd / path) and **Test cases** (one checkbox per `scenarios[]` entry) —
-and the `.flow-doc-main` renders `flow.mermaid` with **straight orthogonal connectors** — the shell re-routes
+Then `/pb:build --render`. The shell builds two of the UX Design tab's four segments from this data:
+**User Flow** — the canvas plus a **User stories** aside (title / priority / jtbd / path) — and
+**Test Cases**, its own segment listing one checkbox per `scenarios[]` entry across every story.
+The canvas renders `flow.mermaid` with **straight orthogonal connectors** — the shell re-routes
 every edge as horizontal/vertical segments anchored at the nodes' 4 side-centers (forward edges run straight,
 back-edges route under both nodes), like a Figma board (not curved or zig-zag
 step). Nodes are colored by shape (start/end black · decision yellow · input purple · action/screen blue ·
@@ -94,7 +97,9 @@ A legend popover plus pan/zoom in one viewport with internal scroll.
 
 ## NEVER
 - NEVER violate a flow rule (defect, not style). NEVER omit the checklist (it's what makes the tab testable).
-- NEVER auto-fire from `/pb:build` or run a drift check — Tab 3 is decoupled.
+- NEVER run a drift check — a flow is a representation, not a trio decision.
+- NEVER treat `/pb:build`'s reconcile as a substitute for this command: it inserts nodes and repairs
+  edges; the flow rules, the story set and the five-lens pass are authored **here**.
 - NEVER use emojis / HTML / Title Case / ALL CAPS in node labels; NEVER mix flow directions.
 
 > **Skill degrade (NS6).** If a skill this command invokes fails to load, say so explicitly and proceed with its core intent — never silently skip the step.

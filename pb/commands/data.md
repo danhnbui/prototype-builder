@@ -1,10 +1,13 @@
 ---
-description: Generate or update the Data tab — a field / type / example table plus a Mermaid erDiagram for the prototype's eventual data model (5 guardrails — PK, FK, cardinality, naming, completeness). Decoupled and manual; never auto-fires.
+description: Generate or update the Data tab — a field / type / example table plus a Mermaid erDiagram for the prototype's eventual data model (5 guardrails — PK, FK, cardinality, naming, completeness). The author of the erd slice; /pb:build reconciles it on trio writes.
 ---
 
 # /pb:data
 
-Generate the **Data** tab. **Decoupled** — only the user invokes it; never auto-fires.
+Generate the **Data** tab. This command **authors** the slice — every entity, the full table and the 5
+guardrails. `/pb:build` keeps it in agreement afterwards (`CLAUDE.md` § *Auto-sync*): a new data-bearing
+field lands as a row, a removed one goes, and a genuinely new entity arrives as a stub for you to complete
+here.
 
 ## Flags
 - `--mock` — also generate `erd.mock[]` sample row-sets per entity (see step 5) so the Data Table view's
@@ -62,10 +65,11 @@ review scenarios per entity — **New user** (a just-signed-up state), **Empty**
 and **Returning** (an established, populated state). Selecting a chip swaps that table's Example column to the
 scenario's values (the variant uses `rows[0]` as representative; an empty set renders the no-data dashes). Row
 keys are the entity's field names (from `table[]`); values are realistic, type-appropriate examples. The
-"Schema" chip (always present) shows the field/type/example definition. Decoupled — only on `--mock`.
+"Schema" chip (always present) shows the field/type/example definition. Generated only on `--mock`.
 
 ## NEVER
 - NEVER use raw SQL types (varchar/int) — use the generic set.
-- NEVER auto-fire from `/pb:build` — Tab 5 is decoupled.
+- NEVER treat `/pb:build`'s reconcile as a substitute — it appends and drops rows; entities,
+  relationships and the 5 guardrails are authored **here**.
 - NEVER suppress guardrail warnings (they go in the TODO block + the confirmation).
 - NEVER omit the diagram even when guardrails fail — always write something; the warnings say what to fix.

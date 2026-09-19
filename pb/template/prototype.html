@@ -351,28 +351,6 @@
     }
 
     /* ========================================================================
-       META-TAB STALENESS BADGE — appears on Tab 3, Tab 4-S, Tab 5 nav buttons
-       ======================================================================== */
-    .meta-tab-stale {
-      display: inline-flex;
-      align-items: center; justify-content: center;
-      min-width: 18px; height: 18px;
-      padding: 0 5px;
-      margin-left: 8px;
-      background: #b45309;            /* amber-700 */
-      color: white;
-      border-radius: 9px;
-      font-size: var(--font-size-xxs); font-weight: var(--font-weight-bold);
-      font-family: var(--font-heading);
-      line-height: var(--line-height-xxs);
-      vertical-align: middle;
-    }
-    .meta-tab.active .meta-tab-stale {
-      background: white;
-      color: var(--brand);
-    }
-
-    /* ========================================================================
        HANDOFF — Tab 4 dual-view (Component / Screen) toggle + 7:3 grid
        ======================================================================== */
     .handoff-toggle {
@@ -600,26 +578,6 @@
     @media (min-width: 1081px) {
       .flow-layout { flex-direction: row-reverse; }
     }
-
-    .sync-bar {
-      display: flex; align-items: center; gap: 12px;
-      padding: 10px 12px 10px 14px;
-      background: #fffbeb;
-      border: 1px solid #fcd34d;
-      border-radius: var(--radius-small);
-      margin-bottom: 16px;
-      font-size: var(--font-size-s); font-family: var(--font-body); line-height: var(--line-height-p-s);
-      color: #854d0e;
-      flex-wrap: wrap;
-    }
-    .sync-bar-msg { flex: 1; min-width: 200px; }
-    .sync-bar-msg code {
-      font-family: 'SF Mono', Menlo, monospace;
-      background: rgba(133,77,14,0.1);
-      border-radius: 4px;
-      padding: 1px 5px;
-      font-size: var(--font-size-xs);
-    }
     .sync-button {
       height: 32px; padding: 0 14px;
       background: var(--brand);
@@ -642,7 +600,6 @@
     /* View-only (/pb:handoff-close --people): hide EVERY authoring affordance — the sync bars,
        the Figma push panel, and any empty-state build CTA (T3.3). */
     body.view-only .sync-button,
-    body.view-only .sync-bar,
     body.view-only .fp-panel,
     body.view-only .empty-state-actions,
     body.view-only .empty-state-cta,
@@ -2488,11 +2445,6 @@
         uiLogicTradeoffs: [],
         others: null,
         handoff: { view: 'component', organisms: [], screens: [], selectedScreenId: null, selectedElementId: null },
-        staleness: {
-          flow: { lastSyncedPromptCount: 0, currentPromptCount: 0 },
-          handoffScreen: { lastSyncedPromptCount: 0, currentPromptCount: 0 },
-          erd: { lastSyncedPromptCount: 0, currentPromptCount: 0 },
-        },
         flow: { populated: false },
         erd: { populated: false },
       };
@@ -2510,7 +2462,6 @@
       if (m.others !== undefined && m.others !== null) d.others = m.others;
       d.handoff.organisms = reg.components || [];
       d.handoff.screens   = reg.screens || [];
-      if (reg.staleness) d.staleness = reg.staleness;
       if (reg.flow) d.flow = reg.flow;
       if (reg.erd)  d.erd  = reg.erd;
       return d;
@@ -2747,20 +2698,16 @@
       const tabs = [
         ['prototype', 'Prototype'],
         ['summary',   'Project Summary'],
-        ['flow',      'UX Design',    'flow'],
-        ['erd',       'Data',         'erd'],
+        ['flow',      'UX Design'],
+        ['erd',       'Data'],
       ];
       const el = document.getElementById('meta-nav');
       if (!el) return;
       el.className = 'meta-nav';
-      el.innerHTML = tabs.map(([id, label, staleKey]) => {
-        const stale = staleKey && pbStalenessGap(staleKey);
-        const badge = stale > 0
-          ? `<span class="meta-tab-stale" title="Stale: ${stale} prompts since last sync">${stale}</span>`
-          : '';
-        return `<button class="meta-tab ${state.metaView === id ? 'active' : ''}"
-                 onclick="setMetaView('${id}')">${label}${badge}</button>`;
-      }).join('') + pbDsLink() +
+      el.innerHTML = tabs.map(([id, label]) =>
+        `<button class="meta-tab ${state.metaView === id ? 'active' : ''}"
+                 onclick="setMetaView('${id}')">${label}</button>`
+      ).join('') + pbDsLink() +
         `<button class="meta-sandbox" onclick="openSandboxMenu(this)" aria-haspopup="dialog" aria-label="Sandbox tools">
            <span class="meta-sandbox-dot" aria-hidden="true"></span><span>Sandbox</span>
            <svg class="meta-sandbox-car" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
@@ -2784,13 +2731,6 @@
          </a>`;
     }
 
-    /* Returns the # of prompts elapsed since this tab's last sync, or 0 if fresh. */
-    function pbStalenessGap(key) {
-      const s = (PB_DATA && PB_DATA.staleness && PB_DATA.staleness[key]) || null;
-      if (!s) return 0;
-      const gap = (s.currentPromptCount || 0) - (s.lastSyncedPromptCount || 0);
-      return gap > 0 ? gap : 0;
-    }
     function setMetaView(v) { state.metaView = v; render(); window.scrollTo({top: 0}); }
     function setSummarySubTab(v) { state.summarySubTab = v; renderMetaSummary(); }
     function setHandoffScope(v) { state.handoffScope = v; renderHandoff(); }
@@ -3451,6 +3391,7 @@
           'User Flow — one flowchart covering every job in Information Architecture, with the matching user stories beside it. Hovering a story highlights the path it satisfies.',
           'Test Cases — every scenario each user story must satisfy, by lens (UX · UI · Function · Business · System edge), with the coverage gaps and last-run results.',
           'Layers, edges and overlays in the site map are DERIVED from the sidebar and the render bodies — only each job and each layer’s purpose are authored.',
+          'The flow, its stories and the data model stay in step automatically — /pb:build reconciles them whenever a screen, component or logic changes.',
         ],
         commands: ['/pb:flow', '/pb:init', '/pb:plan'],
         skills: ['build-flow', 'craft-connect-flow'],
@@ -3470,7 +3411,7 @@
         title: 'Data',
         blurb: 'The entity-relationship model behind the prototype — field/type/example tables plus a Mermaid ER diagram with PK/FK/cardinality guardrails, for a future production build.',
         howItWorks: [
-          'Sync derives entities and relationships from your spec and screens.',
+          '/pb:data derives entities and relationships from your spec; /pb:build keeps the table in step as screens and fields change.',
           'Toggle Diagram / Table; click an entity to inspect its fields on the right.',
           'Mock data sets let you preview edge cases (empty / sparse / overflow) against the UI.',
         ],
@@ -4764,9 +4705,7 @@
 
     function renderMetaFlow() {
       const populated = !!(PB_DATA.flow && PB_DATA.flow.populated);
-      const cta = populated
-        ? `<button class="sync-button" onclick="openCopyPopover('/pb:flow', this)">Sync</button>` : '';
-      const header = pbPageHeader({ title: 'UX Design', infoKey: 'flow', cta });
+      const header = pbPageHeader({ title: 'UX Design', infoKey: 'flow' });
       const uxTabs = pbUxSubtabs();
       const view = pbUxView();
 
@@ -4795,7 +4734,7 @@
                 icon: EMPTY_STATE_ICONS.flow,
                 title: 'No user flow yet',
                 body: 'Build your user flow from the project spec. Claude generates one combined left-to-right Mermaid flowchart that covers every job in Information Architecture (including edge cases).',
-                ctaLabel: 'Generate user flow', command: '/pb:flow', label: 'Sync flow command copied',
+                ctaLabel: 'Generate user flow', command: '/pb:flow',
               })}</div>
             </div>
           </div>`;
@@ -6528,9 +6467,7 @@
        ========================================================================= */
     function renderMetaERD() {
       const populated = !!(PB_DATA.erd && PB_DATA.erd.populated);
-      const cta = populated
-        ? `<button class="sync-button" onclick="openCopyPopover('/pb:data', this)">Sync</button>` : '';
-      const header = pbPageHeader({ title: 'Data', infoKey: 'erd', cta });
+      const header = pbPageHeader({ title: 'Data', infoKey: 'erd' });
 
       if (!populated) {
         $('#app').innerHTML = `
@@ -6541,7 +6478,7 @@
                 icon: EMPTY_STATE_ICONS.erd,
                 title: 'No data model yet',
                 body: 'Build the entity-relationship diagram from your spec. Claude generates a Mermaid `erDiagram` with PK/FK/cardinality guardrails — for a future production implementation.',
-                ctaLabel: 'Generate ERD', command: '/pb:data', label: 'Sync ERD command copied',
+                ctaLabel: 'Generate ERD', command: '/pb:data',
               })}
             </div>
           </div>`;

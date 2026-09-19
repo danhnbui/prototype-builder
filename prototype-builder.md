@@ -40,7 +40,7 @@ tokens are applied onto `:root` at boot via `applyRegistryTokens`.
 | `tokens{}` | a **W3C DTCG** document — `{ "<name>": { $value, $type } }` (flat or nested groups + `{alias}` refs) | all (CSS vars) | `pb/tools/tokens.py` (+ the shell's `pbResolveTokens`) resolves it → CSS custom properties on `:root`; `$type ∈ color\|dimension\|fontFamily\|fontWeight\|number\|duration\|shadow\|…` (space/size/radius/fontSize all → `dimension`) |
 | `components[]` | organism objects | design-system site | the component library — shape below |
 | `screens[]` | screen objects | Prototype | shape below |
-| `staleness{}` | per-tab `{ lastSyncedPromptCount, currentPromptCount }` | flow / handoff / erd badges | |
+| `staleness{}` | per-tab `{ lastSyncedPromptCount, currentPromptCount }` | — | **Deprecated** (D-19): nothing writes it, and the shell stopped reading it in v1.12.0 (D-29). Kept in the registry per `AGENTS.md` §3; removal waits for a major release |
 | `flow{}` | `{ populated, mermaid, stories[], html? }` | UX Design | structured — shape below; `html` is legacy fallback only |
 | `erd{}` | `{ populated, table[], mermaid, warnings[], html? }` | Data | structured — shape below; `html` is legacy fallback only |
 
@@ -110,7 +110,7 @@ screens, so the prototype is a real flow:
 registry on each load and never written back. (This is why a click in the prototype never dirties
 `registry.json`.)
 
-### `flow` (UX Design tab — structured, decoupled)
+### `flow` (UX Design tab — structured, trio-synced)
 
 ```
 flow = { populated, mermaid, flows?: [ { name, mermaid } ],
@@ -139,7 +139,7 @@ screen blue · subprocess grey — recolored by detected shape), plus a legend p
   UI/flow does **not** cover yet. Rendered as a "Coverage gaps" callout above the test checklist so the user
   sees what's missing.
 
-### `erd` (Data tab — structured, decoupled)
+### `erd` (Data tab — structured, trio-synced)
 
 ```
 erd = { populated, table: [ { entity, field, type, example, notes } ], mermaid, warnings[],
@@ -194,7 +194,11 @@ demo + variant-grid enumerator + push dialog). Both sites share `pb/template/run
 
 A component edit re-renders **both sites** on `/pb:build` (the prototype's composed screens + the
 design-system site) — they're two projections of the one `registry.json`, never separately maintained.
-Flow and Data are **decoupled** — updated only by `/pb:flow` and `/pb:data`. _(folded from the v0.4.0 hooks: Phase 4–5)_
+Flow and Data **ride the trio**: every trio-touching `/pb:build` reconciles `flow` and `erd` in the same
+turn — a new screen gains a node and a story, a removed one loses them, a new data-bearing field gains an
+`erd.table[]` row. The reconcile **inserts and repairs; it never re-authors** — first-time population, the
+five-lens QA pass and any restructuring stay with `/pb:flow` and `/pb:data`. Canonical rule: `CLAUDE.md`
+§ *Auto-sync*. _(folded from the v0.4.0 hooks: Phase 4–5)_
 
 ## Component governance
 

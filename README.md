@@ -1,4 +1,4 @@
-# Product Builder v1.11.1
+# Product Builder v1.12.0
 
 A standalone, CLAUDE.md-native prototype builder for Claude Code. Turn a PRD into two interactive,
 self-documenting sites from **one `registry.json`** — a **4-tab prototype** (a real click-through flow
@@ -90,8 +90,8 @@ If `/pb:init` says Python isn't installed, it will tell you exactly how to fix i
 | `/pb:explore` | Parallel design options: N `pb-builder` agents propose alternatives → compare → keep one |
 | `/pb:build-check-design-system` | DS-first reuse → variant → local + naming contract |
 | `/pb:build-figma-handoff` | One-way registry → Figma (6 gates incl. G-FP6 render audit, DS-neutral, auto-layout) |
-| `/pb:flow` | UX Design / Flow — wireflow + test checklist (decoupled) |
-| `/pb:data` | Data — field/type/example table + ERD (decoupled) |
+| `/pb:flow` | UX Design / Flow — wireflow + test checklist (authoring; `/pb:build` keeps it in sync) |
+| `/pb:data` | Data — field/type/example table + ERD (authoring; `/pb:build` keeps it in sync) |
 | `/pb:check-drift` | Read-only drift audit of the trio vs the constitution |
 | `/pb:handoff-close` | Close out into one `handoff/` folder: view-only `prototype.html` + portable `bundle/` + a recipient `AGENTS.md` (`--people` / `--context` narrow it) |
 | `/pb:validate` | Wrap `prototype.html` in a runnable reference build (Vite/Next) — serves the single file, not a component export |
@@ -104,7 +104,7 @@ If `/pb:init` says Python isn't installed, it will tell you exactly how to fix i
 2. `/pb:specify` → `/pb:clarify` → `/pb:plan` — shape the spec, insights, and tasks.
 3. `/pb:preview` (start once, leave running) → `/pb:build` — the preview server live-reloads on every
    registry change; no `--render` needed during the build loop.
-4. `/pb:flow` / `/pb:data` — populate the UX Design and Data tabs (on demand).
+4. `/pb:flow` / `/pb:data` — author the UX Design and Data tabs once; `/pb:build` keeps them in sync from then on.
 5. `/pb:handoff-close --people` — a view-only artifact to share; `--context` to hand to another builder.
 6. `/pb:validate` — wrap the single-file prototype in a runnable reference build (Vite/Next) to host it.
    (It serves `prototype.html`; it does not export reusable component code — see the Engineering note below.)

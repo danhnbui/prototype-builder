@@ -1,4 +1,4 @@
-# Product Builder v1.11.1 — router (read first)
+# Product Builder v1.12.0 — router (read first)
 
 Standalone, CLAUDE.md-native prototype builder. **No SpecKit** — no `extension.yml`,
 `preset.yml`, or `after_*` hooks. State lives in `registry.json`; commands are native
@@ -22,8 +22,8 @@ the playbook, [prototype-builder.md](prototype-builder.md) (authored in Phase 2)
 | `/pb:explore` | Parallel design options: N `pb-builder` sub-agents propose alternatives → compare → keep one | P3 |
 | `/pb:build-check-design-system` | *(sub)* DS-first: reuse vs extend-variant vs build-local; enforce the naming contract | P3 |
 | `/pb:build-figma-handoff` | *(sub)* code→Figma via the **DS Bridge plugin** (declarative node JSON, default) — clarify gates G-FP0–G-FP5 + an offline G-FP6 audit on the emitted JSON; `registry_to_figma.py` lowers the composition tree to INSTANCE-by-key + token refs; the Figma MCP is a read-only **context** provider (match/enrich), never the writer; legacy MCP write behind `--mcp`. DS-neutral, auto-layout (R3), one-way | P3 |
-| `/pb:flow` | UX flow (Mermaid wireflow + test checklist) — decoupled, manual | P5 |
-| `/pb:data` | Data (field/type/example table + Mermaid ERD) — decoupled, manual | P5 |
+| `/pb:flow` | UX flow (Mermaid wireflow + test checklist) — **authors** the slice; `/pb:build` reconciles it on trio writes | P5 |
+| `/pb:data` | Data (field/type/example table + Mermaid ERD) — **authors** the slice; `/pb:build` reconciles it on trio writes | P5 |
 | `/pb:check-drift` | Read-only drift audit of the trio vs `constitution.md` | P5 |
 | `/pb:handoff-close` | Close out into one `handoff/` folder: view-only `prototype.html` + portable `bundle/` + a recipient `AGENTS.md`; `--people` / `--context` narrow to one piece | P6 |
 | `/pb:validate` | Wrap `prototype.html` in a runnable reference build (Vite/Next) — serves the single file, not a component export | P6 |
@@ -51,6 +51,29 @@ the playbook, [prototype-builder.md](prototype-builder.md) (authored in Phase 2)
    rendering **in memory** at ~0 model tokens — never the model, never written to disk unless `--write`.)*
 3. **Gate-skip on non-trio tweaks.** The drift / Stack / DS gate runs only when a change touches
    the **trio** — a screen, a component, or logic. Pure cosmetic tweaks skip it.
+
+## Auto-sync — flow + erd ride the trio
+
+The trio classifier (a screen, a component, logic) drives one more thing: after a **trio-touching**
+patch, `/pb:build` reconciles the `flow` and `erd` slices **in the same turn**. No Sync button, no
+second command. Non-trio tweaks — a token value, a copy reword, a prop default, spacing — **skip it**,
+exactly as they skip the gate. Rule 3 is unchanged.
+
+- **Reconcile, never regenerate.** The sync reads the patch it just applied — never `memory/spec.md`
+  or `memory/plan.md`. It inserts, deletes and re-points; everything the patch did not touch is left
+  exactly as authored.
+- **Populated slices only.** `flow.populated` / `erd.populated` false → skip. First-time authoring is
+  `/pb:flow` / `/pb:data`; they read the spec, the loop does not.
+- **Never re-author.** No rewriting an existing scenario (that discards the `lastResult` `/pb:test`
+  wrote), no second five-lens QA pass, no re-deriving an untouched entity.
+- **Defer restructuring.** Past 9 nodes, a new flow, a new entity with relationships → stop and name
+  the command that owns it. The loop inserts; it does not redesign.
+- **No render, no second gate.** The sync writes registry slices only — levers 1 and 2 hold, and the
+  gate already ran for the patch itself.
+- **One line when it writes, one line when it defers, silent on a true no-op.**
+
+This is the canonical text. `/pb:build`, `/pb:flow`, `/pb:data`, `/pb:plan` and `/pb:orchestrate`
+reference this section rather than re-stating it.
 
 ## One registry → two sites, one preview server
 
@@ -105,7 +128,7 @@ the upstream `.source.json` clone instead of the project's live components.)
 
 ## Memory layout (per project)
 
-- `registry.json` — the database: `tokens` (a **W3C DTCG** document — `{$value,$type}`, flat or nested-with-aliases; resolved to CSS vars by `pb/tools/tokens.py`), `components` (global refs + `local`; each carries a required atomic `level`), `screens`, `meta`, `staleness`, `flow`/`erd`. **Component-first / atomic law:** only `level:atom` render bodies emit raw HTML; molecules/organisms/screens are pure composition via `pbUse('<id>', props)` (enforced by `lint_registry.py` R-LEVEL/R-COMPOSE/R-LEVEL-ORDER, ERROR under `--strict`). Render code is **not** here — each component/screen's `renderSrc` points at a real body file.
+- `registry.json` — the database: `tokens` (a **W3C DTCG** document — `{$value,$type}`, flat or nested-with-aliases; resolved to CSS vars by `pb/tools/tokens.py`), `components` (global refs + `local`; each carries a required atomic `level`), `screens`, `meta`, `staleness` *(deprecated — nothing writes it, and the shell stopped reading it in v1.12.0; see D-19 / D-29)*, `flow`/`erd`. **Component-first / atomic law:** only `level:atom` render bodies emit raw HTML; molecules/organisms/screens are pure composition via `pbUse('<id>', props)` (enforced by `lint_registry.py` R-LEVEL/R-COMPOSE/R-LEVEL-ORDER, ERROR under `--strict`). Render code is **not** here — each component/screen's `renderSrc` points at a real body file.
 - `render/components/<id>.js` · `render/screens/<id>.js` — the render bodies (v1.4 schema 4): real, lintable `.js` files compiled into `prototype.html` by `render.py`. Edit these directly; the registry stays pure data.
 - `spec/components/<id>.json` · `spec/screens/<id>.json` — the handoff docs (**schema 10**): `anatomy`/`spec`/`usage`/`uiLogic` moved out of the registry (its bulkiest fields, ~half the file on a real project) into a sidecar per item, referenced by each entry's `specSrc`. Edit these directly; `render.py`'s `load_specs` re-inlines them into the inlined registry (hand-off / Figma-bridge metadata — the two sites render demo + grid, not a redline drawer). Do **not** re-add inline `anatomy`/`spec` to `registry.json`.
 - `memory/constitution.md` — durable rules: Principles + **Stack Lock** + **DS Lock** (lean, rules-only).

@@ -140,6 +140,31 @@ with tempfile.TemporaryDirectory() as d:
     print("set — a non-object patch on a list kind is rejected")
     check(run("set", "components", "button", *R, stdin='"oops"').returncode != 0, "scalar patch on components exits non-zero")
 
+    # D-29: /pb:build's auto-sync reads flow/erd narrowly. `get flow mermaid` must return the
+    # diagram WITHOUT stories[] riding along — that projection is the whole point.
+    print("flow / erd — the auto-sync read path")
+    r = run("get", "flow", "mermaid", *R)
+    check(r.returncode == 0 and "flowchart" in r.stdout, "get flow mermaid returns the diagram")
+    check("scenarios" not in r.stdout, "get flow mermaid does NOT drag stories[].scenarios[] along")
+    check(run("get", "erd", "table", *R).returncode == 0, "get erd table returns the rows")
+    check(run("get", "flow", "nope", *R).returncode != 0, "an unknown flow key exits non-zero")
+
+    # Regression guard: list's fallback branch used to hardcode the tokens tree, so every
+    # dict kind but `meta` silently listed token names.
+    print("list — each dict kind lists its own keys, not tokens'")
+    out = run("list", "flow", *R).stdout.split()
+    check("mermaid" in out and "stories" in out, "list flow shows flow's own keys")
+    check("brand" not in out, "list flow does not fall through to the tokens tree")
+    check("table" in run("list", "erd", *R).stdout.split(), "list erd shows erd's own keys")
+    check("brand" in run("list", "tokens", *R).stdout.split(), "list tokens still walks DTCG leaves")
+
+    print("set — dotted flow write leaves siblings intact")
+    before_stories = json.load(open(reg))["flow"]["stories"]
+    r = run("set", "flow", "mermaid", *R, stdin='"flowchart LR\\n  A --> B"')
+    now = json.load(open(reg))["flow"]
+    check(r.returncode == 0 and now["mermaid"] == "flowchart LR\n  A --> B", "set flow mermaid replaces the leaf")
+    check(now["stories"] == before_stories, "set flow mermaid leaves stories[] untouched")
+
 
 print()
 if fails:

@@ -19,6 +19,9 @@ Kinds:
   components | screens — a list of entries keyed by `id`; <id> selects one entry.
   tokens | meta        — a nested dict; <id> is a **dotted key path** (e.g. `meta.name`,
                          `tokens.brand`, `tokens.color.bg`).
+  flow | erd           — same dotted-key form (`flow.mermaid`, `erd.table`). D-29: the
+                         auto-sync in /pb:build reads `flow mermaid` (~15 lines) to place a
+                         node without dragging every story's scenarios[] into context.
 
 Projection (D-17, `get` only — never `set`/`list`; shapes what's PRINTED, never writes):
   --no-prose        — drop logicNotes/uiLogic/anatomy/spec/usage from the printed slice.
@@ -52,7 +55,9 @@ import os
 import sys
 
 LIST_KINDS = ("components", "screens")   # id-keyed lists
-DICT_KINDS = ("tokens", "meta")          # dotted-key dicts
+# D-29: flow/erd joined the dict kinds so /pb:build's auto-sync can read `flow mermaid`
+# (~15 lines) without pulling every story's scenarios[] into context.
+DICT_KINDS = ("tokens", "meta", "flow", "erd")   # dotted-key dicts
 KINDS = LIST_KINDS + DICT_KINDS
 
 # D-17: the prose keys --no-prose drops. Schema-11 may move these out of registry.json
@@ -209,10 +214,7 @@ def cmd_list(args):
             if item.get("level"):
                 bits.append(f"[{item['level']}]")
             print("  ".join(bits))
-    elif args.kind == "meta":
-        for k in reg.get("meta", {}):
-            print(k)
-    else:  # tokens — print dotted paths of leaves (DTCG leaves carry $value)
+    elif args.kind == "tokens":  # print dotted paths of leaves (DTCG leaves carry $value)
         def walk(node, trail):
             if isinstance(node, dict) and "$value" in node:
                 print(trail)
@@ -221,6 +223,9 @@ def cmd_list(args):
                 for k, v in node.items():
                     walk(v, f"{trail}.{k}" if trail else k)
         walk(reg.get("tokens", {}), "")
+    else:  # meta | flow | erd — a plain dict: its top-level keys
+        for k in reg.get(args.kind, {}):
+            print(k)
 
 
 def main():
@@ -230,7 +235,7 @@ def main():
     def add_common(sp, with_id=True):
         sp.add_argument("kind", choices=KINDS)
         if with_id:
-            sp.add_argument("id", help="entry id (components/screens) or dotted key (tokens/meta)")
+            sp.add_argument("id", help="entry id (components/screens) or dotted key (tokens/meta/flow/erd)")
         sp.add_argument("--registry", default="registry.json", help="path to registry.json")
 
     g = sub.add_parser("get", help="print one slice as JSON")

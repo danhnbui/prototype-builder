@@ -58,7 +58,7 @@ slice** — a token, one component, one screen — never the whole file.
 | `components[]` | organism shape: `id` (kebab, unique), `name`, `renderFn` (`renderCmp{PascalCase}`), `renderSrc` (`render/components/<id>.js`), `properties`, `anatomy`, `spec`, `uiLogic`, `usage` | design-system site + Prototype (composed into screens) |
 | `screens[]` | `id` (kebab), `name`, `renderFn`, `renderSrc` (`render/screens/<id>.js`), `layout`, `elements[]`, `logicNotes[]` | Prototype · screen |
 | `staleness` | per-tab `{ lastSyncedPromptCount, currentPromptCount }` | flow / handoff / erd badges |
-| `flow` / `erd` | `{ populated, ... }` | UX Design / Data (decoupled tabs) |
+| `flow` / `erd` | `{ populated, ... }` | UX Design / Data (authored by `/pb:flow`/`/pb:data`, reconciled by `/pb:build`) |
 | `config` | `{ viewOnly, cover, iconCdn }` | view-only hand-off + DS-neutral icons |
 
 **Data only.** Render-function *bodies* live as real `.js` files (`render/components/<id>.js`,
@@ -135,8 +135,8 @@ All four prototype tabs are rendered from the registry by the ported machinery:
 |---|---|---|
 | **Prototype** | `screens[]` | trio — auto on `/pb:build` |
 | **Project Summary** | `meta.overview` / `userInsights` / `tradeoffs` (PRD · Insights · Trade-offs) | trio — auto on `/pb:build` |
-| **UX Design** | `flow` (Mermaid wireflow + test checklist) | **decoupled** — `/pb:flow` only |
-| **Data** | `erd` (field/type/example table + Mermaid ERD) | **decoupled** — `/pb:data` only |
+| **UX Design** | `flow` (Mermaid wireflow + test checklist) | authored by `/pb:flow`; reconciled on every trio `/pb:build` |
+| **Data** | `erd` (field/type/example table + Mermaid ERD) | authored by `/pb:data`; reconciled on every trio `/pb:build` |
 
 The **design-system site** (`design-system.html`, served at `/design-system`) is the second
 projection of the same registry: it renders `components[]` (grouped `scope` → atomic `level`) as
@@ -144,7 +144,8 @@ interactive demos + variant grids + Push-to-Figma snippets, over the token found
 are a trio member (auto-sync on `/pb:build`) — the site is not a tab, it's a sibling site.
 
 The **trio** (Prototype + Project Summary + the component slice) auto-syncs on `/pb:build`.
-Flow and Data are decoupled — updated only by their explicit commands.
+Flow and Data ride the trio — authored by their explicit commands, reconciled on every trio-touching
+`/pb:build` (`CLAUDE.md` § *Auto-sync*).
 
 ## Design-system-agnostic core
 
@@ -162,7 +163,7 @@ Each project picks its design system at `/pb:init` (the DS Lock) and describes i
 |---|---|
 | On-ramp | `init` · `specify` · `clarify` · `plan` |
 | Build loop | `build` · `build-check-design-system` *(sub)* · `build-figma-handoff` *(sub)* |
-| Decoupled syncs / audit | `sync-flow` · `sync-erd` · `check-drift` |
+| Slice authoring / audit | `flow` · `data` · `check-drift` |
 | Exits | `hand-off` (`--people` / `--context`) · `validate` |
 | Schema | `update-version` (dry-run / `--apply` / `--rollback` / `--to <N>`) |
 

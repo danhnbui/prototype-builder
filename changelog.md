@@ -2,6 +2,45 @@
 
 All notable changes to Product Builder. Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [1.12.0] — 2026-09-20
+
+*The UX Design tab is restructured into four segments, and the `flow` / `erd` slices stop being
+something you had to remember to refresh.*
+
+### Changed
+- **Flow and Data ride the trio (D-29).** After a **trio-touching** patch (a screen, a component,
+  logic), `/pb:build` reconciles the `flow` and `erd` slices **in the same turn** — a new screen gains
+  a node, its edges and a story stub; a removed one loses them; a new data-bearing field gains an
+  `erd.table[]` row. Canonical rule: `CLAUDE.md` § *Auto-sync*; the step is `build.md` §4.5, and
+  `/pb:orchestrate` runs it **once per wave**, between apply and render. Four bounds keep it cheap:
+  reconcile never regenerate, populated slices only, never re-author, defer restructuring. **Non-trio
+  tweaks still skip it** — load-bearing rule 3 is unchanged. `/pb:flow` and `/pb:data` remain the
+  *authors* of their slices (first population, the five-lens QA pass, any restructuring).
+- **UX Design is four segments** — Logic · Information Architecture · User Flow · Test Cases. Test
+  Cases is promoted out of the User Flow aside into its own segment; Information Architecture becomes a
+  50/50 job list | site map split with the role filter inside the job list, and JTBDs that no screen
+  serves are flagged there.
+- **`slice.py` gained `flow` and `erd` dict kinds**, so the reconcile can read `flow mermaid` (~15
+  lines) without dragging every story's `scenarios[]` into context.
+
+### Removed
+- **The Sync buttons** on the UX Design and Data tab headers. They never synced anything — each copied
+  `/pb:flow` or `/pb:data` to the clipboard for a human to paste. With auto-sync there is nothing to
+  nag about. Empty-state CTAs ("Generate user flow" / "Generate ERD") and "Run tests" are unaffected.
+- **The `.meta-tab-stale` badge** and its `pbStalenessGap` reader (extends D-19), plus the dead
+  `.sync-bar` CSS that had no emitter.
+
+### Fixed
+- **`slice.py list` fell through to the tokens tree** for any dict kind but `meta` — latent before this
+  release (only `tokens`/`meta` existed), surfaced by adding `flow`/`erd`. Each dict kind now lists its
+  own keys; `tests/slice_cli.py` guards it.
+
+### Notes
+- `staleness{}` **stays in `registry.json`** per D-19 / `AGENTS.md` §3 ("never remove or repurpose an
+  existing field in place"). Only the shell's reader is gone. Schema stays at **10** — no migration.
+- No deterministic test can assert that a model reconciled a flow; the trio / non-trio / unpopulated
+  rehearsal must be re-run by hand whenever `build.md` §4.5 is edited.
+
 ## [1.11.1] — 2026-09-19
 
 *P0 render fix. A real project at scale rendered **blank on both routes** under v1.11.0; the cause was
