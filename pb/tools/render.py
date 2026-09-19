@@ -89,16 +89,26 @@ def load_specs(reg, base_dir):
     return reg
 
 
+_SCRIPT_CLOSE_IN_BODY = re.compile(r"</(?=script\b)", re.IGNORECASE)
+
+
 def _escape_body(body):
-    """Escape `</` -> `<\\/` inside an emitted render body.
+    """Escape the literal `</script` -> `<\\/script` inside an emitted render body — and
+    ONLY that.
 
     A render body is JS that builds HTML in string literals (return '<div></div>';).
-    Inside a <script>, only the literal `</script` ends the element — but `</` -> `<\\/`
-    is semantically identical inside a JS string literal (\\/ === /) and uniformly kills
-    the page-killer for ALL close tags. lint_registry.py's R-SCRIPT still flags a literal
-    `</script` so authors are steered away; this is the belt to that suspenders.
+    Inside a <script>, the one sequence that can end the element is the literal `</script`
+    (HTML spec; `</div>` etc. are inert), so that is the page-killer to neutralise.
+    `<\\/script` is identical inside a JS string literal (\\/ === /).
+
+    Why NOT the blanket `</` -> `<\\/` this used to do (v1.5.1–v1.11.0): a body is JS, not
+    just strings, and `</` also appears in the regex literal /</g — the standard HTML-escape
+    idiom `.replace(/</g, '&lt;')`. Blanket-escaping it yields /<\\/g, an unterminated regex
+    that kills the WHOLE inline script; a real project with 17 such bodies rendered blank on
+    both routes (v1.11.1 P0). tests/render_escape.py guards this; lint_registry.py's
+    R-SCRIPT still steers authors away from a literal `</script` (belt and suspenders).
     """
-    return body.replace("</", "<\\/")
+    return _SCRIPT_CLOSE_IN_BODY.sub(lambda m: "<\\/", body)
 
 
 def _version_from(path):

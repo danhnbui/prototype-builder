@@ -51,7 +51,7 @@ one server / two routes); duplicates are pruned automatically.
 ## Figma Hand-off
 
 Every export to Figma goes through `/pb:build-figma-handoff` — never hand-draw prototype frames into
-Figma directly. Default is **BRIDGE mode**: `registry_to_figma.py` lowers the registry to **GHN DS
+Figma directly. Default is **BRIDGE mode**: `registry_to_figma.py` lowers the registry to **DS
 Bridge node JSON** (INSTANCE-by-key + token refs, auto-layout on every frame), which is pasted into the
 plugin's *Code → Figma* tab and rebuilt as linked instances. The Figma MCP is a read-only **context**
 provider (match/enrich at G-FP3/G-FP4), never the writer. The **offline G-FP6 audit** must pass on the

@@ -25,7 +25,7 @@ python3 "${CLAUDE_PLUGIN_ROOT}/tools/serve.py" registry.json      # then open  h
 - **Interactive = auto-detected**: a component gets a live clickable demo if it declares a `state`
   property OR its body wires interaction (`data-action`/`data-nav`/`onclick`/`<button>`/`<input>`); others
   get the variant grid only. Confirm + declare `state` when you add interaction (see `/pb:build`).
-- **Push to Figma** on a component emits its GHN DS Bridge node JSON — paste into the plugin's *Code →
+- **Push to Figma** on a component emits its DS Bridge node JSON — paste into the plugin's *Code →
   Figma* tab. Unresolved DS keys are honest gaps (resolve at `/pb:pull-ds` Scan DS), never invented.
 - *(Retired: the old `ds_serve.py` browsed the upstream `.source.json` clone's metadata — superseded by
   this live, registry-driven site. The `.source.json` snapshot remains for `/pb:check-drift`.)*

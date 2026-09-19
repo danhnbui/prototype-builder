@@ -1,5 +1,5 @@
 {
-  "_about": "Fixture: a GHN DS Bridge 'Scan DS' catalog for the golden's DS (Acme DS). Publish keys + variant/property metadata for registry_to_figma.py + tests/r4_figma_bridge.py. Not a real library.",
+  "_about": "Fixture: a DS Bridge 'Scan DS' catalog for the golden's DS (Acme DS). Publish keys + variant/property metadata for registry_to_figma.py + tests/r4_figma_bridge.py. Not a real library.",
   "meta": {
     "fileName": "Acme DS",
     "summary": "1 collection · 21 variables · 4 components"

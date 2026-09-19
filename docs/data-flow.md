@@ -116,7 +116,7 @@ flowchart LR
 ## Figma hand-off (`/pb:build-figma-handoff`)
 
 A **one-way** registry → Figma transfer. Default is **BRIDGE mode**: `registry_to_figma.py`
-deterministically lowers the registry's composition tree to **GHN DS Bridge node JSON** (each screen
+deterministically lowers the registry's composition tree to **DS Bridge node JSON** (each screen
 element → an INSTANCE of its DS component's publish `key` + `componentProperties`; local components →
 FRAMEs with nested instances; spacing → token refs; auto-layout on every frame) — pasted into the
 plugin's *Code → Figma* tab and rebuilt as linked instances. Gated G-FP0 → G-FP5 (the Figma MCP is a

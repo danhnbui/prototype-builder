@@ -28,7 +28,7 @@ rule is **DS fidelity at entry: map to components that already exist; never inve
 
 ## How to read the frame
 
-**Preferred — GHN DS Bridge plugin (no MCP needed):** select the frame → the plugin's *Figma → Code*
+**Preferred — DS Bridge plugin (no MCP needed):** select the frame → the plugin's *Figma → Code*
 tab → **Serialize selection** → paste the node JSON. `resolve_frame.py --from` accepts that
 `{ meta, roots[] }` shape **directly** — it normalizes each root child to a layer and maps an
 INSTANCE's `component` reference (set / name) to a known DS id. Fastest and offline.

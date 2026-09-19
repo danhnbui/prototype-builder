@@ -1,17 +1,17 @@
 ---
-description: Sub-command of /pb:build. One-way registry → Figma transfer via the GHN DS Bridge plugin (declarative node JSON), with a clarify pass (G-FP0–G-FP5) then an offline render audit (G-FP6) on the emitted node JSON. Default is BRIDGE mode: emit node JSON to paste into the plugin's Code → Figma tab (deterministic, offline, linked instances). The Figma MCP is a read-only CONTEXT provider (match/enrich), never the writer; the legacy MCP write path stays behind --mcp (deprecated). DS-neutral. Auto-layout on every frame (R3). One-way.
+description: Sub-command of /pb:build. One-way registry → Figma transfer via the DS Bridge plugin (declarative node JSON), with a clarify pass (G-FP0–G-FP5) then an offline render audit (G-FP6) on the emitted node JSON. Default is BRIDGE mode: emit node JSON to paste into the plugin's Code → Figma tab (deterministic, offline, linked instances). The Figma MCP is a read-only CONTEXT provider (match/enrich), never the writer; the legacy MCP write path stays behind --mcp (deprecated). DS-neutral. Auto-layout on every frame (R3). One-way.
 ---
 
 # /pb:build-figma-handoff
 
 Push the prototype's components and screens to Figma. Reads from **`registry.json`**
 (`components[]` / `screens[]`) — the same composition tree the prototype renders from — and the DS
-**catalog** (`design-system/<name>/ds-catalog.json`, the publish keys/variables from the GHN DS
+**catalog** (`design-system/<name>/ds-catalog.json`, the publish keys/variables from the DS
 Bridge *Scan DS*, cloned by `/pb:pull-ds`). **DS-neutral:** the library is read from
 `memory/constitution.md` → Design System Lock, mirrored in `figma-transfer.json.dsMatch.library`.
 
 > **How the push happens (BRIDGE mode, default).** `pb/tools/registry_to_figma.py` deterministically
-> lowers the registry to **GHN DS Bridge node JSON** (~0 model tokens — a token lever). You paste it
+> lowers the registry to **DS Bridge node JSON** (~0 model tokens — a token lever). You paste it
 > into the plugin's **Code → Figma** tab; the plugin rebuilds it as real, **linked component
 > INSTANCES**. Because the registry is a machine-readable composition tree (component-first / atomic),
 > the lowering is 1:1: every screen element is an INSTANCE of its DS component's publish key. pb never
@@ -43,7 +43,7 @@ If `--scope` is absent, ask (1 components · 2 screens · 3 both). Save to `figm
 ## Gate G-FP1 — Pre-flight integrity (always runs)
 Sequential. ANY failure → HARD FAIL with the exact message; nothing emitted.
 1. **DS catalog present** — confirm `design-system/<name>/ds-catalog.json` exists (the Scan DS publish
-   keys/variables). On absence → HARD FAIL: `No DS catalog. Run /pb:pull-ds (with the GHN DS Bridge Scan DS output) first.` *(In `--mcp` mode this check becomes "Figma MCP reachable — call `whoami`" instead.)*
+   keys/variables). On absence → HARD FAIL: `No DS catalog. Run /pb:pull-ds (with the DS Bridge Scan DS output) first.` *(In `--mcp` mode this check becomes "Figma MCP reachable — call `whoami`" instead.)*
 2. **Registry loaded** — `registry.json` parses and has `components[]` / `screens[]`. Empty → HARD FAIL: `registry.json has no components/screens. Run /pb:build first.`
 3. **`figma-transfer.json` exists OR seed it** — if absent, seed from `figma-transfer.template.json`; set `dsMatch.library` to the Design System Lock name.
 4. **No-op detection (G-FP1.5)** — SHA-256 the in-scope slice; if it equals `lastPushedHash[<scope>]` and `--force` absent → STOP (`✓ No changes since last push.`).
@@ -93,7 +93,7 @@ python3 "${CLAUDE_PLUGIN_ROOT}/tools/registry_to_figma.py" registry.json \
   --tokens figma-tokens.json --transfer figma-transfer.json \
   --out <out> --gaps gaps.md
 ```
-It emits `{ meta, roots[], gaps[] }`: each screen → a root FRAME (auto-layout from `layout`) of element **INSTANCEs** (by DS key + `componentProperties` from the element's props/state); each local component → a FRAME with its anatomy parts nested as INSTANCEs; spacing → numeric + a `<prop>Token` variable sidecar. **Hand the user the exact steps:** open the GHN DS Bridge plugin → **Code → Figma** tab → paste `<out>` → **Build / Run**. Report the gap list (unmatched components/tokens) plainly.
+It emits `{ meta, roots[], gaps[] }`: each screen → a root FRAME (auto-layout from `layout`) of element **INSTANCEs** (by DS key + `componentProperties` from the element's props/state); each local component → a FRAME with its anatomy parts nested as INSTANCEs; spacing → numeric + a `<prop>Token` variable sidecar. **Hand the user the exact steps:** open the DS Bridge plugin → **Code → Figma** tab → paste `<out>` → **Build / Run**. Report the gap list (unmatched components/tokens) plainly.
 
 *(Legacy `--mcp` mode: instead run the ordered `Figma:use_figma` writes as before — tokens → components → screens → bindings — per the deprecated MCP rituals. Retained for environments without the plugin.)*
 

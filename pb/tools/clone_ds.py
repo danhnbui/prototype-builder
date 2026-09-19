@@ -160,7 +160,7 @@ def clone(export, registry_path, name=None, overwrite_tokens=False):
     with open(os.path.join(dsdir, ".source.json"), "w", encoding="utf-8") as f:
         json.dump(snapshot, f, indent=2, sort_keys=True)
 
-    # The GHN DS Bridge "Scan DS" catalog (portable publish keys + variables), if the export carries
+    # The DS Bridge "Scan DS" catalog (portable publish keys + variables), if the export carries
     # it — the source of truth registry_to_figma.py reads for INSTANCE keys + variable refs (WS3).
     catalog = export.get("catalog")
     wrote_catalog = isinstance(catalog, dict)

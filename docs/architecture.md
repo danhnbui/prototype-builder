@@ -80,7 +80,7 @@ DATA; `pb/tools/render.py` produces the view, at ~0 model tokens.
 registry.json  ──render.py──▶  prototype.html
                   │
                   ├─ reads each body from its renderSrc file and emits the render fn
-                  │     window["renderCmpX"] = function(props){ <body, </ escaped to <\/> };
+                  │     window["renderCmpX"] = function(props){ <body, </script escaped to <\/script> };
                   └─ inlines the registry (already render-code-free) into the
                         shell's /*__PB_REGISTRY_START__*/…/*__PB_REGISTRY_END__*/ slot
 ```

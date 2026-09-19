@@ -1,4 +1,4 @@
-# Product Builder v1.11.0 — router (read first)
+# Product Builder v1.11.1 — router (read first)
 
 Standalone, CLAUDE.md-native prototype builder. **No SpecKit** — no `extension.yml`,
 `preset.yml`, or `after_*` hooks. State lives in `registry.json`; commands are native
@@ -21,7 +21,7 @@ the playbook, [prototype-builder.md](prototype-builder.md) (authored in Phase 2)
 | `/pb:test` | Sandbox testing: run scenario `test{}` blocks (functional), `--roles`, `--server`, `--security`, `--explore`; writes `lastResult` → live ✓/✗ glyphs | P3 |
 | `/pb:explore` | Parallel design options: N `pb-builder` sub-agents propose alternatives → compare → keep one | P3 |
 | `/pb:build-check-design-system` | *(sub)* DS-first: reuse vs extend-variant vs build-local; enforce the naming contract | P3 |
-| `/pb:build-figma-handoff` | *(sub)* code→Figma via the **GHN DS Bridge plugin** (declarative node JSON, default) — clarify gates G-FP0–G-FP5 + an offline G-FP6 audit on the emitted JSON; `registry_to_figma.py` lowers the composition tree to INSTANCE-by-key + token refs; the Figma MCP is a read-only **context** provider (match/enrich), never the writer; legacy MCP write behind `--mcp`. DS-neutral, auto-layout (R3), one-way | P3 |
+| `/pb:build-figma-handoff` | *(sub)* code→Figma via the **DS Bridge plugin** (declarative node JSON, default) — clarify gates G-FP0–G-FP5 + an offline G-FP6 audit on the emitted JSON; `registry_to_figma.py` lowers the composition tree to INSTANCE-by-key + token refs; the Figma MCP is a read-only **context** provider (match/enrich), never the writer; legacy MCP write behind `--mcp`. DS-neutral, auto-layout (R3), one-way | P3 |
 | `/pb:flow` | UX flow (Mermaid wireflow + test checklist) — decoupled, manual | P5 |
 | `/pb:data` | Data (field/type/example table + Mermaid ERD) — decoupled, manual | P5 |
 | `/pb:check-drift` | Read-only drift audit of the trio vs `constitution.md` | P5 |
@@ -110,7 +110,7 @@ the upstream `.source.json` clone instead of the project's live components.)
 - `spec/components/<id>.json` · `spec/screens/<id>.json` — the handoff docs (**schema 10**): `anatomy`/`spec`/`usage`/`uiLogic` moved out of the registry (its bulkiest fields, ~half the file on a real project) into a sidecar per item, referenced by each entry's `specSrc`. Edit these directly; `render.py`'s `load_specs` re-inlines them into the inlined registry (hand-off / Figma-bridge metadata — the two sites render demo + grid, not a redline drawer). Do **not** re-add inline `anatomy`/`spec` to `registry.json`.
 - `memory/constitution.md` — durable rules: Principles + **Stack Lock** + **DS Lock** (lean, rules-only).
 - `memory/decisions.md` — the why-log (trade-offs, gate overrides).
-- `design-system/{name}/{name}.md` — the global DS reference (scannable component index + rules R0–R4 + naming contract). Cloned by `/pb:pull-ds`; a sibling `.source.json` snapshots the source (tokens + components) for `/pb:check-drift`, and `ds-catalog.json` holds the **GHN DS Bridge Scan DS** output (portable publish keys + variables + variant/property metadata) that `registry_to_figma.py` reads for the code→Figma bridge. `meta.dsSource` (provenance) + `meta.platform` record where it came from.
+- `design-system/{name}/{name}.md` — the global DS reference (scannable component index + rules R0–R4 + naming contract). Cloned by `/pb:pull-ds`; a sibling `.source.json` snapshots the source (tokens + components) for `/pb:check-drift`, and `ds-catalog.json` holds the **DS Bridge Scan DS** output (portable publish keys + variables + variant/property metadata) that `registry_to_figma.py` reads for the code→Figma bridge. `meta.dsSource` (provenance) + `meta.platform` record where it came from.
 - `prototype.html` — rendered view, regenerated from `registry.json`.
 
 ## Schema compatibility

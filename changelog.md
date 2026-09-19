@@ -2,6 +2,31 @@
 
 All notable changes to Product Builder. Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [1.11.1] — 2026-09-19
+
+*P0 render fix. A real project at scale rendered **blank on both routes** under v1.11.0; the cause was
+one line in `render.py`.*
+
+### Fixed
+- **`render.py` no longer blanket-escapes `</` in render bodies.** `_escape_body` used to rewrite every
+  `</` → `<\/`. That is correct for the one sequence that can end a `<script>` element — the literal
+  `</script` — but it also hit the JS **regex literal `/</g`**, the standard HTML-escape idiom
+  `.replace(/</g, '&lt;')`, turning it into `/<\/g`: an unterminated regex that killed the entire inline
+  script (`Uncaught SyntaxError: Invalid regular expression`). A project with 17 such bodies showed a
+  blank prototype **and** a blank design-system site. The escape is now **narrow** — `</script` only,
+  case-insensitive, word-bounded — which is what the HTML spec requires and what a JS body can tolerate.
+  Both render targets share the fix (`_render_fn_bodies`). The `json.dumps` escapes for the inlined
+  registry and node JSON are unchanged: `\/` is a valid JSON escape and JSON has no regex literals.
+- New regression guard **`tests/render_escape.py`**: the unit probe (`/</g` untouched, `</script`
+  escaped in any case), both targets rendered with a `/</g` body and a literal `</script>` string
+  (closer count must equal the shell's), and — when `node` is on PATH — a syntax check of the emitted
+  script plus a negative control proving the old blanket escape fails it.
+
+### Notes
+- `lint_registry.py`'s `R-SCRIPT` still flags a literal `</script` in a body (belt and suspenders).
+- Discovered by serving a real project through the shipped tools rather than a fixture; that project had
+  been running on a hand-patched plugin copy with exactly this narrow escape, so upstream never saw it.
+
 ## [1.11.0] — 2026-07-24
 
 *One registry, two sites. `registry.json` now projects into a 4-tab prototype **and** a live design-system site — both deterministic renders, both served by one `/pb:preview`. The UI Design tab is retired.*
@@ -12,7 +37,7 @@ All notable changes to Product Builder. Format follows [Keep a Changelog](https:
   **variant grid** (cartesian product over its enum properties) and — when **interactive** — a **live
   clickable demo**. Interactivity is auto-detected by keyword: a `state` property *or* body wiring
   (`data-action`/`data-nav`/`onclick`/`<button>`/`<input>`/…). Token foundations render as swatches.
-- **Push to Figma, per component.** Each component carries its GHN DS Bridge node JSON (pre-computed by
+- **Push to Figma, per component.** Each component carries its DS Bridge node JSON (pre-computed by
   `registry_to_figma.build_component_nodes`) in a copy dialog — paste into the plugin's *Code → Figma* tab.
   Unresolved DS keys are honest gaps, never invented.
 - **Shared runtime (`pb/template/runtime.js`).** The render/interaction helper set is single-sourced and

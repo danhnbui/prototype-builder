@@ -2,7 +2,7 @@
 """
 r4_figma_bridge.py — the WS3 code→Figma bridge acceptance, fixture-driven (no Figma / MCP / plugin):
 
-  1. registry_to_figma.build_nodes(golden, ds-catalog) lowers the composition tree to GHN DS Bridge
+  1. registry_to_figma.build_nodes(golden, ds-catalog) lowers the composition tree to DS Bridge
      node JSON, and the OFFLINE G-FP6 invariants hold on that output:
        · auto-layout on every FRAME (layout.mode != NONE)                         [inv 1]
        · every screen element is an INSTANCE carrying a component.key (comp-first) [inv 5]

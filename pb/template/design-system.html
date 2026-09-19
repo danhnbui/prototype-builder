@@ -234,7 +234,7 @@
       var d = document.createElement('dialog'); d.id='pushdlg'; d.className='pushdlg'; document.body.appendChild(d); return d;
     })();
     dlg.innerHTML = '<div class="pd-head"><b>Push “'+pbEscape(id)+'” to Figma</b><button class="x" onclick="document.getElementById(\'pushdlg\').close()">×</button></div>'
-      + '<div class="pd-body"><p>GHN DS Bridge node JSON — paste into the plugin’s <b>Code → Figma</b> tab, then Build.</p>'
+      + '<div class="pd-body"><p>DS Bridge node JSON — paste into the plugin’s <b>Code → Figma</b> tab, then Build.</p>'
       + '<textarea readonly id="pushta">'+pbEscape(json)+'</textarea>'
       + (gaps.length ? '<div class="gapnote">⚠ '+gaps.length+' gap(s): a DS key/variable is missing — resolve at /pb:pull-ds (Scan DS). Never invented.</div>' : '')
       + '</div><div class="pd-foot"><button class="primary" onclick="pbCopyPush()">Copy</button><button onclick="document.getElementById(\'pushdlg\').close()">Close</button></div>';
