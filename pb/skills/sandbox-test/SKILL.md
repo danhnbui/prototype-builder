@@ -53,11 +53,53 @@ Write each scenario's `lastResult { status, detail, ranAt }`:
 The UX-tab glyph reads `lastResult.status`: `pass → ✓`, `fail → ✗`, `untested/absent → ○`; a scenario with
 **no** `test{}` stays `☐` (manual). This is the **only** registry slice a test run writes.
 
+## Answering a test plan (`/pb:test` §2a)
+A run is planned before it executes: `/pb:test` writes `memory/test-plans/<stamp>.md`, a checklist whose
+every item is **one test case as one yes/no question**, and dispatches the items to agents that have not
+seen the design being built. Whether you are writing the plan or answering it, the vocabulary is the same.
+
+**The shape.** One section per lane; the lane's heading carries the question **once**, and the items are
+rows under it — never one restated sentence per item.
+```markdown
+## F · Functional
+**Running the steps from `test.start`, did every `expect[]` item hold?**
+
+| # | Scenario | Answer | Evidence |
+|---|---|---|---|
+| F1 | Đăng nhập sai mật khẩu | | |
+```
+
+**The three answers** — and only these:
+- **`yes`** — the check **held**. Polarity never varies: an item is phrased so that `yes` is the good
+  outcome, so a plan tallies mechanically.
+- **`no`** — the check did not hold. Evidence carries what was observed instead: the failing `expect[]`
+  item, the role that saw the gated element, the screen id that did not resolve, the excerpt that
+  contradicts the principle.
+- **`blocked`** — the item was never reached (no Playwright, the preview unreachable, the screen never
+  rendered). It is the *absence* of an answer, not a middle one — never a pass, and never upgraded to
+  `yes` because the check would probably have held. Evidence names the blocker.
+
+**Evidence is mandatory on every row, `yes` included** — a `yes` with nothing observed behind it is the
+bug this whole mechanism exists to catch — and it is **one line**: the observation, never a narrative.
+```
+F1 · yes     · 4 expects held
+F2 · no      · expect[1] "Đã gửi" absent; frame showed "Lỗi hệ thống"
+R4 · no      · supervisor reached it; declared manager, hr
+S7 · blocked · preview 8200 refused
+```
+No recap of the steps you ran, no restatement of the question, no advice about the fix.
+
+**Answering discipline.** Answer only the item ids you were given, one row each, in exactly that form,
+and return nothing else — no recommendations, no proposed fixes, no summary of your own. Do not read
+`memory/spec.md`, `memory/plan.md`, `memory/decisions.md`, or any existing `lastResult`: an answer
+informed by what the product was *meant* to do, or by what it scored last time, is not an independent one.
+
 ## Rules
 - **Observe, don't shape** — never edit a screen / component / logic to make a scenario pass.
 - **Fail-closed** — an unresolved target, a step error, or a security finding is a **failure**, never a skip.
 - **Untested ≠ pass** — a scenario that didn't run is `○ untested`, never reported green.
 - **Write only `lastResult`** — the design slices are read-only to a test run.
+- **Never answer an item you did not observe** — `blocked` is always available and is always the honest row.
 
 ## `--roles` threat model (what the audit does and does not guarantee)
 `--roles` is a best-effort *visibility* audit: for each role it navigates every screen and flags any `data-roles`

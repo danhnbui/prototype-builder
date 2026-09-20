@@ -21,7 +21,7 @@
   THE 4 TABS  (components live on the design-system site — design-system.html at /design-system)
   ─────────────────────────────────────────────────────────────
   1. Prototype        ← the live, interactive flow (data-* runtime)
-  2. Project Summary  ← Overview · Insights  (Trade-offs moved to UX Design → Logic; Others deprecated, D-30)
+  2. Project Summary  ← Overview · Insights  (a trade-off is a rule: it lives on the rule, D-33)
   3. UX Design        ← wireflow (Mermaid) + user stories / QA test cases
   4. Data             ← ERD diagram / table + entity inspector
 
@@ -194,12 +194,15 @@
     .meta-ds-link + .meta-sandbox { margin-left: 4px; }
     /* The trailing glyph on each chip — dimmer than the label, because it says what the chip
        does, not what it is. A caret for a menu; an arrow leaving the box for a new tab. */
-    .meta-sandbox-dot { width: 7px; height: 7px; border-radius: 50%; background: #22c55e; }
+    /* The chip wore a green dot that was always green — a status light wired to nothing. What
+       the menu actually holds is controls for THIS preview session (chrome, device, compare, role,
+       scenario, reset), so it wears the glyph every tool uses for exactly that: faders. */
+    .meta-sandbox-ico { flex: none; }
     .meta-sandbox-car,
     .meta-ds-out { color: var(--neutral-40); }
     /* v1.9 — rows inside the Sandbox popover (reuses .copy-popover / .proto-menu-* shells). */
     .sbx-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 7px 2px; }
-    .sbx-row-lbl { font-family: var(--font-body); font-size: var(--font-size-xs); font-weight: var(--font-weight-bold);
+    .sbx-row-lbl { white-space: nowrap; font-family: var(--font-body); font-size: var(--font-size-xs); font-weight: var(--font-weight-bold);
       text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-active-secondary, #6b7280); }
     .sbx-row.is-disabled { opacity: 0.45; pointer-events: none; }
     .sbx-select { height: 28px; max-width: 150px; border: 1px solid var(--border); border-radius: var(--radius, 8px);
@@ -212,7 +215,12 @@
     .sbx-foot { border-top: 1px solid var(--border); margin: 0.6rem -18px 0; padding: 0.6rem 18px 0;
       font-family: var(--font-mono, ui-monospace, Menlo, monospace); font-size: var(--font-size-xs); color: var(--neutral-40); }
     /* soft active token for the device switcher when it lives inside the Sandbox menu */
-    .proto-sandbox-menu .proto-device-btn.active { background: var(--brand-soft, #eef0fe); color: var(--brand); border-color: #c3c6f5; }
+    /* Chrome and Device are the same kind of control — a segmented pick — so they get the same
+       active state. They had two: the chrome toggle filled solid brand, the device switcher had a
+       soft override for the popover. A solid indigo block is too loud inside a white menu, so the
+       soft one wins for both, stated once. */
+    .proto-shell-btn.active,
+    .proto-device-btn.active { background: var(--brand-soft, #eef0fe); color: var(--brand); }
 
     /* ========================================================================
        META-PANEL — typography + layout for the 4 documentation tabs
@@ -938,7 +946,14 @@
       margin-left: 24px;
       border: 1px solid var(--border); border-radius: var(--radius-medium, 8px);
     }
-    .proto-struct-panel-body { flex:1 1 auto; padding:16px; width:280px; }
+    .proto-struct-head { display:flex; align-items:center; justify-content:space-between; gap:8px; flex:none;
+      width:280px; padding:11px 10px 11px 16px; border-bottom:1px solid var(--border); }
+    .proto-struct-title { font: var(--font-weight-bold) var(--font-size-xs)/1.4 var(--font-body);
+      text-transform:uppercase; letter-spacing:.05em; color:var(--text-tertiary); }
+    .proto-struct-close { width:26px; height:26px; flex:none; border:0; border-radius:6px; background:transparent;
+      color:var(--text-tertiary); cursor:pointer; display:inline-flex; align-items:center; justify-content:center; }
+    .proto-struct-close:hover { background:var(--neutral-10); color:var(--text-active-primary); }
+    .proto-struct-panel-body { flex:1 1 auto; padding:16px; width:280px; overflow:auto; min-height:0; }
     .pb-aside-section { margin-bottom: 22px; }
     .pb-aside-section:last-child { margin-bottom: 0; }
     .pb-entity-chips { display: flex; flex-wrap: wrap; gap: 8px; }
@@ -1120,6 +1135,19 @@
       color: var(--text-tertiary);
     }
     .pb-tree-node-org.is-missing { color: #d97706; }
+    /* The Prototype structure panel: page names, nothing else. A row per screen, indented by its
+       depth in the derived nav graph. (The .pb-tree-node rows above are still the Summary TOC's
+       and the component aside's — this is a sibling, not a replacement.) */
+    .pb-tree-page {
+      display: flex; align-items: center; gap: 8px; cursor: pointer;
+      padding: 6px 8px; border-radius: 6px; line-height: var(--line-height-copy);
+      color: var(--text-active-primary);
+    }
+    .pb-tree-page:hover { background: var(--neutral-10); }
+    .pb-tree-page.is-active { background: var(--brand-soft, #eef0fe); color: var(--brand); font-weight: var(--font-weight-bold); }
+    .pb-tree-page svg { flex: none; opacity: .55; }
+    .pb-tree-page.is-active svg { opacity: 1; }
+    .pb-tree-page span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
     /* UI Design — the spec drawer now lives in the persistent aside, not a push panel */
     .pb-aside .handoff-drawer { width: auto; height: auto; border: 0; box-shadow: none; background: transparent; display: block; }
@@ -2100,58 +2128,23 @@
       border-radius: 4px;
     }
 
-    /* ===== Prototype tab — device preview + browser/app chrome (v1.5) =====
-       Toolbar (shell toggle + device switcher) now lives in the page-header CTA slot.
-       4 fixed device sizes; the frame scales to fit the column via fitProtoFrame(). */
-    .proto-header-tools { display:flex; align-items:center; gap:12px; flex-wrap:wrap; justify-content:flex-end; }
+    /* ===== Prototype tab — device preview + browser/app chrome =====
+       Every control (chrome · device · compare · structure tree · role · scenario · reset) lives in
+       the Sandbox menu in the meta nav; the preview owns the whole tab. 4 fixed device sizes, and
+       fitProtoFrame() scales what needs scaling. The header-tools styles that used to sit here went
+       with the builders that stopped being called in v1.9. */
     .proto-shell-toggle { display:inline-flex; border:1px solid var(--border); border-radius:8px; overflow:hidden; background:#fff; }
     .proto-shell-btn { height:32px; display:inline-flex; align-items:center; border:0; background:transparent;
       padding:0 14px; font: var(--font-weight-bold) var(--font-size-xs)/var(--line-height-xs) var(--font-body);
       color:var(--text-active-secondary); cursor:pointer; transition:background .12s, color .12s; }
     .proto-shell-btn + .proto-shell-btn { border-left:1px solid var(--border); }
-    .proto-shell-btn.active { background:var(--brand); color:#fff; }
     /* Device switcher as a connected segmented tab group (matches the Browser | App toggle). */
     .proto-toolbar { display:inline-flex; align-items:center; border:1px solid var(--border);
       border-radius:8px; overflow:hidden; background:#fff; }
-    /* Standalone structure toggle — sits after the device group with a visual separator. */
-    .proto-struct-btn {
-      display:inline-flex; align-items:center; justify-content:center; width:36px; height:32px;
-      border:1px solid var(--border); border-radius:8px; background:#fff;
-      color:var(--text-active-secondary); cursor:pointer; transition:background .12s, color .12s, border-color .12s;
-      flex-shrink:0;
-    }
-    .proto-struct-btn:hover { color:var(--text-active-primary); border-color:var(--brand); }
-    .proto-struct-btn.is-active { background:var(--brand); color:#fff; border-color:var(--brand); }
-    .proto-header-divider { width:1px; height:20px; background:var(--border); flex-shrink:0; }
-    /* Role switcher + sandbox Reset (v1.5) — sit in the header tools, styled like the sibling controls. */
-    .proto-role-select {
-      height:2rem; max-width:12rem; padding:0 1.75rem 0 0.75rem;
-      border:1px solid var(--border); border-radius:var(--radius-small); background:var(--neutral-0);
-      color:var(--text-active-primary); cursor:pointer; flex-shrink:0;
-      font: var(--font-weight-bold) var(--font-size-xs)/var(--line-height-xs) var(--font-body);
-      transition:border-color .12s, color .12s;
-    }
-    .proto-role-select:hover { border-color:var(--brand); color:var(--brand); }
-    .proto-reset-btn {
-      height:2rem; display:inline-flex; align-items:center; padding:0 0.85rem; flex-shrink:0;
-      border:1px solid var(--border); border-radius:var(--radius-small); background:var(--neutral-0);
-      color:var(--text-active-secondary); cursor:pointer;
-      font: var(--font-weight-bold) var(--font-size-xs)/var(--line-height-xs) var(--font-body);
-      transition:background .12s, color .12s, border-color .12s;
-    }
-    .proto-reset-btn:hover { color:var(--text-active-primary); border-color:var(--brand); }
-    /* v1.5 — ⋯ sandbox menu button (styled like the structure toggle) + its popover contents. */
-    .proto-menu-btn {
-      display:inline-flex; align-items:center; justify-content:center; width:36px; height:32px;
-      border:1px solid var(--border); border-radius:8px; background:#fff;
-      color:var(--text-active-secondary); cursor:pointer; transition:background .12s, color .12s, border-color .12s;
-      flex-shrink:0;
-    }
-    .proto-menu-btn:hover { color:var(--text-active-primary); border-color:var(--brand); }
+    /* The Sandbox popover's contents. */
     .proto-menu-overline { font: var(--font-weight-bold) var(--font-size-xs)/1.4 var(--font-body);
       text-transform:uppercase; letter-spacing:.06em; color:var(--text-tertiary); margin:0.75rem 0 0.25rem; }
     .proto-menu-overline:first-of-type { margin-top:0; }
-    .proto-menu-row .proto-role-select { width:100%; max-width:100%; }
     /* Reset = a flat list row (like the role rows / the reference menu items), not a button */
     .proto-menu-item {
       display:flex; width:100%; align-items:center; padding:0.55rem 0.6rem; margin:0;
@@ -2202,11 +2195,30 @@
       cursor:pointer; transition:background .12s, color .12s; }
     .proto-device-btn + .proto-device-btn { border-left:1px solid var(--border); }
     .proto-device-btn:hover:not(:disabled):not(.is-disabled) { color:var(--text-active-primary); background:var(--neutral-5, #f6f7f9); }
-    .proto-device-btn.active { background:var(--brand); color:#fff; }
     .proto-device-btn:disabled, .proto-device-btn.is-disabled { opacity:.38; cursor:not-allowed; }
     .proto-main { display:flex; min-height:0; flex:1 1 auto; min-width:0; height:100%; }
     .proto-stage { flex:1 1 auto; min-width:0; min-height:0; overflow:auto; }
     .proto-fit { height:100%; display:flex; justify-content:center; align-items:flex-start; }
+    /* Compare mode (v1.12.0). Both frames live inside ONE .proto-pair and ONE scale() is applied
+       to it — never one per frame. A per-frame fit would size a 429px phone and a 1280px laptop to
+       the same box, which is the one thing a side-by-side comparison must not do: the whole point
+       is seeing that the phone IS a third of the laptop. Each frame still lays out at its true CSS
+       width, so media queries and wrapping are the real ones. */
+    .proto-pair-box { height:100%; }
+    .proto-pair { display:flex; align-items:flex-start; gap:32px; height:100%; transform-origin:top left; }
+    .proto-frame-slot { display:flex; flex-direction:column; gap:10px; flex:none; height:100%; min-height:0; }
+    /* One frame still shrinks to the column — the frame's own max-width:100% has to be able to
+       reach the stage through the pair wrappers, or opening the structure tree clips the window. */
+    .proto-fit:not(.is-compare) .proto-pair-box,
+    .proto-fit:not(.is-compare) .proto-pair,
+    .proto-fit:not(.is-compare) .proto-frame-slot { min-width:0; max-width:100%; }
+    .proto-fit:not(.is-compare) .proto-frame-slot { flex:0 1 auto; }
+    .proto-fit.is-compare, .proto-fit.is-compare .proto-pair-box,
+    .proto-fit.is-compare .proto-pair, .proto-fit.is-compare .proto-frame-slot { height:auto; }
+    .proto-frame-cap { display:flex; align-items:baseline; gap:8px; flex:none;
+      font: var(--font-weight-bold) var(--font-size-xs)/1.4 var(--font-body);
+      color:var(--text-active-primary); }
+    .proto-frame-cap em { font-style:normal; font-weight:var(--font-weight-medium); color:var(--text-tertiary); }
     .proto-frame { background:#fff; border:1px solid var(--border); border-radius:12px; overflow:hidden;
       box-shadow:0 10px 34px rgba(15,23,42,.12); transform-origin:top center; flex:0 0 auto;
       display:flex; flex-direction:column; }
@@ -2218,29 +2230,63 @@
     /* data-step panes: the runtime toggles [hidden], and a project's own display rule would
        otherwise win over the UA default — so the hidden state is stated at the same strength. */
     [data-step-pane][hidden] { display: none !important; }
-    /* Browser chrome — tab strip + nav bar */
-    .proto-tabbar { display:flex; align-items:flex-end; gap:6px; height:40px; padding:8px 10px 0; background:var(--neutral-10); border-bottom:1px solid var(--border); }
-    .proto-tab { display:inline-flex; align-items:center; gap:8px; max-width:260px; height:32px; padding:0 13px;
-      background:#fff; border:1px solid var(--border); border-bottom:0; border-radius:9px 9px 0 0;
-      font: var(--font-weight-medium) var(--font-size-xs)/32px var(--font-body); color:var(--text-active-secondary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-    .proto-tab.active { color:var(--text-active-primary); font-weight: var(--font-weight-bold); }
+    /* Browser chrome — a Chrome window, at Chrome's own metrics (v1.12.0).
+       These greys are DELIBERATELY not registry tokens. The old chrome painted the tab strip and
+       the omnibox in var(--neutral-10), so the browser took on the project's brand and stopped
+       reading as the frame AROUND the design — in a screenshot you could not tell where the
+       product ended and the window began. A browser mock is a photograph of someone else's UI;
+       only the favicon and the profile avatar carry the project's colour, because in real Chrome
+       those are the two things the site supplies. */
+    .proto-dots { display:inline-flex; align-items:center; gap:8px; flex:none; }
+    .proto-dots i { width:12px; height:12px; border-radius:50%; display:block; }
+    .proto-dots i:nth-child(1) { background:#ff5f57; }
+    .proto-dots i:nth-child(2) { background:#febc2e; }
+    .proto-dots i:nth-child(3) { background:#28c840; }
+    .proto-tabbar { display:flex; align-items:flex-end; height:40px; padding:0 8px; background:#dee1e6; }
+    .proto-tabbar .proto-dots { align-self:center; margin:0 6px 0 4px; }
+    .proto-tab { position:relative; display:inline-flex; align-items:center; gap:8px; margin-left:8px;
+      min-width:0; max-width:280px; height:34px; padding:0 12px;
+      background:#fff; border-radius:8px 8px 0 0;
+      font:400 12px/34px var(--font-body); color:#3c4043; }
+    /* The concave notch where a tab meets the toolbar. It is the one detail that makes a rounded
+       rectangle read as a Chrome tab rather than a card, and it costs two pseudo-elements. */
+    .proto-tab::before, .proto-tab::after { content:''; position:absolute; bottom:0; width:8px; height:8px; background:#fff; }
+    .proto-tab::before { left:-8px; -webkit-mask:radial-gradient(circle at 0 0, #0000 8px, #000 8.5px); mask:radial-gradient(circle at 0 0, #0000 8px, #000 8.5px); }
+    .proto-tab::after { right:-8px; -webkit-mask:radial-gradient(circle at 100% 0, #0000 8px, #000 8.5px); mask:radial-gradient(circle at 100% 0, #0000 8px, #000 8.5px); }
+    .proto-tab-title { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
     .proto-favicon { display:inline-flex; align-items:center; justify-content:center; width:16px; height:16px; border-radius:4px;
-      background:var(--brand); color:#fff; font-size:10px; font-weight:700; line-height:1; flex-shrink:0; }
-    .proto-tab-x { cursor:pointer; color:var(--text-tertiary); font-size: var(--font-size-base); line-height: var(--line-height-base); flex-shrink:0; }
-    .proto-tab-x:hover { color:var(--danger); }
-    .proto-newtab { width:28px; height:28px; border-radius:6px; border:0; background:transparent; color:var(--text-tertiary);
-      font-size: var(--font-size-l); line-height: var(--line-height-l); cursor:pointer; flex-shrink:0; }
-    .proto-newtab:hover { background:rgba(0,0,0,.06); color:var(--text-active-primary); }
-    .proto-navbar { display:flex; align-items:center; gap:8px; height:42px; padding:0 12px; background:var(--neutral-10); border-bottom:1px solid var(--border); }
-    .proto-navbtn { width:36px; height:36px; border-radius:50%; border:1px solid var(--border); background:#fff;
-      color:var(--text-active-secondary); cursor:pointer; font-size: var(--font-size-base); line-height: var(--line-height-base); display:inline-flex; align-items:center; justify-content:center; flex-shrink:0; }
-    .proto-navbtn:hover:not(:disabled) { border-color:var(--text-tertiary); color:var(--text-active-primary); }
-    .proto-navbtn:disabled { opacity:.4; cursor:not-allowed; }
-    .proto-urlbar { flex:1; height:27px; background:#fff; border-radius:7px; border:1px solid var(--border);
-      font:var(--font-size-xs)/27px var(--font-body); color:var(--text-tertiary); padding:0 12px; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
+      background:var(--brand); color:#fff; font:700 10px/1 var(--font-body); flex:none; }
+    .proto-tab-x { display:inline-flex; align-items:center; justify-content:center; width:16px; height:16px;
+      border-radius:50%; color:#5f6368; flex:none; }
+    .proto-navbar { display:flex; align-items:center; gap:2px; height:44px; padding:0 8px; background:#fff; border-bottom:1px solid #dadce0; }
+    .proto-navbtn { width:28px; height:28px; border-radius:50%; border:0; background:transparent;
+      color:#5f6368; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; flex:none; }
+    .proto-navbtn:hover:not(:disabled) { background:#f1f3f4; color:#202124; }
+    .proto-navbtn:disabled { opacity:.38; cursor:default; }
+    .proto-navbtn--ghost { opacity:.38; pointer-events:none; }
+    .proto-navbtn--static { pointer-events:none; }
+    .proto-urlbar { flex:1 1 auto; min-width:0; display:flex; align-items:center; gap:8px;
+      height:30px; margin:0 8px; padding:0 12px; background:#f1f3f4; border-radius:999px;
+      font:400 13px/30px var(--font-body); color:#5f6368; white-space:nowrap; overflow:hidden; }
+    .proto-urlbar svg { flex:none; }
+    /* Chrome de-emphasises everything but the host — copying that is what stops a fake URL from
+       looking like a text input someone typed into. */
+    .proto-urlbar-host { color:#202124; flex:none; }
+    .proto-urlbar-path { color:#5f6368; min-width:0; overflow:hidden; text-overflow:ellipsis; }
+    .proto-avatar { width:24px; height:24px; border-radius:50%; background:var(--brand); color:#fff;
+      font:700 11px/24px var(--font-body); text-align:center; flex:none; margin-left:4px; }
+    /* Mobile browser chrome — a phone running Chrome is a status bar and one address pill, not a
+       tab strip and a window. Rendering the desktop bar inside a 429px bezel was the old shell's
+       one plainly impossible screenshot. Tablets keep the tab strip: iPads really do show one. */
+    .proto-mobar { display:flex; align-items:center; gap:10px; height:48px; padding:0 12px; background:#fff; border-bottom:1px solid #dadce0; }
+    .proto-mobar-url { flex:1 1 auto; min-width:0; display:flex; align-items:center; gap:8px; height:34px; padding:0 14px;
+      background:#f1f3f4; border-radius:999px; font:400 13px/34px var(--font-body); color:#5f6368; overflow:hidden; white-space:nowrap; }
+    .proto-mobar-tabs { flex:none; width:20px; height:20px; border:2px solid #5f6368; border-radius:5px;
+      color:#5f6368; font:700 11px/17px var(--font-body); text-align:center; }
     /* App chrome — slim titlebar (desktop-class) or bezel notch (tablet/mobile) */
-    .proto-appbar { height:38px; display:flex; align-items:center; padding:0 16px; background:var(--neutral-10); border-bottom:1px solid var(--border); }
-    .proto-appbar-title { font: var(--font-weight-bold) var(--font-size-s)/var(--line-height-s) var(--font-body); color:var(--text-active-primary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .proto-appbar { height:38px; display:flex; align-items:center; gap:10px; padding:0 12px; background:var(--neutral-10); border-bottom:1px solid var(--border); }
+    .proto-appbar-title { flex:1 1 auto; text-align:center; font: var(--font-weight-bold) var(--font-size-s)/var(--line-height-s) var(--font-body); color:var(--text-active-primary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .proto-appbar-pad { flex:none; width:56px; }
     /* Device status bar — clock + signal/wifi/battery, contrast color picked from the screen bg */
     .proto-statusbar { position:relative; height:40px; display:flex; align-items:center; justify-content:space-between;
       padding:0 20px; background:#fff; }
@@ -2268,11 +2314,95 @@
     .flow-doc-path { margin-top:4px; font-size: var(--font-size-xs); color:var(--text-tertiary); }
     .flow-doc-checks { margin:6px 0 0; padding-left:2px; list-style:none; display:flex; flex-direction:column; gap:4px; }
     .flow-doc-checks li { font-size: var(--font-size-xs); color:var(--text-active-secondary); }
-    /* Coverage gaps: list rows on a warning rail, same rhythm as the stories above them. */
+    /* Coverage gaps: list rows on a warning rail, same rhythm as the stories above them.
+       On a real project a note runs to 2,000 characters and 22 of them stack into a wall
+       nobody reads. So a row is a HEADLINE you scan over a BODY you open. The body is always
+       in the DOM — collapsed it is line-clamped, never cut — so nothing is truncated away. */
     .flow-doc-gaps { list-style: none; margin: 18px 0 0; padding: 0; }
     .flow-doc-gaps > li { border-left: 2px solid #c2410c; background: rgba(194,65,12,.045);
-      border-radius: 0 6px 6px 0; padding: 8px 12px; margin-bottom: 6px;
+      border-radius: 0 6px 6px 0; padding: 7px 12px; margin-bottom: 3px;
       font-size: var(--font-size-xs); line-height: var(--line-height-p-xs); }
+    /* Settled = resolved or accepted-by-decision. Kept visible (hiding is data loss) but off
+       the warning rail and out of the gap count — it is not an open gap. */
+    .flow-doc-gaps > li.is-settled { border-left-color: var(--border); background: var(--bg-soft); }
+    .gap-date { flex: 0 0 auto; font-family: 'SF Mono', Menlo, monospace; font-size: 10px;
+      color: var(--text-tertiary); font-variant-numeric: tabular-nums; margin-left: auto; }
+
+    /* ── Test Cases: cards on the left, the case itself on the right ──────────
+       A test case is a unit of work, so it gets a card: verdict, lens, the claim,
+       and one dim line naming what running it involves. The 2,400-character body
+       belongs in the panel — half the screen, because that is where the reading
+       happens. The list keeps the other half so you never lose your place. */
+    /* Two independent scroll columns. The split owns the viewport height and neither column is
+       inside the other's scroller, so the list keeps its place while the panel is read. */
+    .ux-scroll-wrap > .tc-split { flex: 1; min-height: 0; overflow: hidden; }
+    .tc-split { display: flex; gap: 0; align-items: stretch; }
+    .tc-list { flex: 1 1 auto; min-width: 0; min-height: 0; overflow-y: auto; padding-right: 10px; }
+    .tc-split.is-open .tc-list { padding-right: 24px; }
+    .tc-cards { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+    .tc-card { display: flex; flex-direction: column; gap: 3px; width: 100%; text-align: left;
+      background: var(--bg-soft); border: 1px solid var(--border); border-left-width: 2px;
+      border-radius: 8px; padding: 9px 12px; font: inherit; cursor: pointer;
+      font-size: var(--font-size-xs); line-height: var(--line-height-p-xs); }
+    .tc-card:hover { border-color: var(--text-tertiary); }
+    .tc-card.is-open { border-color: var(--accent, #2563eb); background: white;
+      box-shadow: 0 0 0 1px var(--accent, #2563eb) inset; }
+    .tc-card-top { display: flex; align-items: center; gap: 6px; }
+    .tc-card-top > .pb-qa-cat, .tc-card-top > .gap-status, .tc-card-top > .pb-test-glyph { flex: 0 0 auto; white-space: nowrap; }
+    .tc-card-head { color: var(--text-active-primary); font-weight: var(--font-weight-bold);
+      display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    .tc-card-sub { color: var(--text-tertiary); font-size: 10px; }
+    /* A coverage gap is still flagged — it is the one card that reports something unhandled. */
+    .tc-cards > li > .tc-card:not(.is-settled) .pb-test-glyph--gap { color: #c2410c; }
+    .tc-card.is-settled { opacity: .72; }
+
+    .tc-panel { flex: 0 0 50%; max-width: 50%; min-height: 0; overflow-y: auto;
+      background: white; border: 1px solid var(--border); border-radius: var(--radius-large);
+      box-shadow: var(--shadow-md); padding: 20px 22px; }
+    /* Close stays reachable however far down the note you have read. */
+    .tc-panel-head { display: flex; align-items: center; justify-content: space-between; gap: 12px;
+      position: sticky; top: -20px; z-index: 1; background: white;
+      margin: -20px -22px 0; padding: 20px 22px 8px; }
+    .tc-panel-kind { display: flex; align-items: center; gap: 8px; font-size: 10px;
+      text-transform: uppercase; letter-spacing: .05em; color: var(--text-tertiary); }
+    .tc-panel-title { font-family: var(--font-heading); font-size: var(--font-size-base);
+      font-weight: var(--font-weight-bold); color: var(--text-active-primary); margin: 10px 0 16px; }
+    .tc-sec { margin-top: 20px; }
+    .tc-sec h4 { font-size: 10px; text-transform: uppercase; letter-spacing: .05em;
+      color: var(--text-tertiary); margin: 0 0 8px; font-weight: var(--font-weight-bold); }
+    .tc-sec h5 { font-size: var(--font-size-xs); color: var(--text-active-secondary);
+      margin: 14px 0 6px; font-weight: var(--font-weight-bold); }
+    .tc-dl { display: grid; grid-template-columns: max-content 1fr; gap: 5px 14px; margin: 0;
+      font-size: var(--font-size-xs); line-height: var(--line-height-p-xs); }
+    .tc-dl dt { color: var(--text-tertiary); }
+    .tc-dl dd { margin: 0; color: var(--text-active-primary); min-width: 0; overflow-wrap: anywhere; }
+    .tc-dl--meta { padding-bottom: 16px; border-bottom: 1px solid var(--border); }
+    .tc-v--pass { color: #15803d; } .tc-v--fail { color: #b91c1c; }
+    .tc-v--stale { color: #c2410c; } .tc-v--untested, .tc-v--manual { color: var(--text-tertiary); }
+    .tc-ol, .tc-ul { margin: 0; padding-left: 20px; font-size: var(--font-size-xs);
+      line-height: var(--line-height-p-xs); color: var(--text-active-primary); }
+    .tc-ol li, .tc-ul li { margin-bottom: 4px; overflow-wrap: anywhere; }
+    .tc-none { margin: 0; font-size: var(--font-size-xs); color: var(--text-active-secondary); }
+    .tc-prose { font-size: var(--font-size-xs); line-height: var(--line-height-p-s);
+      color: var(--text-active-secondary); }
+    .tc-prose p { margin: 0 0 10px; }
+    .tc-prose p:last-child { margin-bottom: 0; }
+    .tc-prose strong { color: var(--text-active-primary); font-weight: var(--font-weight-bold); }
+    .tc-prose code { font-family: 'SF Mono', Menlo, monospace; font-size: .92em;
+      background: var(--bg-soft); border: 1px solid var(--border); border-radius: 4px; padding: 0 3px; }
+    /* Under ~900px the split stops being a split — one column, one scroller, the page's own. */
+    @media (max-width: 900px) {
+      .ux-scroll-wrap > .tc-split { overflow: auto; }
+      .tc-split { flex-direction: column; align-items: stretch; }
+      .tc-split.is-open .tc-list { padding-right: 0; }
+      .tc-list { overflow: visible; }
+      .tc-panel { flex: 1 1 auto; max-width: 100%; width: 100%; overflow: visible; }
+    }
+    .gap-status { font-size: 10px; text-transform: uppercase; letter-spacing: .04em;
+      color: var(--text-tertiary); border: 1px solid var(--border); border-radius: var(--radius-small);
+      padding: 0 4px; margin-right: 4px; }
+    .flow-doc-gaps-sep { margin: 14px 0 6px; font-size: 10px; text-transform: uppercase;
+      letter-spacing: .05em; color: var(--text-tertiary); }
     /* Data — one styled table per entity (Table view) */
     .erd-tables { display:flex; flex-direction:column; gap:22px; }
     .erd-entity-title { margin:0 0 8px; font-family: var(--font-heading); font-size: var(--font-size-base); font-weight: var(--font-weight-bold); color:var(--text-active-primary); }
@@ -2378,8 +2508,17 @@
     .lg-arrow { stroke: var(--text-tertiary); stroke-width: 1.4; fill: none; }
     .lg-arrow--back { stroke-dasharray: 4 3; }
     .lg-arrow-head { fill: var(--text-tertiary); }
-    .lg-ov { fill: rgba(194,65,12,.10); stroke: #c2410c; stroke-width: 1; stroke-dasharray: 3 2; }
-    .lg-ov-t { font-size: 11px; text-anchor: middle; fill: #c2410c; }
+    /* Scope, not state. A band is a SPAN: square corners (a pill reads as another node), a dashed
+       top and bottom so it never competes with the solid state boxes, and solid end caps so you can
+       see exactly where the condition starts and stops holding. */
+    .lg-ov { fill: rgba(194,65,12,.08); stroke: #c2410c; stroke-width: 1; stroke-dasharray: 4 3; }
+    .lg-ov--alt { fill: rgba(194,65,12,.16); }
+    .lg-ov-cap { stroke: #c2410c; stroke-width: 2; }
+    .lg-ov-t { font-size: 11px; text-anchor: start; fill: #c2410c; font-weight: 600; }
+    /* The line between the two zones, and the words for which is which. */
+    .lg-axis { stroke: var(--border); stroke-width: 1; }
+    .lg-zone { font-size: 9px; letter-spacing: .08em; text-transform: uppercase;
+      fill: var(--text-tertiary); text-anchor: start; }
     .lg-table { width: 100%; border-collapse: collapse; font-size: var(--font-size-s); margin: 6px 0 12px; }
     .lg-table th { text-align: left; font-size: 11px; letter-spacing: .04em; text-transform: uppercase; color: var(--text-tertiary); padding: 6px 10px; border-bottom: 1px solid var(--border); }
     .lg-table td { padding: 8px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
@@ -2545,8 +2684,6 @@
       return {
         overview: { objectives: null, principles: [] },
         userInsights: { quantitative: null, researchSummary: null, executiveSummary: null },
-        uiLogicTradeoffs: [],
-        others: null,
         handoff: { view: 'component', organisms: [], screens: [], selectedScreenId: null, selectedElementId: null },
         flow: { populated: false },
         erd: { populated: false },
@@ -2562,8 +2699,6 @@
       const m = reg.meta || {};
       if (m.overview)     d.overview     = m.overview;
       if (m.userInsights) d.userInsights = m.userInsights;
-      if (m.tradeoffs)    d.uiLogicTradeoffs = m.tradeoffs;
-      if (m.others !== undefined && m.others !== null) d.others = m.others;
       d.handoff.organisms = reg.components || [];
       d.handoff.screens   = reg.screens || [];
       if (reg.flow) d.flow = reg.flow;
@@ -2590,20 +2725,21 @@
        ========================================================================= */
     const state = {
       metaView: 'prototype',          // 'prototype' | 'summary' | 'flow' | 'handoff' | 'erd'
-      summarySubTab: 'overview',      // 'overview' | 'insights' | 'others' (deprecated, D-30)
+      summarySubTab: 'overview',      // 'overview' | 'insights'
       handoffDrawerOpenFor: null,     // null | <organism.id> — opens right-side drawer (v0.3.0)
       handoffDrawerSegment: 'anatomy', // 'anatomy' | 'spec' | 'uiLogic' | 'usage' (v0.3.17)
       screenDrawerOpenFor: null,      // null | element.id — screen-view element drawer (v0.3.18)
       screenDrawerSegment: 'spec',    // 'spec' | 'uiLogic' | 'demo' (v0.3.18)
       protoDevice: null,              // 'monitor' | 'laptop' | 'tablet' | 'mobile' — defaults from meta.device
-      protoShell: null,               // 'browser' | 'app' — display chrome; defaults from meta.shell
+      protoShell: null,               // 'browser' | 'app' | 'none' — display chrome; defaults from meta.shell
+      protoDeviceB: null,             // compare mode: a SECOND device showing the same screen (v1.12.0)
       protoHistory: [],               // screen-id stack for the browser back button
-      protoTabs: [],                  // cosmetic extra browser tabs (the "+" new-tab affordance)
       handoffScope: null,            // 'global' | 'local' — UI Design component sub-tab
       erdView: null,                 // 'diagram' | 'table' — Data tab view mode
       erdVariant: {},                // { <entity>: 'schema' | <mock label> } — per-table data set (4.4)
       contentView: null,             // Content sub-view: 'terms' | 'strings'
       iaOverlaysOpen: true,          // site map: show the overlay rail (collapsible — it is the busiest one)
+      tcOpen: null,                  // Test Cases: the card whose detail panel is open ('g4' | 's0-1')
       uxView: null,                  // UX Design sub-tab: 'ia' | 'flow' | 'logic' (D-14)
       iaRole: 'all',                 // Information Architecture role filter
       logicView: null,               // 'rules' | 'ripple'
@@ -2664,7 +2800,7 @@
                  onclick="setMetaView('${id}')">${label}</button>`
       ).join('') + pbDsLink() +
         `<button class="meta-sandbox" onclick="openSandboxMenu(this)" aria-haspopup="dialog" aria-label="Sandbox tools">
-           <span class="meta-sandbox-dot" aria-hidden="true"></span><span>Sandbox</span>
+           <svg class="meta-sandbox-ico" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" aria-hidden="true"><path d="M4 7h8M16 7h4M4 12h3M11 12h9M4 17h10M18 17h2"/><circle cx="14" cy="7" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="16" cy="17" r="2"/></svg><span>Sandbox</span>
            <svg class="meta-sandbox-car" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
          </button>`;
     }
@@ -3188,7 +3324,7 @@
       pop.className = 'copy-popover proto-sandbox-menu';
       pop.setAttribute('role', 'dialog');
       pop.setAttribute('aria-label', 'Sandbox tools');
-      pop.style.width = '288px';
+      pop.style.width = '340px';
       pop.innerHTML = pbSandboxMenuHTML();
 
       document.body.appendChild(backdrop);
@@ -3229,19 +3365,50 @@
                ${ok ? `onclick="setProtoDevice('${d.id}'); pbSandboxRerender()"` : ''}>${protoDeviceIcon(d.id)}</button>`;
           }).join('')
         + `</div>`;
+      // Compare is a MODE, not a fourth device: off is the ordinary single view, on adds exactly
+      // one more. A switch says that; a select with an "Off" option buried at the top of a device
+      // list does not. Switching it on picks the first available second device, so the toggle does
+      // something the moment you flip it rather than arming an empty state.
+      const others = PROTO_DEVICES.filter(d => supported.indexOf(d.id) !== -1 && d.id !== state.protoDevice);
+      const cmpOn = !!state.protoDeviceB;
+      const cmpSwitch = `<button class="proto-menu-item" type="button" ${others.length ? '' : 'disabled'}
+                style="display:flex;align-items:center;justify-content:space-between;width:100%"
+                title="${others.length
+                  ? 'Show the same screen on a second device. Both lay out at their true CSS width and share one scale, so the size difference you see is the real one.'
+                  : 'This project supports only one device size.'}"
+                onclick="toggleProtoCompare(); pbSandboxRerender()">
+          <span>Compare</span><span class="sbx-sw ${cmpOn ? 'on' : ''}" aria-hidden="true"></span>
+        </button>`;
+      const cmpPick = cmpOn
+        ? `<div class="sbx-row"><span class="sbx-row-lbl">With</span>
+             <div class="proto-toolbar" role="group" aria-label="Second device">`
+           + PROTO_DEVICES.map(d => {
+               const ok = others.some(o => o.id === d.id);
+               return `<button class="proto-device-btn ${state.protoDeviceB === d.id ? 'active' : ''} ${ok ? '' : 'is-disabled'}"
+                  aria-label="${d.label}" aria-pressed="${state.protoDeviceB === d.id}"
+                  title="${d.label} · ${d.w}×${d.h}${ok ? '' : (d.id === state.protoDevice ? ' — already the primary' : ' — not supported by this project')}"
+                  ${ok ? `onclick="setProtoCompare('${d.id}'); pbSandboxRerender()"` : 'disabled'}>${protoDeviceIcon(d.id)}</button>`;
+             }).join('')
+           + `</div></div>`
+        : '';
       return `
         <div class="proto-menu-overline" style="margin-top:0">Preview</div>
         <div class="sbx-row"><span class="sbx-row-lbl">Chrome</span>${shellToggle}</div>
         <div class="sbx-row"><span class="sbx-row-lbl">Device</span>${switcher}</div>
+        ${cmpSwitch}${cmpPick}
         <button class="proto-menu-item" type="button" style="display:flex;align-items:center;justify-content:space-between;width:100%"
-                onclick="toggleProtoStructPanel(); pbSandboxRerender()">
+                onclick="toggleProtoStructPanel()">
           <span>Structure tree</span><span class="sbx-sw ${isStructOpen ? 'on' : ''}" aria-hidden="true"></span>
         </button>
         <div class="proto-menu-hr"></div>`;
     }
 
-    /* Titles of authored terminal-test scenarios (flow.stories[].scenarios[].test). */
-    function pbTestScenarioTitles() {
+    /* The runnable scenarios — flow.stories[].scenarios[] that carry a test{} block.
+       Each comes back with the SENTENCE that describes it. This used to read `sc.title`, a field
+       the authored shape has never had (/pb:plan writes { text, category, test }), so every row in
+       the menu said "scenario" and the list was unreadable. The description is the test case, and
+       it is the same string UX Design → Test Cases shows. */
+    function pbTestScenarios() {
       const stories = (PB_DATA && PB_DATA.flow && PB_DATA.flow.stories) || [];
       const out = [];
       stories.forEach(s => (s.scenarios || []).forEach(sc => {
@@ -3253,17 +3420,33 @@
         // scenarios tagged for admin rather than every scenario ever written.
         const roles = sc.test.roles;
         if (roles && roles.length && (state.activeRole == null || roles.indexOf(state.activeRole) === -1)) return;
-        out.push(sc.title || sc.name || sc.id || 'scenario');
+        const lr = sc.lastResult || {};
+        const st = !lr.status ? 'untested' : pbResultStale(lr) ? 'stale'
+          : lr.status === 'pass' ? 'pass' : lr.status === 'fail' ? 'fail' : 'untested';
+        out.push({ text: sc.text || sc.title || sc.name || sc.id || 'scenario',
+                   category: sc.category || '', story: s.title || '',
+                   start: (sc.test && sc.test.start) || '', status: st });
       }));
       return out;
     }
+    const PB_SCENARIO_GLYPH = { pass: '\u2713', fail: '\u2717', stale: '\u27f3', untested: '\u25cb' };
+
+    /* Picking a scenario stages the sandbox for it: jump to the screen it starts on and say which
+       one you are now driving. The list was inert — you could read the scenarios and do nothing. */
+    window.pbStartScenario = function (i) {
+      const sc = pbTestScenarios()[+i];
+      if (!sc) return;
+      closeCopyPopover();
+      if (sc.start && pbScreensHas(sc.start)) setProtoScreen(sc.start);
+      pbToast(sc.text);
+    };
 
     /* The consolidated Sandbox menu content — adapts to the active tab. Roles/Explore/Terminal are
        dropdowns, disabled when the project has no data for them. */
     function pbSandboxMenuHTML() {
       const onProto = state.metaView === 'prototype';
       const roles = (typeof pbRolesList === 'function') ? pbRolesList() : [];
-      const tests = pbTestScenarioTitles();
+      const tests = pbTestScenarios();
       const close = `<button class="copy-popover-close" type="button" aria-label="Close" onclick="closeCopyPopover()">${COPY_POPOVER_ICONS.close}</button>`;
       const preview = onProto ? pbSandboxPreviewControls() : '';
 
@@ -3272,19 +3455,38 @@
              ${roles.map(r => `<option value="${escapeHtmlAttr(r.id)}" ${r.id === state.activeRole ? 'selected' : ''}>${pbEscape(r.name || r.id)}${r.isAdmin ? ' · admin' : ''}</option>`).join('')}
            </select>`
         : `<select class="sbx-select" disabled aria-label="Roles (none defined)"><option>None</option></select>`;
+      // Scenarios are authored as full sentences, so a flat list of them is a wall — on a real
+      // project, forty lines of prose in a dropdown. Group by the story that owns them (the story
+      // title is the scope, and it is stated once per group instead of implied per row) and clamp
+      // each to its first line; the whole sentence stays in the option's tooltip, uncut.
+      const clamp = (t, n) => t.length > n ? t.slice(0, n).replace(/\s+\S*$/, '') + '…' : t;
+      const groups = [];
+      tests.forEach((t, i) => {
+        const last = groups[groups.length - 1];
+        (last && last.story === (t.story || '') ? last : (groups.push({ story: t.story || '', rows: [] }),
+          groups[groups.length - 1])).rows.push([t, i]);
+      });
       const testsSel = tests.length
-        ? `<select class="sbx-select" aria-label="Terminal test scenarios"><option disabled selected>${tests.length} scenario${tests.length > 1 ? 's' : ''}…</option>${tests.map(t => `<option>${pbEscape(t)}</option>`).join('')}</select>`
-        : `<select class="sbx-select" disabled aria-label="Terminal testing (none)"><option>None</option></select>`;
+        ? `<select class="sbx-select" aria-label="Scenario testing" onchange="pbStartScenario(this.value)">
+             <option disabled selected value="">${tests.length} scenario${tests.length > 1 ? 's' : ''}…</option>
+             ${groups.map(g => {
+                 const rows = g.rows.map(([t, i]) =>
+                   `<option value="${i}" title="${escapeHtmlAttr(t.text)}">${PB_SCENARIO_GLYPH[t.status]} ${pbEscape(clamp(t.text, 42))}</option>`).join('');
+                 return g.story ? `<optgroup label="${escapeHtmlAttr(g.story)}">${rows}</optgroup>` : rows;
+               }).join('')}
+           </select>`
+        : `<select class="sbx-select" disabled aria-label="Scenario testing (none)"><option>None</option></select>`;
       const exploreSel = `<select class="sbx-select" disabled aria-label="Explore options (none)"><option>None</option></select>`;
 
       return `
         ${close}
         ${preview}
         <div class="proto-menu-overline" ${onProto ? '' : 'style="margin-top:0"'}>Sandbox</div>
-        <button class="proto-menu-item" type="button" onclick="pbResetSandbox(); closeCopyPopover()">Reset session</button>
         <div class="sbx-row ${roles.length ? '' : 'is-disabled'}"><span class="sbx-row-lbl">Roles</span>${rolesSel}</div>
         <div class="sbx-row is-disabled"><span class="sbx-row-lbl">Explore</span>${exploreSel}</div>
-        <div class="sbx-row ${tests.length ? '' : 'is-disabled'}"><span class="sbx-row-lbl">Terminal testing</span>${testsSel}</div>
+        <div class="sbx-row ${tests.length ? '' : 'is-disabled'}"><span class="sbx-row-lbl">Scenario testing</span>${testsSel}</div>
+        <div class="proto-menu-hr"></div>
+        <button class="proto-menu-item" type="button" onclick="pbResetSandbox(); closeCopyPopover()">Reset session</button>
         <div class="sbx-foot">pb v${PB_SHELL_VERSION}</div>`;
     }
 
@@ -3346,7 +3548,7 @@
         blurb: 'The why behind the prototype: objectives, principles, user insights, and the UI-logic trade-offs that shaped it. Auto-synced from your spec and clarify steps.',
         howItWorks: [
           'Overview = objectives + principles, folded in from /pb:specify and the constitution.',
-          'User Insights are captured by /pb:clarify; the UI-logic trade-offs it also writes are shown in UX Design → Logic → Trade-offs, beside the rules they produced.',
+          'User Insights are captured by /pb:clarify; the rules it also writes — each with the decision behind it — are shown in UX Design → Logic → Rules.',
           'This tab is documentation — there is nothing to build here directly.',
         ],
         commands: ['/pb:specify', '/pb:clarify'],
@@ -3503,64 +3705,357 @@
       }
       const device = state.protoDevice;
       const shell = state.protoShell;
-      const dim = PROTO_DEVICES.find(d => d.id === device) || PROTO_DEVICES[1];
 
-      // Header tools: Browser|App toggle + the device switcher (sits in the header CTA slot, 1.1/1.5).
-      const shellToggle = `<div class="proto-shell-toggle" role="group" aria-label="Display type">
-          <button class="proto-shell-btn ${shell === 'browser' ? 'active' : ''}" onclick="setProtoShell('browser')">Browser</button>
-          <button class="proto-shell-btn ${shell === 'app' ? 'active' : ''}" onclick="setProtoShell('app')">App</button>
-        </div>`;
-      const structIcon = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M15 3v18"/></svg>`;
-      const isStructOpen = document.getElementById('proto-struct-panel') && document.getElementById('proto-struct-panel').classList.contains('is-open');
-      const switcher = `<div class="proto-toolbar" role="tablist" aria-label="Preview device">`
-        + PROTO_DEVICES.map(d => {
-            const ok = supported.indexOf(d.id) !== -1;
-            return `<button class="proto-device-btn ${state.protoDevice === d.id ? 'active' : ''} ${ok ? '' : 'is-disabled'}" role="tab"
-               aria-selected="${state.protoDevice === d.id}" aria-label="${d.label}${ok ? '' : ' (not supported)'}"
-               title="${d.label} · ${d.w}×${d.h}${ok ? '' : ' — not supported by this project'}" ${ok ? '' : 'disabled'}
-               ${ok ? `onclick="setProtoDevice('${d.id}')"` : ''}>${protoDeviceIcon(d.id)}</button>`;
-          }).join('')
-        + `</div>`;
-      const structBtn = `<button class="proto-struct-btn ${isStructOpen ? 'is-active' : ''}" onclick="toggleProtoStructPanel()" title="Structure tree" aria-label="Structure tree">${structIcon}</button>`;
-      // v1.5 — the sandbox tools (Preview-as-role + Reset) live behind ONE ⋯ menu (openSandboxMenu).
-      const sandboxIcon = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h12M6 21h12M8 3v3.6a4 4 0 0 0 1.5 3.1L12 12l2.5-2.3A4 4 0 0 0 16 6.6V3M8 21v-3.6a4 4 0 0 1 1.5-3.1L12 12l2.5 2.3A4 4 0 0 1 16 17.4V21"/></svg>`;
-      const menuBtn = `<button class="proto-menu-btn" onclick="openSandboxMenu(this)" title="Sandbox tools" aria-label="Sandbox tools">${sandboxIcon}</button>`;
-      const toolsFull = `<div class="proto-header-tools">${shellToggle}${switcher}${structBtn}${menuBtn}</div>`;
-      // v1.5 — in a view-only (--people) artifact the ⋯ menu (role switcher + Reset) stays as a VIEWER aid
-      // (routed through headerAside, which renders under VIEW_ONLY); the authoring chrome stays in cta.
-      const viewerTools = `<div class="proto-header-tools">${menuBtn}</div>`;
-      // v1.9 — the Prototype tab has NO page header: chrome · device · structure · sandbox live in the
-      // consolidated Sandbox menu in the meta nav (openSandboxMenu), and the device preview fills the tab.
-      void toolsFull; void viewerTools;  // legacy header-tool builders above are unused now
+      // v1.9 — the Prototype tab has NO page header: chrome · device · compare · structure tree ·
+      // sandbox all live in the consolidated Sandbox menu in the meta nav (openSandboxMenu), and the
+      // preview fills the tab. The header-tool builders that used to sit here were already dead, and
+      // one of them was a SECOND chrome toggle that only ever offered Browser and App — the pair of
+      // them is how `none` came to be an option you could click and nothing happened.
+      const isStructOpen = document.getElementById('proto-struct-panel')
+        && document.getElementById('proto-struct-panel').classList.contains('is-open');
+
+      // Compare (v1.12.0) — the same screen on a second device. It must be a device this project
+      // supports, and it must not be the primary: a laptop beside itself is a bug, not a view.
+      const devB = (state.protoDeviceB && state.protoDeviceB !== device
+                    && supported.indexOf(state.protoDeviceB) !== -1) ? state.protoDeviceB : null;
+      if (state.protoDeviceB && !devB) state.protoDeviceB = null;
 
       const body = (typeof window[sel.renderFn] === 'function')
         ? window[sel.renderFn]()
         : `<div class="placeholder-card"><p>Screen "${sel.name}" has no render function yet — run <code>/pb:build --render</code>.</p></div>`;
 
-      const chrome = protoChrome(shell, device, sel, meta);
+      const closeIcon = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>`;
 
       $('#app').innerHTML = `
         <div class="pb-page pb-page--viewport pb-page--proto">
           <div class="pb-content pb-content--fill">
-            <div class="pb-main proto-main" id="proto-main" onclick="pbProtoMainClick(event)">
+            <div class="pb-main proto-main" id="proto-main">
               <div class="proto-stage" id="proto-stage">
-                <div class="proto-fit" id="proto-fit">
-                  <div class="proto-frame proto-frame--${device} proto-shell--${shell}" id="proto-frame-wrap" style="width:${dim.w}px;max-width:100%${(device === 'tablet' || device === 'mobile') ? '' : ';height:100%'}">
-                    ${chrome}
-                    <div class="proto-screen" id="proto-frame" style="${(device === 'tablet' || device === 'mobile') ? `height:${dim.h}px` : 'flex:1 1 auto;min-height:0'}">${body}</div>
+                <div class="proto-fit${devB ? ' is-compare' : ''}" id="proto-fit">
+                  <div class="proto-pair-box" id="proto-pair-box">
+                    <div class="proto-pair" id="proto-pair">
+                      ${protoFrameSlot('a', device, sel, meta, shell, body, !!devB)}
+                      ${devB ? protoFrameSlot('b', devB, sel, meta, shell, body, true) : ''}
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
             <div id="proto-struct-panel" class="proto-struct-panel${isStructOpen ? ' is-open' : ''}">
+              <div class="proto-struct-head">
+                <span class="proto-struct-title">Structure</span>
+                <button class="proto-struct-close" type="button" aria-label="Close the structure tree"
+                        onclick="toggleProtoStructPanel()">${closeIcon}</button>
+              </div>
               <div class="proto-struct-panel-body">${pbRenderStructureTree(screens)}</div>
             </div>
           </div>
         </div>`;
-      wireProtoNav();
+      wireProtoNav(document.getElementById('proto-frame'));
+      if (devB) wireProtoNav(document.getElementById('proto-frame-b'));
       pbApplyRoleGating();
       pbSyncMachines(document.getElementById('proto-frame'));
-      requestAnimationFrame(function () { fitProtoFrame(); pbSetStatusBarContrast(); });
+      const frameB = document.getElementById('proto-frame-b');
+      if (frameB) pbSyncMachines(frameB);
+      requestAnimationFrame(function () {
+        // pbMirrorFrames FIRST: it splits the two frames' radio groups, and a frame still showing
+        // a collapsed view measures short — the pair would then be scaled to a height it is about
+        // to stop having.
+        pbMirrorFrames(); fitProtoFrame(); pbSetStatusBarContrast(); pbWatchStage();
+      });
+    }
+
+    /* ── Compare mode: two frames, one session ──────────────────────────────────────────────
+       Both frames show the same screen, so anything that changes INSIDE that screen has to show
+       in both or the comparison is a lie. Screen-level navigation already did, because it
+       re-renders — but everything below it did not: a wizard step, a revealed password, a
+       validation error, a typed value all landed only in the frame that was clicked.
+
+       Mirroring one verb at a time would not hold. `registry.runtime[]` lets a project run its
+       own code against the DOM, and the next verb pb adds would have to remember to join in. So
+       the mirror is general and knows nothing about verbs. Both frames hold IDENTICAL markup, so
+       an element's twin is the node in the same position — which is exactly what re-serialising
+       innerHTML replays, for free and for anything.
+
+         · structure, attributes, injected nodes → a MutationObserver copies src.innerHTML across
+         · value / checked / selectedIndex       → DOM *properties*. They are not in innerHTML and
+                                                   they emit no mutation record, so an input and
+                                                   change listener carries those over on their own
+         · scrollTop / scrollLeft                → the same kind of thing, and the one that made
+                                                   in-page navigation look broken (v1.12.0). A jump
+                                                   to a section, a `scrollIntoView`, a re-render
+                                                   that returns to the top: all of them move ONE
+                                                   frame, and the copy above then put the twin's
+                                                   old offset straight back. The content reached
+                                                   both frames; only one of them was looking at it.
+
+       The observers are DISCONNECTED around the write rather than skipped with a boolean: the
+       callback is a microtask, so a flag set and cleared synchronously is already false by the
+       time the echo arrives, while disconnect() drops the queued records outright.
+
+       None of this exists outside compare mode. One `.proto-screen` means nothing to mirror and
+       no observer is attached, so the single-frame path pays nothing. */
+    var _pbMirror = null;
+    const PB_MIRROR_OPTS = { subtree: true, childList: true, attributes: true, characterData: true };
+    const PB_MIRROR_FIELDS = 'input, textarea, select';
+
+    function pbMirrorPause(fn) {
+      if (!_pbMirror) { fn(); return; }
+      _pbMirror.obs.forEach(function (o) { o.disconnect(); });
+      try { fn(); } finally {
+        _pbMirror.obs.forEach(function (o, i) { o.observe(_pbMirror.roots[i], PB_MIRROR_OPTS); });
+      }
+    }
+
+    /* A node's twin is the node at the same position in the other frame — the mirror's whole
+       premise, so the address of a node is its chain of child indexes up to the frame root. */
+    function pbFramePath(root, el) {
+      const path = [];
+      while (el && el !== root) {
+        const p = el.parentNode;
+        if (!p || p.nodeType !== 1) return null;
+        path.push(Array.prototype.indexOf.call(p.children, el));
+        el = p;
+      }
+      return el === root ? path : null;
+    }
+    function pbFrameNodeAt(root, path) {
+      let el = root;
+      for (let i = path.length - 1; i >= 0 && el; i--) el = el.children[path[i]];
+      return el || null;
+    }
+
+    /* Taken as a snapshot rather than copied field by field, because the write that sits between
+       the read and the apply can disturb the frame being read FROM — see pbScopeRadios. */
+    function pbFieldSnapshot(root) {
+      return Array.prototype.map.call(root.querySelectorAll(PB_MIRROR_FIELDS), function (el) {
+        return (el.type === 'checkbox' || el.type === 'radio') ? { checked: el.checked }
+             : (el.tagName === 'SELECT') ? { index: el.selectedIndex }
+             : { value: el.value };
+      });
+    }
+    function pbApplyFieldSnapshot(root, snap) {
+      const els = root.querySelectorAll(PB_MIRROR_FIELDS);
+      for (let i = 0; i < els.length && i < snap.length; i++) {
+        const el = els[i], rec = snap[i];
+        if ('checked' in rec) { if (el.checked !== rec.checked) el.checked = rec.checked; }
+        else if ('index' in rec) { if (el.selectedIndex !== rec.index) el.selectedIndex = rec.index; }
+        else if (el.value !== rec.value) el.value = rec.value;
+      }
+    }
+    function pbCopyFieldState(src, dst) { pbApplyFieldSnapshot(dst, pbFieldSnapshot(src)); }
+
+    /* A radio button group is every radio sharing a NAME **and a form owner**, across the whole
+       document. Two frames of the same screen is two of every radio in it, so the browser treats
+       them as one group and only one of the two can be checked — checking the second frame's
+       radio silently unchecks the first frame's, and there is no event and no mutation to notice
+       it by. A project that drives its in-page navigation from CSS-only radio state (a
+       `:has(#view-a:checked) .view-a { display:flex }` switch, which is how a prototype gets tabs
+       and master-detail without a line of JS) therefore renders its content in EXACTLY ONE of the
+       two frames: the other one's view is `display:none` and the frame looks empty.
+
+       Renaming the radios would break any `[name="…"]` the project's own CSS uses. The form owner
+       is the other half of what defines a group, and nothing selects on it: each secondary frame
+       gets an empty `<form>` of its own, and its radios point at it. Same names, same ids, same
+       CSS — two groups. It is re-applied after every copy, because innerHTML brings the original
+       attributes back with it. */
+    function pbScopeRadios(root, i) {
+      const id = 'pb-radio-scope-' + i;
+      let form = document.getElementById(id);
+      if (!form) {
+        form = document.createElement('form');
+        form.id = id;
+        form.hidden = true;
+        form.addEventListener('submit', function (e) { e.preventDefault(); });
+        document.body.appendChild(form);
+      }
+      Array.prototype.forEach.call(root.querySelectorAll('input[type="radio"]'), function (r) {
+        if (r.getAttribute('form') !== id) r.setAttribute('form', id);
+      });
+    }
+
+    /* Writing scrollTop fires a scroll event of its own, which would bounce straight back and
+       fight the frame the user is actually driving. The echo is suppressed by time rather than by
+       a flag cleared on the next event: a write that lands on the value already there fires
+       nothing at all, and a flag nobody clears would then swallow the next real scroll. */
+    const PB_SCROLL_ECHO_MS = 150;
+    function pbNow() { return (window.performance && performance.now) ? performance.now() : Date.now(); }
+    function pbScrollQuiet(el) { if (el) el.__pbEcho = pbNow() + PB_SCROLL_ECHO_MS; }
+    function pbScrollIsEcho(el) { return !!(el && el.__pbEcho && pbNow() < el.__pbEcho); }
+
+    /* The two frames are DIFFERENT widths — that is the entire point of compare — so the same
+       pixel offset is not the same content: a phone lays the same screen out far taller than a
+       laptop does. What carries across is the PROPORTION. A jump to the last section lands on the
+       last section in both; halfway down stays halfway down. */
+    function pbCarryScrollTo(src, dst) {
+      const sy = src.scrollHeight - src.clientHeight, dy = dst.scrollHeight - dst.clientHeight;
+      const sx = src.scrollWidth - src.clientWidth, dx = dst.scrollWidth - dst.clientWidth;
+      const top = sy > 0 ? Math.round((src.scrollTop / sy) * dy) : 0;
+      const left = sx > 0 ? Math.round((src.scrollLeft / sx) * dx) : 0;
+      if (Math.abs(dst.scrollTop - top) > 1 || Math.abs(dst.scrollLeft - left) > 1) {
+        pbScrollQuiet(dst);
+        dst.scrollTop = top; dst.scrollLeft = left;
+      }
+    }
+    /* innerHTML resets every scroll position the twin holds — its own and every scroller inside
+       it — and the twin is not the frame the user is looking at, so they all go back. */
+    function pbScrollSnapshot(root) {
+      const out = [[[], root.scrollTop, root.scrollLeft]];
+      Array.prototype.forEach.call(root.querySelectorAll('*'), function (el) {
+        if (el.scrollTop || el.scrollLeft) {
+          const p = pbFramePath(root, el);
+          if (p) out.push([p, el.scrollTop, el.scrollLeft]);
+        }
+      });
+      return out;
+    }
+    function pbScrollRestore(root, snap) {
+      snap.forEach(function (rec) {
+        const el = rec[0].length ? pbFrameNodeAt(root, rec[0]) : root;
+        if (!el) return;
+        pbScrollQuiet(el);
+        el.scrollTop = rec[1]; el.scrollLeft = rec[2];
+      });
+    }
+
+    /* ONE frame drives the session (v1.12.0). Two frames in one document means every id in a
+       screen body exists twice, so a project's own handler splits down the middle: `this` and
+       `closest` find the frame that was clicked, `document.getElementById` always finds the
+       first one. A click in the second frame ran half in each — the pane switched in frame A,
+       the tab highlight moved in frame B — and the mirror then copied one half over the other,
+       leaving BOTH frames showing a state that never existed.
+
+       So a click in a secondary frame is replayed on the primary frame's twin node: the handler
+       runs once, in one frame, with `this` and the ids agreeing, and the mirror carries the
+       result back. The second frame stays live — it is still the thing you click — it just is
+       not a second session, which is what the id space already decided.
+
+       Not replayed: what the browser drives itself. A text field, a select, a label keep their
+       click so the caret stays in the frame being typed in, and the field carry above syncs the
+       value. ⌥-click is the inspector — read-only and deliberately frame-local. */
+    const PB_MIRROR_NATIVE = 'input, textarea, select, option, label, [contenteditable]';
+    function pbForwardClick(e, sec, primary) {
+      if (e.altKey || !e.target || e.target.nodeType !== 1) return;
+      if (e.target.closest(PB_MIRROR_NATIVE)) return;
+      const path = pbFramePath(sec, e.target);
+      if (!path || !path.length) return;
+      const twin = pbFrameNodeAt(primary, path);
+      if (!twin) return;
+      e.preventDefault();
+      e.stopPropagation();
+      let ev;
+      try {
+        ev = new MouseEvent('click', { bubbles: true, cancelable: true, view: window,
+          ctrlKey: e.ctrlKey, shiftKey: e.shiftKey, metaKey: e.metaKey });
+      } catch (err) {
+        ev = document.createEvent('MouseEvents');
+        ev.initEvent('click', true, true);
+      }
+      twin.dispatchEvent(ev);
+    }
+
+    function pbMirrorFrames() {
+      if (_pbMirror) {
+        _pbMirror.obs.forEach(function (o) { o.disconnect(); });
+        _pbMirror.roots.forEach(function (r) { r.removeEventListener('scroll', _pbMirror.onScroll, true); });
+      }
+      _pbMirror = null;
+      const roots = Array.prototype.slice.call(document.querySelectorAll('.proto-screen'));
+      if (roots.length < 2 || typeof MutationObserver === 'undefined') return;
+      const copy = function (src) {
+        // Read the live properties BEFORE the write: parsing a `checked` attribute into the twin
+        // takes the group away from the frame we are copying from, so `src` needs putting back too.
+        const snap = pbFieldSnapshot(src);
+        roots.forEach(function (dst, i) {
+          if (dst === src) return;
+          const keep = pbScrollSnapshot(dst);
+          dst.innerHTML = src.innerHTML;
+          if (i) pbScopeRadios(dst, i);
+          pbApplyFieldSnapshot(dst, snap);
+          pbScrollRestore(dst, keep);
+        });
+        pbApplyFieldSnapshot(src, snap);
+      };
+      const obs = roots.map(function (src) {
+        return new MutationObserver(function () { pbMirrorPause(function () { copy(src); }); });
+      });
+      // Scroll does not bubble, so the listener captures: one per frame covers the frame itself
+      // and every scroller inside it.
+      const onScroll = function (e) {
+        const src = e.currentTarget, el = e.target;
+        if (!el || el.nodeType !== 1 || pbScrollIsEcho(el)) return;
+        const path = (el === src) ? [] : pbFramePath(src, el);
+        if (!path) return;
+        roots.forEach(function (dst) {
+          if (dst === src) return;
+          const twin = path.length ? pbFrameNodeAt(dst, path) : dst;
+          if (twin) pbCarryScrollTo(el, twin);
+        });
+      };
+      // Before anything is observed: the render that just built both frames let the second one's
+      // `checked` attributes take the group from the first, so scope the groups apart and put
+      // every radio back to what its own markup says. Both frames came from one HTML string, so
+      // the attribute IS the shared truth at this point.
+      roots.forEach(function (r, i) { if (i) pbScopeRadios(r, i); });
+      roots.forEach(function (r) {
+        Array.prototype.forEach.call(r.querySelectorAll('input[type="radio"]'), function (x) {
+          if (x.checked !== x.defaultChecked) x.checked = x.defaultChecked;
+        });
+      });
+      _pbMirror = { roots: roots, obs: obs, onScroll: onScroll };
+      obs.forEach(function (o, i) { o.observe(roots[i], PB_MIRROR_OPTS); });
+      roots.forEach(function (src) {
+        const carry = function () {
+          pbMirrorPause(function () {
+            roots.forEach(function (dst) { if (dst !== src) pbCopyFieldState(src, dst); });
+          });
+        };
+        src.addEventListener('input', carry);
+        src.addEventListener('change', carry);
+        src.addEventListener('scroll', onScroll, true);
+      });
+      roots.slice(1).forEach(function (sec) {
+        sec.addEventListener('click', function (e) { pbForwardClick(e, sec, roots[0]); }, true);
+      });
+    }
+
+    /* The stage changes width for reasons that are not a window resize — the structure panel
+       slides in and out beside it over 250ms. A single frame rides that out in CSS (max-width:100%),
+       but compare mode's scale is computed in JS at render time, so opening the panel left the pair
+       at its old size, overflowing the column and running under the panel. One observer on the
+       stage covers the panel, the window, and whatever moves the column next. */
+    var _pbStageRO = null;
+    function pbWatchStage() {
+      const stage = document.getElementById('proto-stage');
+      if (!stage || typeof ResizeObserver === 'undefined') return;
+      if (!_pbStageRO) _pbStageRO = new ResizeObserver(function () { fitProtoFrame(); });
+      _pbStageRO.disconnect();
+      _pbStageRO.observe(stage);
+    }
+
+    /* One device's frame. Compare mode renders two — the same screen body twice, each laid out at
+       its own TRUE CSS width, so the wrapping and the media queries you see are the real ones.
+       The bodies are pure functions of the registry, so rendering one twice is free and identical.
+       What two frames are NOT is two sessions: they share this document, so a screen body that
+       looks itself up by a duplicated id finds frame A's copy. That is why a click in the second
+       frame is replayed on the first one's twin node (pbForwardClick) and the result mirrored back
+       — one session, two views, rather than two half-sessions fighting over one id space. */
+    function protoFrameSlot(slot, deviceId, sel, meta, shell, body, compare) {
+      const d = PROTO_DEVICES.find(x => x.id === deviceId) || PROTO_DEVICES[1];
+      const isDevice = (deviceId === 'tablet' || deviceId === 'mobile');
+      const sfx = slot === 'a' ? '' : '-' + slot;
+      // Compare gives BOTH frames their real pixel height, so the pair is one object to scale.
+      const wrapH = compare ? `;height:${d.h}px` : (isDevice ? '' : ';height:100%');
+      const scrH = (compare || !isDevice) ? 'flex:1 1 auto;min-height:0' : `height:${d.h}px`;
+      const cap = compare
+        ? `<div class="proto-frame-cap">${pbEscape(d.label)}<em>${d.w} × ${d.h}</em></div>` : '';
+      return `<div class="proto-frame-slot">${cap}
+          <div class="proto-frame proto-frame--${deviceId} proto-shell--${shell}" id="proto-frame-wrap${sfx}"
+               style="width:${d.w}px${compare ? '' : ';max-width:100%'}${wrapH}">
+            ${protoChrome(shell, deviceId, sel, meta, slot)}
+            <div class="proto-screen" id="proto-frame${sfx}" style="${scrH}">${body}</div>
+          </div>
+        </div>`;
     }
 
     // Display chrome. `none` is the third value (v1.12.0): an internal back-office tool is not a
@@ -3594,53 +4089,104 @@
       if (dev === 'desktop') return 'laptop';
       return ['monitor', 'laptop', 'tablet', 'mobile'].indexOf(dev) !== -1 ? dev : 'laptop';
     }
-    // Device chrome — browser (tabs + nav bar), app (titlebar / bezel notch), or none.
-    function protoChrome(shell, device, sel, meta) {
+    // The furniture of a browser window, drawn once. `back` and `reload` are the only two that do
+    // anything; the rest are the photograph — marked aria-hidden and inert rather than `disabled`,
+    // because they are not controls this prototype declined to implement, they are Chrome's.
+    const PB_CHROME_ICONS = (function () {
+      const w = (d, extra) => `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+        stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}${extra || ''}</svg>`;
+      return {
+        back: w('<path d="M19 12H5M12 19l-7-7 7-7"/>'),
+        fwd: w('<path d="M5 12h14M12 5l7 7-7 7"/>'),
+        reload: w('<path d="M20.5 12a8.5 8.5 0 1 1-2.49-6.01"/><path d="M20.5 4v5h-5"/>'),
+        puzzle: w('<path d="M20.5 11H19V7a2 2 0 0 0-2-2h-4V3.6a2.6 2.6 0 0 0-5.2 0V5H4a2 2 0 0 0-2 2v3.6h1.4a2.7 2.7 0 0 1 0 5.4H2V20a2 2 0 0 0 2 2h3.8v-1.4a2.7 2.7 0 0 1 5.4 0V22H17a2 2 0 0 0 2-2v-4h1.5a2.5 2.5 0 0 0 0-5z"/>'),
+        kebab: '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="12" cy="5" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="12" cy="19" r="1.7"/></svg>',
+        lock: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>',
+        x: '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>',
+      };
+    })();
+
+    // Device chrome — browser (a Chrome window), app (titlebar / bezel notch), or none.
+    // `slot` keeps the ids unique when compare mode renders this twice.
+    function protoChrome(shell, device, sel, meta, slot) {
       // `none` still keeps the tablet and mobile status bar: that is a phone, not a browser, and
       // removing the browser metaphor is not a reason to stop looking like the device.
-      if (shell === 'none') return (device === 'tablet' || device === 'mobile') ? protoStatusBar() : '';
+      if (shell === 'none') return (device === 'tablet' || device === 'mobile') ? protoStatusBar(slot, false, device) : '';
       const title = `${(meta.name || 'prototype')} · ${(sel.name || sel.id)}`;
       const slug = (meta.name || 'app').toLowerCase().replace(/[^a-z0-9\s]/g, '').trim().split(/\s+/)[0];
       const path = (sel.id || '').replace(/-/g, '/');
-      const displayUrl = `https://${slug}.app/${path}`;
+      const dots = `<span class="proto-dots" aria-hidden="true"><i></i><i></i><i></i></span>`;
+      const url = `<span class="proto-urlbar-host">${pbEscape(slug)}.app</span><span class="proto-urlbar-path">/${pbEscape(path)}</span>`;
+      if (shell === 'browser' && device === 'mobile') {
+        const I = PB_CHROME_ICONS;
+        return protoStatusBar(slot, true, device)
+          + `<div class="proto-mobar">
+               <span class="proto-mobar-url">${I.lock}${url}</span>
+               <span class="proto-mobar-tabs" aria-hidden="true">1</span>
+               <span class="proto-navbtn proto-navbtn--static" aria-hidden="true">${I.kebab}</span>
+             </div>`;
+      }
       if (shell === 'browser') {
         const canBack = (state.protoHistory || []).length > 0;
         const fav = ((meta.name || 'A').trim()[0] || 'A').toUpperCase();
-        return `<div class="proto-tabbar">
-            <span class="proto-tab active"><span class="proto-favicon" aria-hidden="true">${pbEscape(fav)}</span>${pbEscape(title)}</span>
+        const I = PB_CHROME_ICONS;
+        // A tablet browser is a browser, but it is not a WINDOW. It sat inside an iPad bezel
+        // wearing macOS traffic lights, a window-management kebab and an extensions puzzle, and —
+        // because only the desktop branch drew it — it was the one device whose OS status bar
+        // disappeared the moment you switched Chrome from App to Browser. A tablet keeps its tab
+        // strip (iPads really do show one) under the status bar every other tablet mode shows,
+        // and drops the furniture that belongs to a desktop window manager.
+        const pad = (device === 'tablet');
+        return (pad ? protoStatusBar(slot, true, device) : '')
+          + `<div class="proto-tabbar">
+            ${pad ? '' : dots}
+            <span class="proto-tab">
+              <span class="proto-favicon" aria-hidden="true">${pbEscape(fav)}</span>
+              <span class="proto-tab-title">${pbEscape(title)}</span>
+              <span class="proto-tab-x" aria-hidden="true">${I.x}</span>
+            </span>
           </div>
           <div class="proto-navbar">
-            <button class="proto-navbtn" title="Back" aria-label="Back" onclick="protoBack()" ${canBack ? '' : 'disabled'}>‹</button>
-            <button class="proto-navbtn" title="Reload" aria-label="Reload" onclick="protoReload()">⟳</button>
-            <div class="proto-urlbar">${pbEscape(displayUrl)}</div>
+            <button class="proto-navbtn" type="button" title="Back" aria-label="Back" onclick="protoBack()" ${canBack ? '' : 'disabled'}>${I.back}</button>
+            <span class="proto-navbtn proto-navbtn--ghost" aria-hidden="true">${I.fwd}</span>
+            <button class="proto-navbtn" type="button" title="Reload" aria-label="Reload" onclick="protoReload()">${I.reload}</button>
+            <div class="proto-urlbar">${I.lock}${url}</div>
+            ${pad ? '' : `<span class="proto-navbtn proto-navbtn--static" aria-hidden="true">${I.puzzle}</span>`}
+            <span class="proto-avatar" aria-hidden="true">${pbEscape(fav)}</span>
+            <span class="proto-navbtn proto-navbtn--static" aria-hidden="true">${I.kebab}</span>
           </div>`;
       }
-      if (device === 'tablet' || device === 'mobile') return protoStatusBar();
-      return `<div class="proto-appbar"><span class="proto-appbar-title">${pbEscape(title)}</span></div>`;
+      if (device === 'tablet' || device === 'mobile') return protoStatusBar(slot, false, device);
+      return `<div class="proto-appbar">${dots}<span class="proto-appbar-title">${pbEscape(title)}</span><span class="proto-appbar-pad"></span></div>`;
     }
     // Device status bar (replaces the notch) — clock + signal/wifi/battery. The foreground color is
     // chosen for high contrast against the screen's background (see pbSetStatusBarContrast).
-    function protoStatusBar() {
+    function protoStatusBar(slot, fixed, device) {
       const sig = '<svg width="17" height="11" viewBox="0 0 17 11" fill="currentColor" aria-hidden="true"><rect x="0" y="7" width="3" height="4" rx="1"/><rect x="4.5" y="5" width="3" height="6" rx="1"/><rect x="9" y="2.5" width="3" height="8.5" rx="1"/><rect x="13.5" y="0" width="3" height="11" rx="1"/></svg>';
       const wifi = '<svg width="16" height="12" viewBox="0 0 16 12" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M1 3.6a10 10 0 0 1 14 0"/><path d="M3.4 6.3a6.4 6.4 0 0 1 9.2 0"/><path d="M5.8 9a3 3 0 0 1 4.4 0"/><circle cx="8" cy="11" r="0.6" fill="currentColor" stroke="none"/></svg>';
       const batt = '<svg width="25" height="12" viewBox="0 0 25 12" fill="none" aria-hidden="true"><rect x="0.6" y="0.6" width="21" height="10.8" rx="2.6" stroke="currentColor" stroke-opacity="0.4" stroke-width="1"/><rect x="2.2" y="2.2" width="14" height="7.6" rx="1.3" fill="currentColor"/><path d="M23 4v4a2 2 0 0 0 1.2-1.84V5.84A2 2 0 0 0 23 4z" fill="currentColor" fill-opacity="0.5"/></svg>';
-      return `<div class="proto-statusbar" id="proto-statusbar">
+      // The island is the phone's camera housing. An iPad has none — drawing one there put a
+      // black pill in the middle of a tablet's status bar for no reason anybody could name.
+      const island = (device === 'mobile') ? '<span class="proto-sb-island"></span>' : '';
+      return `<div class="proto-statusbar${fixed ? ' proto-statusbar--dark' : ''}" id="proto-statusbar${slot === 'b' ? '-b' : ''}"${fixed ? ' data-sb-fixed="1"' : ''}>
           <span class="proto-sb-time">9:41</span>
-          <span class="proto-sb-island"></span>
+          ${island}
           <span class="proto-sb-icons">${sig}${wifi}${batt}</span>
         </div>`;
     }
     // Pick black/white foreground for the status bar based on the screen's effective background.
     function pbSetStatusBarContrast() {
-      const sb = document.getElementById('proto-statusbar');
-      const screen = document.getElementById('proto-frame');
-      if (!sb || !screen) return;
-      const bg = pbEffectiveBg(screen);
-      sb.style.background = bg;
-      const lum = pbColorLuminance(bg);
-      const dark = lum >= 0.5; // light background → dark text
-      sb.classList.toggle('proto-statusbar--dark', dark);
-      sb.classList.toggle('proto-statusbar--light', !dark);
+      [['proto-statusbar', 'proto-frame'], ['proto-statusbar-b', 'proto-frame-b']].forEach(function (ids) {
+        const sb = document.getElementById(ids[0]);
+        const screen = document.getElementById(ids[1]);
+        if (!sb || !screen || sb.hasAttribute('data-sb-fixed')) return;
+        const bg = pbEffectiveBg(screen);
+        sb.style.background = bg;
+        const lum = pbColorLuminance(bg);
+        const dark = lum >= 0.5; // light background → dark text
+        sb.classList.toggle('proto-statusbar--dark', dark);
+        sb.classList.toggle('proto-statusbar--light', !dark);
+      });
     }
     function pbEffectiveBg(screen) {
       // Sample the background directly under the status bar — the top strip of the screen content,
@@ -3673,8 +4219,28 @@
       // visible, but never scale up past 1:1.
       const frame = document.getElementById('proto-frame-wrap');
       const stage = document.getElementById('proto-stage');
+      const fit = document.getElementById('proto-fit');
+      const pair = document.getElementById('proto-pair');
+      const box = document.getElementById('proto-pair-box');
       if (!frame) return;
       frame.style.transform = 'none';
+      if (pair) pair.style.transform = 'none';
+      if (box) { box.style.width = ''; box.style.height = ''; }
+
+      // v1.12.0 — compare mode scales the PAIR, once. Fitting each frame on its own would draw a
+      // 429px phone and a 1280px laptop at the same size, which erases the one fact a side-by-side
+      // exists to show. One transform keeps the ratio exactly what the device widths say it is.
+      if (fit && fit.classList.contains('is-compare') && pair && box && stage) {
+        const totalW = pair.scrollWidth, totalH = pair.scrollHeight;
+        let sp = 1;
+        if (totalW > 0) sp = Math.min(sp, stage.clientWidth / totalW);
+        if (totalH > 0 && stage.clientHeight > 80) sp = Math.min(sp, stage.clientHeight / totalH);
+        pair.style.transform = sp < 1 ? `scale(${sp})` : 'none';
+        box.style.width = Math.ceil(totalW * sp) + 'px';
+        box.style.height = Math.ceil(totalH * sp) + 'px';
+        return;
+      }
+
       const device = state.protoDevice;
       if ((device !== 'tablet' && device !== 'mobile') || !stage) return;
       const availW = stage.clientWidth, availH = stage.clientHeight;
@@ -3688,25 +4254,36 @@
       if (state && state.metaView === 'prototype') requestAnimationFrame(fitProtoFrame);
     });
 
-    /* Prototype aside: screen → component-level tree (does not recurse into component internals). */
+    /* Prototype aside: the product's pages, and a way to jump to one.
+       It used to list every screen's elements[] and the component each points at — three lines of
+       description per screen, describing the page you are looking at while you look at it. Worse,
+       elements[] is a DECLARATION (R-COMPOSE-MATCH exists because it drifts), so the description
+       was the half most likely to be wrong. Page names only. ⌥-click in the preview is the tool
+       for "what is this element", and it answers from the DOM.
+       Depth comes from the derived nav graph — the same PB_LOGIC.nav the IA site map draws — so a
+       screen sits under whatever reaches it. A project with no hub component to seed the roots has
+       an empty graph and gets the flat list, which is the honest shape of what is known. */
+    const PB_TREE_PAGE_ICON = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="14" rx="2"/><path d="M8 21h8"/></svg>';
     function pbRenderStructureTree(screens) {
-      const comps = (PB_DATA.handoff && PB_DATA.handoff.organisms) || [];
-      const nameOf = id => { const c = comps.find(c => c.id === id); return c ? c.name : null; };
-      const dot = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="14" rx="2"/><path d="M8 21h8"/></svg>';
-      return '<div class="pb-tree">' + screens.map(s => {
-        const els = s.elements || [];
-        const nodes = els.length ? els.map(el => {
-          const cn = el.orgId ? nameOf(el.orgId) : null;
-          const org = el.orgId
-            ? `<span class="pb-tree-node-org ${cn ? '' : 'is-missing'}">${pbEscape(cn || el.orgId)}</span>` : '';
-          return `<li class="pb-tree-node"><span class="pb-tree-node-label">${pbEscape(el.label || el.id || 'element')}</span>${org}</li>`;
-        }).join('') : '<li class="pb-tree-node"><span class="pb-tree-node-label" style="color:var(--text-tertiary)">No mapped components</span></li>';
-        return `<div class="pb-tree-screen">
-          <div class="pb-tree-screen-name ${s.id === state.protoScreenId ? 'is-active' : ''}" title="Preview this screen"
-               style="cursor:pointer" onclick="setProtoScreen('${s.id}')">${dot}<span>${pbEscape(s.name || s.id)}</span></div>
-          <ul class="pb-tree-list">${nodes}</ul>
-        </div>`;
-      }).join('') + '</div>';
+      const nav = (window.PB_LOGIC || {}).nav || {};
+      const known = {};
+      screens.forEach(s => { known[s.id] = s; });
+      const row = (id, d) => `<div class="pb-tree-page ${id === state.protoScreenId ? 'is-active' : ''}"
+            style="margin-left:${d * 14}px" title="Preview this screen" onclick="setProtoScreen('${id}')"
+            >${PB_TREE_PAGE_ICON}<span>${pbEscape((known[id] && (known[id].name || known[id].id)) || id)}</span></div>`;
+
+      const kids = nav.children || {}, depth = nav.depth || {};
+      const roots = Object.keys(depth).filter(id => depth[id] === 0 && known[id]).sort();
+      const out = [], seen = {};
+      const walk = (id, d) => {
+        if (seen[id] || !known[id]) return;   // the nav graph is a DAG; a shared child places once
+        seen[id] = 1;
+        out.push(row(id, d));
+        (kids[id] || []).forEach(c => walk(c, d + 1));
+      };
+      roots.forEach(id => walk(id, 0));
+      screens.forEach(s => { if (!seen[s.id]) out.push(row(s.id, 0)); });   // whatever the walk never reached
+      return '<div class="pb-tree">' + out.join('') + '</div>';
     }
     function setProtoScreen(id, fromBack) {
       if (!fromBack && state.protoScreenId && state.protoScreenId !== id) {
@@ -3715,8 +4292,23 @@
       }
       state.protoScreenId = id; renderPrototype();
     }
-    function setProtoDevice(id) { state.protoDevice = id; renderPrototype(); }
-    function setProtoShell(v) { state.protoShell = (v === 'app' ? 'app' : 'browser'); renderPrototype(); }
+    function setProtoDevice(id) {
+      // Picking the primary that compare is already showing would put a device beside itself.
+      if (state.protoDeviceB === id) state.protoDeviceB = null;
+      state.protoDevice = id; renderPrototype();
+    }
+    // `none` shipped in PB_SHELL_OPTS and PB_SHELLS but never got past this line: the setter still
+    // knew only two values and quietly coerced the third back to 'browser', so the button lit up
+    // and the tab strip stayed. Validate against the map that declares the options instead.
+    function setProtoShell(v) { state.protoShell = PB_SHELLS[v] || 'browser'; renderPrototype(); }
+    function setProtoCompare(v) { state.protoDeviceB = v || null; renderPrototype(); }
+    // On → the first device this project supports that is not already the primary.
+    function toggleProtoCompare() {
+      if (state.protoDeviceB) return setProtoCompare(null);
+      const supported = pbNormalizeDeviceList(((PB_REGISTRY && PB_REGISTRY.meta) || {}).devices);
+      const next = PROTO_DEVICES.find(d => supported.indexOf(d.id) !== -1 && d.id !== state.protoDevice);
+      if (next) setProtoCompare(next.id);
+    }
 
     /* =========================================================================
        ROLE-BASED SANDBOX (v1.5)
@@ -3761,17 +4353,17 @@
       // after a role switch silently inherited that role and results became order-dependent —
       // the defect that made the test runner's per-role verdicts meaningless.
       state.activeRole = pbRolesList().length ? pbResolveDefaultRole() : null;
-      document.querySelectorAll('#proto-frame .field__input').forEach(function (i) { i.value = ''; });
+      document.querySelectorAll('.proto-screen .field__input').forEach(function (i) { i.value = ''; });
       const tw = document.getElementById('proto-toast-wrap');
       if (tw) tw.innerHTML = '';
       renderPrototype();
     };
-    // Element-level gating: hide #proto-frame elements whose data-roles excludes the active
-    // role. isAdmin bypasses. No roles model ⇒ everything stays visible.
+    // Element-level gating: hide preview elements whose data-roles excludes the active role.
+    // isAdmin bypasses. No roles model ⇒ everything stays visible. Scoped to .proto-screen rather
+    // than #proto-frame so compare mode's second frame is gated too — an ungated copy of the same
+    // screen sitting beside the gated one would show exactly what the role may not see.
     function pbApplyRoleGating() {
-      const frame = document.getElementById('proto-frame');
-      if (!frame) return;
-      const gated = frame.querySelectorAll('[data-roles]');
+      const gated = document.querySelectorAll('.proto-screen [data-roles]');
       const hasRoles = pbRolesList().length > 0;
       const admin = pbRoleIsAdmin(state.activeRole);
       gated.forEach(function (el) {
@@ -3781,22 +4373,16 @@
         el.style.display = ok ? '' : 'none';
       });
     }
-    function pbSyncStructBtn(open) {
-      const btn = document.querySelector('.proto-struct-btn');
-      if (btn) btn.classList.toggle('is-active', open);
-    }
+    /* The toggle lives inside the Sandbox popover, and the popover is anchored over exactly the
+       strip of page the panel slides into — so flipping the switch appeared to do nothing, and the
+       panel you could not see was then dismissed by your next click in the prototype. Two fixes,
+       both about the same mistake: close the menu so you SEE the result, and stop closing a panel
+       the user explicitly opened. It closes from its own ✕, or from the same switch. */
     function toggleProtoStructPanel() {
       const p = document.getElementById('proto-struct-panel');
       if (!p) return;
-      const open = p.classList.toggle('is-open');
-      pbSyncStructBtn(open);   // keep the toolbar button state in sync (was left stuck 'is-active')
-    }
-    function pbProtoMainClick(e) {
-      const p = document.getElementById('proto-struct-panel');
-      if (p && p.classList.contains('is-open') && !p.contains(e.target)) {
-        p.classList.remove('is-open');
-        pbSyncStructBtn(false);
-      }
+      p.classList.toggle('is-open');
+      closeCopyPopover();
     }
     function protoBack() {
       const h = state.protoHistory || [];
@@ -3804,8 +4390,6 @@
       setProtoScreen(h.pop(), true);
     }
     function protoReload() { renderPrototype(); }
-    function protoNewTab() { state.protoTabs = state.protoTabs || []; state.protoTabs.push('New tab'); renderPrototype(); }
-    function protoCloseTab(i) { (state.protoTabs || []).splice(i, 1); renderPrototype(); }
     function protoDeviceIcon(id) {
       const p = {
         monitor: '<rect x="2" y="3" width="20" height="13" rx="1.5"/><path d="M2 20h20M9 16l-1 4M15 16l1 4"/>',
@@ -3850,7 +4434,7 @@
       else { inp.type='password'; el.textContent='Show'; }
     }
     function pbProtoSubmit(btn){
-      var scope = btn.closest('form') || btn.closest('.proto-device') || document;
+      var scope = btn.closest('form') || btn.closest('.proto-screen') || document;
       var ok = true;
       scope.querySelectorAll('.field__input').forEach(function(inp){
         var field = inp.closest('.field');
@@ -3890,7 +4474,7 @@
     }
     function pbInspectName(el) {
       var screenId = state.protoScreenId || '';
-      var frame = document.getElementById('proto-frame');
+      var frame = (el.closest && el.closest('.proto-screen')) || document.getElementById('proto-frame');
       var screens = (PB_DATA.handoff && PB_DATA.handoff.screens) || [];
       var comps = (PB_DATA.handoff && PB_DATA.handoff.organisms) || [];
       var nameOf = function (id) { var c = comps.find(function (c) { return c.id === id; }); return c ? c.name : null; };
@@ -3926,7 +4510,7 @@
       return { path: 'screen:' + screenId + ' › ' + tag + cls, hint: txt ? '"' + txt + '"' : tag };
     }
     function pbInspectShow(el) {
-      var frame = document.getElementById('proto-frame');
+      var frame = (el && el.closest && el.closest('.proto-screen')) || document.getElementById('proto-frame');
       if (!el || !frame || el === frame || !frame.contains(el)) { pbInspectHide(); return; }
       var info = pbInspectName(el);
       var r = el.getBoundingClientRect();
@@ -3958,8 +4542,8 @@
       document.addEventListener('keyup', function (e) { if (e.key === 'Alt') pbInspectHide(); });
       window.addEventListener('scroll', pbInspectHide, true);
     }
-    function wireProtoNav() {
-      const frame = document.getElementById('proto-frame');
+    function wireProtoNav(frame) {
+      frame = frame || document.getElementById('proto-frame');
       if (!frame) return;
       pbInspectWireKeys();
       frame.addEventListener('click', function (e) {
@@ -3983,35 +4567,26 @@
        TAB 2 — PROJECT SUMMARY
          2.1 Overview              (Objectives + Principles, auto-syncs)
          2.2 User Insights         (Quantitative + Research Summary + Executive Summary)
-         Others                    (DEPRECATED, D-30 — shown only while a project still has content
-                                    in it, under a banner naming where each kind now belongs)
-       UI Logic Trade-offs left this tab in v1.12.0 for UX Design → Logic (D-30).
+       Two sub-tabs, and this tab holds nothing else (D-33). UI Logic Trade-offs left for
+       UX Design → Logic in v1.12.0 (D-30) and then stopped being a separate record at all: a
+       trade-off is a rule, so it is a field ON the rule. `Others` — the one field with no schema,
+       no writer and no check — is retired with it; `content` and `ia.rules[]` are where the
+       terminology and the business rules it accreted actually belong.
        Empty sub-sections render with empty-state copy.
        ========================================================================= */
     /* v0.3.0 — Tab 2 sub-tab navigation. Only the active sub-section renders. */
-    /* UI Logic Trade-offs moved to UX Design → Logic: a trade-off IS a rule, recorded at the
-       moment it was decided, and it belongs beside the rules it produced rather than three tabs
-       away in a document nobody opens while building.
-
-       `Others` is DEPRECATED — see D-30. It was the only field with no schema, so it became the
-       dumping ground for the terminology and business rules that had no home; they now have one
-       (Content, and Logic's rules). The tab appears ONLY while a project still has content in it,
-       carrying a banner that names where each kind belongs. Nothing writes it, and when it is
-       empty it does not render at all. */
     const SUMMARY_SUBTABS = [
       ['overview',  'Overview'],
       ['insights',  'User Insights'],
     ];
-    const pbHasOthers = () => !!(PB_DATA && PB_DATA.others && String(PB_DATA.others).trim());
-    const pbSummarySubtabs = () => pbHasOthers() ? SUMMARY_SUBTABS.concat([['others', 'Others']]) : SUMMARY_SUBTABS;
 
     function renderMetaSummary() {
       const o  = (PB_DATA && PB_DATA.overview) || {};
       const ui = (PB_DATA && PB_DATA.userInsights) || {};
       const hasSummary = !!(o.objectives || (o.principles && o.principles.length) ||
-        ui.quantitative || ui.researchSummary || ui.executiveSummary || pbHasOthers());
+        ui.quantitative || ui.researchSummary || ui.executiveSummary);
       // A sub-tab that no longer exists must not survive in state from an earlier render.
-      if (!pbSummarySubtabs().some(([id]) => id === state.summarySubTab)) state.summarySubTab = 'overview';
+      if (!SUMMARY_SUBTABS.some(([id]) => id === state.summarySubTab)) state.summarySubTab = 'overview';
 
       const header = pbPageHeader({ title: 'Project Summary', infoKey: 'summary' });
 
@@ -4031,14 +4606,13 @@
         return;
       }
 
-      const subTabs = pbSummarySubtabs().map(([id, label]) =>
+      const subTabs = SUMMARY_SUBTABS.map(([id, label]) =>
         `<button class="meta-subtab ${state.summarySubTab === id ? 'active' : ''}"
                  onclick="setSummarySubTab('${id}')">${label}</button>`
       ).join('');
       const body = {
         overview:  pbRenderOverview,
         insights:  pbRenderUserInsights,
-        others:    pbRenderOthers,
       }[state.summarySubTab]();
 
       // v1.5 — split layout: scrolling content on the left, a scroll-spy table of contents on
@@ -4156,61 +4730,64 @@
       `;
     }
 
-    /* Trade-offs live in UX Design → Logic (D-30). A trade-off is a rule caught at the moment it
-       was decided — the options that lost are the part no rule can carry — so it belongs beside
-       the rules it produced, not three tabs away.
+    /* A rule's DECISION — the part a rule cannot state for itself: what was asked, what lost, what
+       was chosen, and why. It used to be `meta.tradeoffs[]`: a separate array, a separate view and
+       a separate capture step in /pb:clarify, for a record that was already a rule. D-30 moved it
+       beside the rules it produced; D-33 admitted it WAS one. Now any rule may carry a decision
+       block and the card draws it, whatever the rule's kind.
 
-       `[SUPERSEDED <date>]` in the title is a convention the projects invented because the schema
-       has no status field; the renderer honours it rather than showing a dead decision at the same
-       weight as a live one. A `status` field is the real fix — see D-30's caveat. */
+       `[SUPERSEDED <date>]` in a title is still read. It is the convention the projects invented
+       when the schema had no status field — `decision.status` is that field now, and the migration
+       rewrites the prefix into it, but a title written the old way keeps working. */
     const PB_SUPERSEDED = /^\s*\[SUPERSEDED([^\]]*)\]\s*/i;
 
-    function pbRenderTradeoffs() {
-      const t = (PB_DATA && PB_DATA.uiLogicTradeoffs) || [];
-      if (!t.length) {
-        return `<p class="meta-p lg-dim">No trade-offs recorded yet. A trade-off is the decision behind a rule — the question, the options weighed, what was chosen and why. Run <code>/pb:clarify</code> to capture them.</p>`;
-      }
-      return t.map((to, i) => {
-        const raw = to.title || '';
-        const sup = PB_SUPERSEDED.exec(raw);
-        const title = sup ? raw.replace(PB_SUPERSEDED, '') : raw;
-        const opts = Array.isArray(to.options) ? to.options
-          : (typeof to.options === 'string' ? to.options.split('|').map(s => s.trim()).filter(Boolean) : []);
-        return `
-          <div class="lg-card ${sup ? 'lg-card--sup' : ''}" id="tradeoff-${i + 1}">
-            <div class="meta-h3">${i + 1} · ${pbEscape(title)}
-              ${sup ? `<span class="lg-chip lg-chip--dead" style="text-decoration:none">superseded${pbEscape(sup[1] || '')}</span>` : ''}</div>
-            ${to.question ? `<p class="meta-p">${pbEscape(to.question)}</p>` : ''}
-            ${opts.length ? `<div class="lg-sec"><div class="lg-sec-h">Options weighed</div>
-              <ul class="tw-opts">${opts.map(op => `<li>${pbEscape(op)}</li>`).join('')}</ul></div>` : ''}
-            ${to.decision ? `<div class="lg-sec"><div class="lg-sec-h">Decision</div><p class="meta-p">${pbEscape(to.decision)}</p></div>` : ''}
-            ${to.why ? `<div class="lg-sec"><div class="lg-sec-h">Why</div><p class="meta-p">${pbEscape(to.why)}</p></div>` : ''}
-            ${to.tabsAffected ? `<div class="lg-dim">Affects: ${pbEscape(to.tabsAffected)}</div>` : ''}
-          </div>`;
-      }).join('');
+    function pbRuleDecision(d) {
+      if (!d || typeof d !== 'object') return '';
+      const opts = Array.isArray(d.options) ? d.options
+        : (typeof d.options === 'string' ? d.options.split('|').map(x => x.trim()).filter(Boolean) : []);
+      if (!d.question && !opts.length && !d.chose && !d.why) return '';
+      // What LOST is the whole reason this record exists, so it is shown beside what won rather
+      // than as a list the winner also appears in.
+      const lost = opts.filter(o => o !== d.chose);
+      return `<div class="lg-sec">
+          <div class="lg-sec-h">Decided</div>
+          ${d.question ? `<p class="meta-p">${pbEscape(d.question)}</p>` : ''}
+          ${d.chose ? `<p class="meta-p"><strong>${pbEscape(d.chose)}</strong>${lost.length
+              ? ` <span class="lg-dim">over ${lost.map(o => pbEscape(o)).join(' · ')}</span>` : ''}</p>` : ''}
+          ${!d.chose && opts.length ? `<ul class="tw-opts">${opts.map(o => `<li>${pbEscape(o)}</li>`).join('')}</ul>` : ''}
+          ${d.why ? `<p class="meta-p">${pbEscape(d.why)}</p>` : ''}
+          ${d.affects ? `<div class="lg-dim">Affects: ${pbEscape(d.affects)}</div>` : ''}
+        </div>`;
     }
 
-    /* Deprecated (D-30). Rendered only when a project still has content here, and always under a
-       banner naming where each kind now belongs — a deprecation that silently hid 12k characters
-       of someone's terminology would be data loss wearing a tidy-up's clothes. */
-    function pbRenderOthers() {
-      const o = PB_DATA && PB_DATA.others;
-      if (!o) return '';
-      return `
-        <div class="meta-section">
-          <div class="meta-h2">Others <span class="lg-chip lg-chip--dead" style="text-decoration:none">deprecated</span></div>
-          <div class="pb-qa-warn">
-            <div class="pb-qa-warn-head">⚠ This field has no schema and nothing writes it</div>
-            <ul class="pb-qa-warn-list">
-              <li>Domain terms, status labels, fixed column wording → <strong>UX Design → Content</strong></li>
-              <li>Business rules, permission matrices, state machines, scoring invariants → <strong>UX Design → Logic → Rules</strong></li>
-              <li>Screen structure and what reaches what → <strong>UX Design → Information Architecture</strong></li>
-              <li>Why a UI choice was made → <strong>UX Design → Logic → Trade-offs</strong></li>
-            </ul>
-          </div>
-          <div class="meta-p">${o}</div>
-        </div>
-      `;
+    /* A project that has not run /pb:update-version yet still holds its decisions in the retired
+       `meta.tradeoffs[]`. The shell stopped reading that field as a view — and rendering nothing
+       would take 22 decisions off someone's screen and call it a tidy-up, which is the exact
+       failure D-30 refused for `others`. So they render, through the same decision renderer, under
+       a banner naming the one command that turns them into rules. Both disappear with the field. */
+    function pbLegacyTradeoffs() {
+      const t = ((PB_REGISTRY && PB_REGISTRY.meta) || {}).tradeoffs;
+      return Array.isArray(t) ? t.filter(x => x && typeof x === 'object') : [];
+    }
+    function pbRenderLegacyTradeoffs() {
+      const t = pbLegacyTradeoffs();
+      if (!t.length) return '';
+      return `<div class="pb-qa-warn">
+          <div class="pb-qa-warn-head">⚠ ${t.length} decision${t.length === 1 ? '' : 's'} still in the retired <code>meta.tradeoffs</code></div>
+          <ul class="pb-qa-warn-list">
+            <li>A trade-off is a rule with its decision still attached. Run <code>/pb:update-version</code> to move these into <strong>ia.rules[]</strong> — they render here, unchanged, until you do.</li>
+          </ul>
+        </div>` + t.map((to, i) => {
+          const raw = to.title || '';
+          const sup = PB_SUPERSEDED.exec(raw);
+          return `<div class="lg-card" id="tradeoff-${i + 1}">
+              <div class="meta-h3">${pbEscape(sup ? raw.replace(PB_SUPERSEDED, '') : raw)}
+                ${pbLgChip('decision', 'lg-chip--kind')}
+                ${sup ? `<span class="lg-chip lg-chip--dead" style="text-decoration:none">superseded${pbEscape(sup[1] || '')}</span>` : ''}</div>
+              ${pbRuleDecision({ question: to.question, options: to.options, chose: to.decision,
+                                 why: to.why, affects: to.tabsAffected })}
+            </div>`;
+        }).join('');
     }
 
     /* =========================================================================
@@ -4604,34 +5181,49 @@
           'The ripple view is derived from your render bodies at render time — what each handler reads, which store slice it touches, what it re-renders — and rules you declare are linked to the code that implements them. Re-render to generate it.',
           'Render', '/pb:build --render');
       }
-      if (!state.logicView) state.logicView = (L.rules || []).length ? 'rules' : 'ripple';
+      // Land on Rules when there is anything to read there — including decisions a project has
+      // not migrated yet, which would otherwise open on Ripple and look like nothing was recorded.
+      if (!state.logicView) {
+        state.logicView = ((L.rules || []).length + pbLegacyTradeoffs().length) ? 'rules' : 'ripple';
+      }
       const v = state.logicView;
       const S = L.stats;
-      const tradeoffs = (PB_DATA && PB_DATA.uiLogicTradeoffs) || [];
       return `<div class="meta-section">
           <div class="meta-h2">3.1 Logic</div>
-          <p class="meta-p" style="color:var(--text-tertiary)">Declared <strong>rules</strong> — state machines, permission matrices, constraint sets — linked to the code that implements them; the <strong>trade-offs</strong> those rules were decided by; and the derived <strong>ripple</strong> of every handler: what it reads, which store slice it touches, what it re-renders.</p>
+          <p class="meta-p" style="color:var(--text-tertiary)">Declared <strong>rules</strong> — state machines, permission matrices, constraint sets, and the decisions behind them — linked to the code that implements them; and the derived <strong>ripple</strong> of every handler: what it reads, which store slice it touches, what it re-renders.</p>
           <div class="lg-views">
-            <button class="lg-view ${v === 'rules' ? 'active' : ''}" onclick="pbSetLogicView('rules')">Rules <span class="meta-subtab-count">${(L.rules || []).length}</span></button>
-            <button class="lg-view ${v === 'tradeoffs' ? 'active' : ''}" onclick="pbSetLogicView('tradeoffs')">Trade-offs <span class="meta-subtab-count">${tradeoffs.length}</span></button>
+            <button class="lg-view ${v === 'rules' ? 'active' : ''}" onclick="pbSetLogicView('rules')">Rules <span class="meta-subtab-count">${(L.rules || []).length + pbLegacyTradeoffs().length}</span></button>
             <button class="lg-view ${v === 'ripple' ? 'active' : ''}" onclick="pbSetLogicView('ripple')">Ripple <span class="meta-subtab-count">${S.handlers}</span></button>
             <span class="lg-stats">${S.handlers} handlers · ${S.exported} shared · ${S.saves} saves · ${S.slices} store slices · <span class="${S.deadReads ? 'lg-warn' : ''}">${S.deadReads} dead read${S.deadReads === 1 ? '' : 's'}</span></span>
           </div>
-          ${v === 'rules' ? pbRenderLogicRules(L) : v === 'tradeoffs' ? pbRenderTradeoffs() : pbRenderLogicRipple(L)}
+          ${v === 'rules' ? pbRenderLogicRules(L) : pbRenderLogicRipple(L)}
         </div>`;
     }
 
     function pbRenderLogicRules(L) {
+      const legacy = pbRenderLegacyTradeoffs();
       const rules = L.rules || [];
       if (!rules.length) {
-        return `<p class="meta-p lg-dim">No rules declared yet. A rule is a state machine or a matrix you write down once — the lifecycle of a cycle, who may edit what — so the diagram, the code that implements it and the screens that display it stay linked.</p>`;
+        // "No rules declared yet" under a rendered decision reads as a contradiction; the banner
+        // above it already says what those cards are and what to run.
+        if (legacy) return legacy;
+        return `<p class="meta-p lg-dim">No rules declared yet. A rule is a state machine, a matrix, a constraint — or a <code>decision</code>, one you have made but not yet expressed as any of those. The lifecycle of a cycle, who may edit what, why validation is inline: written down once, so the diagram, the code that implements it and the screens that display it stay linked.</p>`;
       }
-      return rules.map(r => `
-        <div class="lg-card" id="rule-${pbEscape(r.id)}">
-          <div class="meta-h3">${pbEscape(r.title)} ${pbLgChip(r.kind, 'lg-chip--kind')}</div>
-          <p class="meta-p">${pbEscape(r.summary || '')}</p>
+      return legacy + rules.map(r => {
+        const raw = r.title || '';
+        const sup = PB_SUPERSEDED.exec(raw);
+        const d = r.decision || {};
+        const dead = !!sup || d.status === 'superseded';
+        const when = sup ? (sup[1] || '') : (d.supersededOn ? ' ' + d.supersededOn : '');
+        return `
+        <div class="lg-card ${dead ? 'lg-card--sup' : ''}" id="rule-${pbEscape(r.id)}">
+          <div class="meta-h3">${pbEscape(sup ? raw.replace(PB_SUPERSEDED, '') : raw)} ${pbLgChip(r.kind, 'lg-chip--kind')}
+            ${dead ? `<span class="lg-chip lg-chip--dead" style="text-decoration:none">superseded${pbEscape(when)}</span>` : ''}</div>
+          ${r.summary && r.summary !== (d.chose || '') ? `<p class="meta-p">${pbEscape(r.summary)}</p>` : ''}
           ${r.kind === 'state-machine' ? pbRuleStateMachine(r) : r.kind === 'matrix' ? pbRuleMatrix(r) : r.kind === 'constraint' ? pbRuleConstraint(r) : ''}
-        </div>`).join('');
+          ${pbRuleDecision(d)}
+        </div>`;
+      }).join('');
     }
 
     /* A state machine, drawn. The overlay states are bands ABOVE the stages they cover rather
@@ -4652,8 +5244,19 @@
       return Object.keys(sw).filter(k => !sw[k].derived && !(sw[k].assigns || []).length);
     }
 
+    /* Two things are drawn here and they are not the same kind of thing. The STATES are a timeline:
+       left to right is progression, and an arrow is a move. The OVERLAYS are scope: a condition that
+       holds across a SPAN of that timeline. Drawn as look-alike pills floating above the row, they
+       read as more states — and with three of them the last band collided with the boxes, because
+       the state baseline was a constant while the band stack grows.
+
+       So: the bands get their own zone with a caption and a rule under it, each band is aligned
+       EXACTLY to the boxes it spans with solid end caps (a span has ends; a pill does not), its
+       label sits at the start of the span rather than floating in the middle, and the baseline is
+       computed from the stack instead of guessed. */
     function pbRuleStateMachine(r) {
-      const H = 54, GAP = 46, y = 74, x0 = 12;
+      const H = 54, GAP = 46, x0 = 12;
+      const OV_TOP = 22, OV_H = 20, OV_GAP = 5;
       const states = r.states || [], overlays = r.overlays || [];
       if (!states.length) return '';
       // One width for every box, taken from the longest label or key in the machine.
@@ -4661,6 +5264,19 @@
         Math.max(pbSvgTextW(s.label, 7.3), pbSvgTextW(s.key, 6.2)) + 28)));
       const idx = {};
       states.forEach((s, i) => { idx[s.key] = i; });
+      // Only overlays that actually land on a state in this machine take a row in the zone — an
+      // unresolvable `over` must not reserve height it never draws into.
+      const spans = overlays.map(o => {
+        const cols = (o.over || []).map(k => idx[k]).filter(i => i != null);
+        return cols.length ? { o, a: Math.min.apply(null, cols), b: Math.max.apply(null, cols) } : null;
+      }).filter(Boolean)
+        // Widest scope on top, narrowest nearest the timeline: a narrower span sitting inside a
+        // wider one then LOOKS contained by it, which is what "scope" means here. In declaration
+        // order the same two bands read as an arbitrary stack.
+        .sort((p, q) => (q.b - q.a) - (p.b - p.a) || p.a - q.a);
+      // The baseline follows the stack instead of being a constant that three bands overflow.
+      const y = spans.length ? OV_TOP + spans.length * (OV_H + OV_GAP) + 20 : 14;
+      const axisY = y - 14;
       // A state nothing can put the system into. Only claimed when the rule declared a
       // `stateField`; see pbRuleUnreachable.
       const unreachable = pbRuleUnreachable(r);
@@ -4682,25 +5298,39 @@
         const xa = x0 + ia * (W + GAP) + W / 2, xb = x0 + ib * (W + GAP) + W / 2, yy = y + H + 34;
         return `<path d="M${xa} ${y + H} C ${xa} ${yy}, ${xb} ${yy}, ${xb} ${y + H + 2}" class="lg-arrow lg-arrow--back" marker-end="url(#lgArr)"/>`;
       }).join('');
-      const bands = overlays.map((o, j) => {
-        const cols = (o.over || []).map(k => idx[k]).filter(i => i != null);
-        if (!cols.length) return '';
-        const x = x0 + Math.min.apply(null, cols) * (W + GAP) - 6 + j * 4;
-        const w = (Math.max.apply(null, cols) - Math.min.apply(null, cols) + 1) * (W + GAP) - GAP + 12 - j * 8;
-        const oy = 14 + j * 22;
+      const total = x0 * 2 + states.length * (W + GAP) - GAP;
+      const bands = spans.map((sp, j) => {
+        // Exactly the boxes it covers — same left edge as the first, same right edge as the last.
+        // An overshoot of a few pixels is what made "spans all five" and "spans three" look alike.
+        const x = x0 + sp.a * (W + GAP);
+        const w = (sp.b - sp.a) * (W + GAP) + W;
+        const oy = OV_TOP + j * (OV_H + OV_GAP);
         // The band carries the LABEL only. Its condition is printed verbatim one row down in the
         // table — putting it here too made the longest overlay spill out BOTH ends of its pill,
         // because a band is sized by the states it spans and never by its text.
-        return `<g><title>${pbEscape(o.label)} — ${pbEscape(o.condition || '')}</title>`
-          + `<rect x="${x}" y="${oy}" width="${w}" height="18" rx="9" class="lg-ov"/>`
-          + `<text x="${x + w / 2}" y="${oy + 13}" class="lg-ov-t">${pbEscape(o.label)}</text></g>`;
+        return `<g><title>${pbEscape(sp.o.label)} — ${pbEscape(sp.o.condition || '')}</title>`
+          + `<rect x="${x}" y="${oy}" width="${w}" height="${OV_H}" rx="4" class="lg-ov${j % 2 ? ' lg-ov--alt' : ''}"/>`
+          + `<line x1="${x + .5}" y1="${oy}" x2="${x + .5}" y2="${oy + OV_H}" class="lg-ov-cap"/>`
+          + `<line x1="${x + w - .5}" y1="${oy}" x2="${x + w - .5}" y2="${oy + OV_H}" class="lg-ov-cap"/>`
+          + `<text x="${x + 10}" y="${oy + 14}" class="lg-ov-t">${pbEscape(sp.o.label)}</text></g>`;
       }).join('');
-      const total = x0 * 2 + states.length * (W + GAP) - GAP;
+      // The zone caption and the rule under it are what separate "scope" from "timeline". Without
+      // them the bands are just more boxes that happen to be wider.
+      const zone = spans.length
+        ? `<text x="${x0}" y="14" class="lg-zone">Scope</text>`
+          + `<line x1="${x0}" y1="${axisY}" x2="${total - x0}" y2="${axisY}" class="lg-axis"/>`
+          + `<text x="${x0}" y="${axisY + 12}" class="lg-zone">Timeline</text>`
+        : '';
       const rows = states.map(s => `<tr class="${unreachable.indexOf(s.key) !== -1 ? 'lg-tr-dead' : ''}"><td><strong>${pbEscape(s.label)}</strong> <span class="lg-dim">${pbEscape(s.key)}</span></td><td>${pbEscape(s.condition || '')}${unreachable.indexOf(s.key) !== -1 ? ` <span class="lg-warn">— nothing assigns ${pbEscape(r.stateField)} = '${pbEscape(s.key)}'</span>` : ''}</td></tr>`).join('')
-        + overlays.map(o => `<tr class="lg-tr-ov"><td><strong>${pbEscape(o.label)}</strong> <span class="lg-dim">overlay · ${pbEscape(o.key)}</span></td><td>${pbEscape(o.condition || '')}</td></tr>`).join('');
-      return `<div class="lg-svg-wrap"><svg viewBox="0 0 ${total} 176" width="100%" style="max-width:${total}px;display:block">
+        // Same order as the bands above, so the third row down is the third band down. An overlay
+        // whose `over` resolves to nothing has no band; it still gets its row, at the end.
+        + spans.map(sp => sp.o).concat(overlays.filter(o => !spans.some(sp => sp.o === o)))
+            .map(o => `<tr class="lg-tr-ov"><td><strong>${pbEscape(o.label)}</strong> <span class="lg-dim">overlay · ${pbEscape(o.key)}</span></td><td>${pbEscape(o.condition || '')}</td></tr>`).join('');
+      // Height follows the content: the band stack, the boxes, and the loop-back arcs under them.
+      const totalH = y + H + 46;
+      return `<div class="lg-svg-wrap"><svg viewBox="0 0 ${total} ${totalH}" width="100%" style="max-width:${total}px;display:block">
           <defs><marker id="lgArr" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" class="lg-arrow-head"/></marker></defs>
-          ${bands}${states.map(box).join('')}${arrows}
+          ${zone}${bands}${states.map(box).join('')}${arrows}
         </svg></div>
         <table class="lg-table"><thead><tr><th>State</th><th>Condition</th></tr></thead><tbody>${rows}</tbody></table>`;
     }
@@ -4902,25 +5532,59 @@
     // A scenario carrying a .test block shows its last-run status glyph (✓ pass · ✗ fail ·
     // ○ untested); a scenario without .test stays a manual ☐. Shared by the Test Cases tab
     // and the subtab badge count.
-    const scenarioLi = (sc) => {
-      const text = (typeof sc === 'string') ? sc : (sc && sc.text) || '';
-      const cat = (sc && typeof sc === 'object') ? sc.category : null;
-      const chip = cat ? `<span class="pb-qa-cat pb-qa-cat--${pbEscape(cat)}">${pbEscape(QA_CAT_LABEL[cat] || cat)}</span> ` : '';
-      if (!(sc && typeof sc === 'object' && sc.test)) return `<li>☐ ${chip}${pbEscape(text)}</li>`;
+    /* The verdict of one scenario, as the glyph and the words behind it. */
+    function pbScStatus(sc) {
+      if (!(sc && typeof sc === 'object' && sc.test)) return { st: 'manual', glyph: '☐', label: 'Manual' };
       const lr = sc.lastResult || {};
       const stale = pbResultStale(lr);
       const st = !lr.status ? 'untested' : stale ? 'stale'
         : lr.status === 'pass' ? 'pass' : lr.status === 'fail' ? 'fail' : 'untested';
-      const glyphChar = st === 'pass' ? '✓' : st === 'fail' ? '✗' : st === 'stale' ? '⟳' : '○';
-      const titleTxt = (st === 'pass' ? 'Passed' : st === 'fail' ? 'Failed'
+      return {
+        st, stale, lr,
+        glyph: st === 'pass' ? '✓' : st === 'fail' ? '✗' : st === 'stale' ? '⟳' : '○',
+        label: st === 'pass' ? 'Passed' : st === 'fail' ? 'Failed'
           : st === 'stale' ? (stale === 'unknown'
               ? 'Ran before input tracking existed — re-run to confirm'
               : 'Stale — the code changed since this ran: ' + stale)
-          : 'Not run yet')
-        + (lr.detail ? ' — ' + lr.detail : '') + (lr.ranAt ? ' (' + lr.ranAt + ')' : '');
-      const glyph = `<span class="pb-test-glyph pb-test-glyph--${st}" title="${escapeHtmlAttr(titleTxt)}">${glyphChar}</span>`;
-      return `<li>${glyph} ${chip}${pbEscape(text)}</li>`;
+          : 'Not run yet'
+      };
+    }
+
+    /* A scenario runs to 2,400 characters on a real project — the requirement, the steps, the
+       measurement discipline and the reasoning, all in one string. So the list shows a CARD (the
+       claim, the verdict, the shape of the run) and the whole thing opens in the detail panel. */
+    const scenarioLi = (sc, key, story) => {
+      const text = (typeof sc === 'string') ? sc : (sc && sc.text) || '';
+      const cat = (sc && typeof sc === 'object') ? sc.category : null;
+      const t = (sc && typeof sc === 'object' && sc.test) || null;
+      const s = pbScStatus(sc);
+      const n = (c, one) => c + ' ' + one + (c === 1 ? '' : 's');
+      const sub = t
+        ? [t.start ? 'from ' + t.start : '', n((t.steps || []).length, 'step'),
+           n((t.expect || []).length, 'expect'), (t.roles || []).length ? 'as ' + t.roles.join(', ') : '']
+            .filter(Boolean).join(' · ')
+        : 'No test block — verified by hand';
+      return pbTcCard({ key, cat, date: pbGapDate(text), head: pbGapHead(text),
+                        glyph: s.glyph, st: s.st, title: s.label, sub, story });
     };
+
+    /* One card: the verdict, the lens, the claim, and one dim line saying what running it involves.
+       Everything else is in the panel — a card you cannot scan is just a paragraph with a border. */
+    function pbTcCard(o) {
+      const on = state.tcOpen === o.key;
+      const chip = o.cat ? `<span class="pb-qa-cat pb-qa-cat--${pbEscape(o.cat)}">${pbEscape(QA_CAT_LABEL[o.cat] || o.cat)}</span>` : '';
+      const badge = o.badge ? `<span class="gap-status">${pbEscape(o.badge)}</span>` : '';
+      return `<li><button class="tc-card${on ? ' is-open' : ''}${o.settled ? ' is-settled' : ''}" type="button"
+            onclick="pbOpenTc('${o.key}')" aria-expanded="${on}">
+          <span class="tc-card-top">
+            <span class="pb-test-glyph${o.st ? ' pb-test-glyph--' + o.st : ''}" title="${escapeHtmlAttr(o.title || '')}">${o.glyph || ''}</span>
+            ${badge}${chip}
+            ${o.date ? `<span class="gap-date">${pbEscape(o.date)}</span>` : ''}
+          </span>
+          <span class="tc-card-head">${pbEscape(o.head)}</span>
+          ${o.sub ? `<span class="tc-card-sub">${pbEscape(o.sub)}</span>` : ''}
+        </button></li>`;
+    }
     /* Is this verdict still about the code that is here now? Returns '' when it is current, or
        a reason string when it is not — the screens whose bodies moved, or 'unknown' for a result
        written before inputs were recorded, which cannot be shown as green without asserting
@@ -4947,6 +5611,106 @@
       }));
       return { total, pass, manual, stale };
     }
+    // A coverage warning may declare it is no longer an open gap. Anything else — including no
+    // status at all — is `open`, so a project that never authored the field is unchanged.
+    const GAP_SETTLED = { resolved: 'Resolved', accepted: 'Accepted' };
+    // One open card at a time — gaps key on 'g<i>', scenarios on 's<story>-<n>'. Clicking the open
+    // card closes it, so the same control that opened the panel also dismisses it.
+    function pbOpenTc(k) { state.tcOpen = (k && state.tcOpen === k) ? null : k; renderMetaFlow(); }
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape' && state.tcOpen) { state.tcOpen = null; renderMetaFlow(); }
+    });
+
+    /* A gap note is a paragraph — 2,000 characters on a real project — and 22 paragraphs is not a
+       list, it is an essay. The row needs a LABEL, so derive the note's opening claim: the earliest
+       strong break at least 24 characters in. The minimum matters: breaking at the first delimiter
+       yields "Cổng trọng số" or "Tình huống", fragments that identify nothing. Delimiters are
+       punctuation, not words, so this holds in any language. An authored `title` always wins. */
+    const GAP_DELIMS = [' — ', ' – ', '. ', ': ', ' (', ', ', '; '];
+    function pbGapHead(note) {
+      const n = (note || '').trim();
+      const ps = GAP_DELIMS.map(d => n.indexOf(d)).filter(p => p > 0).sort((a, b) => a - b);
+      let h = null;
+      for (let k = 0; k < ps.length; k++) { if (ps[k] >= 24) { h = n.slice(0, ps[k]); break; } }
+      if (h === null) h = n.length > 110 ? n.slice(0, 110) : n;
+      // Never end mid-parenthesis: close it when the end is near, else drop the parenthetical.
+      if ((h.match(/\(/g) || []).length > (h.match(/\)/g) || []).length) {
+        const c = n.indexOf(')', h.length);
+        h = (c > 0 && c - h.length < 60) ? n.slice(0, c + 1) : h.slice(0, h.lastIndexOf('('));
+      }
+      return h.replace(/[\s,;:—–.]+$/, '');
+    }
+    // The one field in a findings list that differs row to row and needs no translation.
+    function pbGapDate(note) { const m = /\d{4}-\d{2}-\d{2}/.exec(note || ''); return m ? m[0] : ''; }
+
+    /* ── Reading a test case ───────────────────────────────────────────────────
+       An author writing a 2,400-character note is not writing badly; they are
+       recording a requirement, the cases it covers, what was measured and why.
+       That structure is already in the text — newlines separate the blocks, `·`
+       opens a bullet, backticks mark code, and ALL-CAPS is how this author says
+       "look here". The panel renders that structure instead of flattening it.
+
+       Emphasis is REPORTED, never invented: a run is bold because the author
+       capitalised it. Single short caps words are left alone — HR, KPI, UI and
+       PRD are nouns, not shouting, and bolding them would drown the real
+       emphasis in the same paragraph. */
+    function pbEmph(t) {
+      let h = pbEscape(t);
+      h = h.replace(/`([^`]+)`/g, '<code>$1</code>');
+      h = h.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');   // the author's own bold, honoured
+      // A caps RUN of 2+ words, or a single caps word of 4+ letters. The hyphen guards keep it out
+      // of identifiers — `T-ROLE-EL` and `KHÔNG-admin` are names, and bolding half a name is noise.
+      h = h.replace(/(?<![\p{L}\p{M}\d-])\p{Lu}[\p{Lu}\p{M}\d]+(?:[  ]\p{Lu}[\p{Lu}\p{M}\d]*)*(?![\p{L}\p{M}\d-])/gu, m => {
+        const words = m.trim().split(/\s+/);
+        const letters = m.replace(/[^\p{L}]/gu, '').length;
+        return (words.length > 1 || letters >= 4) ? '<strong>' + m + '</strong>' : m;
+      });
+      return h;
+    }
+    /* Not every author uses newlines — on the reference project all 22 coverage notes are one
+       unbroken run of up to 2,057 characters. But they DO mark their sections: a sentence that
+       opens with an ALL-CAPS run ("CẬP NHẬT 2026-08-10", "MỨC ĐỘ KIỂM:") is a new thought. Break
+       long blocks there, so a note that was written as one paragraph still reads as several. */
+    const TC_SECTION = /(?<=[.:])\s+(?=\p{Lu}[\p{Lu}\p{M}\d]+(?:[  ]\p{Lu}[\p{Lu}\p{M}\d]*)*[\s:,])/gu;
+    function pbProseHTML(s) {
+      const out = []; let bul = [];
+      const flush = () => { if (bul.length) { out.push('<ul class="tc-ul">' + bul.join('') + '</ul>'); bul = []; } };
+      (s || '').split(/\n+/).forEach(ln => {
+        const t = ln.trim();
+        if (!t) return;
+        if (/^[·•▪–-]\s+/.test(t)) { bul.push('<li>' + pbEmph(t.replace(/^[·•▪–-]\s+/, '')) + '</li>'); return; }
+        flush();
+        (t.length > 400 ? t.split(TC_SECTION) : [t]).forEach(p => {
+          if (p.trim()) out.push('<p>' + pbEmph(p.trim()) + '</p>');
+        });
+      });
+      flush();
+      return out.join('');
+    }
+    /* A step and an expect are data. Said as sentences they are a test plan someone can read
+       without learning the vocabulary first — and the bold is the part being asserted. */
+    const TC_STEP_VERB = { fill: 'Fill', click: 'Click', nav: 'Navigate via', submit: 'Submit',
+                           'toggle-password': 'Toggle the password on', back: 'Go back' };
+    function pbStepText(s) {
+      const v = TC_STEP_VERB[s && s.do] || (s && s.do) || '';
+      if (s && s.do === 'back') return v;
+      const tgt = s && s.target ? ` <strong>${pbEscape(s.target)}</strong>` : '';
+      const val = s && s.value != null ? ` with <strong>"${pbEscape(String(s.value))}"</strong>` : '';
+      return v + tgt + val;
+    }
+    function pbExpectText(e) {
+      if (!e || typeof e !== 'object') return pbEscape(String(e));
+      if (e.screen) return `Lands on screen <strong>${pbEscape(e.screen)}</strong>`;
+      if (e.text) return `The frame reads <strong>"${pbEscape(e.text)}"</strong>`;
+      if (e.toast) return `A toast says <strong>"${pbEscape(e.toast)}"</strong>`;
+      if (e.present) return `<strong>${pbEscape(e.present)}</strong> is present`;
+      if (e.absent) return `<strong>${pbEscape(e.absent)}</strong> is absent`;
+      if (e['no-console-error']) return 'No console error fires';
+      if (e.errors) return e.errors.count != null
+        ? `Exactly <strong>${pbEscape(String(e.errors.count))}</strong> field errors show`
+        : `At least <strong>${pbEscape(String(e.errors.min))}</strong> field errors show`;
+      return pbEscape(JSON.stringify(e));
+    }
     function pbRenderTestCases() {
       const f = (PB_DATA && PB_DATA.flow) || {};
       const fStories = f.stories || [];
@@ -4958,25 +5722,101 @@
       const tc = pbTestCounts();
       const runTestsBtn = VIEW_ONLY ? '' :
         `<button class="pb-test-run-btn" type="button" onclick="openCopyPopover('/pb:test', this)" title="Copy the /pb:test command">Run tests</button>`;
-      const warns = f.coverageWarnings || [];
-      const testsHeader = `<div class="pb-test-head"><span class="pb-test-summary">${tc.pass}/${tc.total} passing · ${tc.manual} manual${tc.stale ? ` · <span class="lg-warn">${tc.stale} stale</span>` : ''}${warns.length ? ` · <span class="lg-warn">${warns.length} coverage gaps</span>` : ''}</span>${runTestsBtn}</div>`;
-      // Gaps read as rows in the same list rhythm as the stories, flagged rather than boxed: a
-      // box of 22 findings is a wall you scroll past, and it sat above the very list it is about.
-      const warnBlock = warns.length ? `<ul class="flow-doc-gaps">${warns.map(w => {
-            const note = (typeof w === 'string') ? w : (w && w.note) || '';
-            const cat = (w && typeof w === 'object') ? w.category : null;
-            const chip = cat ? `<span class="pb-qa-cat pb-qa-cat--${pbEscape(cat)}">${pbEscape(QA_CAT_LABEL[cat] || cat)}</span> ` : '';
-            return `<li>${chip}${pbEscape(note)}</li>`;
-          }).join('')}</ul>` : '';
-      const testsList = '<ol class="flow-doc-stories">' + fStories.map(s =>
-          `<li><strong>${pbEscape(s.title||'')}</strong><ul class="flow-doc-checks">`
-          + (s.scenarios||[]).map(scenarioLi).join('') + '</ul></li>').join('') + '</ol>';
-      return `<div class="meta-section">
-          <div class="meta-h2">3.4 Test Cases</div>
-          <p class="meta-p" style="color:var(--text-tertiary)">Every scenario each user story must satisfy, tagged by lens (UX · UI · Function · Business · System edge). A scenario wired to a <code>test{}</code> block shows its last run result.</p>
-          ${testsHeader}
-          ${testsList}
-          ${warnBlock}
+      const warns = (f.coverageWarnings || []).map((w, i) => {
+        const o = (typeof w === 'string') ? { note: w } : (w || {});
+        const status = GAP_SETTLED[o.status] ? o.status : 'open';
+        return { i, note: o.note || '', title: o.title || '', category: o.category || null, status };
+      });
+      const open = warns.filter(w => w.status === 'open');
+      const settled = warns.filter(w => w.status !== 'open');
+      const testsHeader = `<div class="pb-test-head"><span class="pb-test-summary">${tc.pass}/${tc.total} passing · ${tc.manual} manual${tc.stale ? ` · <span class="lg-warn">${tc.stale} stale</span>` : ''}${open.length ? ` · <span class="lg-warn">${open.length} coverage gaps</span>` : ''}${settled.length ? ` · ${settled.length} settled` : ''}</span>${runTestsBtn}</div>`;
+      // A gap is a test case too — same card, same panel. It carries no run, so its sub-line says
+      // what kind of record it is rather than how it would execute.
+      const gapLi = w => pbTcCard({
+        key: 'g' + w.i, cat: w.category, date: pbGapDate(w.note),
+        head: w.title || pbGapHead(w.note), glyph: '⚑', st: 'gap',
+        title: 'Coverage gap', settled: w.status !== 'open',
+        badge: w.status !== 'open' ? GAP_SETTLED[w.status] : '',
+        sub: w.status === 'open' ? 'Not covered by any scenario'
+           : w.status === 'resolved' ? 'Resolved — kept as the record'
+           : 'Accepted by decision — not a gap'
+      });
+      const warnBlock = (open.length ? `<ul class="tc-cards">${open.map(gapLi).join('')}</ul>` : '')
+        + (settled.length ? `<div class="flow-doc-gaps-sep">Settled — resolved or accepted by decision</div>`
+            + `<ul class="tc-cards">${settled.map(gapLi).join('')}</ul>` : '');
+      const testsList = '<ol class="flow-doc-stories">' + fStories.map((s, si) =>
+          `<li><strong>${pbEscape(s.title||'')}</strong><ul class="tc-cards">`
+          + (s.scenarios||[]).map((sc, j) => scenarioLi(sc, 's' + si + '-' + j, s.title || '')).join('')
+          + '</ul></li>').join('') + '</ol>';
+      return `<div class="tc-split${state.tcOpen ? ' is-open' : ''}">
+          <div class="meta-section tc-list">
+            <div class="meta-h2">3.4 Test Cases</div>
+            ${testsHeader}
+            ${testsList}
+            ${warnBlock}
+          </div>
+          ${pbTcPanel()}
+        </div>`;
+    }
+
+    /* The detail panel — half the screen, because the thing it shows is half the work. It is the
+       one place the whole authored text appears, structured rather than dumped: the verdict and
+       why it is the verdict, then the run said as sentences, then the author's own notes with
+       their own emphasis kept. */
+    function pbTcPanel() {
+      const k = state.tcOpen;
+      if (!k) return '';
+      const f = (PB_DATA && PB_DATA.flow) || {};
+      let head = '', cat = null, text = '', story = '', sc = null, badge = '', kind = '';
+      if (k[0] === 'g') {
+        const w = (f.coverageWarnings || [])[+k.slice(1)];
+        const o = (typeof w === 'string') ? { note: w } : (w || {});
+        text = o.note || ''; cat = o.category || null; kind = 'Coverage gap';
+        head = o.title || pbGapHead(text);
+        badge = GAP_SETTLED[o.status] || '';
+        if (o.title) text = o.note; else text = text;            // title authored → note is the body
+      } else {
+        const m = /^s(\d+)-(\d+)$/.exec(k); if (!m) return '';
+        const st = (f.stories || [])[+m[1]] || {};
+        sc = (st.scenarios || [])[+m[2]];
+        text = (typeof sc === 'string') ? sc : (sc && sc.text) || '';
+        cat = (sc && typeof sc === 'object') ? sc.category : null;
+        story = st.title || ''; head = pbGapHead(text); kind = 'Test case';
+      }
+      const s = sc ? pbScStatus(sc) : { st: 'gap', glyph: '⚑', label: 'Coverage gap' };
+      const t = (sc && typeof sc === 'object' && sc.test) || null;
+      const lr = (sc && sc.lastResult) || null;
+      const chip = cat ? `<span class="pb-qa-cat pb-qa-cat--${pbEscape(cat)}">${pbEscape(QA_CAT_LABEL[cat] || cat)}</span>` : '';
+
+      const meta = [];
+      if (story) meta.push(['Story', pbEscape(story)]);
+      if (badge) meta.push(['Status', `<strong>${pbEscape(badge)}</strong>`]);
+      if (sc) meta.push(['Verdict', `<strong class="tc-v tc-v--${s.st}">${s.glyph} ${pbEscape(s.label)}</strong>`]);
+      if (lr && lr.detail) meta.push(['Detail', pbEscape(lr.detail)]);
+      if (lr && lr.ranAt) meta.push(['Last run', pbEscape(lr.ranAt)]);
+
+      const run = t ? `<div class="tc-sec"><h4>How it runs</h4>
+          <dl class="tc-dl">
+            ${t.start ? `<dt>Starts on</dt><dd><strong>${pbEscape(t.start)}</strong></dd>` : ''}
+            ${(t.roles || []).length ? `<dt>As role</dt><dd><strong>${pbEscape(t.roles.join(', '))}</strong></dd>` : ''}
+            ${t.seed ? `<dt>Seed data</dt><dd><strong>${pbEscape(t.seed)}</strong></dd>` : ''}
+          </dl>
+          ${(t.steps || []).length ? `<h5>Steps</h5><ol class="tc-ol">${t.steps.map(x => `<li>${pbStepText(x)}</li>`).join('')}</ol>` : ''}
+          ${(t.expect || []).length ? `<h5>Passes when</h5><ul class="tc-ul">${t.expect.map(x => `<li>${pbExpectText(x)}</li>`).join('')}</ul>` : ''}
+        </div>` : (sc ? `<div class="tc-sec"><h4>How it runs</h4>
+          <p class="tc-none">No <code>test{}</code> block — this one is <strong>checked by hand</strong>, so it never reports a pass.</p></div>` : '');
+
+      return `<div class="tc-panel" role="dialog" aria-label="${escapeHtmlAttr(head)}">
+          <div class="tc-panel-head">
+            <div class="tc-panel-kind">${chip}<span>${pbEscape(kind)}</span></div>
+            <button class="pb-dialog-close" type="button" aria-label="Close" onclick="pbOpenTc(null)">✕</button>
+          </div>
+          <h3 class="tc-panel-title">${pbEscape(head)}</h3>
+          ${meta.length ? `<dl class="tc-dl tc-dl--meta">${meta.map(([k2, v]) => `<dt>${pbEscape(k2)}</dt><dd>${v}</dd>`).join('')}</dl>` : ''}
+          ${run}
+          <div class="tc-sec"><h4>${sc ? 'What it covers' : 'The finding'}</h4>
+            <div class="tc-prose">${pbProseHTML(text)}</div>
+          </div>
         </div>`;
     }
 
@@ -5123,10 +5963,12 @@
       const view = pbUxView();
 
       if (view === 'ia' || view === 'logic' || view === 'tests' || view === 'content') {
+        // Tests owns its own height like IA does: the split's two columns scroll independently, so
+        // reading a 2,400-character case never drags the list you are working through out of view.
         const body = view === 'ia' ? pbRenderIA()
           : view === 'logic' ? `<div class="summary-scroll">${pbRenderLogic()}</div>`
           : view === 'content' ? `<div class="summary-scroll">${pbRenderContent()}</div>`
-          : `<div class="summary-scroll">${pbRenderTestCases()}</div>`;
+          : pbRenderTestCases();
         $('#app').innerHTML = `
           <div class="pb-page pb-page--viewport">
             ${header}

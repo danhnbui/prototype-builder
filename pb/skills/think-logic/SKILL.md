@@ -33,7 +33,8 @@ The render body is plain JS that returns a string — branch on `props.state` to
 
 ## Output
 The state list, the per-input validation, the action/transition map, and any conditional branches — ready
-to encode in the `renderSrc` body. Record logic trade-offs (e.g. inline vs on-submit validation) via
+to encode in the `renderSrc` body. Record a contested logic decision (e.g. inline vs on-submit validation)
+as an `ia.rules[]` rule carrying its `decision{}` via
 `/pb:clarify`.
 
 ## Rules

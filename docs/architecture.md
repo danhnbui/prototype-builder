@@ -53,7 +53,7 @@ slice** — a token, one component, one screen — never the whole file.
 
 | Key | Shape | Feeds |
 |---|---|---|
-| `meta` | `name`, `overview{objectives, principles[]}`, `userInsights{quantitative, researchSummary, executiveSummary}`, `tradeoffs[]`, `others` | Project Summary |
+| `meta` | `name`, `overview{objectives, principles[]}`, `userInsights{quantitative, researchSummary, executiveSummary}` | Project Summary |
 | `tokens` | `{ "<name>": { value, kind } }` — `kind ∈ color\|radius\|space\|size\|type\|shadow\|alias` | all tabs (CSS vars) |
 | `components[]` | organism shape: `id` (kebab, unique), `name`, `renderFn` (`renderCmp{PascalCase}`), `renderSrc` (`render/components/<id>.js`), `properties`, `anatomy`, `spec`, `uiLogic`, `usage` | design-system site + Prototype (composed into screens) |
 | `screens[]` | `id` (kebab), `name`, `renderFn`, `renderSrc` (`render/screens/<id>.js`), `layout`, `elements[]`, `logicNotes[]` | Prototype · screen |
@@ -118,12 +118,12 @@ Durable, human-readable rules and rationale — no hook engine.
 | File | Holds |
 |---|---|
 | `memory/constitution.md` | **Principles** (the drift gate checks each trio write against these) + **Stack Lock** + **Design System Lock** — lean, rules-only |
-| `memory/decisions.md` | the why-log — one entry per trade-off resolved or drift override (newest first) |
+| `memory/decisions.md` | the why-log — one entry per decision resolved or drift override (newest first) |
 | `design-system/{name}/{name}.md` | the global DS reference — foundations + a scannable component index + rules R0–R4 + the naming contract |
 | `memory/{prd,spec,plan,tasks}.md` | the on-ramp artifacts produced by init / specify / plan |
 
 **Tab-2 (Project Summary) sync** is folded directly into the `init` / `specify` / `clarify`
-command bodies — they write `meta.overview` / `meta.userInsights` / `meta.tradeoffs` into the
+command bodies — they write `meta.overview` / `meta.userInsights` / `ia.rules[]` into the
 registry. This is what the v0.4.0 `after_*` hooks + `sync-tab2` used to do; there is no hook
 engine.
 
@@ -134,7 +134,7 @@ All four prototype tabs are rendered from the registry by the ported machinery:
 | Tab | Renders from | Sync |
 |---|---|---|
 | **Prototype** | `screens[]` | trio — auto on `/pb:build` |
-| **Project Summary** | `meta.overview` / `userInsights` / `tradeoffs` (PRD · Insights · Trade-offs) | trio — auto on `/pb:build` |
+| **Project Summary** | `meta.overview` / `userInsights` (Overview · Insights) | trio — auto on `/pb:build` |
 | **UX Design** | `flow` (Mermaid wireflow + test checklist) | authored by `/pb:flow`; reconciled on every trio `/pb:build` |
 | **Data** | `erd` (field/type/example table + Mermaid ERD) | authored by `/pb:data`; reconciled on every trio `/pb:build` |
 

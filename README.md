@@ -79,7 +79,7 @@ If `/pb:init` says Python isn't installed, it will tell you exactly how to fix i
 |---|---|
 | `/pb:init` | Scaffold: PRD intake (Q&A or file), set Stack + DS locks, seed `registry.json` + `memory/`; `--import` a bundle |
 | `/pb:specify` | Produce the spec / PRD |
-| `/pb:clarify` | User Insights + UI Logic Trade-offs → Project Summary; append to `decisions.md` |
+| `/pb:clarify` | User Insights → Project Summary; one `ia.rules[]` rule per contested UI decision → UX Design → Logic; append to `decisions.md` |
 | `/pb:plan` | Implementation plan + per-tab task breakdown (acceptance + skill + **agent · deps · slice**) |
 | `/pb:orchestrate` | Dispatch `memory/tasks.md` to the 8-agent roster in dependency **waves** — serial writes, render once per wave, acceptance-gated |
 | `/pb:build` | The cheap loop: targeted `registry.json` patches, trio-gated, no per-tweak render; `--render` to view |

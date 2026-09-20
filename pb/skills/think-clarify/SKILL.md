@@ -24,7 +24,7 @@ Otherwise: pick the sensible default, **state it out loud**, and proceed.
 ## Output
 A short list of **questions to ask** (each with a recommended default) and a list of **assumptions taken**
 (stated so the user can correct them). Defaults that shape the trio (a screen, a component, logic) should be
-recorded as trade-offs via `/pb:clarify`.
+recorded as rules — each with the `decision{}` it was made by — via `/pb:clarify`.
 
 ## Rules
 - **Never block on a question you can answer with a stated default.**

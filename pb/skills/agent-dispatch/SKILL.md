@@ -24,7 +24,7 @@ Route primarily by the task's **`slice:`**, using **`skill:`** as the tiebreaker
 | `tokens` | **pb-design-system** | `think-layout` (token schema, no raw hex/px) |
 | `flow` | **pb-flow** | `craft-connect-flow` (drives `/pb:plan --flow`) |
 | `erd` | **pb-data** | (drives `/pb:plan --data`) |
-| `meta` | **pb-clarifier** for Project-Summary copy / insights / trade-offs (`ref-prd`, `think-clarify`, `think-critique-prd`); **pb-planner** for plan / task upkeep (`agent-orchestrate-tasks`) |
+| `meta` | **pb-clarifier** for Project-Summary copy / insights, and the rules behind contested UI decisions (`ref-prd`, `think-clarify`, `think-critique-prd`); **pb-planner** for plan / task upkeep (`agent-orchestrate-tasks`) |
 
 `pb-tester` and `pb-reviewer` are **not** slice owners — they run the per-wave acceptance gate (below).
 

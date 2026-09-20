@@ -14,7 +14,8 @@ runtime verbs that earned a place (D-28).
   5. render: registry.runtime[] modules inline BEFORE the render bodies, a declared `url`
      becomes a <script src> in the head, and load_contracts carries the authored half only.
   6. the two verbs live once in runtime.js, reach the RENDERED page, and are wired in both shells.
-  7. the chain reaches CURRENT_SCHEMA == 11 and the shipped template carries it.
+  7. the chain reached 11 and never went back, and the shipped template carries 0009's slices.
+     (The current schema constant belongs to the NEWEST migration — tests/tradeoff_rules.py.)
 
 Self-contained: the fixture is built here, never read from a project. Exit 0/1.
 """
@@ -281,11 +282,11 @@ check("[data-step-pane][hidden]" in shell and "[data-step-pane][hidden]" in ds,
       "both shells state the hidden-pane rule at a strength a project's CSS cannot beat")
 
 print("7 · schema constant + template")
-check(MAN.CURRENT_SCHEMA == 11, "CURRENT_SCHEMA == 11")
+check(MAN.CURRENT_SCHEMA >= 11, f"the chain is at or past 11 (got {MAN.CURRENT_SCHEMA})")
 check((10, 11, "0009_logic_contract") in MAN._REGISTRY, "0009 is registered in the migration chain")
 tmpl = json.load(open(os.path.join(TPL, "registry.template.json"), encoding="utf-8"))
-check(tmpl["meta"]["schemaVersion"] == 11, "the shipped template is stamped 11")
-check(tmpl.get("ia") == {"populated": False} and tmpl.get("runtime") == [],
+check(tmpl["meta"]["schemaVersion"] >= 11, f"the shipped template is at or past 11 ({tmpl['meta']['schemaVersion']})")
+check((tmpl.get("ia") or {}).get("populated") is False and tmpl.get("runtime") == [],
       "the template seeds both new slices")
 
 print("8 · registry.runtime[] modules share the render bodies' scope")

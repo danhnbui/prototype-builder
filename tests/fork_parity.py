@@ -47,7 +47,7 @@ print("2 · meta.shell: 'none' — a flat screen")
 check("['none', 'None']" in SHELL, "the chrome toggle offers a third option")
 check(re.search(r"if\s*\(shell === 'none'\)\s*return", SHELL) is not None,
       "protoChrome emits nothing for it on desk-sized frames")
-check("protoStatusBar()" in (re.search(r"if \(shell === 'none'\).*", SHELL).group(0)),
+check("protoStatusBar(" in (re.search(r"if \(shell === 'none'\).*", SHELL).group(0)),
       "tablet and mobile keep their status bar — that is a phone, not a browser")
 check(".proto-shell--none:not(.proto-frame--tablet):not(.proto-frame--mobile)" in SHELL,
       "and the window frame flattens only on the desk-sized devices")
@@ -59,8 +59,8 @@ render = open(os.path.join(ROOT, "pb", "tools", "render.py"), encoding="utf-8").
 check('<script src="%s"></script>' in render, "render.py emits a tag per declared url")
 
 print("4 · test.roles scopes the shell's scenario list")
-fn = re.search(r"function pbTestScenarioTitles\(\)\s*\{.*?\n    \}", SHELL, re.S)
-check(fn is not None, "pbTestScenarioTitles is present")
+fn = re.search(r"function pbTestScenarios\(\)\s*\{.*?\n    \}", SHELL, re.S)
+check(fn is not None, "pbTestScenarios is present")
 if fn:
     body = fn.group(0)
     check("sc.test.roles" in body, "it reads the scenario's own roles[]")

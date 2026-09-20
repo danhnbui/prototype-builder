@@ -8,6 +8,58 @@ All notable changes to Product Builder. Format follows [Keep a Changelog](https:
 something you had to remember to refresh, and logic gets a home of its own at **schema 11**.*
 
 ### Added
+- **`/pb:test` plans the run, then delegates the grading (D-32).** D-31 stopped a verdict from outliving
+  the code it described; this stops it from being written by the context that authored the design. Two
+  steps of a test run are model judgment — the constitution-drift audit and the summary — and both ran in
+  the same window that built the thing under test, which reads its own intent and scores the intent.
+  - **§2a — a plan of record.** Before anything executes, `/pb:test` writes
+    `memory/test-plans/<stamp>.md`: **one item per test case**, each a binary question, admissible only
+    if it opens *Does/Did/Is/Are/Was*, names the single observation that settles it, needs nothing from
+    the spec or the conversation to answer, and is phrased so **`yes` means the check held**. Uniform
+    polarity is what lets a plan be tallied mechanically. The question belongs to the **lane** and is
+    stated once in its heading, so a plan is a handful of small tables — `| # | Scenario | Answer |
+    Evidence |` — rather than a page of restated sentences.
+  - **Never an open question.** *Should · Consider whether · Is it correct that*, anything answerable
+    *it depends*, anything asking whether coverage is **sufficient** or **worth adding**, anything asking
+    for a rating — rejected and rewritten. A check that cannot be phrased admissibly produces **no item**:
+    project health ranks rather than judges, so it contributes none. **`blocked`** is not a third answer —
+    it is an item never reached, it names its blocker, and it never counts toward a pass.
+  - **§2b — sonnet subagents.** `pb-tester` on `model: sonnet`, one per lane, ≤25 items each, ≤8 per run,
+    dispatched in one message. Each gets the plan path, its item ids, the registry and its lane's command —
+    and explicitly **not** the spec, the plan, the decisions log, the prior `lastResult` (*"it was green
+    last time"* is the same bias by another door), or any framing from the authoring session. Each returns
+    `<id> · yes|no|blocked · <evidence>` rows and nothing else; recommendations are not a tester's output.
+  - **§11 — reconcile, don't summarize.** Every plan id gets exactly one answer, an unanswered item is
+    `blocked` rather than dropped, evidence is quoted rather than paraphrased, and a returned `no`
+    **cannot be overturned** — disagreement earns a new row and a fresh agent, with both shown.
+    `--no-delegate` self-grades and stamps every judged item as such.
+  - **The chat output is short.** Rows are filled back into the plan file in place; what prints is a
+    header, one line per `no` or `blocked`, and `<N> items · <Y> held · <Z> failed · <B> blocked`.
+    Held items are a count and a file path — a report that prints 38 successes buries the three lines
+    worth reading. Evidence is one line each: the observation, never a narrative.
+- **A trade-off is a rule, so it is stored as one — schema 12 (D-33).** v1.12.0 moved `meta.tradeoffs[]`
+  into UX Design → Logic *because* a trade-off is a rule captured at the moment it was decided (D-30),
+  and then left it as a separate array, with a separate view, a separate capture step and a separate
+  renderer. The reasoning arrived at the right place and stopped one step short. It is now a field on
+  the rule:
+  - **`ia.rules[].decision{ question, options[], chose, why, status?, supersededOn?, affects? }`** —
+    any rule, any kind, and the card draws it. `options[]` carries what **lost**, which is the one
+    thing a rule cannot state for itself and the entire reason this was ever a separate record.
+  - A fourth kind, **`decision`**: a rule you have settled but not yet expressed as a state machine, a
+    matrix or a constraint. Upgrading it later is a `kind` change and the block stays.
+  - `[SUPERSEDED <date>]` in a title becomes **`decision.status`**. That convention existed because the
+    schema had no status field; now it does. A title written the old way still renders dimmed.
+  - **Migration `0010`** converts every trade-off, stamping `origin: "tradeoff"` so the rollback can put
+    it back. A rule edited since the migration is kept as a rule and reported, never demoted. The field
+    is **emptied, not removed** (`AGENTS.md` §3), and `down()` refills it byte-for-byte.
+  - `/pb:clarify` no longer has a trade-off task. It writes the rule and its decision in one act, and
+    still appends one `decisions.md` entry each — now naming the rule id it produced.
+  - **The Others sub-tab goes with it.** `meta.others` had no schema, no writer and no check, and both
+    slices that own its content (`content`, `ia.rules[]`) exist. The field stays in the registry;
+    removal waits for a major.
+  - **A project that has not migrated loses nothing.** Its trade-offs still render in Logic → Rules,
+    through the same decision renderer, under a banner naming the one command that converts them. D-30
+    refused to hide 12k characters of someone's terminology; this refuses to hide 22 of their decisions.
 - **Stale-claim detection — a verdict and a rule now carry what they were computed from (D-31).**
   Three surfaces asserted things nothing re-checked. On a real project three scenarios read
   `3/3 passing` after **141 of 141** render bodies had changed underneath them; `ranAt` was written
@@ -23,8 +75,156 @@ something you had to remember to refresh, and logic gets a home of its own at **
     derived one.
   - **`L-RULEREF`** in `logic_check.py`: every function name a rule cites — `implementedBy[]`,
     `readers[]`, `implemented[].name`, `invariants[].enforcedBy` — must resolve in the derived graph.
+- **Compare — one screen, two devices, at their real widths.** The Sandbox menu gains a **Compare**
+  switch: turn the mode on and the same screen renders twice, side by side, on exactly one more
+  device (the picker appears under the switch, with the primary and the unsupported sizes
+  disabled). Switching it on chooses the first available second device, so the toggle does
+  something the moment you flip it rather than arming an empty state. Each frame lays out at
+  its **true CSS width** (1280 really is 1280, so the wrapping and the media queries are the real
+  ones) and the pair shares **one** `scale()`. That last part is the whole design: fitting each frame
+  to its own box would draw a 429px phone the same size as a 1280px laptop, which destroys the only
+  thing a side-by-side is for. Each frame is captioned with its device and size, and choosing the
+  compared device as the primary drops the compare rather than pairing a device with itself. A
+  `ResizeObserver` on the stage re-fits the pair when the structure panel takes the width — a single
+  frame rides that out in CSS, but a scale computed in JS at render time does not.
+- **Two frames, one session.** Both frames show the same screen, so anything that happens inside that
+  screen has to happen in both or the comparison is a lie. Screen navigation re-renders and always
+  did; everything under it did not — a wizard step, a revealed password, a typed value, a validation
+  error each landed only in the frame that was clicked. A `MutationObserver` re-serialises the acting
+  frame's `innerHTML` into its twin, which is general by construction: both frames hold identical
+  markup, so an element's twin is the node in the same position, and the mirror carries whatever
+  `registry.runtime[]` invents next without knowing a single verb by name. The three things
+  `innerHTML` does not hold are carried as the DOM properties they are — `value` / `checked` /
+  `selectedIndex` on an input and change listener, `scrollTop` / `scrollLeft` on a capturing scroll
+  listener. **Scroll is half of in-page navigation**: a jump to a section, a `scrollIntoView`, a
+  re-render that returns to the top all move one frame, and the twin, put back where it was, was
+  simply not looking at the content that had arrived — the content reached both devices, only one of
+  them showed it. It carries as a **proportion**, since two frames of different widths lay the same
+  screen out at different heights.
+- **Two frames, two radio groups.** A radio button group is every radio sharing a name *and a form
+  owner*, across the whole document — so two frames of one screen is two of every radio in it, and the
+  browser treats them as one group where only one can be checked. The second frame's radio silently
+  unchecked the first frame's, with no event and no mutation to notice it by. A project that drives
+  its in-page navigation from CSS-only radio state — `:has(#view-a:checked) .view-a { display:flex }`,
+  which is how a prototype gets tabs and master-detail without a line of JS — therefore rendered its
+  content in **exactly one** of the two frames, and the other looked empty. It was not empty: it was
+  showing a view that had lost its radio. Each secondary frame now gets an empty `<form>` of its own
+  and its radios point at it, which is the other half of what defines a group and the half nothing
+  selects on: same names, same ids, the project's CSS untouched. It is re-applied after every mirror
+  copy, because `innerHTML` brings the original attributes back with it.
+- **One frame drives the session.** Two frames in one document means every id in a screen body exists
+  twice, so a project's own handler splits down the middle: `this` and `closest` find the frame that
+  was clicked, `document.getElementById` always finds the first one. A click in the second frame ran
+  half in each — the pane switched in frame A while the tab highlight moved in frame B — and the
+  mirror then copied one half over the other, leaving **both** frames showing a state that never
+  existed. A click in a secondary frame is replayed on the primary frame's twin node, so the handler
+  runs once, in one frame, with `this` and the ids agreeing, and the mirror carries the result back.
+  The second frame stays live; it is just not a second session, which is what the shared id space had
+  already decided. What the browser drives itself is left alone — a text field, a select and a label
+  keep their own click so the caret stays in the frame being typed in, and ⌥-click stays frame-local
+  because the inspector is read-only.
+- **The Prototype tab's browser chrome is a Chrome window.** Chrome's own metrics and Chrome's own
+  neutrals — window controls, a tab with the concave notch where it meets the toolbar, real icons in
+  place of the `‹` and `⟳` glyphs, and an omnibox that de-emphasises everything but the host, the way
+  Chrome does. The greys are deliberately **not** registry tokens: painting the tab strip in
+  `var(--neutral-10)` made the browser take on the project's brand, so in a screenshot you could not
+  tell where the product ended and the window began. Only the favicon and the profile avatar carry
+  the project's colour, because in real Chrome those are the two things the site supplies. `app` gains
+  the same window controls. Furniture that does nothing (forward, extensions, the kebab) is inert and
+  `aria-hidden` rather than `disabled`: it is not a control pb declined to implement, it is Chrome's.
+- **A phone now runs a phone's browser.** `browser` + mobile rendered the desktop tab strip inside a
+  429px bezel — the shell's one plainly impossible screenshot. Mobile gets a status bar and a single
+  address pill with a tab counter. Tablets keep the tab strip; iPads really do show one.
+- **…and a tablet runs a tablet's browser.** The tab strip was the right call; everything around it was
+  the desktop's. `browser` + tablet drew macOS traffic lights, a window kebab and an extensions puzzle
+  inside an iPad bezel, and — because only the desktop branch drew any of it — the tablet was the one
+  device whose **OS status bar disappeared** the moment you switched Chrome from App to Browser, which
+  is backwards: a status bar belongs to the device, not to the chrome mode. A tablet browser is now the
+  status bar, a tab strip and a toolbar, with the window manager's furniture gone. The **Dynamic Island**
+  went with it: it is a phone's camera housing, and an iPad does not have one — it was a black pill sitting
+  in the middle of every tablet status bar for no reason anybody could name.
 
 ### Fixed
+- **Chrome · None did nothing.** `PB_SHELL_OPTS` offered the third option, `PB_SHELLS` mapped it, the
+  CSS styled it and `protoChrome` honoured it — and `setProtoShell` still read
+  `v === 'app' ? 'app' : 'browser'`, quietly coercing the third value back to the first. Four layers,
+  three of them agreeing, and the button lit up while the tab strip stayed. It validates against
+  `PB_SHELLS` now. A second, **two**-option chrome toggle was still being built a few lines above in
+  `renderPrototype` — dead since v1.9 along with the rest of the header-tool builders, and the reason
+  a third option was easy to miss; all of it is gone, with the CSS that dressed it.
+- **The structure tree opened where you could not see it, then closed itself.** Its toggle lives in
+  the Sandbox popover, and the popover is anchored over the exact strip of page the panel slides
+  into — so flipping the switch appeared to do nothing. The panel you could not see was then
+  dismissed by your next click anywhere in the prototype. Toggling now closes the menu so the result
+  is visible, the click-outside dismissal is gone (a panel you explicitly opened should not vanish
+  when you use the thing it describes), and the panel has its own heading and ✕.
+- **The scenario list read "scenario" for every row.** It keyed on `sc.title`, a field the authored
+  shape has never had — `/pb:plan` writes `{ text, category, test }`. The menu now lists each runnable
+  scenario by its **description**, the same sentence UX Design → Test Cases shows, with the last-run
+  glyph in front of it; picking one jumps to the screen the scenario starts on and names it, instead
+  of being an inert list. The row is called **Scenario testing**: nothing about it involves a terminal.
+- **Reset session sat above the controls it resets.** It is last in the box now, under a divider.
+- **The structure panel described the page you were looking at.** Under every screen it listed each
+  entry in `elements[]` and the component it points at — three lines of description per screen, and
+  the half most likely to be wrong, since `elements[]` is a declaration that drifts (`R-COMPOSE-MATCH`
+  exists because of it). It is **page names only** now, indented by depth in the derived nav graph so
+  a screen sits under whatever reaches it, flat when a project has no graph. ⌥-click already answers
+  *what is this element*, and it answers from the DOM.
+- **Chrome and Device disagreed about what "selected" looks like.** Two segmented picks in the same
+  menu, one filling solid brand and one a soft tint — the soft one was an override added for the
+  popover and never applied to its neighbour. Stated once now, for both.
+- **A long scenario list was unreadable.** Scenarios are authored as full sentences, so forty of them
+  made a wall of prose in a dropdown. They are grouped by the story that owns them (`<optgroup>`, so
+  the scope is stated once rather than implied per row) and each is clamped to its first line, with
+  the whole sentence in the option's tooltip.
+- **`pbProtoSubmit` scoped validation to `.proto-device`, a class the shell has never emitted.** The
+  fallback therefore reached `document` every time. With one frame that was the same thing; with two
+  it made frame B's submit validate frame A's empty inputs and refuse to navigate. It scopes to
+  `.proto-screen`. `pbResetSandbox` and `pbApplyRoleGating` were `#proto-frame`-only for the same
+  reason and are now frame-agnostic — an ungated second copy of a gated screen would show a role
+  exactly what it may not see.
+- **A rule's state machine drew scope and timeline as the same kind of thing — and with three
+  overlays the bands collided with the states.** The state baseline was a constant (`y = 74`) while
+  the overlay stack grows per band, so the third one landed on the boxes. Beyond the collision, a band
+  was a rounded pill overshooting its span by a few pixels, which made *"holds across all five states"*
+  and *"holds across three"* look alike, and its label floated in the middle of a full-width band,
+  attached to nothing. The two are now different things on the page: the bands get their own **Scope**
+  zone with a rule under it and the states are captioned **Timeline**; each band aligns **exactly** to
+  the boxes it spans, with square corners and solid end caps (a span has ends, a pill does not) and its
+  label at the start of the span; bands sort **widest first**, so a narrower scope sits visibly inside a
+  wider one, and the table's overlay rows follow the same order; and the baseline and SVG height are
+  computed from the stack instead of guessed.
+- **Test Cases is a master–detail split: cards on the left, the case at 50% width on the right.** On the
+  reference project the tab stacked 22 coverage notes (17,249 chars, longest 2,057) and 6 scenarios
+  (7,307 chars, longest **2,404**) as full paragraphs — one scenario alone filled a screen.
+  - **The card** carries the verdict glyph, the lens chip, the date, a two-line claim and one dim line
+    saying what running it involves (`from quan-ly-chu-ky · 1 step · 4 expects · as hr`). Clicking it
+    opens the panel; clicking it again, or `Esc`, closes it. **The two columns scroll independently** —
+    the segment owns the viewport height rather than sitting in the page scroller, so reading a long
+    case never drags the list out of view and the panel's close button stays pinned; under 900px the
+    split stacks onto the page's own scroller. The claim is the authored `title`, else it
+    is derived — the text's first strong break at least 24 characters in, capped at 110, never ending
+    inside a parenthesis. The minimum is the part that matters: breaking at the first delimiter yields
+    *"Cổng trọng số"*, a fragment that identifies nothing. Delimiters are punctuation, not words, so it
+    holds in any language, and the claim is always a **prefix** of the authored text, never a paraphrase.
+  - **The panel** is the only place the whole text appears, and it appears structured: the verdict
+    (story · verdict · detail · last run), **How it runs** — the `test{}` block said as sentences, with
+    the asserted value bold (`The frame reads **"Chưa bắt đầu"**`, `No console error fires`) — and the
+    author's notes.
+  - **The notes keep the structure the author already wrote.** Newlines separate blocks, `·` opens a
+    bullet, backticks become code, `**…**` is honoured, and a block over 400 characters with no newlines
+    at all — all 22 gap notes — is broken where a sentence starts with an ALL-CAPS run, because that is
+    how this author marks a new thought (`CẬP NHẬT 2026-08-10`). **Emphasis is reported, never
+    invented**: a run is bold because the author capitalised it. Single short caps words are skipped
+    (HR, KPI, UI and PRD are nouns, not shouting) and hyphen guards keep it out of identifiers, so
+    `T-ROLE-EL` never renders as T-**ROLE**-EL. The longest note yields 9 bold runs in 2,057 characters.
+- **`coverageWarnings[]` gains optional `title` and `status`.** `status` is `open` (default) ·
+  `resolved` · `accepted`; only `open` rides the warning rail and counts in the tally, while settled
+  ones stay visible below a divider. Two of the reference project's 22 notes open with *"ĐÃ GIẢI
+  QUYẾT"* — resolved weeks earlier — and several more record deliberate decisions, yet all 22 counted
+  as open gaps. A fixed gap and an accepted one are both records worth keeping; counting them as open
+  makes the number wrong. Both fields are optional and additive: a project that authored neither
+  renders and counts exactly as before.
 - **`render.py`'s logic cache ignored the extractor itself.** `_logic_key` fingerprinted the
   registry and the render bodies but not `logic_extract.py`, so teaching the extractor to derive
   something new left a long-running `/pb:preview` serving the old graph forever — the data never

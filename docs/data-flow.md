@@ -71,15 +71,16 @@ normal `--render`.
 flowchart LR
   INIT["/pb:init"] -- "meta.overview.objectives + principles[]" --> REG[("registry.json")]
   SPEC["/pb:specify"] -- "meta.overview.objectives (from spec)" --> REG
-  CLAR["/pb:clarify"] -- "meta.userInsights + meta.tradeoffs[]" --> REG
-  CLAR -- "one entry per trade-off" --> DEC["memory/decisions.md"]
+  CLAR["/pb:clarify"] -- "meta.userInsights + ia.rules[]" --> REG
+  CLAR -- "one entry per decision" --> DEC["memory/decisions.md"]
   REG -. "rendered on next /pb:build --render" .-> SUMMARY["Project Summary tab"]
 ```
 
 - `/pb:init` writes the PRD objective + the constitution Principles as `[{num,title,body}]`.
 - `/pb:specify` writes the spec's Objective.
-- `/pb:clarify` writes User Insights + UI Logic Trade-offs, and appends one `decisions.md` entry
-  per trade-off (`## <date> — <title>` · Decision · Why · Alternatives · Affects).
+- `/pb:clarify` writes User Insights, and one `ia.rules[]` rule per contested UI decision — the rule
+  carries the `decision{}` it was made by (D-33) — plus one `decisions.md` entry per decision
+  (`## <date> — <title>` · Decision · Why · Alternatives · Affects · Rule).
 
 These bodies write data and **do not render** — the view catches up at the next `--render`.
 

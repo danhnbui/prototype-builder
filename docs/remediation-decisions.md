@@ -9,6 +9,114 @@ Phase A (solution discovery) logs decisions here as each problem is walked throu
 
 ---
 
+## D-33 · A trade-off is a rule, so it is stored as one — 2026-09-20
+
+**Problem.** D-30 moved `meta.tradeoffs[]` out of Project Summary and into UX Design → Logic on the
+grounds that *a trade-off IS a rule, captured at the moment it was decided* — and then left it as a
+separate array, with a separate view, a separate capture step in `/pb:clarify`, and a separate
+renderer. The reasoning arrived at the right place and stopped one step short of it. Two shapes for
+one thing, and the half that answers *why is this rule what it is* still sat behind a tab you had to
+know to open. The same review reached `meta.others`, which D-30 deprecated but kept as a sub-tab.
+
+**Decision.**
+1. `ia.rules[]` gains **`decision{ question, options[], chose, why, status?, supersededOn?,
+   affects? }`** — any rule, any kind, may carry the record of how it got settled, and the card
+   renders it. `options[]` carries what **lost**: the one thing a rule cannot state for itself, and
+   the entire reason a trade-off was ever a separate record.
+2. A fourth rule kind, **`decision`** — a rule you have settled but not yet expressed as a state
+   machine, a matrix or a constraint. Upgrading it later is a `kind` change; the block stays.
+3. `[SUPERSEDED <date>]` in a title becomes `decision.status` / `decision.supersededOn`. The
+   convention existed because the schema had no status field (D-30 §2). Now it does. The renderer
+   still honours the prefix, so a hand-written title keeps working.
+4. Migration **0010** (schema 11 → 12) converts every trade-off into a rule, stamped
+   `origin: "tradeoff"` so `down()` can put it back. A rule edited since the migration is kept as a
+   rule and reported, never demoted. The field is **emptied, not removed** (`AGENTS.md` §3).
+5. The Trade-offs view is gone; the **Others** sub-tab goes with it. `meta.others` had no schema, no
+   writer and no check, and the two slices that now own its content (`content`, `ia.rules[]`) both
+   exist. The field stays in the registry; removal waits for a major.
+6. A project that has not migrated still **renders its trade-offs** in Logic → Rules, through the
+   same decision renderer, under a banner naming the one command that converts them.
+
+**Why.** The record of a decision belongs on the thing the decision produced. Two records for one
+concept means one of them is always the stale one, and the capture step made that inevitable:
+`/pb:clarify` wrote a trade-off, and whether a matching rule ever got written was left to whoever
+read it later. Now the command writes a rule and the decision together, because they are the same
+act. And point 6 is the whole difference between a retirement and a deletion: D-30 refused to hide
+12k characters of someone's terminology, and this refuses to hide 22 of their decisions.
+
+**Alternatives rejected.** *Keep `meta.tradeoffs` and link it to the rule* — a link is what you build
+when you cannot decide where something lives (D-30 rejected the same alternative for the same
+reason). *Drop the record entirely and keep the why in `memory/decisions.md`* — the log is read
+outside the prototype, and the options that lost would leave the product. *Leave the Others tab* —
+it is the last reader of a field nothing writes.
+
+**Affects:** `pb/migrations/0010_tradeoff_rules.py`, `pb/migrations/manifest.py` (CURRENT_SCHEMA 12),
+`pb/template/prototype.html` (`pbRuleDecision`, `pbRenderLegacyTradeoffs`; `pbRenderTradeoffs` and
+`pbRenderOthers` deleted), `pb/commands/clarify.md`, `pb/agents/pb-clarifier.md`, the three `think-*`
+skills, `pb/template/{registry,decisions}.template.*`, `tests/tradeoff_rules.py`
+**Reviewed via:** `tests/tradeoff_rules.py` — up/down on a fixture, the rendered Rules view, and the
+unmigrated banner.
+
+## D-32 · A test run is planned as yes/no, then graded by someone who did not build it — 2026-09-20
+
+**Problem.** D-31 stopped a *verdict* from outliving the code it described. It did nothing about where
+the verdict comes from. `/pb:test`'s deterministic lanes are fine — a Playwright assertion holds no
+opinion — but two of its steps are model judgment inside the same context window that authored the
+design: §7 constitution drift (*"does this contradict principle N?"*) and the summary that compresses
+everything into one verdict. That context already knows what every screen is *meant* to do, so it reads
+the intent and scores the intent; and because it writes the summary too, a soft reading never has to
+survive anyone else's reading. The same session that got `kpi-set-status` wrong — trusting a dated
+prose warning over the code — would have graded its own test run.
+
+**Decision.** Plan first, delegate, reconcile.
+1. **`/pb:test` §2a — the plan.** Before anything runs, enumerate the run as
+   `memory/test-plans/<stamp>.md`: **one item per test case**, each a binary question. Admissible only
+   if it opens *Does/Did/Is/Are/Was*, names the one observation that settles it, needs nothing from
+   `memory/spec.md` or the conversation, and is phrased so **`yes` means the check held**. Uniform
+   polarity is load-bearing: a plan with mixed polarity cannot be tallied mechanically, and a mis-tally
+   is the failure the plan exists to prevent.
+2. **No open questions, by construction.** *Should · Could · Consider whether · Is it correct that*,
+   anything answerable *it depends / partially / N/A*, anything asking whether coverage is **sufficient**
+   or **worth adding**, anything asking for a rating — all rejected. A check that cannot be phrased
+   admissibly produces **no item**: §8 project health ranks rather than judges, so it contributes none.
+3. **`blocked` is not a third answer.** An item never reached names its blocker, never counts toward a
+   pass, and is never softened to `yes`.
+4. **§2b — delegate to sonnet.** `pb-tester` subagents, one per lane, ≤25 items each, ≤8 per run, all in
+   one message. Each gets the plan path, its item ids, the registry, the preview URL and its lane's
+   command — and explicitly **not** the spec, the plan, the decisions log, the prior `lastResult`, or any
+   framing from the authoring conversation. Each returns `<id> · yes|no|blocked · <evidence>` rows and
+   nothing else.
+5. **§11 — reconcile.** Every plan id appears exactly once; an unanswered item is `blocked`, never
+   dropped; evidence is quoted, never paraphrased; and a returned `no` **cannot be overturned** — the
+   coordinator's disagreement earns a new item and a fresh agent, and both rows are shown.
+
+**Why.** Every remediation in this log has the same shape: a claim rendered as verified with nothing
+independent confronting it. D-31 fixed that for data. This fixes it for judgment — the grader is
+structurally unable to grade its own work, and the plan file makes the reconciliation checkable by
+counting.
+
+**Alternatives rejected.** *Keep it in one context and just instruct it to be strict* — the instruction
+and the bias live in the same window; nothing checks that it was followed. *One item per `expect[]`* —
+a real project's plan would run to hundreds of items and the coordinator would pay to enumerate them;
+one item per test case is the granularity the user asked for and the evidence line carries which
+assertion failed. *Ban `blocked` for a clean binary* — that forces an unrun check to be recorded as a
+pass or a failure, which is the D-08 error (a check that would print a wrong answer stays quiet). *Pin
+`pb-tester` to `model: sonnet` in its frontmatter* — it also runs `/pb:orchestrate`'s acceptance gate,
+where the model should inherit; the override belongs at the dispatch site.
+
+**Affects.** `pb/commands/test.md` (§2a, §2b, §11, flags, NEVER) · `pb/agents/pb-tester.md` ·
+`pb/skills/sandbox-test/SKILL.md` · `CLAUDE.md` · `prototype-builder.md` · `changelog.md`.
+
+**Caveat.** Nothing tests prompt behavior. No deterministic check can assert that an agent was handed a
+clean context or that an item was really observed — the guard is the plan file plus the id-for-id
+reconciliation, both of which a human can read. Re-verify by hand whenever §2a–§2b changes.
+
+**Reviewed via.** The reference project: 3 scenarios, 1 principle set, 143 items in the derived graph.
+Its own `/pb:test` history is the evidence for the problem — three scenarios reading `3/3 passing`
+graded by the context that wrote them.
+
+---
+
 ## D-31 · A claim must carry what it was computed from — 2026-09-20
 
 **Problem.** Three surfaces asserted things nobody re-checked, and all three were the same bug.

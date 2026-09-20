@@ -93,7 +93,22 @@ acceptance scenario. Tag each `{ text, category }` with `category ∈ ux | ui | 
 - **system-edge** — concurrency, rate limits, timeouts, double-submit, offline.
 
 Then list **coverage gaps** — edges the QA pass found that the flow/screens do **not** cover yet. Write
-them to `flow.coverageWarnings` as `{ category, note }`; the tab renders them as a callout.
+them to `flow.coverageWarnings` as `{ category, title, note, status? }`:
+- **`title`** — the gap in **one line**, under ~90 characters: the claim, not its history. This is the
+  row the Test Cases tab shows; `note` opens underneath it.
+- **`note`** — the detail: why, where, what was measured, the dated follow-ups. Write as much as the
+  finding deserves — it is collapsed by default, so length costs the reader nothing.
+- **`status`** — `open` (the default, and what a gap is) · `resolved` (it was fixed; keep the note as
+  the record) · `accepted` (a deliberate decision, not a gap). Only `open` counts in the tab's gap
+  tally, and only `open` renders on the warning rail.
+
+**Never delete a settled warning** — set its `status`. A gap that was fixed, and a gap someone decided
+to live with, are both things the next reader needs; deleting them loses why. But leaving them `open`
+is worse than either: on a real project it reported **22 coverage gaps** when several had been resolved
+weeks earlier and several more were recorded decisions. A stale count is a wrong count.
+
+`title` and `status` are optional and additive — a warning with neither still renders (the note becomes
+its own headline, clamped to two lines until opened) and still counts as open.
 
 ### 4c · Make a scenario executable (optional `test{}`)
 A scenario is a manual checkbox by default (`☐`). Attach a `test{}` block to make it runnable by
@@ -123,7 +138,7 @@ Structured data, never a baked HTML blob. Into `registry.json` → `flow`:
   "stories": [ { "title", "priority", "jtbd", "path", "jobs": ["<ia.job id>", …],
                  "nodes": ["<mermaid-node-id>", …],
                  "scenarios": [ { "text", "category", "test"?: { … } }, … ] }, … ],
-  "coverageWarnings": [ { "category", "note" }, … ] }
+  "coverageWarnings": [ { "category", "title", "note", "status"? }, … ] }
 ```
 Set each story's **`path`** to its route (`"Start → Login → Dashboard"`) — hovering the story highlights
 that path. Add **`nodes`** (the exact Mermaid node ids) to make the highlight precise.
