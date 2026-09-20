@@ -364,6 +364,24 @@ def _strip_render(reg):
     return reg_inline
 
 
+# Fields the derived graph carries for TOOLS but the shell never reads. logic_check --freeze
+# compares bodyHash; localCalls and shellVerbs feed the undefined-helper and disclosure checks.
+# None of the three is touched by prototype.html — and every byte here is inlined into the
+# prototype AND into every hand-off of it. Measured on a 143-item project: 38 KB per render.
+_LOGIC_SHELL_DROP = {"handlers": ("bodyHash", "localCalls"), "items": ("shellVerbs",)}
+
+
+def _logic_for_shell(logic):
+    """The graph as the shell needs it — the full one minus the keys only tools read."""
+    out = dict(logic)
+    for key, drop in _LOGIC_SHELL_DROP.items():
+        rows = logic.get(key)
+        if isinstance(rows, list):
+            out[key] = [{k: v for k, v in row.items() if k not in drop}
+                        if isinstance(row, dict) else row for row in rows]
+    return out
+
+
 def build_html(reg, shell, version="unknown", logic=None, runtime_js="", runtime_deps=()):
     """Render a registry dict + shell HTML string into the populated prototype HTML.
 
@@ -412,7 +430,8 @@ def build_html(reg, shell, version="unknown", logic=None, runtime_js="", runtime
     # with nothing to derive) is a no-op: the shell ships `null` there and the two views that
     # read it render an empty state.
     if logic and "/*__PB_LOGIC_START__*/" in shell:
-        inlined_logic = json.dumps(logic, ensure_ascii=False, separators=(",", ":")).replace("</", "<\\/")
+        inlined_logic = json.dumps(_logic_for_shell(logic), ensure_ascii=False,
+                                   separators=(",", ":")).replace("</", "<\\/")
         shell = re.sub(r"/\*__PB_LOGIC_START__\*/.*?/\*__PB_LOGIC_END__\*/",
                        lambda m: "/*__PB_LOGIC_START__*/" + inlined_logic + "/*__PB_LOGIC_END__*/",
                        shell, count=1, flags=re.S)

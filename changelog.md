@@ -60,12 +60,23 @@ something you had to remember to refresh, and logic gets a home of its own at **
   migration on a project with non-English content rewrote every line that had any and inflated the
   file — measured at 900 KB → 1.06 MB on a real registry, for a migration that changed 126 keys. It
   now writes UTF-8, and reads and writes every file with an explicit encoding.
+- **The prototype inlined three graph fields nothing on the page reads** — `handlers[].bodyHash`
+  (the largest single field), `handlers[].localCalls` and `items[].shellVerbs`, all of them for
+  tools rather than for the shell. `build_html` now inlines a projection: **50 KB off every render
+  and every hand-off**, with the full graph unchanged for `logic_check --freeze`.
 - **The DS site's runtime drift-guard checked three canary lines**, which pass happily while a helper
   added to `runtime.js` is missing from `prototype.html`'s physically duplicated copy. It now compares
   the entire block, byte for byte.
 - **`slice.py list` fell through to the tokens tree** for any dict kind but `meta` — latent before this
   release (only `tokens`/`meta` existed), surfaced by adding `flow`/`erd`. Each dict kind now lists its
   own keys; `tests/slice_cli.py` guards it.
+- **The IA segment threw away a site map it had already derived.** `pbRenderIA()` returned the "No jobs
+  yet" empty state for the *whole* tab whenever `ia.jobs` was empty — but the site map is derived from
+  the nav graph and needs no authored job at all. On a real 143-item project with **10 screens placed,
+  hubs and overlays resolved**, the tab rendered nothing. The two columns now answer for themselves: the
+  map draws whenever `nav.depth` has screens, and "No jobs yet" is confined to the job-list column.
+  `pbRenderSiteMap` tolerates an absent `ia` (layer names fall back to `Layer <n>`), and every node
+  keeps flagging itself `no job`, so an unauthored IA reads as honestly incomplete rather than absent.
 
 ### Notes
 - `staleness{}` **stays in `registry.json`** per D-19 / `AGENTS.md` §3 ("never remove or repurpose an

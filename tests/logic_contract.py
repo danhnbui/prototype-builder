@@ -227,6 +227,22 @@ missing_mod = dict(reg3, runtime=[{"id": "ghost", "src": "runtime/ghost.js"}])
 check(R.load_runtime(missing_mod, d3)[2] == ["ghost (runtime/ghost.js)"],
       "a module that does not resolve is reported, not raised")
 
+print("5a · the shell is inlined only what it reads")
+full = R.load_logic(d3)
+shell_view = R._logic_for_shell(full)
+check("bodyHash" in full["handlers"][0] and "localCalls" in full["handlers"][0],
+      "the graph the TOOLS get is complete (logic_check --freeze needs bodyHash)")
+check(not any("bodyHash" in h or "localCalls" in h for h in shell_view["handlers"]),
+      "the graph the SHELL gets drops the two handler fields it never reads")
+check(not any("shellVerbs" in i for i in shell_view["items"]),
+      "and the item field it never reads")
+check(all(k in shell_view["handlers"][0] for k in ("name", "file", "owners", "reads", "slices")),
+      "everything the ripple view draws survives")
+_shell_src = open(SHELL, encoding="utf-8").read()
+for _dead in ("bodyHash", "localCalls", "shellVerbs"):
+    check(("." + _dead) not in _shell_src,
+          "the shell really does not read %s — drop it here if that changes" % _dead)
+
 print("5b · the derived graph is cached on the body files, and only on them")
 g1 = R.load_logic(d3)
 key1 = R._logic_key(d3)

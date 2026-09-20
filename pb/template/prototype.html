@@ -2324,6 +2324,9 @@
     .ux-scroll-wrap > .ux-flow-body { flex: 1; min-height: 0; overflow: hidden; }
     .ia-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; align-items: stretch; }
     .ia-jobs-col, .ia-map-col { min-height: 0; overflow: auto; padding-right: 8px; }
+    /* The job list can be empty while the derived site map beside it is full — the empty state
+       lives in the column, so it drops the centered page-width framing. */
+    .ia-jobs-col .empty-state { max-width: none; width: 100%; box-sizing: border-box; margin: 8px 0; padding: 32px 28px; }
     .ux-flow-body { display: grid; grid-template-columns: minmax(0, 1fr) clamp(320px, 26vw, 400px); gap: 24px; align-items: stretch; }
     .lg-views { display: flex; align-items: center; gap: 4px; margin: 4px 0 16px; }
     .lg-view {
@@ -4439,23 +4442,32 @@
 
     function pbRenderIA() {
       const L = window.PB_LOGIC;
-      const ia = L && L.ia;
-      if (!ia || !(ia.jobs || []).length) {
+      const ia = (L && L.ia) || null;
+      const allJobs = (ia && ia.jobs) || [];
+      // The site map is DERIVED (the nav graph); the job list is AUTHORED. Gating both on the
+      // authored half threw away a map that was already built — a real project with 10 screens
+      // placed still showed "No jobs yet". Each column now answers for itself.
+      const N = L && L.nav;
+      const hasMap = !!(N && N.depth && Object.keys(N.depth).length);
+      if (!allJobs.length && !hasMap) {
         return pbUxEmpty('No jobs yet',
           'List what each role needs done, as "when … I want to … so I can …". Each job maps to the screens that serve it, so a job with no screen shows up as unfinished work and a screen with no job as a question worth asking.',
           'Capture the jobs', '/pb:init');
       }
       const roles = (((PB_REGISTRY || {}).meta || {}).roles) || [];
       const rf = state.iaRole || 'all';
-      const jobs = ia.jobs.filter(j => rf === 'all' || (j.roles || []).includes(rf));
+      const jobs = allJobs.filter(j => rf === 'all' || (j.roles || []).includes(rf));
       const covered = jobs.filter(j => (j.screens || []).length);
       const unassigned = jobs.filter(j => !(j.screens || []).length);
 
-      const chips = `<div class="ia-roles"><span class="lg-dim">Role</span>
-          <button class="lg-view ${rf === 'all' ? 'active' : ''}" onclick="pbSetIaRole('all')">All <span class="meta-subtab-count">${ia.jobs.length}</span></button>
-          ${roles.map(r => `<button class="lg-view ${rf === r.id ? 'active' : ''}" onclick="pbSetIaRole('${pbEscape(r.id)}')">${pbRoleDot(r.id)}${pbEscape(r.name || r.id)} <span class="meta-subtab-count">${ia.jobs.filter(j => (j.roles || []).includes(r.id)).length}</span></button>`).join('')}
-        </div>`;
-      const stats = `<div class="ia-stats">${jobs.length} jobs · ${covered.length} covered · <span class="${unassigned.length ? 'lg-warn' : ''}">${unassigned.length} not handled by anything</span></div>`;
+      // Role chips count jobs, so they only mean something once jobs exist.
+      const chips = allJobs.length ? `<div class="ia-roles"><span class="lg-dim">Role</span>
+          <button class="lg-view ${rf === 'all' ? 'active' : ''}" onclick="pbSetIaRole('all')">All <span class="meta-subtab-count">${allJobs.length}</span></button>
+          ${roles.map(r => `<button class="lg-view ${rf === r.id ? 'active' : ''}" onclick="pbSetIaRole('${pbEscape(r.id)}')">${pbRoleDot(r.id)}${pbEscape(r.name || r.id)} <span class="meta-subtab-count">${allJobs.filter(j => (j.roles || []).includes(r.id)).length}</span></button>`).join('')}
+        </div>` : '';
+      const stats = allJobs.length
+        ? `<div class="ia-stats">${jobs.length} jobs · ${covered.length} covered · <span class="${unassigned.length ? 'lg-warn' : ''}">${unassigned.length} not handled by anything</span></div>`
+        : '';
 
       // Every job with no screen is flagged twice: the callout below, and the "no screen"
       // badge on its row in the All jobs list — the site map flags the inverse (a screen with
@@ -4473,6 +4485,19 @@
               </span></div>`).join('')}
         </div>` : '';
 
+      const jobsBody = allJobs.length
+        ? `<div class="ia-card">
+            <div class="meta-h3">All jobs <span class="meta-subtab-count">${jobs.length}</span></div>
+            <p class="meta-p lg-dim">Jobs-to-be-done form: <em>when</em> [situation], <em>I want to</em> [motivation], <em>so I can</em> [outcome].</p>
+            ${jobs.map(pbJobRow).join('')}
+          </div>`
+        : renderEmptyState({
+            icon: EMPTY_STATE_ICONS.flow,
+            title: 'No jobs yet',
+            body: 'The site map beside this is derived from the code and needs nothing from you. The jobs do: list what each role needs done, as "when … I want to … so I can …". Once they exist, every screen shows which jobs it serves — and every job with no screen is flagged as unfinished work.',
+            ctaLabel: 'Capture the jobs', command: '/pb:init',
+          });
+
       return `<div class="ia-layout">
         <div class="ia-jobs-col">
           <div class="meta-h2">3.2 Information Architecture</div>
@@ -4480,11 +4505,7 @@
           ${chips}
           ${stats}
           ${newBlock}
-          <div class="ia-card">
-            <div class="meta-h3">All jobs <span class="meta-subtab-count">${jobs.length}</span></div>
-            <p class="meta-p lg-dim">Jobs-to-be-done form: <em>when</em> [situation], <em>I want to</em> [motivation], <em>so I can</em> [outcome].</p>
-            ${jobs.map(pbJobRow).join('')}
-          </div>
+          ${jobsBody}
         </div>
         <div class="ia-map-col">
           ${pbRenderSiteMap(ia, jobs, rf)}
@@ -4506,8 +4527,11 @@
       const jobsOf = id => jobs.filter(j => (j.screens || []).includes(id));
       const visible = id => rf === 'all' || (S[id] && (S[id].roles || []).includes(rf)) || jobsOf(id).length;
 
-      const declared = (ia.layers || []).filter(l => l.depth !== 'overlay').sort((a, b) => a.depth - b.depth);
-      const overlayLayer = (ia.layers || []).find(l => l.depth === 'overlay');
+      // `ia` may be absent entirely — the map is derived and stands on its own; only the
+      // layer NAMES and purposes are authored, and those fall back to "Layer <n>".
+      const layers = (ia && ia.layers) || [];
+      const declared = layers.filter(l => l.depth !== 'overlay').sort((a, b) => a.depth - b.depth);
+      const overlayLayer = layers.find(l => l.depth === 'overlay');
       const maxDepth = Math.max(0, ...Object.values(N.depth), declared.length - 1);
       const cols = [];
       for (let d = 0; d <= maxDepth; d++) {

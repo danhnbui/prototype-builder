@@ -69,13 +69,46 @@ findings a flat list is unreadable — it groups by code, ranks by item, and nam
 1 `L-HAS-R3`, both informational. The `:has()` rules were left alone deliberately: W1 measured **0**
 R1/R2 violations across 222 uses, so the mechanism works and a verb replacing it would be a downgrade.
 
+## File size
+
+Rendered from the same registry by each tree, so the numbers are the change and nothing else:
+
+| | v1 | v2 | |
+|---|---|---|---|
+| `registry.json` | 927 KB | 946 KB | **+19 KB** — the `logicSrc` pointers and 66 synced `elements[]` |
+| `prototype.html` | 4,257 KB | 4,583 KB | **+327 KB** — the derived graph, inlined |
+| `design-system.html` | 3,997 KB | 4,025 KB | **+28 KB** |
+
+The prototype carries the graph inline because a hand-off is deliberately **one self-contained file
+that works over `file://`** — a side-loaded `logic.json` would not. What it must not carry is data
+nothing on the page reads. Three fields were doing exactly that: `handlers[].bodyHash` (the largest
+single field at 28 KB — `logic_check --freeze` compares it, the shell never looks at it),
+`handlers[].localCalls` and `items[].shellVerbs`. `build_html` now inlines a projection — **50 KB
+off every render and every hand-off** — while the tools still get the whole graph. A test asserts
+the shell really does not read those three, so the moment it does, this is the place to fix.
+
+New on disk, next to `spec/`:
+
+| | | |
+|---|---|---|
+| `logic/` | 143 files, **733 KB** | of which **513 KB (70%) is copied prose** |
+| `.pb-backups/` | 928 KB | the pre-migration registry — the runner has always kept one |
+
+That 513 KB is the price of the lossless rollback: the migration copies prose rather than moving it,
+so it now exists twice. It is also the one number here the project can take back. The advisory
+`0009` prints says how: route each piece to `memory/decisions.md` as you touch its component, then
+delete the copy. Do that and `logic/` settles at about 220 KB — the derived half plus the two
+authored fields.
+
+Whole project: **19.7 MB → 22.2 MB**.
+
 ## Cost
 
 | | v1 | v2 |
 |---|---|---|
 | Render, cold | 33 ms | 435 ms |
 | Render, warm — the preview loop | 33 ms | **55 ms** |
-| `prototype.html` | 4,257 KB | 4,632 KB |
+| `prototype.html` | 4,257 KB | 4,583 KB |
 | Reading one large screen slice | 80,301 B | 80,301 B → **25,220 B** with `--no-prose` |
 
 Deriving the logic graph parses every render body, which costs 367 of those 435 ms. It depends on
