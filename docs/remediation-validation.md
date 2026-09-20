@@ -178,6 +178,46 @@ authored fields.
 
 Whole project: **19.7 MB → 22.2 MB**.
 
+### The documents
+
+| | v1.11.1 | v1.12.0 | |
+|---|---|---|---|
+| `CLAUDE.md` | 136 | 164 | the router |
+| `pb/commands/` | 1,510 | 1,716 | where behaviour is specified |
+| `changelog.md` | 601 | 713 | |
+| `docs/` | 805 | 1,903 | **+136%, and 1,093 of those lines are this remediation** |
+
+`docs/` more than doubled, and 57% of it is now the three files about one release — the decision
+log, the build plan, this validation. The decision log earns its place; it is pb's own why-log. The
+build plan does not, any more: it is a plan that has been fully executed, and a completed plan
+sitting in `docs/` reads as outstanding work. It now says so in its first line.
+
+### And the log that was never rotating
+
+The project's `memory/decisions.md` is **875 KB across 187 entries**, 20× the next memory file
+(`tasks.md` at 41 KB, `constitution.md` at 15 KB). D-21 decided the fix in two halves: stop three
+commands writing a file none of them reads, and rotate it by size past 500 KB.
+
+The first half shipped. **The second did not** — while five files went on telling users their glob
+must be `decisions*.md` *"because rotation moves older entries."* Documentation for a mechanism
+that did not exist, which is worse than either building it or dropping the claim.
+
+`decisions_rotate.py` now does it, and the real log shaped three decisions in the implementation:
+
+- **By each entry's own date, never by position.** That log runs 22 August entries, then 86 July,
+  then 78 August. Rotating "the tail" would have archived recent entries and kept old ones.
+- **An undated heading is pinned.** Not being able to date something is a reason to leave it alone.
+- **Lossless or nothing.** Every file the run touches is backed up, and afterwards the whole
+  `decisions*.md` family is read back and compared entry for entry. A mismatch restores everything.
+
+Measured: **875 KB / 187 entries → 497 KB live (89) + 378 KB archived (98)**, every entry
+byte-identical. `lint --report` names the command once the log crosses the threshold.
+
+That last property was not free. The first version compared the live file's entries *before*
+against the whole family *after*, so a **second** rotation looked like entries appearing from
+nowhere — and its abort path then deleted the sibling holding 98 entries it had never written. A
+test written for the second-rotation case found it before a user could.
+
 ### pb's own source, and the file that holds too much of it
 
 | | v1.11.1 | v1.12.0 | |

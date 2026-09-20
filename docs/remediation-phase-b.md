@@ -1,5 +1,9 @@
 # Phase B — orchestrated implementation
 
+> **Status: complete.** Every increment in this plan shipped in v1.12.0. It is kept as the
+> record of how the work was partitioned, not as outstanding work. What it produced, measured
+> against the project it was planned from: [remediation-validation.md](remediation-validation.md).
+
 The build plan derived from `remediation-decisions.md` (D-01 … D-28). Phase A is closed; nothing
 here re-opens a decision. If an agent finds a decision wrong, it **stops and reports** — it does not
 re-decide.

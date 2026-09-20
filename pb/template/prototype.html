@@ -2368,8 +2368,6 @@
     .lg-tr-ov td { background: rgba(194,65,12,.04); }
     .lg-matrix td, .lg-matrix th { text-align: center; }
     .lg-matrix td:first-child, .lg-matrix th:first-child { text-align: left; }
-    .lg-foot { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 24px; font-size: var(--font-size-s); border-top: 1px dashed var(--border); padding-top: 12px; margin-top: 8px; }
-    .lg-foot-k { display: block; font-size: 11px; letter-spacing: .04em; text-transform: uppercase; color: var(--text-tertiary); margin-bottom: 3px; }
     .lg-ripple { display: grid; grid-template-columns: 260px minmax(0, 1fr); gap: 18px; align-items: start; }
     /* The filter input is rendered once, outside the repainted region — the same rule as the
        Data tab's search. Focus is structurally safe, not restored. */
@@ -4375,12 +4373,6 @@
           <div class="meta-h3">${pbEscape(r.title)} ${pbLgChip(r.kind, 'lg-chip--kind')}</div>
           <p class="meta-p">${pbEscape(r.summary || '')}</p>
           ${r.kind === 'state-machine' ? pbRuleStateMachine(r) : r.kind === 'matrix' ? pbRuleMatrix(r) : ''}
-          <div class="lg-foot">
-            <div><span class="lg-foot-k">Implemented by</span>${(r.implemented || []).map(i => pbLgLink('handler', i.name, i.name + '()') + `<span class="lg-dim"> ${pbEscape(pbLgBase(i.file))}:${i.line} · ${i.length} lines</span>`).join('<br>') || '<span class="lg-dim">— not linked</span>'}</div>
-            <div><span class="lg-foot-k">Read by</span>${(r.readers || []).slice(0, 8).map(n => pbLgLink('handler', n)).join(', ') || '<span class="lg-dim">—</span>'}${(r.readers || []).length > 8 ? ` <span class="lg-dim">+${r.readers.length - 8}</span>` : ''}</div>
-            <div><span class="lg-foot-k">Displayed in</span>${(r.displayedIn || []).map(id => pbLgLink('item', id)).join(', ') || '<span class="lg-dim">—</span>'}</div>
-            <div><span class="lg-foot-k">Decided in</span><span>${pbEscape(r.decidedIn || '—')}</span></div>
-          </div>
         </div>`).join('');
     }
 

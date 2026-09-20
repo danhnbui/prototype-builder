@@ -25,6 +25,7 @@ Usage:  python3 lint_registry.py [--strict] [--report] [--sync-elements] <regist
 --sync-elements APPEND a screens[].elements[] entry per composed-but-undeclared component.
                 Append-only and idempotent; never edits, reorders or removes an entry.
 """
+import glob
 import json
 import os
 import re
@@ -788,9 +789,12 @@ def report(reg, path, base_dir, findings):
         print(f"  largest slice       {slices[0][1]} ({slices[0][0] / 1024:.0f} KB)"
               f"{flag(slices[0][0] / 1024 > th['slice_kb'])}")
     dec = os.path.join(base_dir or ".", "memory", "decisions.md")
+    d_kb = 0
     if os.path.isfile(dec):
         d_kb = os.path.getsize(dec) / 1024
-        print(f"  decisions log       {d_kb:8.0f} KB{flag(d_kb > th['decisions_kb'])}")
+        sibs = len(glob.glob(os.path.join(base_dir or ".", "memory", "decisions-*.md")))
+        rotated = f"  (+{sibs} rotated sibling{'s' if sibs != 1 else ''})" if sibs else ""
+        print(f"  decisions log       {d_kb:8.0f} KB{flag(d_kb > th['decisions_kb'])}{rotated}")
 
     print("\n── information (never a finding) " + "─" * 27)
     # Orphans. GUARDED: a component is reached by pbUse OR by a direct renderCmp* call.
@@ -832,6 +836,10 @@ def report(reg, path, base_dir, findings):
         rank.append(f"{by_code['R-PROPTYPE']} R-PROPTYPE — each one is a component that cannot demo, and wrong docs in the hand-off")
     if high:
         rank.append(f"{len(high)} body/bodies over {th['body_lines_high']} lines — use slice.py --no-prose to keep context small")
+    if d_kb > th["decisions_kb"]:
+        rank.append(f"decisions log at {d_kb:.0f} KB — rotate it: "
+                    f"decisions_rotate.py memory/decisions.md --apply "
+                    f"(whole entries, by date, verified lossless)")
     for i, r in enumerate(rank, 1):
         print(f"  {i}. {r}")
     if not rank:

@@ -31,12 +31,23 @@ something you had to remember to refresh, and logic gets a home of its own at **
 - **`logic_extract.py --contracts`** (with `--dry-run`): refreshes the derived half, leaves every other
   key exactly as the author wrote it, rewrites nothing when nothing changed, and points the registry at
   any contract it does not yet reference.
-
-### Added
 - **`meta.shell: 'none'`** — a third chrome option beside `browser` and `app`: the screen renders
   flat, with no tab strip, no synthesised URL and no window frame. The browser metaphor is set
   dressing on an internal back-office tool and costs 77px of height. Tablet and mobile keep their
   device frame and status bar — that is a phone, not a browser.
+- **`decisions_rotate.py`** — the why-log rotation D-21 specified and the first pass of this release
+  did not ship, while five files told users their glob must be `decisions*.md` **because** rotation
+  moves older entries. Size-triggered (500 KB, never the calendar), whole entries chosen **by their
+  own heading date** — a real log runs 22 August entries, then 86 July, then 78 August, so "the
+  tail" is not "the oldest" — undated entries pinned, every touched file backed up, and the whole
+  `decisions*.md` family compared entry for entry afterwards. On a real 875 KB / 187-entry log:
+  497 KB live + 378 KB archived, all 187 byte-identical. `lint --report` names it past the threshold.
+- **`R-TOKENREF`** — a lint rule for the `var(--x)` that nothing will ever set. An unresolvable
+  custom property makes the browser drop the whole declaration, silently; pb counted *unused* tokens
+  and never asked the question that actually breaks a screen. Three things count as producers (the
+  project's tokens, the shell's own 58, and a property a body sets itself) and a fallback changes the
+  question — `var(--x, y)` is a finding only when `--x` exists and resolves to **empty**, the one
+  case where a fallback does not apply. Seven of its nine tests are a false-positive corpus.
 
 ### Changed
 - **Flow and Data ride the trio (D-29).** After a **trio-touching** patch (a screen, a component,

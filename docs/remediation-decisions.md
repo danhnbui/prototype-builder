@@ -267,6 +267,25 @@ process); folding search into `/pb:check-drift` (better, but still treats the sy
 rotation mode on an existing tool
 **Reviewed via:** a throwaway tolerant parser on the real log (187 entries, index 20 KB vs 875 KB,
 209k tokens → 4k) — which is what proved the *reader* was the wrong half of the problem
+**Amended 2026-09-20 — item 4 shipped, as its own tool, and item 4 had not shipped at all.** Items
+1–3 and 5 landed in `ea447fa`; **rotation did not**, while five files went on telling users their
+glob must be `decisions*.md` *"because rotation moves older entries."* Documentation for a mechanism
+that does not exist. Now `pb/tools/decisions_rotate.py`.
+*Deviation from this decision's letter, recorded:* it says "a mode on an existing tool, not a new
+one." No existing tool touches `memory/*.md` — `slice.py` is emphatically registry-only ("read/write
+ONE slice of registry.json"), and bolting a Markdown rotation onto it is the repurpose
+[D-27] taught us to refuse. The clause was aimed at rejecting `why_index.py`, a *reader* for a
+write-only process; this decision's own item 4 says rotation "stays code". So: a new 203-line tool,
+and this note.
+*What the real log then taught the implementation:* it is **not in date order** — 22 August entries,
+then 86 July, then 78 August — so rotating "the tail" would archive recent entries and keep old
+ones. Selection is by each entry's own heading date; an entry with no date is never moved. Measured:
+875 KB / 187 entries → 497 KB / 89 live + 378 KB / 98 archived, verified entry-for-entry.
+*And a bug the test found before a user did:* the first version compared the live file's entries
+before against the whole `decisions*.md` family after, so a **second** rotation looked like data
+appearing from nowhere — and its abort path then deleted the sibling holding 98 entries it had never
+written. The comparison is now family-before vs family-after, and the rollback restores every file
+it touched instead of removing it.
 
 ## D-20 · The render budget covers the whole pipeline, at real scale — 2026-09-19
 **Problem:** #3 project health — an unmeasured slow step
