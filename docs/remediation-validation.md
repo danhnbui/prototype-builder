@@ -49,6 +49,33 @@ The nine components that could not demo were all collection-taking —
 no notion of an array prop, so it handed the two-character string `'[]'` to a body that called
 `.map` on it. The prototype never hit this: there a parent passes real props through `pbUse`.
 
+## The sharper test: does the fork become unnecessary?
+
+Stock-vs-stock is the weaker comparison, because this project never ran on stock pb. It ran on a
+hand-patched plugin cache **plus its own copy of `prototype.html`** carrying five hunks. That fork is
+the best list anyone has of what pb was missing — every hunk is a capability someone needed badly
+enough to maintain a fork for, and one of them says so in its own comment: *"WHY THIS IS CSS AND NOT
+A SHELL EDIT."*
+
+| The fork's hunk | v1.11.1 | v1.12.0 |
+|---|---|---|
+| ERD `origin` tinting — which rows carry over from the existing product | forked | **stock, and wider** — `keep` · `rename` · `adopt`, with a legend (the fork had `keep` only) |
+| A flat screen: no tab strip, no synthesised URL, no window frame | forked, via CSS the project could not put in the shell | **stock** — `meta.shell: 'none'`, a third toggle option |
+| SheetJS — a `<script src>` hand-edited into the shell | forked | **stock** — `registry.runtime[]` with a `url`, which is the hole D-28 was written to close |
+| `test.roles` scoping the scenario list a reviewer sees | forked | **stock** |
+| A Mermaid `[[subprocess]]` painted input-purple against a legend promising grey | forked | **stock** — a one-line fix |
+
+**Five of five.** Verified against this project's own data: SheetJS declared rather than injected,
+`Browser \| App \| None` in the toggle with nothing emitted under `None`, and the scenario list going
+from 3 to 0 as the active role moves off `hr` — the fork's exact behaviour.
+
+Two of these were gaps in this remediation's own work rather than pre-existing ones. `test.roles`
+reached `test_run.py` in D-27 but not the shell that shows the list, so the increment was half done;
+and the third chrome option was never considered at all, because the fork was read for its *data*
+hunks and not its CSS. Both are fixed here. `tests/fork_parity.py` pins all five, so a regression
+shows up as "a project would have to fork the shell again" rather than as a silent return to the
+status quo.
+
 ## Lint: the count went UP, and that is the improvement
 
 | Code | v1 | v2 | |

@@ -100,8 +100,8 @@ card that owns the CTA — no dead controls. (Replaces the old `meta-tag`/`meta-
   `data-redirect`+`data-redirect-ms`; **`data-machine`/`data-step`** drives a wizard (`data-step-pane`
   shows and hides with the state, `data-step-go` advances it, `pbSetStep()` for a transition a click
   cannot express); **`data-preserve`** marks what survives a re-render (`pbPreserve(fn)` captures,
-  re-renders, restores, then fires `input`+`change` once everything is back). Header-line tools: a **Browser | App** chrome toggle (`meta.shell`
-  default; browser = tab strip + back/reload/URL bar, app = titlebar on desktop, a contrast-aware status bar on tablet/mobile) + an icon-only device switcher
+  re-renders, restores, then fires `input`+`change` once everything is back). Header-line tools: a **Browser | App | None** chrome toggle (`meta.shell`
+  default; browser = tab strip + back/reload/URL bar, app = titlebar on desktop, a contrast-aware status bar on tablet/mobile, none = a flat screen with no chrome at all — tablet/mobile keep their device frame) + an icon-only device switcher
   over **4 fixed sizes** (monitor 1920×1080 · laptop 1280×832 · tablet 834×1112 · mobile 390×844), default
   from `meta.device`, sizes not in `meta.devices` **disabled**. The device-framed preview scales to fit;
   **right** = a structure tree (screen → component level).

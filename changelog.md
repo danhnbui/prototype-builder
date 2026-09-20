@@ -32,6 +32,12 @@ something you had to remember to refresh, and logic gets a home of its own at **
   key exactly as the author wrote it, rewrites nothing when nothing changed, and points the registry at
   any contract it does not yet reference.
 
+### Added
+- **`meta.shell: 'none'`** — a third chrome option beside `browser` and `app`: the screen renders
+  flat, with no tab strip, no synthesised URL and no window frame. The browser metaphor is set
+  dressing on an internal back-office tool and costs 77px of height. Tablet and mobile keep their
+  device frame and status bar — that is a phone, not a browser.
+
 ### Changed
 - **Flow and Data ride the trio (D-29).** After a **trio-touching** patch (a screen, a component,
   logic), `/pb:build` reconciles the `flow` and `erd` slices **in the same turn** — a new screen gains
@@ -64,6 +70,11 @@ something you had to remember to refresh, and logic gets a home of its own at **
   (the largest single field), `handlers[].localCalls` and `items[].shellVerbs`, all of them for
   tools rather than for the shell. `build_html` now inlines a projection: **50 KB off every render
   and every hand-off**, with the full graph unchanged for `logic_check --freeze`.
+- **`test.roles` now scopes the shell's scenario list**, not just `test_run.py`'s execution — the
+  role half of D-27 reached the runner but not the list a reviewer reads.
+- **A Mermaid `[[subprocess]]` node was painted input-purple** while the legend promised
+  subprocess-grey. Mermaid emits both as a `<polygon>` with no `<line>`s, so the point count is the
+  only thing telling them apart.
 - **The DS site's runtime drift-guard checked three canary lines**, which pass happily while a helper
   added to `runtime.js` is missing from `prototype.html`'s physically duplicated copy. It now compares
   the entire block, byte for byte.

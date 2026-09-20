@@ -2206,6 +2206,8 @@
     .proto-frame { background:#fff; border:1px solid var(--border); border-radius:12px; overflow:hidden;
       box-shadow:0 10px 34px rgba(15,23,42,.12); transform-origin:top center; flex:0 0 auto;
       display:flex; flex-direction:column; }
+    .proto-shell--none:not(.proto-frame--tablet):not(.proto-frame--mobile) {
+      border:0; border-radius:0; box-shadow:none; }
     .proto-frame--tablet { border:10px solid #1c1f22; border-radius:26px; }
     .proto-frame--mobile { border:12px solid #1c1f22; border-radius:38px; }
     .proto-screen { overflow:auto; background:#fff; }
@@ -3395,13 +3397,14 @@
     function pbSandboxPreviewControls() {
       const meta = (PB_REGISTRY && PB_REGISTRY.meta) || {};
       const supported = pbNormalizeDeviceList(meta.devices);
-      const shell = state.protoShell || (meta.shell === 'app' ? 'app' : 'browser');
+      const shell = state.protoShell || PB_SHELLS[meta.shell] || 'browser';
       const panel = document.getElementById('proto-struct-panel');
       const isStructOpen = panel && panel.classList.contains('is-open');
-      const shellToggle = `<div class="proto-shell-toggle" role="group" aria-label="Display type">
-          <button class="proto-shell-btn ${shell === 'browser' ? 'active' : ''}" onclick="setProtoShell('browser'); pbSandboxRerender()">Browser</button>
-          <button class="proto-shell-btn ${shell === 'app' ? 'active' : ''}" onclick="setProtoShell('app'); pbSandboxRerender()">App</button>
-        </div>`;
+      const shellToggle = `<div class="proto-shell-toggle" role="group" aria-label="Display type">`
+        + PB_SHELL_OPTS.map(([id, label]) =>
+            `<button class="proto-shell-btn ${shell === id ? 'active' : ''}" onclick="setProtoShell('${id}'); pbSandboxRerender()">${label}</button>`
+          ).join('')
+        + `</div>`;
       const switcher = `<div class="proto-toolbar" role="tablist" aria-label="Preview device">`
         + PROTO_DEVICES.map(d => {
             const ok = supported.indexOf(d.id) !== -1;
@@ -3427,7 +3430,15 @@
       const stories = (PB_DATA && PB_DATA.flow && PB_DATA.flow.stories) || [];
       const out = [];
       stories.forEach(s => (s.scenarios || []).forEach(sc => {
-        if (sc && typeof sc === 'object' && sc.test) out.push(sc.title || sc.name || sc.id || 'scenario');
+        if (!sc || typeof sc !== 'object' || !sc.test) return;
+        // `test.roles` scopes a scenario to the role(s) it was written for — the same field
+        // test_run.py reads (D-27). A scenario without it keeps showing for everyone, so nothing
+        // authored before this disappears. Deliberately NOT admin-aware the way pbScreenAllowsRole
+        // is: this is a curated per-role list, not a permission gate, so an admin sees the
+        // scenarios tagged for admin rather than every scenario ever written.
+        const roles = sc.test.roles;
+        if (roles && roles.length && (state.activeRole == null || roles.indexOf(state.activeRole) === -1)) return;
+        out.push(sc.title || sc.name || sc.id || 'scenario');
       }));
       return out;
     }
@@ -3660,7 +3671,7 @@
       const supported = pbNormalizeDeviceList(meta.devices);
       if (!state.protoDevice) state.protoDevice = pbNormalizeDevice(meta.device || 'laptop');
       if (supported.indexOf(state.protoDevice) === -1) state.protoDevice = supported[0] || 'laptop';
-      if (!state.protoShell) state.protoShell = (meta.shell === 'app' ? 'app' : 'browser');
+      if (!state.protoShell) state.protoShell = PB_SHELLS[meta.shell] || 'browser';
       // v1.5 — resolve the active role (absent meta.roles ⇒ null, switcher hidden, nothing gated).
       const roles = (meta.roles && meta.roles.length) ? meta.roles : [];
       if (roles.length) {
@@ -3736,6 +3747,15 @@
       requestAnimationFrame(function () { fitProtoFrame(); pbSetStatusBarContrast(); });
     }
 
+    // Display chrome. `none` is the third value (v1.12.0): an internal back-office tool is not a
+    // web site, and dressing every screen in a fake tab strip, a synthesised URL and a window frame
+    // spends 77px of vertical space on set dressing that misleads the reviewer. A real project
+    // reached for this by hiding the chrome in its own forked stylesheet — so pb ships the option
+    // instead. Tablet and mobile keep their device frames under `none`: those are a PHONE, a
+    // different mockup, and nobody asked to remove them.
+    const PB_SHELL_OPTS = [['browser', 'Browser'], ['app', 'App'], ['none', 'None']];
+    const PB_SHELLS = { browser: 'browser', app: 'app', none: 'none' };
+
     // The 4 fixed device sizes (logical CSS px). Gated per project by meta.devices.
     const PROTO_DEVICES = [
       { id: 'monitor', label: 'Large monitor', w: 1920, h: 1080 },
@@ -3758,8 +3778,11 @@
       if (dev === 'desktop') return 'laptop';
       return ['monitor', 'laptop', 'tablet', 'mobile'].indexOf(dev) !== -1 ? dev : 'laptop';
     }
-    // Device chrome — browser (tabs + nav bar) or app (titlebar / bezel notch).
+    // Device chrome — browser (tabs + nav bar), app (titlebar / bezel notch), or none.
     function protoChrome(shell, device, sel, meta) {
+      // `none` still keeps the tablet and mobile status bar: that is a phone, not a browser, and
+      // removing the browser metaphor is not a reason to stop looking like the device.
+      if (shell === 'none') return (device === 'tablet' || device === 'mobile') ? protoStatusBar() : '';
       const title = `${(meta.name || 'prototype')} · ${(sel.name || sel.id)}`;
       const slug = (meta.name || 'app').toLowerCase().replace(/[^a-z0-9\s]/g, '').trim().split(/\s+/)[0];
       const path = (sel.id || '').replace(/-/g, '/');
@@ -5146,9 +5169,13 @@
           key = pbIsDiamond(poly) ? 'decision' : 'input';
           // Subprocess [[...]] renders as a 10-point double-rectangle polygon — strip the outer bracket
           // points so only the clean inner rect remains (removes the vertical "lines" on both sides).
+          // The point count is also the only thing telling subprocess apart from a real input:
+          // Mermaid emits [[ ]] as 10 points and [/ /] as 4, both as a <polygon> with no <line>s,
+          // so the `rect && lines >= 2` branch below never fires and a subprocess node would be
+          // painted input-purple while the legend promises subprocess-grey.
           if (key === 'input') {
             const pts = (poly.getAttribute('points') || '').trim().split(/\s+/);
-            if (pts.length >= 8) poly.setAttribute('points', pts.slice(0, 4).join(' '));
+            if (pts.length >= 8) { key = 'sub'; poly.setAttribute('points', pts.slice(0, 4).join(' ')); }
           }
         }
         else if (circle) key = 'startEnd';

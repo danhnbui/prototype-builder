@@ -131,10 +131,14 @@ Leave `components` / `screens` empty — `/pb:build` fills them and creates thei
 intake): *"Is this a browser app or a native/installed application, and which screen sizes does it
 target?"* Use the answer to seed:
 
-- **`meta.shell`** (`'browser' | 'app'`) — the default Prototype chrome. `'browser'` adds a tab strip
-  + back/reload/URL bar; `'app'` shows a plain titlebar (a device status bar — clock + signal/wifi/battery, auto black/white for contrast — on tablet/mobile). Web apps,
-  dashboards, marketing sites → `'browser'`; native/installed/mobile apps → `'app'`. The viewer can
-  flip this live, but the lock sets the default. Default `'browser'` when unclear.
+- **`meta.shell`** (`'browser' | 'app' | 'none'`) — the default Prototype chrome. `'browser'` adds a tab strip
+  + back/reload/URL bar; `'app'` shows a plain titlebar (a device status bar — clock + signal/wifi/battery, auto black/white for contrast — on tablet/mobile);
+  `'none'` draws the screen flat, with no tab strip, no synthesised URL and no window frame — the
+  browser metaphor is set dressing on an internal back-office tool, and it costs 77px of height.
+  Tablet and mobile keep their device frame and status bar under `'none'`: that is a phone, not a
+  browser. Web apps, dashboards, marketing sites → `'browser'`; native/installed/mobile apps →
+  `'app'`; internal admin tools where the chrome misleads → `'none'`. The viewer can flip this
+  live, but the lock sets the default. Default `'browser'` when unclear.
 - **`meta.device`** (`'monitor' | 'laptop' | 'tablet' | 'mobile'`) — the default device frame, from
   the PRD's primary form factor: mobile-first apps → `'mobile'`; dashboards/desktop web → `'laptop'`;
   big-screen/data-dense → `'monitor'`; when unclear, default `'laptop'`.
