@@ -56,7 +56,7 @@ the tool's summary.
 
 ## Result
 A cloned DS: registry tokens seeded, a scannable `design-system/<name>/<name>.md`, provenance in
-`meta.dsSource`, and a `.source.json` snapshot that `/pb:check-drift` audits against the live source.
+`meta.dsSource`, and a `.source.json` snapshot that `/pb:test --drift` audits against the live source.
 Next: `/pb:preview-ds` to browse it, or `/pb:build` to use it.
 
 ## NEVER

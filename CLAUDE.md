@@ -13,24 +13,19 @@ the playbook, [prototype-builder.md](prototype-builder.md) (authored in Phase 2)
 | `/pb:pull-ds` | Clone the design system (fallback ladder: DS MCP → Figma link → code library → common) → registry tokens + `design-system/<name>/` reference + `.source.json` drift snapshot; records `meta.dsSource` + `meta.platform` | P4 |
 | `/pb:specify` | Produce the spec / PRD (native) | P4 |
 | `/pb:clarify` | User Insights + UI Logic Trade-offs → Project Summary; append trade-offs to `decisions.md` | P4 |
-| `/pb:plan` | Implementation plan **+** per-tab task breakdown (each task: acceptance + skill + **agent · deps · slice**) | P4 |
+| `/pb:plan` | Implementation plan **+** per-tab task breakdown (acceptance · skill · **agent · deps · slice**) **+** first authoring of the `flow` and `erd` slices (`--flow` / `--data` / `--mock`). Routine changes need none of it — `/pb:build` reconciles both automatically | P4 |
 | `/pb:orchestrate` | Dispatch `memory/tasks.md` to the agent roster in dependency **waves** — serial registry writes, render once per wave, `acceptance`-gated | P4 |
 | `/pb:build` | The cheap loop: targeted `registry.json` patches, trio-gated, **no per-tweak render** | P3 |
 | `/pb:preview` | Live preview dev server: watch `registry.json` → deterministic render → live-reload. **Serves both sites**: the prototype at `/` and the **design system** at `/design-system` | P3 |
 | `/pb:preview-ds` | Open the **design-system site** (the `/design-system` route of `/pb:preview`) — live components: interactive demo + variant grid + push-to-figma + token foundations. *(Supersedes the old `ds_serve.py` upstream-clone browser.)* | P3 |
-| `/pb:test` | Sandbox testing: run scenario `test{}` blocks (functional), `--roles`, `--server`, `--security`, `--explore`; writes `lastResult` → live ✓/✗ glyphs | P3 |
+| `/pb:test` | **Check everything.** No flag = scenarios · roles · server · security · constitution drift · ranked health · shell coherence · DS drift, one verdict. A mode flag narrows it (`--drift` is the old `/pb:check-drift`) | P3 |
 | `/pb:explore` | Parallel design options: N `pb-builder` sub-agents propose alternatives → compare → keep one | P3 |
 | `/pb:build-check-design-system` | *(sub)* DS-first: reuse vs extend-variant vs build-local; enforce the naming contract | P3 |
-| `/pb:build-figma-handoff` | *(sub)* code→Figma via the **DS Bridge plugin** (declarative node JSON, default) — clarify gates G-FP0–G-FP5 + an offline G-FP6 audit on the emitted JSON; `registry_to_figma.py` lowers the composition tree to INSTANCE-by-key + token refs; the Figma MCP is a read-only **context** provider (match/enrich), never the writer; legacy MCP write behind `--mcp`. DS-neutral, auto-layout (R3), one-way | P3 |
-| `/pb:flow` | UX flow (Mermaid wireflow + test checklist) — **authors** the slice; `/pb:build` reconciles it on trio writes | P5 |
-| `/pb:data` | Data (field/type/example table + Mermaid ERD) — **authors** the slice; `/pb:build` reconciles it on trio writes | P5 |
-| `/pb:check-drift` | Read-only drift audit of the trio vs `constitution.md` | P5 |
-| `/pb:handoff-close` | Close out into one `handoff/` folder: view-only `prototype.html` + portable `bundle/` + a recipient `AGENTS.md`; `--people` / `--context` narrow to one piece | P6 |
+| `/pb:handoff` | **The one hand-off command.** Asks who is receiving it: **1** everything incl. a vendored Product Builder (recipient keeps building) · **2** engineering — `prototype.html` + `design-system.html` + `logic.md` + `rules.md` + `constitution.md` · **3** Figma, lowered deterministically then written through the MCP (falls back to the DS Bridge plugin). One command; no sub-commands | P6 |
 | `/pb:validate` | Wrap `prototype.html` in a runnable reference build (Vite/Next) — serves the single file, not a component export | P6 |
-| `/pb:handoff-dev` | Export at a tier — `--tier=host` (runnable prototype) · `scaffold` (deterministic React+Tailwind app) · `hardened` (idiomatic/DS-integrated — **deferred**); records `meta.outputTier` + `meta.exportTarget` | P6 |
 | `/pb:update-version` | Versioned schema update: dry-run / `--apply` / `--rollback` / `--to <N>` | P6 |
 
-> **Aliases (deprecated, still resolve):** `/pb:sync-flow` → `/pb:flow` · `/pb:sync-erd` → `/pb:data` · `/pb:hand-off` → `/pb:handoff-close`. The old command files are thin redirect stubs; they'll be removed in a future major release.
+> **Retired — the files are gone, not stubbed** (see AGENTS.md §2: this needs a major bump). `/pb:flow` + `/pb:data` → `/pb:plan --flow` / `--data` (and their older `sync-` aliases) · `/pb:check-drift` → `/pb:test --drift` · `/pb:handoff-close`, `/pb:handoff-dev`, `/pb:hand-off`, `/pb:build-figma-handoff` → `/pb:handoff`. 24 commands became 15.
 
 > Shipped as a Claude Code **plugin** (`pb@product-builder`, defined in `./.claude-plugin/marketplace.json` + `./pb/`) — commands invoke as `/pb:*`. After install, **restart Claude Code** to load them. (G1 decision: plugin ✓)
 
@@ -45,7 +40,7 @@ the playbook, [prototype-builder.md](prototype-builder.md) (authored in Phase 2)
 1. **State in `registry.json`.** The loop reads/edits only the touched slice. `prototype.html`
    is **never** the source of truth and is **never** hand-edited.
 2. **Batched, deterministic render.** A generator regenerates `prototype.html` from `registry.json`
-   ONLY on `/pb:build --render` and automatically at `hand-off` / `validate` — **never** per tweak,
+   ONLY on `/pb:build --render` and automatically at `/pb:handoff` / `/pb:validate` — **never** per tweak,
    and **never** by the model hand-emitting HTML (that is ~2–3× *worse* — measured at G0.5).
    *(`/pb:preview` may render on every change without breaking this: it's the **same generator**
    rendering **in memory** at ~0 model tokens — never the model, never written to disk unless `--write`.)*
@@ -63,7 +58,7 @@ exactly as they skip the gate. Rule 3 is unchanged.
   or `memory/plan.md`. It inserts, deletes and re-points; everything the patch did not touch is left
   exactly as authored.
 - **Populated slices only.** `flow.populated` / `erd.populated` false → skip. First-time authoring is
-  `/pb:flow` / `/pb:data`; they read the spec, the loop does not.
+  `/pb:plan --flow` / `--data`; they read the spec, the loop does not.
 - **Never re-author.** No rewriting an existing scenario (that discards the `lastResult` `/pb:test`
   wrote), no second five-lens QA pass, no re-deriving an untouched entity.
 - **Defer restructuring.** Past 9 nodes, a new flow, a new entity with relationships → stop and name
@@ -72,7 +67,7 @@ exactly as they skip the gate. Rule 3 is unchanged.
   gate already ran for the patch itself.
 - **One line when it writes, one line when it defers, silent on a true no-op.**
 
-This is the canonical text. `/pb:build`, `/pb:flow`, `/pb:data`, `/pb:plan` and `/pb:orchestrate`
+This is the canonical text. `/pb:build`, `/pb:plan` and `/pb:orchestrate`
 reference this section rather than re-stating it.
 
 ## One registry → two sites, one preview server
@@ -105,7 +100,7 @@ card that owns the CTA — no dead controls. (Replaces the old `meta-tag`/`meta-
   over **4 fixed sizes** (monitor 1920×1080 · laptop 1280×832 · tablet 834×1112 · mobile 390×844), default
   from `meta.device`, sizes not in `meta.devices` **disabled**. The device-framed preview scales to fit;
   **right** = a structure tree (screen → component level).
-- **Project Summary** — split: **left** = the `meta-subtab` sub-tabs (Overview · Insights · Trade-offs · Others) over a scrolling content column; **right** = a **scroll-spy table of contents** (built from the content's headings) that highlights the section in view and navigates on click. One viewport, internal scroll.
+- **Project Summary** — split: **left** = the `meta-subtab` sub-tabs (Overview · Insights) over a scrolling content column; Trade-offs moved to UX Design → Logic and `meta.others` is **deprecated** (D-30) — its tab renders only while a project still holds content there, under a banner naming the slice that now owns each kind; **right** = a **scroll-spy table of contents** (built from the content's headings) that highlights the section in view and navigates on click. One viewport, internal scroll.
 - **UX Design** — split: **left** = the `flow.mermaid` canvas (multi-flow dropdown + legend, straight **orthogonal**
   connectors anchored at node side-centers, nodes recolored by shape and **Yes/No branches drawn green/red**),
   filling **one viewport** — no W×H controls; **right** = **User stories | Test cases** from `flow.stories[]`.
@@ -138,12 +133,12 @@ the upstream `.source.json` clone instead of the project's live components.)
 - `runtime/*.js` — the project's own modules, declared in `registry.runtime[]` and inlined **before** every render body; an entry carrying a `url` instead of a `src` becomes a `<script src>` in the head. This is what a project uses instead of declaring a component whose render body returns `''` just to obtain a module scope.
 - `memory/constitution.md` — durable rules: Principles + **Stack Lock** + **DS Lock** (lean, rules-only).
 - `memory/decisions.md` — the why-log (trade-offs, gate overrides).
-- `design-system/{name}/{name}.md` — the global DS reference (scannable component index + rules R0–R4 + naming contract). Cloned by `/pb:pull-ds`; a sibling `.source.json` snapshots the source (tokens + components) for `/pb:check-drift`, and `ds-catalog.json` holds the **DS Bridge Scan DS** output (portable publish keys + variables + variant/property metadata) that `registry_to_figma.py` reads for the code→Figma bridge. `meta.dsSource` (provenance) + `meta.platform` record where it came from.
+- `design-system/{name}/{name}.md` — the global DS reference (scannable component index + rules R0–R4 + naming contract). Cloned by `/pb:pull-ds`; a sibling `.source.json` snapshots the source (tokens + components) for `/pb:test --drift`, and `ds-catalog.json` holds the **DS Bridge Scan DS** output (portable publish keys + variables + variant/property metadata) that `registry_to_figma.py` reads for the code→Figma bridge. `meta.dsSource` (provenance) + `meta.platform` record where it came from.
 - `prototype.html` — rendered view, regenerated from `registry.json`.
 
 ## Schema compatibility
 
-Write-path commands (`/pb:build`, `/pb:flow`, `/pb:data`, `/pb:pull-ds`, `/pb:handoff-dev`, `/pb:init --import`) apply
+Write-path commands (`/pb:build`, `/pb:plan`, `/pb:pull-ds`, `/pb:handoff`, `/pb:init --import`) apply
 this check before patching `registry.json`:
 
 1. Read `meta.schemaVersion` from `registry.json` (absent → treat as schema 2).
@@ -154,7 +149,7 @@ this check before patching `registry.json`:
    in which case **stop** and print: `Blocked: run /pb:update-version --apply first, then retry.`
 
 This is the canonical text. Write-path commands reference this section rather than re-stating it.
-Read-only commands (`/pb:check-drift`, `/pb:preview`) and exits do **not** carry this check.
+Read-only commands (`/pb:test --drift`, `/pb:preview`) and exits do **not** carry this check.
 
 ## Why (G0.5 spike, 2026-06-05)
 

@@ -75,4 +75,4 @@ sandboxed working directory.
 - NEVER add a second `pb-preview` entry for a project — `/pb:preview` upserts the one canonical entry.
 - NEVER static-serve a project folder (`npx serve <dir>`) as "the preview" — that serves a possibly-stale
   `prototype.html` (the snapshot), not the live preview.
-- NEVER use this as the hand-off artifact — it's a local dev server. Use `/pb:handoff-close` to share.
+- NEVER use this as the hand-off artifact — it's a local dev server. Use `/pb:handoff` to share.

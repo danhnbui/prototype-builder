@@ -225,7 +225,7 @@ def emit(registry_path, out_dir, screen=None, component=None):
         written.append(rel)
     open(os.path.join(out_dir, "README.md"), "w", encoding="utf-8").write(
         f"# {name} — scaffold export (React + Vite)\n\n"
-        "Deterministic **scaffold** tier from `/pb:handoff-dev --tier=scaffold`. Each component/screen\n"
+        "Deterministic **scaffold** tier from `/pb:handoff --tier=scaffold`. Each component/screen\n"
         "is a React wrapper that reuses its registry render body; styling is the design tokens\n"
         "(`src/tokens.css` `:root` vars), also mapped into `tailwind.config.js`.\n\n"
         "```\nnpm install\nnpm run dev\n```\n\n"

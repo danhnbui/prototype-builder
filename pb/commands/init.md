@@ -21,7 +21,7 @@ If that errors, STOP and print the OS-specific fix, then ask the user to install
 Everything else pb uses ships with the plugin — there is nothing else to install.
 
 ## 0b · Flags
-- `--import <bundle>` — ingest a context bundle from `/pb:handoff-close --context` instead of doing intake (step 6).
+- `--import <bundle>` — ingest a context bundle from `/pb:handoff --context` instead of doing intake (step 6).
 - `--figma <frame-url|id>` — start from a **Figma frame** instead of PRD intake — resolve its layers to DS components (step 6c). Sets `meta.entry = "figma"`.
 - `--adopt` — force **adopt-in-place** mode (scaffold under `.prototype/`); see 0c.
 - `--standalone` — force greenfield mode (scaffold at the current directory root), even inside an existing repo.

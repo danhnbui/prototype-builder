@@ -28,4 +28,4 @@ python3 "${CLAUDE_PLUGIN_ROOT}/tools/serve.py" registry.json      # then open  h
 - **Push to Figma** on a component emits its DS Bridge node JSON — paste into the plugin's *Code →
   Figma* tab. Unresolved DS keys are honest gaps (resolve at `/pb:pull-ds` Scan DS), never invented.
 - *(Retired: the old `ds_serve.py` browsed the upstream `.source.json` clone's metadata — superseded by
-  this live, registry-driven site. The `.source.json` snapshot remains for `/pb:check-drift`.)*
+  this live, registry-driven site. The `.source.json` snapshot remains for `/pb:test --drift`.)*

@@ -11,7 +11,7 @@ meta fields carry that:
                           Defaults to "host" (== pre-R2 behavior).
   - `meta.exportTarget` — the machine-readable export/production target, mirroring the Stack Lock
                           (e.g. "html", "react-tailwind", "react-antd"). null until set at
-                          /pb:init or /pb:handoff-dev. The Stack Lock in constitution.md is the
+                          /pb:init or /pb:handoff. The Stack Lock in constitution.md is the
                           human-facing record; this is the field tools read. (Migrations never
                           write constitution.md — memory_notes() advises recording it there.)
 
@@ -51,7 +51,7 @@ def describe():
 
 
 def memory_notes():
-    return ("Projects can now export code via /pb:handoff-dev --tier=host|scaffold|hardened. "
+    return ("Projects can now export code via /pb:handoff --tier=host|scaffold|hardened. "
             "Record the intended export target in the Stack Lock of memory/constitution.md "
             "(e.g. \"Export target: react-tailwind\") — meta.exportTarget mirrors it for the "
             "tooling. No constitution edit is auto-applied; defaults are safe (tier \"host\", "

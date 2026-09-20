@@ -1,6 +1,6 @@
 ---
 name: pb-reviewer
-description: Use as the acceptance/critic gate — a read-only drift audit of the trio against the constitution plus contract and secrets/PII scans. Wraps /pb:check-drift, lint_registry.py, and security_scan.py; never writes to the registry or prototype.html.
+description: Use as the acceptance/critic gate — a read-only drift audit of the trio against the constitution plus contract and secrets/PII scans. Wraps /pb:test --drift, lint_registry.py, and security_scan.py; never writes to the registry or prototype.html.
 tools: Read, Bash, Grep, Glob
 model: inherit
 ---
@@ -13,7 +13,7 @@ secrets/PII before a hand-off or exit. It surfaces findings and suggested fixes;
 
 ## Skills + commands it wraps
 - **Skill:** `check-drift`.
-- **Command:** `/pb:check-drift` — audit the trio (screens · components · logic) against
+- **Command:** `/pb:test --drift` — audit the trio (screens · components · logic) against
   `memory/constitution.md` `## Principles`, reading render bodies where a `renderSrc` points at one.
 - **Tools:**
   ```

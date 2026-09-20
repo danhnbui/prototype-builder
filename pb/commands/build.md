@@ -16,7 +16,7 @@ Apply the **Schema compatibility** check from `CLAUDE.md` before writing any reg
 - `--render` — after applying the patch (or on its own), regenerate **both derived sites** from
   `registry.json` via the deterministic generator (step 5): `prototype.html` (flows/screens) **and**
   `design-system.html` (the component workbench). One registry → two projections, ~0 model tokens. This
-  is the **only** way HTML is produced (besides `/pb:handoff-close` and `/pb:validate`, which render
+  is the **only** way HTML is produced (besides `/pb:handoff` and `/pb:validate`, which render
   automatically). A component/token edit re-renders both; a screen-only edit still just re-runs the
   generator (cheap) — no need to reason about which site changed.
 - no flag — apply the registry patch and **stop. Do NOT render.**
@@ -130,7 +130,7 @@ turn, no Sync button, no second command. Apply the **Auto-sync** rules from `CLA
 Non-trio tweaks (step 2) **skip this**, exactly as they skip the gate.
 
 **Reconcile, never regenerate.** Read the patch you just applied — not `memory/spec.md`, not
-`memory/plan.md` (that is `/pb:flow` / `/pb:data`'s job, and it is the expensive one).
+`memory/plan.md` (that is `/pb:plan --flow` / `/pb:plan --data`'s job, and it is the expensive one).
 
 | The patch did | `flow` | `erd` |
 |---|---|---|
@@ -153,10 +153,10 @@ entity's rows out of `erd.table[]`.
 - NEVER re-author. Existing `scenarios[]`, `jtbd`, priorities, coverage warnings, entities and rows stay
   exactly as written — rewriting a scenario silently discards the `lastResult` `/pb:test` wrote. No second
   five-lens QA pass. No re-running the 5 ERD guardrails across the model — guardrails 1–4 only, on the
-  entity you touched only (guardrail 5 is spec-wide and stays with `/pb:data`).
+  entity you touched only (guardrail 5 is spec-wide and stays with `/pb:plan --data`).
 - NEVER restructure. If the reconcile is bigger than an insertion — the flow would pass 9 nodes, it needs
   a new `flows[]` entry, or the entity needs relationships — **stop** and print the owning command:
-  `↻ flow needs restructuring (10 nodes) — run /pb:flow`.
+  `↻ flow needs restructuring (10 nodes) — run /pb:plan --flow`.
 - NEVER render, NEVER re-gate. This writes registry slices only. The gate (step 3) already ran for the
   patch; a representation of an approved change is not a second decision.
 
@@ -172,7 +172,7 @@ python3 "${CLAUDE_PLUGIN_ROOT}/tools/lint_registry.py" registry.json
 Surface any `ERROR`/`WARN` lines to the user as advice (kebab/renderFn/orgId/token-kind
 issues, a `</script>` page-killer, raw hex/px, a missing `danger` token). This is
 **advisory** in the loop — it never blocks a build tweak — but the same check runs
-`--strict` and **fail-closed** at `/pb:handoff-close` and `/pb:validate` before any render,
+`--strict` and **fail-closed** at `/pb:handoff` and `/pb:validate` before any render,
 so fixing findings now avoids a blocked exit later.
 
 ## 5 · Render — batched, deterministic, on demand only

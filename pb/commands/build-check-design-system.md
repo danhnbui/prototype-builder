@@ -42,7 +42,7 @@ Read the design system's scannable **component index** — `design-system/{name}
 > NEVER inline UI that bypasses a component (R0). NEVER spawn a second component when a variant suffices (R2).
 > NEVER build a higher atomic level when a lower one composes to the same result (R0.5).
 
-## 3 · Naming contract  (also enforced by `/pb:build-figma-handoff`)
+## 3 · Naming contract  (also enforced by `/pb:handoff`)
 - **`id`** — kebab-case, unique **across global and local** (R4). No collisions.
 - **`renderFn`** — `renderCmp{PascalCase}` (`text-input` → `renderCmpTextInput`).
 - **tokens** — every color / space / radius / shadow is a **W3C DTCG** token (`tokens.<name>` =

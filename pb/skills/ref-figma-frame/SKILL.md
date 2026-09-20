@@ -1,6 +1,6 @@
 ---
 name: ref-figma-frame
-description: Read a Figma frame via the Figma MCP and normalize it to Product Builder's frame-export shape (layers → DS-component ids), so /pb:init --figma can resolve it into a screen. Use when entering from a Figma frame — loaded by /pb:init --figma. Maps each layer to a design system component that ALREADY EXISTS; unmapped layers are logged to gaps.md, never invented. Not for pushing pb → Figma (that is /pb:build-figma-handoff) or cloning a whole DS (use ref-design-system).
+description: Read a Figma frame via the Figma MCP and normalize it to Product Builder's frame-export shape (layers → DS-component ids), so /pb:init --figma can resolve it into a screen. Use when entering from a Figma frame — loaded by /pb:init --figma. Maps each layer to a design system component that ALREADY EXISTS; unmapped layers are logged to gaps.md, never invented. Not for pushing pb → Figma (that is /pb:handoff) or cloning a whole DS (use ref-design-system).
 ---
 
 # ref-figma-frame

@@ -10,7 +10,7 @@
 >
 > **This file rotates by SIZE, not by year.** Past 500 KB, older entries move to a dated sibling
 > (`decisions-<YYYY>.md`) — whole entries, chosen by their own date, verified lossless:
-> `decisions_rotate.py memory/decisions.md --apply` (dry-run by default; `/pb:check-drift` names it
+> `decisions_rotate.py memory/decisions.md --apply` (dry-run by default; `/pb:test --drift` names it
 > once the log crosses the threshold). Anything reading the log must glob `decisions*.md`; a bare
 > `decisions.md` silently stops at the last rotation.
 > (A real project reached 818 KB across 187 entries in two months, so a calendar rule would

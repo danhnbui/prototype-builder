@@ -50,7 +50,7 @@ each wave in order:
            "${CLAUDE_PLUGIN_ROOT}/template/prototype.html" prototype.html
    ```
 5. **Acceptance gate.** Dispatch **pb-tester** (run the wave's acceptance conditions / authored scenarios
-   via `/pb:test`) and **pb-reviewer** (drift + contract sanity via `/pb:check-drift` + `lint_registry.py`). If the
+   via `/pb:test`) and **pb-reviewer** (drift + contract sanity via `/pb:test --drift` + `lint_registry.py`). If the
    gate fails, **stop the wave loop**, report which task/acceptance failed, and hand back to the user — do
    not steamroll into the next wave on a red gate.
 
@@ -64,7 +64,7 @@ is clean (NS6, fail-closed). Exit codes follow the house rule: `0` clean, `1` wa
 
 ## Result
 A built prototype whose `registry.json` reflects the whole `memory/tasks.md` plan, rendered once per wave,
-each wave acceptance-gated, and passing a final strict contract check. Next: `/pb:handoff-close` or `/pb:validate`.
+each wave acceptance-gated, and passing a final strict contract check. Next: `/pb:handoff` or `/pb:validate`.
 
 ## NEVER
 - NEVER apply two agents' patches concurrently — serialize every registry write.

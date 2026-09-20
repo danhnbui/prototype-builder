@@ -8,7 +8,7 @@ r2_export_tiers.py — the R2 "export tiers" acceptance, fixture-driven:
      app: per-component/screen wrapper (valid `export default function`) whose render import
      resolves to an emitted file, tokens.css with :root vars, a token-mapped tailwind.config.js,
      valid package.json, and an App that mounts a screen. --component exports a single subset.
-  3. handoff-dev keeps the hardened tier GATED (not faked) until its inputs exist.
+  3. /pb:handoff (mode 2) keeps the hardened tier GATED (not faked) until its inputs exist.
 
 The scaffold "renders one screen" is asserted structurally (valid JSX + resolvable imports) — a
 real `npm run dev` render is the manual gate (needs Node, out of scope for this stdlib suite).
@@ -96,8 +96,9 @@ with tempfile.TemporaryDirectory() as out:
     check(comp == ["Button.jsx"], f"--component button exports only Button ({comp})")
 
 print("4 · hardened tier is gated, not faked")
-hd = open(os.path.join(ROOT, "pb", "commands", "handoff-dev.md")).read()
-check("NOT YET AVAILABLE" in hd and "pb-full-picture" in hd, "handoff-dev defers hardened until inputs exist")
+hd = open(os.path.join(ROOT, "pb", "commands", "handoff.md"), encoding="utf-8").read()
+check("NOT AVAILABLE" in hd and "pb-full-picture" in hd,
+      "/pb:handoff mode 2 defers the hardened tier until its inputs exist")
 
 print()
 if fails:

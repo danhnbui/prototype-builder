@@ -18,7 +18,7 @@ current decisions are buried under the historical ones.
   read back and compared entry for entry against what was there before. A mismatch restores the
   backup and exits 2. This tool moves someone's history; it does not get to be approximately right.
 
-Readers must glob `decisions*.md`. `/pb:handoff-close` already does (its bundle would otherwise
+Readers must glob `decisions*.md`. `/pb:handoff` already does (its bundle would otherwise
 ship a history that stops at the first rotation, silently).
 
   decisions_rotate.py <memory/decisions.md>            # dry run: what would move, and where
@@ -206,7 +206,7 @@ def rotate(path, threshold, apply_=False):
     print("\n✓ rotated, verified lossless: %d entries across decisions*.md before, %d after, "
           "every one byte-identical" % (len(family_before), len(after)))
     print("  backup  %s" % os.path.relpath(backup, base))
-    print("  readers must glob decisions*.md — /pb:handoff-close already does")
+    print("  readers must glob decisions*.md — /pb:handoff already does")
     return 0
 
 

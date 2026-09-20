@@ -1,6 +1,6 @@
 {
   "schemaVersion": "2.0",
-  "_comment": "Persistent contract for /pb:build-figma-handoff. Seeded at /pb:init; updated after every successful push. NEVER hand-edit between pushes. v2 (bridge): per-component `dsKey` is the DS component's PORTABLE publish key (what the DS Bridge plugin rebuilds instances from) + name-keyed `propertyMapping`; file-local Figma node ids live under `_figma` and are used ONLY by the legacy Figma-MCP push ledger. registry_to_figma.py reads `dsKey`/`propertyMapping` (falling back to the ds-catalog) to emit INSTANCE nodes.",
+  "_comment": "Persistent contract for /pb:handoff. Seeded at /pb:init; updated after every successful push. NEVER hand-edit between pushes. v2 (bridge): per-component `dsKey` is the DS component's PORTABLE publish key (what the DS Bridge plugin rebuilds instances from) + name-keyed `propertyMapping`; file-local Figma node ids live under `_figma` and are used ONLY by the legacy Figma-MCP push ledger. registry_to_figma.py reads `dsKey`/`propertyMapping` (falling back to the ds-catalog) to emit INSTANCE nodes.",
 
   "target": {
     "fileKey": null,

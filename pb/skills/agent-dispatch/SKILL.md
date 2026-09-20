@@ -22,8 +22,8 @@ Route primarily by the task's **`slice:`**, using **`skill:`** as the tiebreaker
 | `component` | **pb-design-system** if it's a reuse / variant / naming-contract decision (`build-check-design-system`, `figma-use`); otherwise **pb-builder** (`design-component-build`, `think-layout`) |
 | `logic` | **pb-builder** | `think-logic`, `craft-connect-flow` |
 | `tokens` | **pb-design-system** | `think-layout` (token schema, no raw hex/px) |
-| `flow` | **pb-flow** | `craft-connect-flow` (drives `/pb:flow`) |
-| `erd` | **pb-data** | (drives `/pb:data`) |
+| `flow` | **pb-flow** | `craft-connect-flow` (drives `/pb:plan --flow`) |
+| `erd` | **pb-data** | (drives `/pb:plan --data`) |
 | `meta` | **pb-clarifier** for Project-Summary copy / insights / trade-offs (`ref-prd`, `think-clarify`, `think-critique-prd`); **pb-planner** for plan / task upkeep (`agent-orchestrate-tasks`) |
 
 `pb-tester` and `pb-reviewer` are **not** slice owners — they run the per-wave acceptance gate (below).
@@ -48,7 +48,7 @@ finish and gate green.
 4. **Render once per wave.** After all of the wave's patches land and are synced, run `render.py`
    **exactly once**. Never render per task (token lever NS2 — the win is batching).
 5. **Acceptance gate.** Dispatch **pb-tester** (`/pb:test` on the wave's acceptance / scenarios) **and**
-   **pb-reviewer** (`/pb:check-drift` + `lint_registry.py`). A red gate **stops the loop** — report and hand back;
+   **pb-reviewer** (`/pb:test --drift` + `lint_registry.py`). A red gate **stops the loop** — report and hand back;
    do not proceed to the next wave.
 
 ## Rules

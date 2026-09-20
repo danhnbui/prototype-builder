@@ -1,6 +1,6 @@
 ---
 name: ref-design-system
-description: Normalize any design-system source — a dedicated DS MCP, a Figma design-system link, a code library, or a common DS — into Product Builder's DS-export shape (tokens + component metadata + provenance). Use when cloning or re-cloning a DS — loaded by /pb:pull-ds and /pb:init's clone step. Produces the export that clone_ds.py materializes. Not for building a single component (use design-component-build) or auditing drift (that is /pb:check-drift + clone_ds.py --drift).
+description: Normalize any design-system source — a dedicated DS MCP, a Figma design-system link, a code library, or a common DS — into Product Builder's DS-export shape (tokens + component metadata + provenance). Use when cloning or re-cloning a DS — loaded by /pb:pull-ds and /pb:init's clone step. Produces the export that clone_ds.py materializes. Not for building a single component (use design-component-build) or auditing drift (that is /pb:test --drift + clone_ds.py --drift).
 ---
 
 # ref-design-system
@@ -48,7 +48,7 @@ later verify it hasn't drifted. Your output is one JSON object; `clone_ds.py` do
 
 - **Never invent.** A source that exposes no components yields `"components": []` — do not fabricate. Same for tokens.
 - **One export, one DS.** Don't merge two systems into one export; clone them separately.
-- **Provenance is exact.** `source.ref` is the literal URL / path / preset name used, so `/pb:check-drift`
+- **Provenance is exact.** `source.ref` is the literal URL / path / preset name used, so `/pb:test --drift`
   can re-fetch it and diff. Getting `ref` wrong breaks drift detection.
 - **Deterministic in, deterministic out.** Given the same source state, produce the same export (ordering
   aside) so re-cloning is a no-op and drift reflects real source change, not normalization noise.

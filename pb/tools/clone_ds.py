@@ -10,7 +10,7 @@ single **DS-export** JSON. This tool is the deterministic half — given that ex
   1. merges its `tokens` into `registry.json`'s `tokens{}` (additive by default),
   2. sets `meta.designSystem` / `meta.platform` / `meta.dsSource` (provenance),
   3. writes `design-system/<name>/<name>.md` — the scannable DS reference,
-  4. writes `design-system/<name>/.source.json` — the snapshot `/pb:check-drift` compares
+  4. writes `design-system/<name>/.source.json` — the snapshot `/pb:test --drift` compares
      the live source against to detect DS drift.
 
 Pure stdlib (NS4). Deterministic except for the `clonedAt` provenance stamp.
@@ -111,7 +111,7 @@ def _render_reference_md(name, tokens, components):
               "- **R2 · Variant before spawn.** New state/size/style → add a variant, never a second component.",
               "- **R3 · Auto-layout.** Every Figma frame uses auto-layout; no absolutely positioned children.",
               "- **R4 · Naming.** Kebab-case `id`, unique; `renderFn` = `renderCmp{PascalCase}`.", "",
-              "## Naming contract  (enforced by `/pb:build-check-design-system` and `/pb:build-figma-handoff`)", "",
+              "## Naming contract  (enforced by `/pb:build-check-design-system` and `/pb:handoff`)", "",
               "- `id` — kebab-case, globally unique. tokens — DTCG `$type ∈ color|dimension|fontFamily|shadow|…`; no raw hex/px.", ""]
     return "\n".join(lines)
 

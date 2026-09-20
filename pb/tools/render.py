@@ -262,7 +262,7 @@ def plugin_version():
 
 def stamp(html, version):
     """Insert a `<!-- pb-shell vX · rendered <ISO-8601 Z> -->` comment right after the
-    DOCTYPE so /pb:check-drift can detect a stale render. Kept OUT of build_html so the
+    DOCTYPE so /pb:test --drift can detect a stale render. Kept OUT of build_html so the
     pure render stays deterministic (this adds a timestamp)."""
     ts = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     comment = "<!-- pb-shell v%s · rendered %s -->" % (version, ts)

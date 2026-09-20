@@ -40,7 +40,7 @@ inline-SVG fallback.
 - **R3 · Auto-layout.** Every Figma frame uses auto-layout; no absolutely positioned children.
 - **R4 · Naming.** Kebab-case `id`, unique across global + local; `renderFn` = `renderCmp{PascalCase}`.
 
-## Naming contract  (enforced by `/pb:build-check-design-system` and `/pb:build-figma-handoff`)
+## Naming contract  (enforced by `/pb:build-check-design-system` and `/pb:handoff`)
 
 - `id` — kebab-case, globally unique (no global/local collision).
 - `renderFn` — `renderCmp{PascalCase}` (components) / `renderScreen{PascalCase}` (screens).

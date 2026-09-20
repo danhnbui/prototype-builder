@@ -29,20 +29,22 @@ tokens are applied onto `:root` at boot via `applyRegistryTokens`.
 | `meta.devices` | `('monitor'\|'laptop'\|'tablet'\|'mobile')[]` | Prototype | the fixed sizes this project supports (`monitor 1920×1080 · laptop 1280×832 · tablet 834×1112 · mobile 390×844`) — unsupported sizes are disabled in the switcher. Optional; defaults to all four. Legacy `'desktop'` expands to `monitor`+`laptop` |
 | `meta.designSystem` | `{ name, designLink, codeLibrary, linked }` | design-system site | the linked design system — `designLink` (Figma/doc URL), `codeLibrary` (folder path or repo URL). Seeded from the DS Lock at `/pb:init`. Optional/tolerated-absent → the DS bar shows an "add one" affordance |
 | `meta.platform` | `'web'\|'ios'\|'android'\|'desktop'` | — | the DS/target platform; set at `/pb:init`. Defaults to `'web'`. Schema 5 (v1.6) |
-| `meta.dsSource` | `{ type, ref, clonedAt } \| null` | — | provenance of the cloned DS: `type ∈ figma\|code-library\|mcp\|common`, `ref` the literal URL/path/name, `clonedAt` ISO stamp. `null` until `/pb:pull-ds` clones. The full token/component snapshot lives in `design-system/<name>/.source.json`; `/pb:check-drift` §5 diffs the live source against it. Schema 5 (v1.6) |
-| `meta.outputTier` | `'host'\|'scaffold'\|'hardened'` | — | which export tier `/pb:handoff-dev` targets. `host` = the runnable single-file prototype; `scaffold` = deterministic React+Tailwind (`render_react.py`); `hardened` = idiomatic/DS-integrated (deferred). Defaults to `host`. Schema 6 (v1.7) |
+| `meta.dsSource` | `{ type, ref, clonedAt } \| null` | — | provenance of the cloned DS: `type ∈ figma\|code-library\|mcp\|common`, `ref` the literal URL/path/name, `clonedAt` ISO stamp. `null` until `/pb:pull-ds` clones. The full token/component snapshot lives in `design-system/<name>/.source.json`; `/pb:test --drift` §5 diffs the live source against it. Schema 5 (v1.6) |
+| `meta.outputTier` | `'host'\|'scaffold'\|'hardened'` | — | which export tier `/pb:handoff` targets. `host` = the runnable single-file prototype; `scaffold` = deterministic React+Tailwind (`render_react.py`); `hardened` = idiomatic/DS-integrated (deferred). Defaults to `host`. Schema 6 (v1.7) |
 | `meta.exportTarget` | string \| null | — | machine-readable export target mirroring the Stack Lock (e.g. `'react-tailwind'`); `null` until set. Schema 6 (v1.7) |
 | `meta.entry` | `'prd'\|'figma'` | — | intake provenance — `prd` (PRD/Q&A) or `figma` (`/pb:init --figma` resolved a frame). Defaults to `prd`. Schema 7 (v1.8) |
 | `meta.overview` | `{ objectives, principles[] }` | Project Summary | from spec + constitution |
 | `meta.userInsights` | `{ quantitative, researchSummary, executiveSummary }` | Project Summary | from `/pb:clarify` |
-| `meta.tradeoffs[]` | `[{ title, question, options, decision, why, tabsAffected }]` | Project Summary | UI Logic Trade-offs |
-| `meta.others` | string \| null | Project Summary | freeform |
+| `meta.tradeoffs[]` | `[{ title, question, options, decision, why, tabsAffected }]` | UX Design → Logic → Trade-offs | the decision behind a rule: the question, the options weighed, what was chosen, why. Written by `/pb:clarify`; also appended to `memory/decisions.md`. A `[SUPERSEDED <date>]` prefix on `title` is a project convention the renderer honours (dashed + dimmed) — there is no `status` field yet (D-30) |
+| `meta.others` | string \| null | Project Summary | **Deprecated (D-30).** Raw HTML, no schema, no writer. It became the dump for terminology and business rules that had no home; those now have `content` and `ia.rules[]`. Kept in the registry per `AGENTS.md` §3; the tab renders only while non-empty, under a banner naming the new homes |
 | `tokens{}` | a **W3C DTCG** document — `{ "<name>": { $value, $type } }` (flat or nested groups + `{alias}` refs) | all (CSS vars) | `pb/tools/tokens.py` (+ the shell's `pbResolveTokens`) resolves it → CSS custom properties on `:root`; `$type ∈ color\|dimension\|fontFamily\|fontWeight\|number\|duration\|shadow\|…` (space/size/radius/fontSize all → `dimension`) |
 | `components[]` | organism objects | design-system site | the component library — shape below |
 | `screens[]` | screen objects | Prototype | shape below |
 | `staleness{}` | per-tab `{ lastSyncedPromptCount, currentPromptCount }` | — | **Deprecated** (D-19): nothing writes it, and the shell stopped reading it in v1.12.0 (D-29). Kept in the registry per `AGENTS.md` §3; removal waits for a major release |
 | `flow{}` | `{ populated, mermaid, stories[], html? }` | UX Design | structured — shape below; `html` is legacy fallback only |
 | `erd{}` | `{ populated, table[], mermaid, warnings[], html? }` | Data | structured — shape below; `html` is legacy fallback only |
+| `ia.rules[]` | `{ id, title, kind, summary, implemented[], implementedBy[], readers[], displayedIn[], decidedIn }` + per-kind fields | UX Design → Logic | the declared business rules. **Three kinds**, each with its own renderer: `state-machine` (`states[]` + `transitions[][]` + `overlays[]` — an overlay is a condition that rides *on top of* whichever state you are in, drawn as a band spanning the states it covers) · `matrix` (`rows[]` × `cols[]`) · `constraint` (`invariants[]` = `{ must, enforcedBy, when, message? }` — for a rule that is neither a machine nor a table, e.g. "every weight pool totals 100%"; an invariant with no `enforcedBy` renders as a **warning**, because a stated rule nothing enforces is the finding). An unknown `kind` degrades to title + summary. `implementedBy[]` / `readers[]` / `enforcedBy` are function names resolved against the derived handler graph, so a rename in the code shows up as a dead link |
+| `content{}` | `{ populated, terms[], strings[] }` | UX Design → Content | optional. `terms[]` = `{ id, term, en?, definition, aka[], avoid[], rule? }` — the glossary, where `avoid[]` is what the word is deliberately never called and `rule` points at an `ia.rules[].id`. `strings[]` = `{ key, text, kind, note? }` — the wording deck, `kind ∈ action\|status\|label\|title\|empty\|toast\|error` (an unknown kind keeps its own group rather than being dropped). **Both halves hand-authored**; no tool derives either, so the tab's only check is authored-vs-authored — a wording or a declared rule's state label that uses a banned word |
 
 ### `components[]` (one per reusable component)
 
@@ -76,7 +78,7 @@ Ported **verbatim** from the v0.4.0 `PB_DATA.handoff.organisms` shape:
   spec metadata carries whichever form is present (hand-off / bridge); author the structured object when you want measured
   redlines, the string when a plain description suffices.
 
-Figma fields are recorded by `/pb:build-figma-handoff` in `figma-transfer.json` (bridge mode: the
+Figma fields are recorded by `/pb:handoff` in `figma-transfer.json` (bridge mode: the
 portable `dsKey` + `propertyMapping`; the `--mcp` legacy path also writes `figmaId`/`figmaComponentSetId`
 back onto the registry). `dsMatch` may be authored to hint the DS component match.
 
@@ -118,7 +120,7 @@ flow = { populated, mermaid, flows?: [ { name, mermaid } ],
          coverageWarnings?: [ { category, note } ], html? }
 ```
 
-`/pb:flow` writes `mermaid` (a `flowchart LR` source) + `stories[]`. The shell renders the canvas on
+`/pb:plan --flow` writes `mermaid` (a `flowchart LR` source) + `stories[]`. The shell renders the canvas on
 the **left** (it fills one viewport — no W×H controls) and a **User stories | Test cases** aside on the
 right (each `scenarios[]` entry a checkbox), running Mermaid then re-routing every edge as straight
 **orthogonal** connectors anchored at the nodes' 4 side-centers (Figma-board style)
@@ -146,7 +148,7 @@ erd = { populated, table: [ { entity, field, type, example, notes } ], mermaid, 
         mock?: [ { entity, label, rows: [ { <field>: <value> } ] } ], html? }
 ```
 
-`/pb:data` writes `table[]` + `mermaid` (an `erDiagram` source). The shell is **single-column**: a
+`/pb:plan --data` writes `table[]` + `mermaid` (an `erDiagram` source). The shell is **single-column**: a
 **Diagram | Table** toggle, with a relationship-legend popover (crow's-foot 1:1 / 1:N / N:N) on the diagram
 and **data-set variant chips** on the table. Per-entity tables share fixed column widths so they line up.
 `html` is a legacy pre-baked fallback used only when neither `mermaid` nor `table` is present.
@@ -156,7 +158,7 @@ and **data-set variant chips** on the table. Per-entity tables share fixed colum
   definition, then one per `label`); a table with no mock sets shows no switcher. Selecting a variant swaps
   that table's Example column to the scenario's values (`rows[0]` is representative; an empty set reads as the
   no-data state). Use standard review scenarios — e.g. `New user`, `Empty`, `Returning`. Each set: `label` +
-  `rows[]` (objects keyed by field names). Authored by `/pb:data --mock`.
+  `rows[]` (objects keyed by field names). Authored by `/pb:plan --data --mock`.
 
 ## The 4 tabs (prototype shell) + the design-system site
 
@@ -165,11 +167,13 @@ and **data-set variant chips** on the table. Per-entity tables share fixed colum
   laptop 1280×832 / tablet 834×1112 / mobile 390×844, gated by `meta.devices`, default from `meta.device`)
   render the selected screen in a device frame that scales to fit. Browser chrome adds a tab strip +
   back/reload/URL bar; app chrome a titlebar (desktop) or a status bar (tablet/mobile). No screen-switcher.
-- **Project Summary** — split: PRD / Insights / Trade-offs (the shared `meta-subtab` sub-tabs) in a scrolling
+- **Project Summary** — split: Overview / User Insights (the shared `meta-subtab` sub-tabs, plus a deprecated Others while non-empty) in a scrolling
   left column, with a **scroll-spy table of contents** on the right that tracks the headings in view and
   navigates on click. One viewport, internal scroll.
-- **UX Design** — the wireflow from `flow.mermaid` (fills one viewport), with **User stories | Test cases**
-  sidebar sub-tabs; hovering a story highlights the flow path it satisfies (above).
+- **UX Design** — five segments: **Logic** (declared rules + the derived ripple) · **Information Architecture**
+  (job list over the derived site map) · **User Flow** (the wireflow from `flow.mermaid`, filling one viewport,
+  with the user stories beside it — hovering a story highlights the path it satisfies) · **Test Cases** ·
+  **Content** (the `content` glossary + wording deck, above).
 - **Data** — single-column **Diagram | Table** toggle over `erd` (above): relationship-legend popover on the
   diagram, data-set variant chips on the aligned tables.
 
@@ -197,7 +201,7 @@ design-system site) — they're two projections of the one `registry.json`, neve
 Flow and Data **ride the trio**: every trio-touching `/pb:build` reconciles `flow` and `erd` in the same
 turn — a new screen gains a node and a story, a removed one loses them, a new data-bearing field gains an
 `erd.table[]` row. The reconcile **inserts and repairs; it never re-authors** — first-time population, the
-five-lens QA pass and any restructuring stay with `/pb:flow` and `/pb:data`. Canonical rule: `CLAUDE.md`
+five-lens QA pass and any restructuring stay with `/pb:plan --flow` and `/pb:plan --data`. Canonical rule: `CLAUDE.md`
 § *Auto-sync*. _(folded from the v0.4.0 hooks: Phase 4–5)_
 
 ## Component governance
@@ -207,7 +211,7 @@ on every Figma frame (R3); kebab-case non-colliding IDs (R4); the naming contrac
 
 ## Export tiers — JSX/TSX component export (v1.7)
 
-Three tiers via `/pb:handoff-dev --tier=…`:
+Three tiers via `/pb:handoff --tier=…`:
 
 - **`host`** — the runnable single-file `prototype.html` (`/pb:validate`). Not reusable components.
 - **`scaffold`** *(shipped v1.7)* — `render_react.py` deterministically emits a **React + Vite** app:
