@@ -307,9 +307,9 @@ def load_runtime(reg, base_dir):
 
     Before this existed, a project that needed shared, non-render JS had exactly one way to
     get it into the single script scope: declare a COMPONENT whose render body is
-    `return ''` and hang the helpers off it. On the project this was measured against, three
-    such fake components carried 2,567 lines and 103 functions that render nothing, and a
-    third-party parser had to be hand-injected by editing the shell.
+    `return ''` and hang the helpers off it. On the project this was measured against, five
+    such fake components carried 3,054 lines and 136 top-level names that render nothing, and
+    a third-party parser (SheetJS) had to be hand-injected by editing the shell.
 
     Each entry declares exactly one source and says why it is there:
       {"id": "app-store", "src": "runtime/app-store.js", "why": "…"}   inlined, in order,
@@ -648,7 +648,8 @@ def main():
             sys.exit("error: %s" % e)
         name = (reg.get("meta") or {}).get("name") or "(unnamed)"
         print("rendered design system for %s: %d components, %d tokens -> %s (%d bytes)" % (
-            name, len(reg.get("components", [])), len(reg.get("tokens", {})), rest[3], len(html)))
+            name, len(reg.get("components", [])), len(reg.get("tokens", {})), rest[3],
+            len(html.encode("utf-8"))))
         return
 
     if len(args) != 3:
@@ -668,7 +669,7 @@ def main():
     name = (reg.get("meta") or {}).get("name") or "(unnamed)"
     msg = "rendered %s: %d components, %d screens, %d tokens -> %s (%d bytes)" % (
         name, len(reg.get("components", [])), len(reg.get("screens", [])),
-        len(reg.get("tokens", {})), args[2], len(html))
+        len(reg.get("tokens", {})), args[2], len(html.encode("utf-8")))
     if missing:
         msg += "\n  note: %d render fn(s) had no `render` body and will be empty: %s" % (len(missing), ", ".join(missing))
     print(msg)

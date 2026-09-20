@@ -472,6 +472,10 @@ def build_owner_index(registry):
         if isinstance(s, dict) and s.get('renderSrc'):
             owner[os.path.normpath(s['renderSrc'])].append(
                 {'kind': 'screen', 'id': s.get('id'), 'level': 'page', 'scope': 'screen'})
+    for m in registry.get('runtime') or []:
+        if isinstance(m, dict) and m.get('src'):
+            owner[os.path.normpath(m['src'])].append(
+                {'kind': 'runtime', 'id': m.get('id'), 'level': None, 'scope': 'runtime'})
     return owner
 
 
@@ -483,6 +487,32 @@ def _owners_for(owner_index, rel_path):
 
 
 # ───────────────────────── main extraction ─────────────────────────────────────
+
+def runtime_module_paths(registry, project_dir):
+    """The files `registry.runtime[]` declares with a `src` (schema 11), resolved and
+    de-duplicated in declaration order.
+
+    render.py inlines these BEFORE every render body, into the same single script scope, so
+    the functions they define are as global as the shell's own. Scanning render/ alone makes
+    every one of them look undefined — measured on a real project the moment it adopted the
+    primitive: 68 false L-UNDEF errors and exit 2, from code that had not changed at all, only
+    moved out of a component whose render body returned ''. That is the same failure the shell
+    default guards against, one layer down. A `url` entry is a third-party <script src> with no
+    local text to read, so it is skipped rather than reported missing.
+    """
+    out, seen = [], set()
+    for entry in registry.get('runtime') or []:
+        if not isinstance(entry, dict) or not entry.get('src'):
+            continue
+        rel = os.path.normpath(entry['src'])
+        if rel in seen:
+            continue
+        seen.add(rel)
+        path = os.path.join(project_dir, rel)
+        if os.path.isfile(path):
+            out.append((path, rel))
+    return out
+
 
 def default_shell_path():
     """The plugin's own prototype shell, resolved from this file — the same trick serve.py
@@ -516,9 +546,13 @@ def extract(project_dir, shell_path=None):
     owner_index = build_owner_index(registry)
 
     body_paths = sorted(glob.glob(os.path.join(project_dir, 'render', '*', '*.js')))
+    # registry.runtime[] modules share the render bodies' script scope (render.py inlines them
+    # first), so they are producers and definers here exactly like a render body. They are NOT
+    # registry items, so they never reach items[] or a logic/ sidecar — see runtime_module_paths.
+    body_paths += [path for path, _rel in runtime_module_paths(registry, project_dir)]
     texts = {}          # rel_path -> comment-stripped text
     owners_by_rel = {}  # rel_path -> [owner, ...]
-    for p in body_paths:
+    for p in sorted(set(body_paths)):
         rel = os.path.relpath(p, project_dir)
         texts[rel] = strip_comments(_read(p))
         owners_by_rel[rel] = _owners_for(owner_index, rel)

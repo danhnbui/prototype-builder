@@ -288,6 +288,54 @@ check(tmpl["meta"]["schemaVersion"] == 11, "the shipped template is stamped 11")
 check(tmpl.get("ia") == {"populated": False} and tmpl.get("runtime") == [],
       "the template seeds both new slices")
 
+print("8 · registry.runtime[] modules share the render bodies' scope")
+# The primitive exists to retire the fake component whose render body returns ''. If the
+# analyser does not follow the code to its new home, adopting it turns every function those
+# files define into an "undefined helper" — measured on a real project at the moment it moved
+# five such components out: 68 false L-UNDEF errors and exit 2, from code that never changed.
+import logic_extract as LE  # noqa: E402
+import logic_check as LC  # noqa: E402
+
+d8 = tempfile.mkdtemp(prefix="pb-runtime-scope-")
+fixture(d8)
+os.makedirs(os.path.join(d8, "runtime"), exist_ok=True)
+with open(os.path.join(d8, "runtime/store.js"), "w", encoding="utf-8") as f:
+    f.write("function pbStoreGet(k){ return (window.PB_S||{})[k]; }\n"
+            "function pbStoreSet(k,v){ (window.PB_S=window.PB_S||{})[k]=v; }\n")
+with open(os.path.join(d8, "render/components/badge.js"), "w", encoding="utf-8") as f:
+    f.write("function renderCmpBadge(p){ return '<b>'+pbEscape(pbStoreGet('t')||'')+'</b>'; }\n")
+reg8 = json.load(open(os.path.join(d8, "registry.json"), encoding="utf-8"))
+
+# undeclared: the check must still have teeth
+_found, _graph = LC.run(d8)
+check("pbStoreGet" in _graph.get("undefined", {}),
+      "an undeclared module's functions are still reported undefined (the check keeps its teeth)")
+
+# declared: in scope, and not an item
+reg8["runtime"] = [{"id": "store", "src": "runtime/store.js", "why": "session store"}]
+with open(os.path.join(d8, "registry.json"), "w", encoding="utf-8") as f:
+    json.dump(reg8, f, indent=2, ensure_ascii=False)
+    f.write("\n")
+found2, graph8 = LC.run(d8)
+undef2 = [f for f in found2 if f.code == "L-UNDEF"]
+check(not undef2, "declaring it in registry.runtime[] puts its functions in scope (%d L-UNDEF)"
+      % len(undef2))
+check("pbStoreSet" not in graph8.get("undefined", {}),
+      "including one the render bodies never call")
+check([m for m in LE.runtime_module_paths(reg8, d8)] and
+      os.path.basename(LE.runtime_module_paths(reg8, d8)[0][1]) == "store.js",
+      "runtime_module_paths resolves a declared src")
+check(not [i for i in graph8["items"] if i["id"] == "store"],
+      "a runtime module is NOT a registry item — no items[] entry")
+LE.write_contracts(d8, graph8)
+check(not os.path.exists(os.path.join(d8, "logic", "runtime")),
+      "and gets no logic/ sidecar of its own")
+# a url-only entry has no local text and must not be reported missing
+reg8["runtime"].append({"id": "x", "url": "https://example.test/x.js", "why": "dep"})
+check(len(LE.runtime_module_paths(reg8, d8)) == 1,
+      "a url-only entry is skipped, not treated as a missing file")
+shutil.rmtree(d8, ignore_errors=True)
+
 print()
 if fails:
     print("FAIL — %d regression(s)" % len(fails))
