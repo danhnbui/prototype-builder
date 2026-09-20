@@ -175,6 +175,13 @@
      *   data-preserve="value scroll"   keep only these (value · checked · scroll · open · active)
      *   data-preserve-key="<k>"        identity across the re-render (default: id, then position)
      * Usage: pbPreserve(function () { renderMyScreen(); });
+     *
+     * STATE, NEVER THE CARET. Focus and selection are deliberately NOT restored (D-26): putting
+     * focus back mid-edit destroys an in-flight IME composition, which on a Vietnamese keyboard
+     * is most of the typing. This verb is for a re-render the user triggered by clicking
+     * something else — a save, a filter apply. A surface that repaints WHILE they type must
+     * render its input once and repaint only the hosts around it. tests/verbs_browser.py §3
+     * pins the boundary in a real browser, so adding focus-restore has to come past that line.
      */
     var PB_PRESERVE_DEFAULT = { INPUT: 'value', SELECT: 'value', TEXTAREA: 'value', DETAILS: 'open' };
     function pbPreserveKey(el, i) {

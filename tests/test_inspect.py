@@ -117,9 +117,17 @@ def run():
             inp.nth(0).fill("ada@example.com")
             inp.nth(1).fill("hunter2hunter2")
             page.click('#proto-frame [data-action="submit"]')
-            page.wait_for_timeout(220)
-            check(page.evaluate("() => state.protoScreenId") == "dashboard",
-                  "a normal submit still navigates (no inspect regression)")
+            # Wait for the STATE, not a fixed 220ms. The golden's submit navigates on a timer
+            # (data-redirect-ms), so under a loaded machine — the full sweep, not this file on
+            # its own — the evaluate could land mid-transition and come back "Execution context
+            # was destroyed". wait_for_function retries across that instead of racing it.
+            try:
+                page.wait_for_function("() => state.protoScreenId === 'dashboard'", timeout=5000)
+                landed = "dashboard"
+            except Exception:
+                landed = page.evaluate("() => state.protoScreenId")
+            check(landed == "dashboard",
+                  f"a normal submit still navigates (no inspect regression) (got {landed!r})")
 
             # Non-tagged element -> a screen-scoped fallback path still appears.
             page.evaluate("() => setProtoScreen('login')")

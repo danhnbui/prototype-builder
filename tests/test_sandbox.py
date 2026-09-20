@@ -280,11 +280,15 @@ def run():
                   f"data-roles=admin element visible for the admin role (isAdmin bypass) ({admin_vis})")
             page.evaluate("setProtoRole('member')")  # restore before leaving the tab
 
-            # 3 — UX Design → Test cases: a no-test scenario shows ☐; an un-run test scenario ○.
-            page.click('.meta-tab >> nth=2')  # UX Design (flow)
+            # 3 — UX Design → Test Cases: a no-test scenario shows ☐; an un-run test scenario ○.
+            # Test Cases became a UX-Design SUB-tab (UX_SUBTABS, shell ~4136): a .meta-subtab
+            # button calling pbSetUxView('tests'), not the old [data-tab="tests"]. This step went
+            # on clicking a selector the shell had stopped emitting and timed out every time —
+            # unseen, because the file skipped on every machine that had no Playwright.
+            page.click('.meta-tab >> nth=2')  # UX Design
             page.wait_for_timeout(150)
-            page.click('[data-tab="tests"]')
-            page.wait_for_timeout(150)
+            page.click("""[onclick*="pbSetUxView('tests')"]""")
+            page.wait_for_timeout(200)
             txt = page.locator("#app").inner_text()
             check("☐" in txt, "a scenario WITHOUT a test{} block renders the manual ☐ glyph")
             check("○" in txt, "a runnable-but-un-run scenario renders the untested ○ glyph")

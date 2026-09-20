@@ -71,3 +71,13 @@ This file is the *how you must work*, release-independent.
   - `tests/` (repo tests)
   - `pb/tools/test_run.py` (sandbox, when the change is previewable)
 - Do not mark a task done while a check is red. When blocked, stop and ask — don't guess.
+- **Run the sweep with Playwright, or four tests silently do nothing.** `e2e_smoke.py`,
+  `test_inspect.py`, `test_sandbox.py` and `verbs_browser.py` exit **2** (a clean skip) when
+  Playwright is absent, so a sweep without it reports green while asserting nothing about the
+  shell in a browser. That gap let an increment delete a selector `test_sandbox.py` depended
+  on and still ship "all green". Set it up once — the venv is gitignored:
+
+  ```
+  python3 -m venv .venv && .venv/bin/pip install playwright && .venv/bin/playwright install chromium
+  for f in tests/*.py; do .venv/bin/python "$f"; done     # 27 pass / 0 skip / 0 fail
+  ```
