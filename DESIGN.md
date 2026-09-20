@@ -69,6 +69,30 @@ Durable reasoning lives beside it in `memory/` — `constitution.md` for rules, 
 why-log — because the model needs the rules in context, not a hook engine that enforces them
 invisibly.
 
+## The design-system layer
+
+A prototype is only worth showing if it is faithful to the system it claims to use, and constraint 4
+says the core cannot know which system that is. So the DS arrives at runtime, down one path.
+
+`/pb:pull-ds` resolves it along a **fallback ladder** — a dedicated DS MCP, a Figma design-system
+link, the project's own code library, then a bundled common DS — normalizes whatever it finds into a
+single DS-export, and hands that to `clone_ds.py`. The tool merges tokens into `registry.json`
+(additive; `--overwrite-tokens` is explicit), records provenance in `meta.dsSource` / `meta.platform`,
+and writes two files: `design-system/<name>/<name>.md`, the reference, and `.source.json`, the
+snapshot `/pb:test --drift` audits the live source against. Nothing on that path is hand-written, and
+the reference is never hand-edited — re-clone to refresh it.
+
+**The reference is an index, not a rationale, and that is deliberate.** It carries a component table
+(function · `renderFn` · variants · scope · level) plus rules R0–R4 and the naming contract — exactly
+what `/pb:build` §3a needs to make the reuse decision mechanical: *does something already cover this
+function?* → reuse it, else add a variant, else build local. Prose about why a value is what it is
+would be read on every build turn and cost context proportional to the size of the DS, while changing
+none of those three answers. Constraint 1 decides this the way it decides everything else.
+
+So the layer deliberately holds no principles justifying a value, no decision tree for when two
+components both fit, no cross-cutting rules (nested radius, feedback timing, negative space), no
+platform dimension, and no judgement about whether the result looks good.
+
 ## Invariants
 
 Numbered so a commit or PR can cite one instead of re-arguing it. Each maps to an enforcement point;
@@ -158,6 +182,12 @@ What the design is deliberately bad at. These are accepted, not undiscovered.
   it has already let a deleted selector ship "all green".
 - **The Figma bridge is one-way.** Code → Figma only; the MCP is a read-only context provider. No
   round-trip, by choice — a two-way sync needs a conflict model pb does not have.
+- **pb clones a design system; it cannot author one, and it has no taste layer.** The ladder's
+  last rung hands a project without a DS a bundled common one — no rung *builds* the missing system.
+  That much follows from constraint 4: a core that authored a DS would be asserting one. The second
+  gap is not defended anywhere. `/pb:test` grades correctness — scenarios, roles, security, drift —
+  and nothing in the tree records whether a rendered screen looks *good*, only whether it is
+  consistent, reachable and DS-faithful.
 - **`writes[]` must be hand-authored.** Static derivation traces reads but not writes, because the
   mutation happens inside a store helper. It is the one contract field a human must state, and the
   Logic tab's ripple view is only as good as that statement.
@@ -167,6 +197,32 @@ What the design is deliberately bad at. These are accepted, not undiscovered.
 - **The `hardened` export tier** (`/pb:handoff --tier=hardened`, idiomatic / DS-integrated) is
   deferred with no owner or date.
 - **`staleness` removal** is queued behind the next major release.
-- **[docs/architecture.md](docs/architecture.md) is stale** — it still describes the v1.4.2 layout
-  (12 commands, no `agents/` · `skills/` · `migrations/`). Either refresh it as the codemap this
-  file defers to, or fold it in and delete it.
+- **[docs/architecture.md](docs/architecture.md) is stale** — it still describes the v1.4.2
+  layout: its plugin tree omits `agents/` · `skills/` · `migrations/`, and its template list
+  predates `design-system.html` and `runtime.js`. Its command count reads 12, which the 24 → 12
+  merge has made *accidentally* correct — staleness that now hides itself. Either refresh it as
+  the codemap this file defers to, or fold it in and delete it.
+- **The 24 → 12 command merge shipped without compat aliases**, a recorded deviation from
+  [AGENTS.md](AGENTS.md) §2 and a breaking change for anything invoking one of the nine retired
+  names. The version is still 1.12.0; by constraint 3 and I-5 it is a 2.0.0.
+- **The design-system scaffold is unconnected.** `../design-system-scaffold/` already answers both
+  gaps above and pb references it nowhere. It is a routed folder tree — principles → foundations →
+  atoms → molecules → organisms → templates → patterns → decision trees → governance — whose
+  `01-foundations/tokens.json` is a three-tier **W3C DTCG** document, the format `clone_ds.py`
+  ingests and `tokens.py` resolves, and whose `09-aesthetic/` holds what pb has no home for: a
+  44-check grading rubric, generated HTML samples that hold every standard fixed and move only the
+  taste variables, and a human grading log with two completed rounds. It is the authoring format for
+  the thing pb can only clone. The question is which of three it becomes: **rung 0** of the ladder
+  (`/pb:pull-ds` authors the DS when no source exists), a **normalizer input** that contributes
+  `tokens` + `components` and drops principles, trees and taste at the boundary by the same argument
+  that keeps the reference an index, or a **permanently separate tool** that hands pb a DS-export by
+  hand. **Measured 2026-09-20:** a ~150-line stdlib exporter in the scaffold (`tools/export_pb.py`)
+  drives the whole chain — scaffold → DS-export → `clone_ds.py` → `registry.json` → rendered
+  `prototype.html` — with **zero changes to pb**, and `display_kind` bucketed the scaffold's nested
+  `ds.primitive` / `ds.sem` tiering with no configuration. The seam is cheap and stable, so the
+  answer is the third option: stay separate, keep the boundary executable. Two defects the run
+  exposed are pb's, not the scaffold's: `clone_ds.py`'s token merge iterates top-level keys only, so
+  a nested DTCG document merges all-or-nothing (it reported `+1 added` for ~110 tokens), and a DS
+  whose `$value`s are `null` clones with a `✓` while both resolvers silently drop the dead tokens —
+  68 of them here — leaving a render that falls back to shell defaults and looks plausible. Neither
+  has an owner yet.
