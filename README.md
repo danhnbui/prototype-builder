@@ -94,7 +94,7 @@ If `/pb:init` says Python isn't installed, it will tell you exactly how to fix i
 | `/pb:plan --data` | Data — field/type/example table + ERD (authoring; `/pb:build` keeps it in sync) |
 | `/pb:test --drift` | Read-only drift audit of the trio vs the constitution |
 | `/pb:handoff` | Close out into one `handoff/` folder: view-only `prototype.html` + portable `bundle/` + a recipient `AGENTS.md` (`--people` / `--context` narrow it) |
-| `/pb:validate` | Wrap `prototype.html` in a runnable reference build (Vite/Next) — serves the single file, not a component export |
+| `/pb:handoff --tier=host` | Wrap `prototype.html` in a runnable reference build (Vite/Next) — serves the single file, not a component export |
 | `/pb:handoff` | Export at a tier — `--tier=host` (runnable prototype) · `scaffold` (deterministic React+Tailwind app) · `hardened` (idiomatic/DS-integrated — deferred) |
 | `/pb:update-version` | Schema version update: dry-run / `--apply` / `--rollback` / `--to <N>` |
 
@@ -106,7 +106,7 @@ If `/pb:init` says Python isn't installed, it will tell you exactly how to fix i
    registry change; no `--render` needed during the build loop.
 4. `/pb:plan --flow` / `/pb:plan --data` — author the UX Design and Data tabs once; `/pb:build` keeps them in sync from then on.
 5. `/pb:handoff --people` — a view-only artifact to share; `--context` to hand to another builder.
-6. `/pb:validate` — wrap the single-file prototype in a runnable reference build (Vite/Next) to host it.
+6. `/pb:handoff --tier=host` — wrap the single-file prototype in a runnable reference build (Vite/Next) to host it.
    (It serves `prototype.html`; it does not export reusable component code — see the Engineering note below.)
 
 ## Under the hood

@@ -3,7 +3,7 @@
 render_react.py — the SCAFFOLD export tier (R2, v1.7): deterministic registry → React + Vite.
 
 pb's export tiers, cheapest first:
-  host      — the runnable single-file prototype (/pb:validate). No code export.
+  host      — the runnable single-file prototype (/pb:handoff --tier=host). No code export.
   scaffold  — THIS: a deterministic, self-contained React+Vite app that faithfully reuses each
               registry render body, with the design tokens as CSS vars + a Tailwind theme.
   hardened  — idiomatic, DS-integrated per-component JSX (MCP-resolved, repo-matched, reviewed).

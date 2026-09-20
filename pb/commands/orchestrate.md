@@ -64,7 +64,7 @@ is clean (NS6, fail-closed). Exit codes follow the house rule: `0` clean, `1` wa
 
 ## Result
 A built prototype whose `registry.json` reflects the whole `memory/tasks.md` plan, rendered once per wave,
-each wave acceptance-gated, and passing a final strict contract check. Next: `/pb:handoff` or `/pb:validate`.
+each wave acceptance-gated, and passing a final strict contract check. Next: `/pb:handoff` or `/pb:handoff --tier=host`.
 
 ## NEVER
 - NEVER apply two agents' patches concurrently — serialize every registry write.

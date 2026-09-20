@@ -19,11 +19,10 @@ the playbook, [prototype-builder.md](prototype-builder.md) (authored in Phase 2)
 | `/pb:preview` | Live preview dev server: watch `registry.json` → deterministic render → live-reload. **One server, two routes** — the prototype at `/` and the design-system workbench at `/design-system` (§2b: live demo + variant grid + Push-to-Figma + tokens) | P3 |
 | `/pb:test` | **Check everything.** No flag = scenarios · roles · server · security · constitution drift · ranked health · shell coherence · DS drift, one verdict. A mode flag narrows it (`--drift` is the old `/pb:check-drift`) | P3 |
 | `/pb:explore` | Parallel design options: N `pb-builder` sub-agents propose alternatives → compare → keep one | P3 |
-| `/pb:handoff` | **The one hand-off command.** Asks who is receiving it: **1** everything incl. a vendored Product Builder (recipient keeps building) · **2** engineering — `prototype.html` + `design-system.html` + `logic.md` + `rules.md` + `constitution.md` · **3** Figma, lowered deterministically then written through the MCP (falls back to the DS Bridge plugin). One command; no sub-commands | P6 |
-| `/pb:validate` | Wrap `prototype.html` in a runnable reference build (Vite/Next) — serves the single file, not a component export | P6 |
+| `/pb:handoff` | **The one hand-off command.** Asks who is receiving it: **1** everything incl. a vendored Product Builder (recipient keeps building) · **2** engineering — `prototype.html` + `design-system.html` + `logic.md` + `rules.md` + `constitution.md` · **3** Figma, lowered deterministically then written through the MCP (falls back to the DS Bridge plugin). Mode 2 tiers: `host` (a runnable Vite/Next build serving the file) · `scaffold` (React+Tailwind). One command; no sub-commands | P6 |
 | `/pb:update-version` | Versioned schema update: dry-run / `--apply` / `--rollback` / `--to <N>` | P6 |
 
-> **Retired — the files are gone, not stubbed** (see AGENTS.md §2: this needs a major bump). `/pb:flow` + `/pb:data` → `/pb:plan --flow` / `--data` (and their older `sync-` aliases) · `/pb:check-drift` → `/pb:test --drift` · `/pb:handoff-close`, `/pb:handoff-dev`, `/pb:hand-off`, `/pb:build-figma-handoff` → `/pb:handoff` · `/pb:build-check-design-system` → `/pb:build` §3a · `/pb:preview-ds` → `/pb:preview` §2b. 24 commands became 13.
+> **Retired — the files are gone, not stubbed** (see AGENTS.md §2: this needs a major bump). `/pb:flow` + `/pb:data` → `/pb:plan --flow` / `--data` (and their older `sync-` aliases) · `/pb:check-drift` → `/pb:test --drift` · `/pb:handoff-close`, `/pb:handoff-dev`, `/pb:hand-off`, `/pb:build-figma-handoff` → `/pb:handoff` · `/pb:build-check-design-system` → `/pb:build` §3a · `/pb:preview-ds` → `/pb:preview` §2b · `/pb:validate` → `/pb:handoff --tier=host`. 24 commands became 12.
 
 > Shipped as a Claude Code **plugin** (`pb@product-builder`, defined in `./.claude-plugin/marketplace.json` + `./pb/`) — commands invoke as `/pb:*`. After install, **restart Claude Code** to load them. (G1 decision: plugin ✓)
 
@@ -38,7 +37,7 @@ the playbook, [prototype-builder.md](prototype-builder.md) (authored in Phase 2)
 1. **State in `registry.json`.** The loop reads/edits only the touched slice. `prototype.html`
    is **never** the source of truth and is **never** hand-edited.
 2. **Batched, deterministic render.** A generator regenerates `prototype.html` from `registry.json`
-   ONLY on `/pb:build --render` and automatically at `/pb:handoff` / `/pb:validate` — **never** per tweak,
+   ONLY on `/pb:build --render` and automatically at `/pb:handoff` — **never** per tweak,
    and **never** by the model hand-emitting HTML (that is ~2–3× *worse* — measured at G0.5).
    *(`/pb:preview` may render on every change without breaking this: it's the **same generator**
    rendering **in memory** at ~0 model tokens — never the model, never written to disk unless `--write`.)*

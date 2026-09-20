@@ -4,7 +4,7 @@ command_refs.py — every /pb:* reference resolves, and the router table matches
 
 The gap this closes: nothing guarded command cross-links. `skill_refs_lint.py` checks that a
 skill a command invokes exists; no test checked that a COMMAND another file points at exists.
-So the merge — 24 commands down to 13 — could have left `/pb:flow`, `/pb:check-drift` and
+So the merge — 24 commands down to 12 — could have left `/pb:flow`, `/pb:check-drift` and
 `/pb:handoff-close` referenced from 36 files with a green sweep, and the first person to follow
 one would hit a command that is not there.
 
@@ -37,6 +37,7 @@ RETIRED = {
     "handoff-close", "handoff-dev", "hand-off", "build-figma-handoff",   # → /pb:handoff
     "build-check-design-system",                                         # → /pb:build §3a
     "preview-ds",                                                        # → /pb:preview §2b
+    "validate",                                                          # → /pb:handoff --tier=host
 }
 
 SKIP_PREFIX = ("changelog.md", "docs/", ".venv/")

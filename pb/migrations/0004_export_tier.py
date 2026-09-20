@@ -5,7 +5,7 @@ R2 lets a project emit code, not just the HTML prototype, at one of three tiers.
 meta fields carry that:
 
   - `meta.outputTier`   — which tier the project's export targets:
-                          "host"     (the default — the runnable single-file prototype, /pb:validate),
+                          "host"     (the default — the runnable single-file prototype, /pb:handoff --tier=host),
                           "scaffold" (deterministic registry → React+Tailwind, no MCP),
                           "hardened" (DS-integrated, repo-matched — resolved via MCP + review).
                           Defaults to "host" (== pre-R2 behavior).

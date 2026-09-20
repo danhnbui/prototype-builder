@@ -114,7 +114,8 @@ handoff-dev/
   logic.md                  # per item: handlers, writes[], affordances + why, the DOM seam
   rules.md                  # ia.rules, jobs, layers
   constitution.md           # the Stack Lock + DS Lock, verbatim
-  scaffold/                 # only if they asked for runnable source
+  host/                     # --tier=host: a Vite/Next skeleton that serves prototype.html
+  scaffold/                 # --tier=scaffold: a real React+Tailwind app
 ```
 
 1. `/pb:build --render` writes both sites; copy both. **Do not set `config.viewOnly`** — that hides the
@@ -134,9 +135,25 @@ handoff-dev/
 > demo, the full variant grid (the cartesian product of its enum properties), and the token foundations.
 > A separate usage page would duplicate it and go stale.
 
-### 2.1 · `--tier=host` — the runnable prototype
-Delegate to **`/pb:validate`**: wrap the rendered `prototype.html` in a Vite/Next reference build. It
-serves the single file; there is no component source. Set `meta.outputTier = "host"`.
+### 2.1 · `--tier=host` — the runnable reference build
+Wrap the rendered `prototype.html` in a deployable skeleton that serves it. The bridge from "open the
+file" to "host it like an app." Absorbs the former `/pb:validate`, which was this tier under another
+name.
+
+Create `handoff-dev/host/` (or `--out`):
+- **Vite (default)** — `package.json` (`vite` dev dep; `dev` / `build` / `preview` scripts), a minimal
+  `vite.config.js`, and `index.html` = the rendered `prototype.html` copied in as the entry.
+- **Next** (`--next`) — a Next app with the prototype as a static page + the same scripts.
+
+Then `npm install` and `npm run build`. **The build must exit 0** and `npm run preview` must serve it.
+Report the dev URL. Set `meta.outputTier = "host"`.
+
+> **What this is, and is not (NS9).** The output **runs** the prototype — Vite/Next dev, build and
+> preview — as a thin wrapper around the one `prototype.html`. It is **not** a component-level source
+> export: there are no per-component `.jsx` / `.tsx` modules to import. The artifact stays HTML
+> **regardless of the Stack Lock** — that lock records the *intended production* stack; it does not
+> change what this emits. Engineers reuse the design intent (tokens, specs, flows), not these files as
+> modules. A real JSX/TSX export is `--tier=scaffold` below, or the deferred hardened tier.
 
 ### 2.2 · `--tier=scaffold` — deterministic React + Tailwind
 Load the **`design-component-export`** skill for the scaffold contract and its honesty guardrails, then:
@@ -287,7 +304,8 @@ and whether anything fell back to the bridge.
 - NEVER omit `constitution.md` / `decisions*.md` from a mode-1 bundle, and **never narrow that glob to
   `decisions.md`** — rotated siblings vanish from every hand-off, silently.
 - NEVER present the scaffold as idiomatic production JSX (NS9), or emit a hardened export before its
-  inputs exist.
+  inputs exist; and never describe a `host` build as reusable component code — it serves one HTML file.
+- NEVER claim a `host` build succeeded without an actual `npm run build` exit 0.
 - NEVER invent a DS publish key or a variable — an unmatched component or token is a **gap**, never a
   fabricated reference; and never coerce a token to a raw value.
 - NEVER auto-add a variant axis, push > 1 screen or 5 components without `--batch`, or hardcode a

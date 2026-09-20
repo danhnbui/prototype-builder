@@ -213,7 +213,7 @@ on every Figma frame (R3); kebab-case non-colliding IDs (R4); the naming contrac
 
 Three tiers via `/pb:handoff --tier=…`:
 
-- **`host`** — the runnable single-file `prototype.html` (`/pb:validate`). Not reusable components.
+- **`host`** — the runnable single-file `prototype.html` (`/pb:handoff --tier=host`). Not reusable components.
 - **`scaffold`** *(shipped v1.7)* — `render_react.py` deterministically emits a **React + Vite** app:
   one wrapper component per registry component/screen (reusing its render body), tokens as CSS vars +
   a Tailwind theme. Runs + lints; **mechanical** (wrappers), not idiomatic JSX (NS9).

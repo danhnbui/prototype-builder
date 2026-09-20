@@ -16,7 +16,7 @@ Apply the **Schema compatibility** check from `CLAUDE.md` before writing any reg
 - `--render` — after applying the patch (or on its own), regenerate **both derived sites** from
   `registry.json` via the deterministic generator (step 5): `prototype.html` (flows/screens) **and**
   `design-system.html` (the component workbench). One registry → two projections, ~0 model tokens. This
-  is the **only** way HTML is produced (besides `/pb:handoff` and `/pb:validate`, which render
+  is the **only** way HTML is produced (besides `/pb:handoff` and `/pb:handoff --tier=host`, which render
   automatically). A component/token edit re-renders both; a screen-only edit still just re-runs the
   generator (cheap) — no need to reason about which site changed.
 - no flag — apply the registry patch and **stop. Do NOT render.**
@@ -225,7 +225,7 @@ python3 "${CLAUDE_PLUGIN_ROOT}/tools/lint_registry.py" registry.json
 Surface any `ERROR`/`WARN` lines to the user as advice (kebab/renderFn/orgId/token-kind
 issues, a `</script>` page-killer, raw hex/px, a missing `danger` token). This is
 **advisory** in the loop — it never blocks a build tweak — but the same check runs
-`--strict` and **fail-closed** at `/pb:handoff` and `/pb:validate` before any render,
+`--strict` and **fail-closed** at `/pb:handoff` and `/pb:handoff --tier=host` before any render,
 so fixing findings now avoids a blocked exit later.
 
 ## 5 · Render — batched, deterministic, on demand only

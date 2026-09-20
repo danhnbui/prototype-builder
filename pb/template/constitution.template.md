@@ -28,7 +28,7 @@ Locked at `/pb:init`. A switch requires explicit approval **and** a `decisions.m
 
 > The Stack Lock records the **intended production** language/framework — it guides design decisions and
 > component thinking. It does **not** change the prototype artifact: the prototype is always rendered
-> **HTML** (`prototype.html` from `registry.json`), regardless of the lock. `/pb:validate` wraps that single
+> **HTML** (`prototype.html` from `registry.json`), regardless of the lock. `/pb:handoff --tier=host` wraps that single
 > file in a runnable reference build; it does not emit framework-specific component source (NS9).
 
 ## Design System Lock

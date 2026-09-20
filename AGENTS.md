@@ -13,7 +13,7 @@ This file is the *how you must work*, release-independent.
 1. **State lives in `registry.json`.** The loop reads/edits only the touched slice.
    `prototype.html` is **never** the source of truth and is **never** hand-edited.
 2. **Batched, deterministic render.** `render.py` regenerates `prototype.html` from
-   `registry.json` only on `/pb:build --render` and automatically at hand-off / validate —
+   `registry.json` only on `/pb:build --render` and automatically at `/pb:handoff` —
    never per tweak, never by the model hand-emitting HTML. `/pb:preview` renders through the
    **same generator** in memory (~0 model tokens).
 3. **Gate-skip on non-trio tweaks.** The drift / Stack / DS gate runs only when a change
@@ -79,5 +79,5 @@ This file is the *how you must work*, release-independent.
 
   ```
   python3 -m venv .venv && .venv/bin/pip install playwright && .venv/bin/playwright install chromium
-  for f in tests/*.py; do .venv/bin/python "$f"; done     # 27 pass / 0 skip / 0 fail
+  for f in tests/*.py; do .venv/bin/python "$f"; done     # 29 pass / 0 skip / 0 fail
   ```
