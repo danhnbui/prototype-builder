@@ -55,14 +55,6 @@ jobs:
           test "$skipped" -eq 5 || { echo "::error::expected 5 browser tests, saw $skipped"; exit 1; }
           test "$fail" -eq 0 || { echo "::error::red:$failed"; exit 1; }
 
-      - name: Render is deterministic (same registry twice -> same bytes)
-        run: |
-          python3 pb/tools/render.py fixtures/golden/registry.json pb/template/prototype.html /tmp/g1.html
-          python3 pb/tools/render.py fixtures/golden/registry.json pb/template/prototype.html /tmp/g2.html
-          a=$(sha256sum /tmp/g1.html | cut -d' ' -f1)
-          b=$(sha256sum /tmp/g2.html | cut -d' ' -f1)
-          test "$a" = "$b" || { echo "::error::render is not deterministic"; exit 1; }
-
       - name: Registry contract is clean on the golden
         run: python3 pb/tools/lint_registry.py --strict fixtures/golden/registry.json
 

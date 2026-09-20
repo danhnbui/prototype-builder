@@ -79,7 +79,7 @@ This file is the *how you must work*, release-independent.
 
   ```
   python3 -m venv .venv && .venv/bin/pip install playwright && .venv/bin/playwright install chromium
-  for f in tests/*.py; do .venv/bin/python "$f"; done     # 31 pass / 0 skip / 0 fail
+  for f in tests/*.py; do .venv/bin/python "$f"; done     # 32 pass / 0 skip / 0 fail
   ```
 
 ## 8. The user's stated goal is the contract
