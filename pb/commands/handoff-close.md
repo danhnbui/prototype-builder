@@ -4,6 +4,10 @@ description: Close out the prototype into a single self-contained handoff/ folde
 
 # /pb:handoff-close
 
+> **Entry point is now [`/pb:handoff`](handoff.md)** (mode 1), which asks who is receiving the
+> work and calls this file to do it. This command still works and is still where the close-out
+> is defined — `/pb:handoff` adds the question and vendors the plugin alongside the bundle.
+
 Close out the prototype into **one deliverable folder, `handoff/`** (or `--out <dir>`):
 
 ```

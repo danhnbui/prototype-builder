@@ -4,6 +4,10 @@ description: Hand off to engineering at a chosen tier — host (runnable single-
 
 # /pb:handoff-dev
 
+> **Entry point is now [`/pb:handoff`](handoff.md)** (mode 2), which asks who is receiving the
+> work and calls this file for the runnable tiers. This command still works and is still where
+> the tier contract is defined — `/pb:handoff` adds the two sites and the Markdown docs around it.
+
 Hand the work to engineering at the **tier** that fits the need — cheapest first.
 
 ```

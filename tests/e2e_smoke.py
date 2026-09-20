@@ -95,6 +95,32 @@ def make_viewonly_registry(tmpdir, unpopulate=False):
     return path
 
 
+def _offline(page):
+    """Block every request that is not the local preview server.
+
+    The shell pulls Mermaid from a CDN with a blocking <script> in <head>, so DOMContentLoaded
+    waits on the network. Run four browser tests in one sweep and several Chromium instances
+    hit that CDN at once; one eventually loses and page.goto times out at 30s — a red suite
+    caused by the weather, not by pb. Nothing in these tests asserts on a rendered diagram
+    (test_sandbox already filters mermaid console noise), so the honest fix is to stop
+    depending on the network at all.
+    """
+    CT = {"script": "application/javascript", "stylesheet": "text/css",
+          "font": "font/woff2", "image": "image/png"}
+
+    def _handle(route):
+        url = route.request.url
+        if "127.0.0.1" in url or "localhost" in url:
+            return route.continue_()
+        # FULFIL empty, never abort. An aborted request logs "net::ERR_FAILED" to the console,
+        # and these tests assert zero console errors — swapping a rare network flake for a
+        # guaranteed failure is not a fix. An empty 200 loads cleanly and defines nothing.
+        return route.fulfill(status=200, body="",
+                             content_type=CT.get(route.request.resource_type, "text/plain"))
+
+    page.route("**/*", _handle)
+
+
 def run():
     try:
         from playwright.sync_api import sync_playwright
@@ -114,6 +140,7 @@ def run():
         print("golden fixture:")
         with Server(GOLDEN) as srv:
             page = browser.new_page()
+            _offline(page)
             errors = []
             page.on("console", lambda m: errors.append(m.text) if m.type == "error" else None)
             page.on("pageerror", lambda e: errors.append(str(e)))
@@ -181,6 +208,7 @@ def run():
             json.dump(reg, open(path, "w", encoding="utf-8"), indent=2)
             with Server(path) as srv:
                 page = browser.new_page()
+                _offline(page)
                 errors = []
                 page.on("console", lambda m: errors.append(m.text) if m.type == "error" else None)
                 page.on("pageerror", lambda e: errors.append(str(e)))
@@ -244,6 +272,7 @@ def run():
             json.dump(reg, open(path, "w", encoding="utf-8"), indent=2)
             with Server(path) as srv:
                 page = browser.new_page()
+                _offline(page)
                 errors = []
                 page.on("console", lambda m: errors.append(m.text) if m.type == "error" else None)
                 page.on("pageerror", lambda e: errors.append(str(e)))
@@ -293,6 +322,7 @@ def run():
             vpath = make_viewonly_registry(tmp, unpopulate=True)
             with Server(vpath) as srv:
                 page = browser.new_page()
+                _offline(page)
                 errors = []
                 page.on("console", lambda m: errors.append(m.text) if m.type == "error" else None)
                 page.on("pageerror", lambda e: errors.append(str(e)))

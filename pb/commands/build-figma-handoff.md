@@ -4,6 +4,10 @@ description: Sub-command of /pb:build. One-way registry → Figma transfer via t
 
 # /pb:build-figma-handoff
 
+> **Also reachable as [`/pb:handoff`](handoff.md) mode 3**, which runs this procedure but writes
+> through the Figma MCP instead of handing you node JSON to paste. This command remains the
+> `/pb:build` sub-command and the definition of the clarify gates; nothing here changes.
+
 Push the prototype's components and screens to Figma. Reads from **`registry.json`**
 (`components[]` / `screens[]`) — the same composition tree the prototype renders from — and the DS
 **catalog** (`design-system/<name>/ds-catalog.json`, the publish keys/variables from the DS
