@@ -4,8 +4,33 @@ All notable changes to Product Builder. Format follows [Keep a Changelog](https:
 
 ## [1.12.0] — 2026-09-20
 
-*The UX Design tab is restructured into four segments, and the `flow` / `erd` slices stop being
-something you had to remember to refresh.*
+*The UX Design tab is restructured into four segments, the `flow` / `erd` slices stop being
+something you had to remember to refresh, and logic gets a home of its own at **schema 11**.*
+
+### Added
+- **The logic contract — `logic/{components,screens}/<id>.json` via `logicSrc` (schema 11, D-28).**
+  Two halves, and the split is the point. **Derived** — `seam`, `handlers`, `disclosure` — is written
+  by `logic_extract.py --contracts` and rewritten every run, so it cannot drift from the code it
+  describes. **Hand-authored** — `writes[]` and `affordances[].why` — is never touched by a tool,
+  because static derivation traces which store slices a file *reads* but not which it *mutates*: the
+  mutation happens inside a store helper. `writes[]` is the one thing a human has to state, and the
+  Logic tab's ripple view draws it beside the derived reads.
+- **`registry.runtime[]` — a project's own module layer.** Real `.js` files inlined **before** every
+  render body, plus declared third-party dependencies (`url` → a `<script src>` in the head). This
+  retires the fake-component hack: on the project this was measured against, three components whose
+  render bodies return `''` carried **2,567 lines and 103 functions** purely to obtain a module scope,
+  and a parser had to be hand-injected by editing the shell. `/pb:preview` watches `runtime/**/*.js`.
+- **Two runtime verbs that earned their place.** `data-machine` / `data-step` (with `data-step-pane`,
+  `data-step-go`, `data-step-initial`, `data-step-dot`, and `pbSetStep()` for the transitions a click
+  cannot express) replaces four copies of one six-state wizard carrying **63** bespoke
+  `data-<prefix>-state` attributes and a per-copy CSS block. `data-preserve` marks what survives a
+  re-render — `pbPreserve(fn)` captures, re-renders, restores, then fires `input`+`change` once
+  everything is back — retiring **24** call sites that each passed a hand-maintained list of element
+  ids. Both live in `runtime.js`, so both sites get them.
+- **The `ia` slice** (`jobs[]` in the three-field JTBD form, `layers[]` with one declared purpose each).
+- **`logic_extract.py --contracts`** (with `--dry-run`): refreshes the derived half, leaves every other
+  key exactly as the author wrote it, rewrites nothing when nothing changed, and points the registry at
+  any contract it does not yet reference.
 
 ### Changed
 - **Flow and Data ride the trio (D-29).** After a **trio-touching** patch (a screen, a component,
@@ -31,13 +56,28 @@ something you had to remember to refresh.*
   `.sync-bar` CSS that had no emitter.
 
 ### Fixed
+- **`/pb:update-version` escaped every non-ASCII character** it wrote (`json.dump`'s default), so a
+  migration on a project with non-English content rewrote every line that had any and inflated the
+  file — measured at 900 KB → 1.06 MB on a real registry, for a migration that changed 126 keys. It
+  now writes UTF-8, and reads and writes every file with an explicit encoding.
+- **The DS site's runtime drift-guard checked three canary lines**, which pass happily while a helper
+  added to `runtime.js` is missing from `prototype.html`'s physically duplicated copy. It now compares
+  the entire block, byte for byte.
 - **`slice.py list` fell through to the tokens tree** for any dict kind but `meta` — latent before this
   release (only `tokens`/`meta` existed), surfaced by adding `flow`/`erd`. Each dict kind now lists its
   own keys; `tests/slice_cli.py` guards it.
 
 ### Notes
 - `staleness{}` **stays in `registry.json`** per D-19 / `AGENTS.md` §3 ("never remove or repurpose an
-  existing field in place"). Only the shell's reader is gone. Schema stays at **10** — no migration.
+  existing field in place"). Only the shell's reader is gone.
+- **Schema 10 → 11.** Run `/pb:update-version --apply`. Migration `0009` is additive and **copies**
+  prose — `logicNotes` and `uiLogic` are not deleted, not moved, not one character rewritten — which
+  makes it pb's first information-lossless rollback. Proven on a copy of a real 143-item project:
+  apply, roll back, and the whole directory is byte-for-byte what it was.
+- Three verb candidates were **rejected on measurement**, not on taste. `data-save` — an attribute
+  cannot express the project-specific middle of a save. `data-group`/`data-panel` — it would replace a
+  `:has()` mechanism with **0** R1/R2 violations across 222 uses, which is a downgrade. `data-bind` —
+  deferred.
 - No deterministic test can assert that a model reconciled a flow; the trio / non-trio / unpopulated
   rehearsal must be re-run by hand whenever `build.md` §4.5 is edited.
 

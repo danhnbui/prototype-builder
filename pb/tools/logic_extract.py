@@ -895,6 +895,133 @@ def _build_nav(registry, texts, items):
     }
 
 
+# ─────────────── the schema-11 logic contract (logic/<kind>/<id>.json) ─────────────
+
+_CONTRACT_SUBDIR = {'component': 'logic/components', 'screen': 'logic/screens'}
+_DERIVED_KEYS = ('seam', 'handlers', 'disclosure')
+
+
+def contracts(graph):
+    """The DERIVED half of every item's logic contract, keyed by its sidecar path.
+
+    Schema 11 splits the contract in two (D-28): a human writes `writes[]` and
+    `affordances[].why`, and a tool derives the rest. This is the tool's half, and it is
+    computed entirely from what extract() already returned — nothing is re-parsed, so the
+    contract and the Logic view can never disagree about the same code.
+
+      seam        the DOM handles this item's markup PRODUCES, the handles its handlers
+                  READ (with who produces each), and the reads nothing produces
+      handlers    the functions this item owns, with the store slices each touches
+      disclosure  how the item is wired and composed — the shape of its surface
+
+    `writes` on a handler is what static derivation could see; the item-level `writes[]` a
+    human authors is the part it cannot, because the mutation happens inside a store helper.
+    """
+    by_file = collections.defaultdict(list)
+    for h in graph.get('handlers', []):
+        by_file[h['file']].append(h)
+
+    produced_by = collections.defaultdict(set)      # item id -> {"kind:token"}
+    read_map = collections.defaultdict(dict)        # file -> {"kind:token": [producers]}
+    for h in graph.get('handlers', []):
+        for r in h.get('reads', []):
+            token = '%s:%s' % (r['kind'], r['token'])
+            read_map[h['file']].setdefault(token, sorted(r.get('producers', [])))
+            for producer in r.get('producers', []):
+                produced_by[producer].add(token)
+
+    dead_by_file = collections.defaultdict(set)
+    for d in graph.get('deadSeam', []):
+        for occ in d.get('occurrences', []):
+            dead_by_file[occ['file']].add('%s:%s' % (d['kind'], d['token']))
+
+    out = {}
+    for it in graph.get('items', []):
+        rel = '%s/%s.json' % (_CONTRACT_SUBDIR[it['kind']], it['id'])
+        reads = read_map.get(it['file'], {})
+        out[rel] = {
+            'seam': {
+                'produces': sorted(produced_by.get(it['id'], ())),
+                'reads': [{'handle': k, 'producers': v} for k, v in sorted(reads.items())],
+                'dead': sorted(dead_by_file.get(it['file'], ())),
+            },
+            'handlers': [
+                {'name': h['name'], 'line': h['line'], 'length': h['length'],
+                 'slices': h['slices'], 'writes': h['writes'], 'rerender': h['rerender'],
+                 'nav': h['nav'], 'isSave': h['isSave']}
+                for h in sorted(by_file.get(it['file'], []), key=lambda h: h['line'])
+            ],
+            'disclosure': {
+                'level': it['level'], 'scope': it['scope'], 'lines': it['lines'],
+                'composes': it['composes'], 'composedBy': it['composedBy'],
+                'wires': it['wires'], 'readBy': it['readBy'],
+                'shellVerbs': it['shellVerbs'], 'hasRules': it['hasRules'],
+            },
+        }
+    return out
+
+
+def write_contracts(project_dir, graph, registry=None, dry_run=False):
+    """Refresh the derived half of every logic contract on disk, and point the registry at it.
+
+    Merge semantics, and they are the whole point: the three derived keys are REPLACED, every
+    other key in the file is left exactly as the author wrote it. A contract that would not
+    change is not rewritten, so a no-op run touches no mtimes and the preview server does not
+    reload. Sidecars for items that no longer exist are left alone — deleting a human's file
+    because a component was renamed is not a call a refresh gets to make.
+
+    Returns (written, pointed, unchanged).
+    """
+    reg_path = os.path.join(project_dir, 'registry.json')
+    if registry is None:
+        with open(reg_path, encoding='utf-8') as f:
+            registry = json.load(f)
+    derived = contracts(graph)
+    written, unchanged = [], 0
+    for rel, half in sorted(derived.items()):
+        path = os.path.normpath(os.path.join(project_dir, rel))
+        merged = {}
+        if os.path.isfile(path):
+            try:
+                with open(path, encoding='utf-8') as f:
+                    merged = json.load(f)
+            except ValueError:
+                merged = {}
+        if not isinstance(merged, dict):
+            merged = {}
+        merged.update(half)
+        merged.setdefault('writes', [])
+        merged.setdefault('affordances', [])
+        text = json.dumps(merged, indent=2, ensure_ascii=False, sort_keys=True) + '\n'
+        if os.path.isfile(path):
+            with open(path, encoding='utf-8') as f:
+                if f.read() == text:
+                    unchanged += 1
+                    continue
+        written.append(rel)
+        if not dry_run:
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            with open(path, 'w', encoding='utf-8') as f:
+                f.write(text)
+
+    # Point the registry at any contract it does not yet reference. Append-only, like
+    # lint_registry.sync_elements: a pointer is added, never changed and never removed.
+    pointed = []
+    for kind, key in (('component', 'components'), ('screen', 'screens')):
+        for entry in registry.get(key) or []:
+            if not isinstance(entry, dict) or not entry.get('id'):
+                continue
+            rel = '%s/%s.json' % (_CONTRACT_SUBDIR[kind], entry['id'])
+            if rel in derived and not entry.get('logicSrc'):
+                entry['logicSrc'] = rel
+                pointed.append(entry['id'])
+    if pointed and not dry_run:
+        with open(reg_path, 'w', encoding='utf-8') as f:
+            json.dump(registry, f, indent=2, ensure_ascii=False)
+            f.write('\n')
+    return written, pointed, unchanged
+
+
 # ───────────────────────── CLI ─────────────────────────────────────────────────
 
 def main():
@@ -909,9 +1036,23 @@ def main():
         i = args.index('--shell')
         shell_path = args[i + 1]
         args = args[:i] + args[i + 2:]
+    write_mode = '--contracts' in args
+    dry_run = '--dry-run' in args
+    args = [a for a in args if a not in ('--contracts', '--dry-run')]
     if len(args) != 1:
-        sys.exit('usage: logic_extract.py <project-dir> [--shell <prototype.html>] [--out <file>]')
+        sys.exit('usage: logic_extract.py <project-dir> [--shell <prototype.html>] [--out <file>]\n'
+                 '       logic_extract.py <project-dir> --contracts [--dry-run]')
     graph = extract(args[0], shell_path=shell_path)
+    if write_mode:
+        written, pointed, unchanged = write_contracts(args[0], graph, dry_run=dry_run)
+        verb = 'would refresh' if dry_run else 'refreshed'
+        print('logic_extract: %s %d contract(s), %d unchanged, %d newly pointed at by the registry'
+              % (verb, len(written), unchanged, len(pointed)))
+        for rel in written[:10]:
+            print('  %s' % rel)
+        if len(written) > 10:
+            print('  … and %d more' % (len(written) - 10))
+        return 0
     text = json.dumps(graph, indent=2, sort_keys=True, ensure_ascii=False) + '\n'
     if out_path:
         with open(out_path, 'w', encoding='utf-8') as f:

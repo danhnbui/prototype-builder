@@ -163,3 +163,138 @@
       });
       rows.forEach(function (r) { body.appendChild(r); });
     }
+
+    /* ── data-preserve — keep what the user did across a re-render ──────────────────────
+     * Re-rendering a screen throws away everything the user typed, checked, scrolled or
+     * opened underneath it. The imperative fix is for every caller to pass a list of
+     * element ids to restore; measured on a real project, 24 call sites carried such a
+     * list, each kept in step with the markup by hand, and the first version of it
+     * restored `checked` only — so a search box came back empty and the surface came
+     * back fully unfiltered. Declarative instead: the ELEMENT says it is worth keeping.
+     *   data-preserve                  keep whatever suits the element
+     *   data-preserve="value scroll"   keep only these (value · checked · scroll · open · active)
+     *   data-preserve-key="<k>"        identity across the re-render (default: id, then position)
+     * Usage: pbPreserve(function () { renderMyScreen(); });
+     */
+    var PB_PRESERVE_DEFAULT = { INPUT: 'value', SELECT: 'value', TEXTAREA: 'value', DETAILS: 'open' };
+    function pbPreserveKey(el, i) {
+      return el.getAttribute('data-preserve-key') || el.id || ('pb-preserve-' + i);
+    }
+    function pbPreserveWhat(el) {
+      var raw = (el.getAttribute('data-preserve') || '').trim();
+      if (raw) return raw.split(/\s+/);
+      if (el.tagName === 'INPUT' && (el.type === 'checkbox' || el.type === 'radio')) return ['checked'];
+      if (el.hasAttribute('data-checkbox') || el.hasAttribute('data-checked')) return ['checked'];
+      return [PB_PRESERVE_DEFAULT[el.tagName] || 'scroll'];
+    }
+    function pbPreserveIsNative(el) { return el.type === 'checkbox' || el.type === 'radio'; }
+    function pbPreserveCapture(root) {
+      var snap = {};
+      Array.prototype.forEach.call((root || document).querySelectorAll('[data-preserve]'), function (el, i) {
+        var rec = {};
+        pbPreserveWhat(el).forEach(function (w) {
+          if (w === 'value') rec.value = el.value;
+          else if (w === 'checked') rec.checked = pbPreserveIsNative(el) ? !!el.checked : el.getAttribute('data-checked') === 'true';
+          else if (w === 'scroll') { rec.scrollTop = el.scrollTop; rec.scrollLeft = el.scrollLeft; }
+          else if (w === 'open') rec.open = !!el.open;
+          else if (w === 'active') rec.active = el.classList.contains('active');
+        });
+        snap[pbPreserveKey(el, i)] = rec;
+      });
+      return snap;
+    }
+    function pbPreserveFire(el) {
+      ['input', 'change'].forEach(function (name) {
+        var ev;
+        try { ev = new Event(name, { bubbles: true }); }
+        catch (e) { ev = document.createEvent('Event'); ev.initEvent(name, true, false); }
+        el.dispatchEvent(ev);
+      });
+    }
+    function pbPreserveRestore(root, snap) {
+      var changed = [];
+      Array.prototype.forEach.call((root || document).querySelectorAll('[data-preserve]'), function (el, i) {
+        var rec = snap[pbPreserveKey(el, i)];
+        if (!rec) return;
+        if ('value' in rec && el.value !== rec.value) { el.value = rec.value; changed.push(el); }
+        if ('checked' in rec) {
+          if (pbPreserveIsNative(el)) { if (el.checked !== rec.checked) { el.checked = rec.checked; changed.push(el); } }
+          else if ((el.getAttribute('data-checked') === 'true') !== rec.checked) { pbToggleCheck(el); changed.push(el); }
+        }
+        if ('open' in rec) el.open = rec.open;
+        if ('active' in rec) el.classList.toggle('active', rec.active);
+        if ('scrollTop' in rec) { el.scrollTop = rec.scrollTop; el.scrollLeft = rec.scrollLeft; }
+      });
+      // Restore everything FIRST, notify SECOND. A control's own change handler usually
+      // recomputes against its siblings (a composed filter reads every criterion at once),
+      // so firing as we go would compose against controls not yet put back.
+      changed.forEach(pbPreserveFire);
+      return changed.length;
+    }
+    function pbPreserve(rerender, root) {
+      var snap = pbPreserveCapture(root);
+      rerender();
+      return pbPreserveRestore(root, snap);
+    }
+
+    /* ── data-machine / data-step — one wizard, declared once ───────────────────────────
+     * Four copies of one six-state wizard on a real project carried 63 bespoke
+     * `data-<prefix>-state` attributes and a per-copy CSS block to show the matching pane.
+     * The states differ per project; the MACHINE does not.
+     *   [data-machine="<name>"]        the root
+     *   [data-step="<state>"]          its current state, reflected — CSS may select on it
+     *   [data-step-pane="<state>"]     a pane, shown only while the root is in <state>
+     *   [data-step-go="<state>"]       a control that moves the machine on click
+     *   [data-step-initial="<state>"]  where to start (default: the first pane)
+     *   [data-step-dot="<state>"]      a progress marker; gets data-current="true|false"
+     * pbSetStep(x, state) is the escape hatch for a transition a click cannot express —
+     * an upload that validates and then lands on either 'preview' or 'invalid'.
+     */
+    function pbMachine(x) {
+      if (!x) return null;
+      if (x.nodeType === 1) return x.closest('[data-machine]');
+      return document.querySelector('[data-machine="' + String(x).replace(/"/g, '\\"') + '"]');
+    }
+    function pbStep(x) {
+      var root = pbMachine(x);
+      if (!root) return null;
+      var cur = root.getAttribute('data-step') || root.getAttribute('data-step-initial');
+      if (cur) return cur;
+      var first = root.querySelector('[data-step-pane]');
+      return first ? first.getAttribute('data-step-pane') : null;
+    }
+    function pbSyncSteps(x) {
+      var root = pbMachine(x);
+      if (!root) return null;
+      var cur = pbStep(root);
+      Array.prototype.forEach.call(root.querySelectorAll('[data-step-pane]'), function (p) {
+        if (pbMachine(p) !== root) return;                 // a nested machine owns its own panes
+        p.hidden = p.getAttribute('data-step-pane') !== cur;
+      });
+      Array.prototype.forEach.call(root.querySelectorAll('[data-step-dot]'), function (d) {
+        if (pbMachine(d) !== root) return;
+        d.setAttribute('data-current', d.getAttribute('data-step-dot') === cur ? 'true' : 'false');
+      });
+      return cur;
+    }
+    function pbSetStep(x, state) {
+      var root = pbMachine(x);
+      if (!root) return null;
+      root.setAttribute('data-step', state);
+      return pbSyncSteps(root);
+    }
+    function pbSyncMachines(host) {
+      Array.prototype.forEach.call((host || document).querySelectorAll('[data-machine]'), function (root) {
+        if (!root.getAttribute('data-step')) {
+          var s = pbStep(root);
+          if (s) root.setAttribute('data-step', s);
+        }
+        pbSyncSteps(root);
+      });
+    }
+    function pbStepClick(target) {
+      var go = (target && target.closest) ? target.closest('[data-step-go]') : null;
+      if (!go) return false;
+      pbSetStep(go, go.getAttribute('data-step-go'));
+      return true;
+    }

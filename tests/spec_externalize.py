@@ -11,7 +11,7 @@ load_specs re-inlining them for the spec drawer.
   4. render.load_specs re-inlines to SEMANTIC equality with the pre-migration registry
      (ignoring schemaVersion + specSrc), byte-preserving each blob.
   5. lint_registry.py resolves specSrc so anatomy checks see the parts — same verdict as inline.
-  6. CURRENT_SCHEMA == 10 and the shipped template carries it.
+  6. 0008 is in the chain, the chain reaches CURRENT_SCHEMA, the template carries it.
 
 Fixture-driven off registry.demo.json. Usage: python3 tests/spec_externalize.py  ·  Exit 0/1.
 """
@@ -112,8 +112,12 @@ with tempfile.TemporaryDirectory() as d:
 
 print("6 · schema constant + template")
 if man:
-    check(man.CURRENT_SCHEMA == 10, "CURRENT_SCHEMA == 10")
+    # This file owns 0008, not the current schema number — which moves on. What it must still
+    # hold is that 0008 is IN the chain and that the chain reaches whatever CURRENT_SCHEMA says.
+    check(man.CURRENT_SCHEMA >= 10, "CURRENT_SCHEMA is at least 10 (0008's target)")
     check((9, 10, "0008_externalize_spec") in man._REGISTRY, "0008 registered in the migration chain")
+    check(max(t for _f, t, _s in man._REGISTRY) == man.CURRENT_SCHEMA,
+          "the migration chain reaches CURRENT_SCHEMA")
     tmpl = json.load(open(TEMPLATE))
     check(tmpl["meta"]["schemaVersion"] == man.CURRENT_SCHEMA, "template schemaVersion == CURRENT_SCHEMA")
 

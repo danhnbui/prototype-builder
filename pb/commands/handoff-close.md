@@ -13,6 +13,9 @@ handoff/
   bundle/             # portable source of truth — /pb:init --import handoff/bundle
     registry.json
     render/           # the render body files (renderSrc targets — required)
+    spec/             # the handoff docs (specSrc targets, schema 10)
+    logic/            # the logic contracts (logicSrc targets, schema 11)
+    runtime/          # the project's own modules (registry.runtime[] `src` targets)
     design-system/
     memory/constitution.md
     memory/decisions*.md      # the log AND its rotated siblings — a bare
@@ -51,6 +54,9 @@ Copy into `handoff/bundle/`, preserving the shape `/pb:init --import` expects:
 - `registry.json` — carries `meta.schemaVersion` (schema-stamped, so `--import` can detect an
   older schema and suggest `/pb:update-version`)
 - `render/` — the body files (**required**, or `renderSrc` references dangle)
+- `spec/` · `logic/` · `runtime/` — the sidecar trees, each **required** the moment the registry points
+  at one: a dangling `specSrc` fails the render, a dangling `logicSrc` costs the recipient the Logic
+  tab, and a missing `runtime/` module means the prototype loads without the code its bodies call
 - `design-system/`
 - `memory/constitution.md` · `memory/decisions*.md` (the why + the locks). **The glob is
   load-bearing.** Rotation moves older entries to dated siblings (`decisions-2026.md`), so a bare

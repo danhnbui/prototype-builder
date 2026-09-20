@@ -3,7 +3,8 @@ pb/migrations/manifest.py — Schema version constant + migration chain.
 
 CURRENT_SCHEMA is the single source of truth for the registry contract
 (8 = DTCG tokens, 9 = required atomic level / component-first,
-10 = anatomy/spec/usage/uiLogic externalized to spec/ sidecars via specSrc).
+10 = anatomy/spec/usage/uiLogic externalized to spec/ sidecars via specSrc,
+11 = the logic contract via logicSrc + the `ia` slice + registry.runtime[]).
 It is intentionally decoupled from the plugin's SemVer in plugin.json:
   - Plugin SemVer bumps on any release (features, fixes, docs, refactors).
   - CURRENT_SCHEMA bumps ONLY when the registry/template contract changes
@@ -32,7 +33,7 @@ Phase 3–4 non-goals (see docs/version-updates.md):
 import importlib.util
 import os
 
-CURRENT_SCHEMA = 10
+CURRENT_SCHEMA = 11
 
 # Ordered registry: (FROM, TO, filename_stem).
 # Add a new tuple here when authoring a new migration.
@@ -45,6 +46,7 @@ _REGISTRY = [
     (7, 8, "0006_dtcg_tokens"),
     (8, 9, "0007_atomic_level"),
     (9, 10, "0008_externalize_spec"),
+    (10, 11, "0009_logic_contract"),
 ]
 
 

@@ -97,7 +97,10 @@ card that owns the CTA — no dead controls. (Replaces the old `meta-tag`/`meta-
 - **Prototype** — interactive, **no** screen-switcher. A declarative `data-*` runtime drives a real flow:
   `data-nav="<id>"` navigates; `data-action="toggle-password"`; `data-action="submit"` validates the form
   (`data-required` · `data-validate="email"` · `data-minlength`) then `data-go` / `data-toast` /
-  `data-redirect`+`data-redirect-ms`. Header-line tools: a **Browser | App** chrome toggle (`meta.shell`
+  `data-redirect`+`data-redirect-ms`; **`data-machine`/`data-step`** drives a wizard (`data-step-pane`
+  shows and hides with the state, `data-step-go` advances it, `pbSetStep()` for a transition a click
+  cannot express); **`data-preserve`** marks what survives a re-render (`pbPreserve(fn)` captures,
+  re-renders, restores, then fires `input`+`change` once everything is back). Header-line tools: a **Browser | App** chrome toggle (`meta.shell`
   default; browser = tab strip + back/reload/URL bar, app = titlebar on desktop, a contrast-aware status bar on tablet/mobile) + an icon-only device switcher
   over **4 fixed sizes** (monitor 1920×1080 · laptop 1280×832 · tablet 834×1112 · mobile 390×844), default
   from `meta.device`, sizes not in `meta.devices` **disabled**. The device-framed preview scales to fit;
@@ -128,9 +131,11 @@ the upstream `.source.json` clone instead of the project's live components.)
 
 ## Memory layout (per project)
 
-- `registry.json` — the database: `tokens` (a **W3C DTCG** document — `{$value,$type}`, flat or nested-with-aliases; resolved to CSS vars by `pb/tools/tokens.py`), `components` (global refs + `local`; each carries a required atomic `level`), `screens`, `meta`, `staleness` *(deprecated — nothing writes it, and the shell stopped reading it in v1.12.0; see D-19 / D-29)*, `flow`/`erd`. **Component-first / atomic law:** only `level:atom` render bodies emit raw HTML; molecules/organisms/screens are pure composition via `pbUse('<id>', props)` (enforced by `lint_registry.py` R-LEVEL/R-COMPOSE/R-LEVEL-ORDER, ERROR under `--strict`). Render code is **not** here — each component/screen's `renderSrc` points at a real body file.
+- `registry.json` — the database: `tokens` (a **W3C DTCG** document — `{$value,$type}`, flat or nested-with-aliases; resolved to CSS vars by `pb/tools/tokens.py`), `components` (global refs + `local`; each carries a required atomic `level`), `screens`, `meta`, `staleness` *(deprecated — nothing writes it, and the shell stopped reading it in v1.12.0; see D-19 / D-29)*, `flow`/`ia`/`erd`, `runtime[]`. **Component-first / atomic law:** only `level:atom` render bodies emit raw HTML; molecules/organisms/screens are pure composition via `pbUse('<id>', props)` (enforced by `lint_registry.py` R-LEVEL/R-COMPOSE/R-LEVEL-ORDER, ERROR under `--strict`). Render code is **not** here — each component/screen's `renderSrc` points at a real body file.
 - `render/components/<id>.js` · `render/screens/<id>.js` — the render bodies (v1.4 schema 4): real, lintable `.js` files compiled into `prototype.html` by `render.py`. Edit these directly; the registry stays pure data.
 - `spec/components/<id>.json` · `spec/screens/<id>.json` — the handoff docs (**schema 10**): `anatomy`/`spec`/`usage`/`uiLogic` moved out of the registry (its bulkiest fields, ~half the file on a real project) into a sidecar per item, referenced by each entry's `specSrc`. Edit these directly; `render.py`'s `load_specs` re-inlines them into the inlined registry (hand-off / Figma-bridge metadata — the two sites render demo + grid, not a redline drawer). Do **not** re-add inline `anatomy`/`spec` to `registry.json`.
+- `logic/components/<id>.json` · `logic/screens/<id>.json` — the logic contract (**schema 11**), referenced by each entry's `logicSrc`. Two halves. **Derived** — `seam`/`handlers`/`disclosure`, rewritten by `logic_extract.py --contracts`; never hand-edit them. **Hand-authored** — `writes[]` (which store slices the item mutates) and `affordances[].why`; no tool ever touches these. Static derivation traces reads but *not* writes, because the mutation happens inside a store helper, so `writes[]` is the one thing a human must state — and the Logic tab's ripple view draws it. `notes[]` holds prose migration `0009` **copied** (verbatim, with a `source` pointer) out of `logicNotes`/`uiLogic`, which are still exactly where they were.
+- `runtime/*.js` — the project's own modules, declared in `registry.runtime[]` and inlined **before** every render body; an entry carrying a `url` instead of a `src` becomes a `<script src>` in the head. This is what a project uses instead of declaring a component whose render body returns `''` just to obtain a module scope.
 - `memory/constitution.md` — durable rules: Principles + **Stack Lock** + **DS Lock** (lean, rules-only).
 - `memory/decisions.md` — the why-log (trade-offs, gate overrides).
 - `design-system/{name}/{name}.md` — the global DS reference (scannable component index + rules R0–R4 + naming contract). Cloned by `/pb:pull-ds`; a sibling `.source.json` snapshots the source (tokens + components) for `/pb:check-drift`, and `ds-catalog.json` holds the **DS Bridge Scan DS** output (portable publish keys + variables + variant/property metadata) that `registry_to_figma.py` reads for the code→Figma bridge. `meta.dsSource` (provenance) + `meta.platform` record where it came from.
@@ -142,7 +147,7 @@ Write-path commands (`/pb:build`, `/pb:flow`, `/pb:data`, `/pb:pull-ds`, `/pb:ha
 this check before patching `registry.json`:
 
 1. Read `meta.schemaVersion` from `registry.json` (absent → treat as schema 2).
-2. Read `CURRENT_SCHEMA` from `pb/migrations/manifest.py` (currently **10** — 8 = W3C DTCG tokens, 9 = required atomic `level` / component-first, 10 = `anatomy`/`spec`/`usage`/`uiLogic` externalized to `spec/<kind>/<id>.json` sidecars via `specSrc`).
+2. Read `CURRENT_SCHEMA` from `pb/migrations/manifest.py` (currently **11** — 8 = W3C DTCG tokens, 9 = required atomic `level` / component-first, 10 = `anatomy`/`spec`/`usage`/`uiLogic` externalized to `spec/<kind>/<id>.json` sidecars via `specSrc`, 11 = the logic contract via `logicSrc` + the `ia` slice + `registry.runtime[]`).
 3. If `schemaVersion < CURRENT_SCHEMA`: print a one-line banner —
    `⚠ Schema gap (v<from> → v<to>): <pending version update's describe() text>. Run /pb:update-version.`
 4. Proceed — **unless** the current write touches a slice a pending version update changes,

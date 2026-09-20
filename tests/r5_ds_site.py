@@ -66,10 +66,17 @@ with tempfile.TemporaryDirectory() as d:
 print("2 · runtime drift-guard (runtime.js in sync with the shell)")
 rt = open(RUNTIME, encoding="utf-8").read()
 shell = open(os.path.join(TPL, "prototype.html"), encoding="utf-8").read()
-for snippet in ("var ref = v.slice(1, -1).split('.').join('-');",
-                "el.style.background = c ? 'var(--color-brand-primary)' : 'var(--color-bg-surface)';",
-                "var idx = Array.prototype.indexOf.call(th.parentNode.children, th);"):
-    check(snippet in rt and snippet in shell, "in sync: %s…" % snippet[:34])
+# runtime.js is PHYSICALLY DUPLICATED into prototype.html — the DS site gets it through the
+# /*__PB_RUNTIME__*/ marker, the prototype carries its own copy. Three canary lines used to
+# guard that; they pass happily while a newly added helper exists in only one of the two.
+# The whole body is compared instead: runtime.js minus its header comment, verbatim.
+_lines = rt.split("\n")
+_i = 0
+while _i < len(_lines) and (_lines[_i].startswith("/*") or _lines[_i].startswith(" *")):
+    _i += 1
+_body = "\n".join(_lines[_i:]).rstrip("\n")
+check(_body in shell, "prototype.html carries the ENTIRE runtime.js body, byte-identical "
+                      "(%d lines)" % len(_body.split("\n")))
 
 print("3 · serve.py renders BOTH routes from the one registry")
 serve = _load("serve", os.path.join(TOOLS, "serve.py"))

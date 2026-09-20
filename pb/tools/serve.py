@@ -114,10 +114,17 @@ class State:
         return sorted(glob.glob(os.path.join(root, "**", "*.js"), recursive=True))
 
     @property
+    def runtime_files(self):
+        """The schema-11 project modules (runtime/**/*.js) — edited like any other source."""
+        root = os.path.join(self.base_dir, "runtime")
+        return sorted(glob.glob(os.path.join(root, "**", "*.js"), recursive=True))
+
+    @property
     def watched(self):
         # body_files is recomputed each poll so newly added/removed .js files are noticed.
         extra = [p for p in (self.ds_shell_path, self.runtime_path) if p]
-        return [self.reg_path, self.shell_path, self.render_path] + extra + self.body_files
+        return ([self.reg_path, self.shell_path, self.render_path] + extra
+                + self.body_files + self.runtime_files)
 
     def bump(self):
         with self.cond:
@@ -141,7 +148,9 @@ def render_current(state):
         reg = render.load_specs(reg, state.base_dir)   # resolve specSrc sidecars (schema 10)
         version = render.plugin_version()
         logic = render.load_logic(state.base_dir, reg)  # derive the logic graph (fails open)
-        html, _missing = render.build_html(reg, shell, version, logic=logic)
+        rt_js, rt_deps, _rt_missing = render.load_runtime(reg, state.base_dir)  # registry.runtime[]
+        html, _missing = render.build_html(reg, shell, version, logic=logic,
+                                           runtime_js=rt_js, runtime_deps=rt_deps)
         if state.write and state.out_path:
             try:
                 with open(state.out_path, "w", encoding="utf-8") as f:
@@ -185,7 +194,9 @@ def render_ds_current(state):
         reg = render.load_bodies(reg, state.base_dir)
         reg = render.load_specs(reg, state.base_dir)
         catalog = render._find_catalog(state.base_dir, reg)
-        html, _missing = render.build_ds(reg, ds_shell, runtime_js, catalog, render.plugin_version())
+        rt_js, rt_deps, _rt_missing = render.load_runtime(reg, state.base_dir)
+        html, _missing = render.build_ds(reg, ds_shell, runtime_js, catalog, render.plugin_version(),
+                                         project_js=rt_js, project_deps=rt_deps)
     except FileNotFoundError as e:
         err = "File not found: %s" % e
     except json.JSONDecodeError as e:
@@ -431,7 +442,7 @@ def main():
     log("  prototype %s" % url)
     if ds_shell_path and runtime_path:
         log("  design    %sdesign-system  ·  the component workbench" % url)
-    log("  watching  registry.json, shells, render.py, render/**/*.js — saving any reloads the browser")
+    log("  watching  registry.json, shells, render.py, render/**/*.js, runtime/**/*.js — saving any reloads the browser")
     log("  to disk   %s" % ("ON → %s" % rel(out_path) if args.write
                             else "off (in-memory preview; --write to update prototype.html)"))
 

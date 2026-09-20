@@ -105,6 +105,16 @@ attributes in screen/component `render` bodies; the shell's runtime handles them
   `data-go="<screen-id>"` (navigate) · `data-toast="<msg>"` (toast) ·
   `data-redirect="<screen-id>"` + `data-redirect-ms="<n>"` (auto-navigate after a delay).
 - input validation: `data-required` · `data-validate="email"` · `data-minlength="<n>"`.
+- `data-machine="<name>"` + `data-step="<state>"` — a state machine. `data-step-pane="<state>"` panes
+  show and hide with it, `data-step-go="<state>"` advances it on click, `data-step-initial` picks the
+  starting state, `data-step-dot="<state>"` marks progress. For a transition a click cannot express —
+  an upload that validates and then lands on either `preview` or `invalid` — call `pbSetStep(el, state)`.
+  **Do not hand-roll a per-component `data-<prefix>-state` attribute and its CSS block.**
+- `data-preserve` — this element's value/checked/scroll/open survives a re-render. Wrap the re-render in
+  `pbPreserve(function () { … })`: it captures, re-renders, restores, then fires `input`+`change` once
+  everything is back. Narrow it with `data-preserve="value scroll"`, and give it a stable `id` or
+  `data-preserve-key` so it can be found again. **Do not pass a list of element ids to a re-render
+  helper** — the element declares itself, which is what keeps it in step with the markup.
 
 Two more rules:
 - **Interactive components MUST declare a `state` property** (`properties[]` entry `id:'state'`, options
@@ -173,6 +183,15 @@ python3 "${CLAUDE_PLUGIN_ROOT}/tools/render.py" registry.json \
         "${CLAUDE_PLUGIN_ROOT}/template/prototype.html" prototype.html
 ```
 (In-place dev tree: generator `tools/render.py`, shell `template/prototype.html`.)
+
+If the project is at **schema 11** (it carries `logicSrc` entries), refresh the derived half of the
+logic contracts in the same step — it is deterministic, costs no model tokens, and is what keeps
+`seam`/`handlers`/`disclosure` from drifting off the code they describe:
+```
+python3 "${CLAUDE_PLUGIN_ROOT}/tools/logic_extract.py" . --contracts
+```
+It rewrites nothing when nothing changed, and never touches the hand-authored `writes[]` /
+`affordances[].why`.
 
 ## Crown-jewel rule
 The render machinery (`pbRender*`, the 4-tab spec drawer, wireflow, ERD) is ported as-is and reads from

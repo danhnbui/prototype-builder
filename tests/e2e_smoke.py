@@ -191,6 +191,100 @@ def run():
                 check(not errors, f"zero console errors on the page-killer fixture ({errors})")
                 page.close()
 
+        # ── T2.3 — the two schema-11 runtime verbs, driven for real ────────────
+        # Structural tests can only prove the helpers are PRESENT. These two verbs exist to
+        # replace per-project JS, so the thing that matters is that a project author gets the
+        # behaviour without writing any: a wizard that shows one pane at a time, and a
+        # re-render that does not throw away what the user had set underneath it.
+        print("runtime verbs (data-machine / data-step, data-preserve):")
+        with tempfile.TemporaryDirectory() as tmp:
+            os.makedirs(os.path.join(tmp, "render", "screens"))
+            os.makedirs(os.path.join(tmp, "runtime"))
+            with open(os.path.join(tmp, "runtime", "store.js"), "w", encoding="utf-8") as f:
+                f.write(
+                    "var pbVerbRows = ['Alpha', 'Beta', 'Gamma', 'Delta'];\n"
+                    # The real case: a save re-renders the WHOLE surface, destroying every
+                    # control the user had set. The rows only follow the filter once the
+                    # control's own handler runs again, against the restored value.
+                    "function pbVerbRerender() {\n"
+                    "  pbPreserve(function () {\n"
+                    "    document.getElementById('verb-block').innerHTML = pbVerbBlock();\n"
+                    "  });\n"
+                    "}\n"
+                    "function pbVerbBlock() {\n"
+                    "  return '<input id=\"verb-q\" class=\"field__input\" data-preserve oninput=\"pbVerbApply()\">'\n"
+                    "    + '<input type=\"checkbox\" id=\"verb-chk\" data-preserve>'\n"
+                    "    + '<ul id=\"verb-list\">' + pbVerbRows_() + '</ul>';\n"
+                    "}\n"
+                    "function pbVerbApply() { document.getElementById('verb-list').innerHTML = pbVerbRows_(); }\n"
+                    "function pbVerbRows_() {\n"
+                    "  var el = document.getElementById('verb-q'), q = el ? (el.value || '') : '';\n"
+                    "  return pbVerbRows.filter(function (r) { return r.toLowerCase().indexOf(q.toLowerCase()) >= 0; })\n"
+                    "    .map(function (r) { return '<li>' + r + '</li>'; }).join('');\n"
+                    "}\n")
+            with open(os.path.join(tmp, "render", "screens", "home.js"), "w", encoding="utf-8") as f:
+                f.write(
+                    "function renderScrVerbs() {\n"
+                    "  return '<div data-machine=\"wiz\" data-step-initial=\"one\">'\n"
+                    "    + '<span data-step-dot=\"one\">1</span><span data-step-dot=\"two\">2</span>'\n"
+                    "    + '<div data-step-pane=\"one\">one <button data-step-go=\"two\">Next</button></div>'\n"
+                    "    + '<div data-step-pane=\"two\">two</div>'\n"
+                    "  + '</div>'\n"
+                    "  + '<div id=\"verb-block\">' + pbVerbBlock() + '</div>';\n"
+                    "}\n")
+            reg = {
+                "meta": {"name": "Verbs", "schemaVersion": 11, "device": "laptop", "devices": ["laptop"]},
+                "tokens": {}, "components": [],
+                "runtime": [{"id": "store", "src": "runtime/store.js", "why": "the demo's filter state"}],
+                "screens": [{"id": "home", "name": "Home", "level": "page",
+                             "renderFn": "renderScrVerbs", "renderSrc": "render/screens/home.js"}],
+                "flow": {"populated": False}, "erd": {"populated": False},
+            }
+            path = os.path.join(tmp, "registry.json")
+            json.dump(reg, open(path, "w", encoding="utf-8"), indent=2)
+            with Server(path) as srv:
+                page = browser.new_page()
+                errors = []
+                page.on("console", lambda m: errors.append(m.text) if m.type == "error" else None)
+                page.on("pageerror", lambda e: errors.append(str(e)))
+                page.goto(srv.url, wait_until="domcontentloaded")
+                page.wait_for_selector('[data-machine="wiz"]', timeout=10000)
+
+                check(page.evaluate("typeof window.pbVerbRows_ === 'function'"),
+                      "a registry.runtime[] module is defined in the page scope")
+                root = page.locator('[data-machine="wiz"]')
+                check(root.get_attribute("data-step") == "one",
+                      "the machine opens on data-step-initial, reflected on the root")
+                check(page.locator('[data-step-pane="one"]').is_visible()
+                      and not page.locator('[data-step-pane="two"]').is_visible(),
+                      "only the current pane is visible")
+                check(page.locator('[data-step-dot="one"]').get_attribute("data-current") == "true",
+                      "the progress dots follow the state")
+                page.click('[data-step-go="two"]')
+                check(root.get_attribute("data-step") == "two"
+                      and page.locator('[data-step-pane="two"]').is_visible()
+                      and not page.locator('[data-step-pane="one"]').is_visible(),
+                      "a data-step-go click advances it and the panes swap")
+                page.evaluate("pbSetStep(document.querySelector('[data-machine]'), 'one')")
+                check(page.locator('[data-step-pane="one"]').is_visible(),
+                      "pbSetStep drives a transition a click cannot express")
+
+                # 'al' matches Alpha only — Beta, Gamma and Delta have no 'al'.
+                page.locator("#verb-q").fill("al")
+                page.click("#verb-chk")
+                check(page.locator("#verb-list li").count() == 1, "the user has filtered down to one row")
+                page.evaluate("pbVerbRerender()")
+                page.wait_for_timeout(100)
+                check(page.evaluate("document.getElementById('verb-q').value") == "al",
+                      "the text is back in the rebuilt control")
+                check(page.evaluate("document.getElementById('verb-chk').checked") is True,
+                      "so is the checkbox")
+                check(page.locator("#verb-list li").count() == 1
+                      and page.evaluate("document.querySelector('#verb-list li').textContent") == "Alpha",
+                      "and the surface underneath is still filtered — the restore re-fired the handler")
+                check(not errors, f"zero console errors on the verb fixture ({errors})")
+                page.close()
+
         # ── view-only artifact hides every authoring CTA, on all 4 tabs ─────────
         print("view-only (--people) artifact:")
         with tempfile.TemporaryDirectory() as tmp:

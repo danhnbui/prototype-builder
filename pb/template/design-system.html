@@ -72,6 +72,7 @@
   .cmp-head .push:hover{border-color:var(--ds-accent);color:var(--ds-accent)}
   .cmp-body{padding:0}
   .sub{font-family:var(--ds-mono);font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--ds-faint);padding:14px 16px 0}
+  [data-step-pane][hidden]{display:none !important}
   .stage{margin:10px 16px 4px;background:var(--ds-project-surface,var(--ds-stage));color:var(--ds-project-ink,var(--ds-ink));border:1px solid var(--ds-line);border-radius:10px;padding:22px;display:flex;flex-wrap:wrap;gap:16px;align-items:center}
   .grid{margin:6px 16px 16px;display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px}
   .cell{display:flex;flex-direction:column;gap:8px;color:var(--ds-project-ink,var(--ds-ink))}
@@ -115,6 +116,7 @@
 <main id="ds-root"><p class="empty">Loading…</p></main>
 <div id="ds-toast"></div>
 
+<!--__PB_RUNTIME_DEPS__-->
 <script>
   const PB_REGISTRY = /*__PB_REGISTRY_START__*/ null /*__PB_REGISTRY_END__*/;
   const PB_NODES = /*__PB_NODES_START__*/ {} /*__PB_NODES_END__*/;
@@ -127,7 +129,7 @@
 
   // ── workbench ────────────────────────────────────────────────────────────────────
   var LEVEL_ORDER = { atom:0, molecule:1, organism:2, template:3, page:4 };
-  var INTERACT_RE = /data-action|data-nav|data-go|data-redirect|data-required|data-validate|onclick=|<button|<input|<select|<textarea/i;
+  var INTERACT_RE = /data-action|data-nav|data-go|data-redirect|data-required|data-validate|data-machine|data-step-go|onclick=|<button|<input|<select|<textarea/i;
   /* Couple the demo stage to the PROJECT's theme.
      The page chrome follows the viewer's OS dark-mode preference; a project's tokens have
      exactly one theme. Uncoupled, a light design system viewed on a dark-mode machine draws
@@ -316,6 +318,7 @@
     document.getElementById('ds-title').textContent = (reg.meta && reg.meta.name) || 'Components';
     document.title = ((reg.meta && reg.meta.name) || 'Design system') + ' — design system';
     document.getElementById('ds-root').innerHTML = buildComponents(reg.components || []) + buildFoundations(reg.tokens || {});
+    pbSyncMachines(document.getElementById('ds-root'));   // a data-machine demo opens on its initial pane
   }
 
   // ── contained interactions for demos (self-contained toggles/sorts already work via the
@@ -324,6 +327,7 @@
   document.addEventListener('click', function(e){
     var push = e.target.closest('[data-push]');
     if (push){ openPush(push.getAttribute('data-push')); return; }
+    if (e.target.closest('[data-step-go]')){ e.preventDefault(); pbStepClick(e.target); return; }
     var el = e.target.closest('[data-action],[data-nav],[data-go]');
     if (!el) return;
     var action = el.getAttribute('data-action');
