@@ -17,6 +17,8 @@ import tempfile
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 LINT = os.path.join(ROOT, "pb", "tools", "lint_registry.py")
+sys.path.insert(0, os.path.join(ROOT, "pb", "tools"))
+import lint_registry as L  # noqa: E402  (in-process, for the rule-level corpus below)
 
 _fails = []
 
@@ -207,10 +209,73 @@ with tempfile.TemporaryDirectory() as d:
     check(r.returncode == 0, "--report exits 0 even with ERROR-severity findings present")
     check(run(p).returncode == 2, "...while a plain run of the same registry still exits 2")
 
+
+# ─────────────────────────────────────────────────────────────────────────────
+# R-TOKENREF — a var(--x) nothing will ever set.
+#
+# Half of this is a FALSE-POSITIVE CORPUS, and it is the larger half on purpose: the first
+# draft of this rule reported every component in the golden fixture and both demo screens,
+# because it knew only one of the three things that legitimately set a custom property.
+# Each case below is a shape that MUST stay silent.
+# ─────────────────────────────────────────────────────────────────────────────
+print("R-TOKENREF · a custom property nothing sets")
+
+
+def _tokenref(body, tokens=None):
+    """Lint a one-component registry whose body is `body`; return its R-TOKENREF messages."""
+    reg = {
+        "meta": {"name": "t", "schemaVersion": 11},
+        "tokens": tokens or {},
+        "components": [{"id": "c", "name": "C", "level": "atom", "renderFn": "renderCmpC",
+                        "render": body}],
+        "screens": [],
+    }
+    return [f.msg for f in L.check(reg) if f.code == "R-TOKENREF"]
+
+
+# — true positives —
+hits = _tokenref("return '<i style=\"gap:var(--nope-not-a-token)\"></i>';")
+check(len(hits) == 1 and "nothing sets it" in hits[0],
+      "no fallback + no producer anywhere is a finding")
+
+hits = _tokenref("return '<i style=\"color:var(--ghost, red)\"></i>';",
+                 {"ghost": {"$value": "   ", "$type": "color"}})
+check(len(hits) == 1 and "does NOT fall back" in hits[0],
+      "a token that exists but resolves to nothing IS a finding, fallback or not "
+      "— the browser drops the declaration instead of falling back")
+
+# — the false-positive corpus: every one of these must stay silent —
+check(_tokenref("return '<i style=\"color:var(--brand)\"></i>';",
+                {"brand": {"$value": "#4f46e5", "$type": "color"}}) == [],
+      "FP: a name the project's own tokens define")
+
+check(_tokenref("return '<i style=\"border:1px solid var(--border)\"></i>';") == [],
+      "FP: a name the SHELL declares (58 of them) — the first draft reported all of these")
+
+check(_tokenref("return '<i style=\"--pb-x: 4px; padding:var(--pb-x)\"></i>';") == [],
+      "FP: a component-scoped property the body sets and reads itself")
+
+check(_tokenref("return '<i style=\"max-width:var(--pb-tt-max, 240px)\"></i>';") == [],
+      "FP: a fallback on a name meant to be set by a parent at runtime — that is the "
+      "design working, not a defect")
+
+check(_tokenref("return '<i style=\"background:var(--bg-' + tone + '-muted)\"></i>';") == [],
+      "FP: a name composed at runtime — counted as information, never a finding")
+
+check(_tokenref("return '<i class=\"x\"></i>';") == [], "FP: a body with no var(--…) at all")
+
+# — the guard that switches the rule off rather than guessing —
+_saved = L._SHELL_PROPS_CACHE[:]
+L._SHELL_PROPS_CACHE[:] = [None]
+check(_tokenref("return '<i style=\"gap:var(--nope-not-a-token)\"></i>';") == [],
+      "with no shell to read the rule does not run — a check blind to one of its three "
+      "producers is worse than no check")
+L._SHELL_PROPS_CACHE[:] = _saved
+
 print()
 if _fails:
     print("FAIL — %d check(s):" % len(_fails))
     for f in _fails:
         print("   - " + f)
     sys.exit(1)
-print("PASS — lint rule changes (D-10, D-11, D-22, D-26) behave")
+print("PASS — lint rule changes (D-10, D-11, D-22, D-26) and R-TOKENREF behave")

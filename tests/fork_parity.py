@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-fork_parity.py — the five things a real project forked the shell to get.
+fork_parity.py — what a real project had to build itself, because pb could not.
 
 A live pb project could not use stock pb: it ran on a hand-patched plugin cache plus its own
 copy of prototype.html carrying five hunks. That fork is the sharpest list anyone has of what pb
@@ -14,6 +14,9 @@ All five are stock as of v1.12.0. This test keeps them that way.
      because pb had no way to declare a third-party dependency
   4. `test.roles` scopes the SHELL's scenario list, not just test_run.py's execution
   5. a Mermaid `[[subprocess]]` node is painted subprocess-grey, not input-purple
+
+Beside the fork it kept 1,076 lines of hand-rolled verification gates, for the same reason.
+Each has a pb equivalent now; this checks the equivalents are still wired.
 
 Structural, so it runs everywhere; e2e_smoke.py drives 2, 4 and 5 in a browser, and
 logic_contract.py covers 3 end to end. Usage: python3 tests/fork_parity.py · Exit 0/1.
@@ -69,8 +72,26 @@ print("5 · a [[subprocess]] node is not painted as an input")
 check(re.search(r"pts\.length >= 8\)\s*\{\s*key = 'sub';", SHELL) is not None,
       "the 10-point polygon branch keys 'sub' before stripping the bracket points")
 
+print("6 · the hand-rolled gates have pb equivalents")
+LINT = open(os.path.join(ROOT, "pb", "tools", "lint_registry.py"), encoding="utf-8").read()
+LOGIC = open(os.path.join(ROOT, "pb", "tools", "logic_check.py"), encoding="utf-8").read()
+TEST = open(os.path.join(ROOT, "pb", "tools", "test_run.py"), encoding="utf-8").read()
+check(os.path.isfile(os.path.join(ROOT, "tests", "render_escape.py")),
+      "G0 preflight, trap 1 (the blanket `</` escape) — guarded by a test since v1.11.1")
+check("def freeze_capture" in LOGIC and "def freeze_compare" in LOGIC,
+      "G1 logic_freeze — logic_check.py --freeze, over bodyHash")
+check("L-DEADSEAM" in LOGIC,
+      "G2 seam_extract — L-DEADSEAM, which asks the cross-check question instead of "
+      "diffing a baseline, so it has strictly fewer false-positive modes")
+for r in ("L-HAS-R1", "L-HAS-R2", "L-HAS-R3", "L-HAS-R4"):
+    check(r in LOGIC, "G3 has_rules %s — ported rule for rule" % r[2:])
+check('for key in ("present", "absent")' in TEST and "def _apply_role" in TEST,
+      "G4 role_affordances — test.roles + present/absent expects express "
+      "(screen, role, selector) as registry scenarios")
+check("R-TOKENREF" in LINT, "W0 token_sweep — R-TOKENREF")
+
 print()
 if fails:
     print("FAIL — %d regression(s); a project would have to fork the shell again" % len(fails))
     sys.exit(1)
-print("PASS — all five fork hunks are stock")
+print("PASS — all five fork hunks are stock, and every hand-rolled gate has an equivalent")

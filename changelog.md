@@ -66,6 +66,10 @@ something you had to remember to refresh, and logic gets a home of its own at **
   migration on a project with non-English content rewrote every line that had any and inflated the
   file — measured at 900 KB → 1.06 MB on a real registry, for a migration that changed 126 keys. It
   now writes UTF-8, and reads and writes every file with an explicit encoding.
+- **The golden fixture referenced two custom properties that do not exist** — `--space-1` (its
+  space ramp starts at `space-2`) and `--text-xs` (the shell's name is `--font-size-xs`), so the
+  `text-input` component's gap and error-text size had been silently inherited. Found by
+  `R-TOKENREF` on its first run.
 - **The prototype inlined three graph fields nothing on the page reads** — `handlers[].bodyHash`
   (the largest single field), `handlers[].localCalls` and `items[].shellVerbs`, all of them for
   tools rather than for the shell. `build_html` now inlines a projection: **50 KB off every render

@@ -76,6 +76,55 @@ hunks and not its CSS. Both are fixed here. `tests/fork_parity.py` pins all five
 shows up as "a project would have to fork the shell again" rather than as a silent return to the
 status quo.
 
+### And the 1,076 lines of gates beside it
+
+The same project kept six hand-rolled verification gates in `prototype/gates/`, for the same
+reason it kept the fork. Checked one by one:
+
+| Gate | What it proves | v1.12.0 |
+|---|---|---|
+| **G0** `preflight.py` (122) | three toolchain traps that silently produce a broken artifact | trap 1 (the blanket `</` escape) fixed in v1.11.1 and guarded by `tests/render_escape.py`; traps 2 and 3 exist only to police the fork, and go with it |
+| **G1** `logic_freeze.py` (161) | every non-render top-level entity is byte-identical | `logic_check.py --freeze`, over `bodyHash` — and with a string/comment/template-literal-aware parser rather than column-0 anchors |
+| **G2** `seam_extract.py` (133) | the producer side still emits what the handlers read | `L-DEADSEAM`, which asks the cross-check question instead of diffing a baseline, so it has strictly fewer false-positive modes — the project's own baseline gate missed all 10 of its real dead reads |
+| **G3** `has_rules.py` (130) | the `:has()` reveal contract, four failure modes | `L-HAS-R1` … `R4`, ported rule for rule |
+| **G4** `role_affordances.py` (325) | (screen, role, selector) → present \| absent | `test.roles` + `present`/`absent` expects, as registry scenarios. D-27 was written from this gate's own diagnosis, down to *"a control that is merely CSS-hidden PASSES `present` and should"* |
+| **W0** `token_sweep.py` (148) | every `var(--x)` a body references resolves | **was the one real gap** — now `R-TOKENREF` |
+
+G4 is worth reading in full if you ever wonder whether a gate is worth writing. It opens by
+naming exactly what pb could not do — *"`test_run.py --functional` runs every scenario at
+`meta.defaultRole` and CANNOT switch role"* — and D-27 is, in retrospect, that paragraph turned
+into an increment.
+
+### The gap: `R-TOKENREF`
+
+An unresolvable `var(--x)` makes a browser drop the whole declaration. No error, no console
+warning, no lint hit — the element just silently keeps whatever it inherited. pb counted *unused*
+tokens and never asked the question that breaks a screen.
+
+The first draft of the rule was wrong in the way this class of rule is always wrong: it resolved
+names against the project's tokens alone and reported **every component in the golden fixture and
+both demo screens** — all false, because the shell declares 58 custom properties of its own. A
+second pass found a third producer: component-scoped properties a body sets and reads itself
+(`--pb-stat-tone-bg`), or that a parent sets on a root at runtime (`--pb-tt-max`). And a fallback
+changes the question entirely — `var(--x, y)` says `--x` may be unset, so an absent name there is
+the design working.
+
+The rule that survived asks two things:
+
+| | verdict |
+|---|---|
+| no fallback, and nothing sets it — not the tokens, not the shell, not any body | **finding** |
+| a fallback, and the token exists but resolves to **empty** | **finding** — a fallback applies only when a property is UNSET, so the declaration is dropped anyway |
+| a fallback, and the name is simply absent | not a finding, ever |
+| a name composed at runtime, `var(--bg-${tone}-muted)` | counted as information |
+| no shell readable | the rule does not run — blind to a producer is worse than absent |
+
+Nine cases in `tests/lint_rules.py`, seven of them a false-positive corpus.
+
+On the real project: **0**. On pb's own golden fixture: **2**, both real — `--space-1` (the ramp
+starts at `space-2`) and `--text-xs` (the shell's name is `font-size-xs`), so that component's
+padding and error text had been rendering at inherited values the whole time. Fixed here.
+
 ## Lint: the count went UP, and that is the improvement
 
 | Code | v1 | v2 | |

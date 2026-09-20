@@ -54,6 +54,10 @@ _PBUSE = re.compile(r"pbUse\(\s*['\"]([a-z0-9][a-z0-9-]*)['\"]")
 
 ERROR, WARN = "ERROR", "WARN"
 
+# Set by the last check() run: how many var(--…) references were composed at runtime and so
+# could not be verified statically. --report prints it under information; it is never a finding.
+_TOKENREF_DYNAMIC = [0]
+
 
 class Finding:
     __slots__ = ("severity", "code", "where", "msg")
@@ -113,6 +117,124 @@ def _hint_component(name, ids_by_len):
 # A `default` that is a STRING but opens like a collection literal. `'[]'` is not an empty
 # list — it is a two-character string, and `'[]'.map` is not a function.
 _COLLECTION_LITERAL = re.compile(r"^\s*[\[{]")
+
+
+# A `var(--name)` reference in a render body. Group 1 is the name, group 2 whatever follows
+# inside the parens — a fallback, or nothing. Names are captured loosely on purpose so a
+# runtime-composed one still matches and can be recognised as such rather than missed.
+_VAR_REF = re.compile(r"var\(\s*--([A-Za-z0-9_$\-]*(?:\$\{[^}]*\}[A-Za-z0-9_$\-]*)*)\s*(,[^)]*)?\)")
+# A name built by interpolation — `var(--bg-${tone}-muted)`, `var(--space-${size})`. Its real
+# value is only known at runtime, so it is counted and reported as information, never a finding.
+_VAR_DYNAMIC = re.compile(r"\$\{|\$\{?[A-Za-z_]")
+
+
+_CUSTOM_PROP = re.compile(r"(?m)^\s*--([A-Za-z0-9_-]+)\s*:")
+# The same, anywhere in a body — inline `style="--x:…"` and a generated <style> alike.
+_CUSTOM_PROP_ANY = re.compile(r"--([A-Za-z0-9_-]+)\s*:")
+_SHELL_PROPS_CACHE = []
+
+
+def _shell_custom_props():
+    """The custom properties the shipped shell declares in its own <style> — the OTHER producer
+    of `var(--x)`, beside the project's tokens. Returns None when the shell cannot be read, which
+    switches R-TOKENREF off rather than letting it report every shell variable as missing."""
+    if _SHELL_PROPS_CACHE:
+        return _SHELL_PROPS_CACHE[0]
+    path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                        "template", "prototype.html")
+    try:
+        with open(path, encoding="utf-8") as f:
+            html = f.read()
+    except OSError:
+        _SHELL_PROPS_CACHE.append(None)
+        return None
+    props = set()
+    for style in re.findall(r"<style[^>]*>(.*?)</style>", html, re.S):
+        props |= set(_CUSTOM_PROP.findall(style))
+    _SHELL_PROPS_CACHE.append(props or None)
+    return _SHELL_PROPS_CACHE[0]
+
+
+def _check_token_refs(add, reg, components, screens, base_dir, resolved):
+    """R-TOKENREF — a render body asks for a custom property that nothing will ever set.
+
+    The inverse of the unused-token count in --report, and the one that actually breaks a screen:
+    an unresolvable `var(--x)` makes the browser drop the whole declaration, silently, with no
+    console error. It happens when a token is renamed or retired and consumers still say the old
+    name, when a `$value` aliases something missing, or when a `$value` is a composite (shadow,
+    typography) that a single custom property cannot hold.
+
+    WHAT COUNTS AS A PRODUCER — getting this wrong is what makes a rule like this useless. Three
+    things legitimately set a custom property, and the first draft of this rule knew only the first:
+      1. the project's tokens (alias-resolved; composites are skipped, so they read as absent)
+      2. the SHELL, which declares 58 of its own (`--border`, `--font-body`, `--bg-soft`, …)
+      3. a render body, for a component-scoped property it sets and reads itself
+         (`--pb-stat-tone-bg`) or that a parent sets inline on its root (`--pb-tt-max`)
+    Resolving against (1) alone reported every golden component and both demo screens — all false.
+
+    AND A FALLBACK CHANGES THE QUESTION. `var(--x, y)` is a deliberate statement that `--x` may be
+    unset, so an absent name there is the design working, not a defect. It has exactly one failure
+    mode, and it is the nastiest in this whole class: if `--x` EXISTS but resolves to nothing, the
+    fallback does NOT apply — the declaration is invalid and is dropped. So:
+
+        no fallback + no producer      -> a finding
+        fallback    + resolves empty   -> a finding (the trap)
+        fallback    + simply absent    -> not a finding, ever
+
+    A name composed at runtime (`var(--bg-${tone}-muted)`) is not a name until it runs; those are
+    counted and reported as information. With no shell to read the rule does not run at all — a
+    check that cannot see one of its three producers is worse than no check.
+
+    Returns the count of runtime-composed references, which --report prints as information.
+    """
+    shell_vars = _shell_custom_props()
+    if shell_vars is None:
+        return 0
+
+    bodies = {}
+    for kind, items in (("component", components), ("screen", screens)):
+        for i, item in enumerate(items):
+            if not isinstance(item, dict):
+                continue
+            body = _body_of(item, base_dir)
+            if body and "--" in body:
+                bodies[(kind, i)] = body
+    # Producer 3, collected across ALL bodies: the component that SETS `--pb-tt-max` on a root is
+    # usually not the one that reads it.
+    body_vars = set()
+    for body in bodies.values():
+        body_vars |= set(_CUSTOM_PROP_ANY.findall(body))
+    producers = set(resolved) | shell_vars | body_vars
+    empty = {n for n, v in resolved.items() if isinstance(v, str) and not v.strip()}
+
+    dynamic = 0
+    for (kind, i), body in bodies.items():
+        if "var(--" not in body:
+            continue
+        dangling, trapped = set(), set()
+        for m in _VAR_REF.finditer(body):
+            name, fallback = m.group(1), bool(m.group(2))
+            if not name or _VAR_DYNAMIC.search(name):
+                dynamic += 1
+            elif name in empty:
+                trapped.add(name)
+            elif not fallback and name not in producers:
+                dangling.add(name)
+        if not dangling and not trapped:
+            continue
+        item = (components if kind == "component" else screens)[i]
+        where = f"{kind}s[{i}] id={item.get('id', '')!r}"
+        if dangling:
+            add(WARN, "R-TOKENREF", where,
+                "body references var(--%s) with no fallback, and nothing sets %s — not the token "
+                "document, not the shell, not any render body. The declaration is dropped silently."
+                % ("), var(--".join(sorted(dangling)), "it" if len(dangling) == 1 else "them"))
+        if trapped:
+            add(WARN, "R-TOKENREF", where,
+                "token(s) %s exist but resolve to nothing, so var(--…, fallback) does NOT fall "
+                "back — a fallback applies only when a property is UNSET. Give them a value or "
+                "remove them." % ", ".join(sorted(trapped)))
+    return dynamic
 
 
 def _check_prop_types(add, comp, where):
@@ -363,6 +485,11 @@ def check(reg, strict=False, base_dir=None):
             add(WARN, "R-DANGER", "tokens",
                 f"runtime-required token {req!r} is missing — the error runtime styles "
                 f"with var(--{req}); add it or fresh submits show no danger border")
+
+    # The other direction, and the one that actually breaks a screen: a body asking for a
+    # custom property the token document cannot supply. R-DANGER above checks four names pb's
+    # own runtime needs; this checks every name the PROJECT's bodies reference.
+    _TOKENREF_DYNAMIC[0] = _check_token_refs(add, reg, components, screens, base_dir, resolved)
 
     # ── flow / erd shape sanity when populated ────────────────────────────────
     flow = reg.get("flow") or {}

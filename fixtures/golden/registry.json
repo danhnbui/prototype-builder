@@ -108,6 +108,10 @@
       "$value": "1px",
       "$type": "dimension"
     },
+    "space-1": {
+      "$value": "4px",
+      "$type": "dimension"
+    },
     "space-2": {
       "$value": "8px",
       "$type": "dimension"
