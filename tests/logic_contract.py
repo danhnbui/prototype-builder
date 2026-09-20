@@ -227,6 +227,20 @@ missing_mod = dict(reg3, runtime=[{"id": "ghost", "src": "runtime/ghost.js"}])
 check(R.load_runtime(missing_mod, d3)[2] == ["ghost (runtime/ghost.js)"],
       "a module that does not resolve is reported, not raised")
 
+print("5b · the derived graph is cached on the body files, and only on them")
+g1 = R.load_logic(d3)
+key1 = R._logic_key(d3)
+check(key1 is not None and R._logic_key(d3) == key1, "the fingerprint is stable while nothing changes")
+g2 = R.load_logic(d3)
+check(g2 == g1, "a warm call returns the same graph")
+g2["stats"]["handlers"] = -1
+check(R.load_logic(d3)["stats"]["handlers"] != -1, "the cache hands out a copy, not its own object")
+with open(os.path.join(d3, "render/components/badge.js"), "a", encoding="utf-8") as f:
+    f.write("\nfunction pbBadgeLater(){ return 1; }\n")
+check(R._logic_key(d3) != key1, "editing a body changes the fingerprint")
+names = {h["name"] for h in R.load_logic(d3)["handlers"]}
+check("pbBadgeLater" in names, "and the re-derived graph sees the new function")
+
 print("6 · the two verbs — in runtime.js, mirrored verbatim, wired in both shells")
 rt = open(RUNTIME_JS, encoding="utf-8").read()
 shell = open(SHELL, encoding="utf-8").read()

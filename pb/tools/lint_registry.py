@@ -693,7 +693,14 @@ def report(reg, path, base_dir, findings):
     if any(f.severity == ERROR for f in findings):
         rank.append(f"{sum(1 for f in findings if f.severity == ERROR)} error(s) — these block --strict")
     if by_code.get("R-COMPOSE-MATCH"):
-        rank.append(f"{by_code['R-COMPOSE-MATCH']} R-COMPOSE-MATCH — run --sync-elements to clear the screen half")
+        # --sync-elements only writes screens[].elements[]; components declare theirs by hand.
+        # Recommending it once the screen half is already clear sends the reader in a circle.
+        screen_half = sum(1 for f in findings
+                          if f.code == "R-COMPOSE-MATCH" and f.where.startswith("screens["))
+        rank.append(f"{by_code['R-COMPOSE-MATCH']} R-COMPOSE-MATCH — run --sync-elements to clear "
+                    f"the screen half ({screen_half})" if screen_half else
+                    f"{by_code['R-COMPOSE-MATCH']} R-COMPOSE-MATCH, all on components — the screen "
+                    f"half is clear; declare each component's elements[] by hand or drop the claim")
     if by_code.get("R-PROPTYPE"):
         rank.append(f"{by_code['R-PROPTYPE']} R-PROPTYPE — each one is a component that cannot demo, and wrong docs in the hand-off")
     if high:
