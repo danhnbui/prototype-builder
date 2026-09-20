@@ -178,6 +178,39 @@ authored fields.
 
 Whole project: **19.7 MB → 22.2 MB**.
 
+### pb's own source, and the file that holds too much of it
+
+| | v1.11.1 | v1.12.0 | |
+|---|---|---|---|
+| Python | 5,680 | 8,433 | +48% — two new tools (`logic_extract` 1,067, `logic_check` 508) and `lint_registry` +86% |
+| Templates | 7,048 | 8,138 | +15% |
+| Commands + docs | 2,693 | 2,918 | |
+| Tests | 2,377 | 3,740 | +57% |
+
+The number that matters is not the total, it is the concentration. `prototype.html` alone was
+**86% of every template line pb ships**, in one file, with a load-bearing whitespace anchor that
+kills every render if a formatter touches it — top risk #1 in the plan.
+
+291 of those lines were `runtime.js`, **pasted in a second time**. That duplication is top risk #3
+in the same plan, and this release made it worse: adding the two verbs to both copies took it from
+156 lines to 291. `runtime.js`'s own header said *"Kept verbatim in sync with the shell; edit HERE
+(the single source)"* — a claim that was only true because a test enforced it.
+
+Both shells now take the runtime through the `/*__PB_RUNTIME__*/` marker, which
+`design-system.html` already used. The file goes **7,062 → 6,774 lines**, a whole class of drift
+bug goes with it, and the test gets stronger: instead of comparing two copies it asserts the shell
+carries the marker and the **rendered** page carries the runtime byte-for-byte.
+
+Removing the duplication immediately exposed something it had been hiding. `logic_extract` learns
+the shell's globals by reading `prototype.html`, so the moment `pbUse` moved out, **every composed
+body in every project** reported `L-UNDEF: pbUse`. A byte-for-byte diff of the rendered output
+against a pre-refactor baseline is what caught it; the test sweep was green either way. The
+extractor now reads the shell and `runtime.js` together, which is what the rendered page actually is.
+
+What is left is real: **6,774 lines** in one file, a third of it CSS. Splitting it is a bigger
+change than this release should carry — it touches the anchor and every marker — but the
+duplication was the part that could be removed without adding risk, so it was.
+
 ## Cost
 
 | | v1 | v2 |

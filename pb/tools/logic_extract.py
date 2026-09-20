@@ -492,6 +492,17 @@ def default_shell_path():
     return cand if os.path.isfile(cand) else None
 
 
+def runtime_beside(shell_path):
+    """The shared runtime that sits next to a shell — pb/template/runtime.js. Returns '' when it
+    is not there, which is the honest answer for a hand-off shell with the runtime already inlined
+    (those carry the definitions in the file itself, so nothing is missed either way)."""
+    cand = os.path.join(os.path.dirname(os.path.abspath(shell_path)), 'runtime.js')
+    try:
+        return _read(cand)
+    except OSError:
+        return ''
+
+
 def extract(project_dir, shell_path=None):
     """Derive the logic graph for the pb project at `project_dir`.
 
@@ -524,6 +535,13 @@ def extract(project_dir, shell_path=None):
         shell_path = default_shell_path()
     if shell_path and os.path.isfile(shell_path):
         shell_text = strip_comments(_read(shell_path))
+        # The shell's globals are the shell file PLUS runtime.js, which render.py injects into it
+        # at the /*__PB_RUNTIME__*/ marker. pbUse, pbToast, pbEscape and the rest live there, so a
+        # scan of the file alone reports every one of them undefined — in every project, since
+        # every composed body calls pbUse. Reading the two together is what the rendered page is.
+        rt = runtime_beside(shell_path)
+        if rt:
+            shell_text += '\n' + strip_comments(rt)
 
     # ---- producers (whole file — markup is emitted throughout a render body) ----
     shell_resolved = bool(shell_text)

@@ -150,7 +150,8 @@ def render_current(state):
         logic = render.load_logic(state.base_dir, reg)  # derive the logic graph (fails open)
         rt_js, rt_deps, _rt_missing = render.load_runtime(reg, state.base_dir)  # registry.runtime[]
         html, _missing = render.build_html(reg, shell, version, logic=logic,
-                                           runtime_js=rt_js, runtime_deps=rt_deps)
+                                           runtime_js=render.load_shared_runtime(state.runtime_path),
+                                           project_js=rt_js, project_deps=rt_deps)
         if state.write and state.out_path:
             try:
                 with open(state.out_path, "w", encoding="utf-8") as f:

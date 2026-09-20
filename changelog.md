@@ -66,6 +66,13 @@ something you had to remember to refresh, and logic gets a home of its own at **
   migration on a project with non-English content rewrote every line that had any and inflated the
   file — measured at 900 KB → 1.06 MB on a real registry, for a migration that changed 126 keys. It
   now writes UTF-8, and reads and writes every file with an explicit encoding.
+- **`runtime.js` was physically duplicated into `prototype.html`** — 291 lines existing twice,
+  kept in step by a test rather than by the build, and this release had grown them from 156. Both
+  shells now take the runtime through the `/*__PB_RUNTIME__*/` marker `design-system.html` already
+  used: `prototype.html` drops **7,062 → 6,774 lines** and the drift class goes away. Removing it
+  exposed a bug it had been hiding — `logic_extract` learns the shell's globals by reading that
+  file, so `pbUse` moving out made **every composed body in every project** report `L-UNDEF`. The
+  extractor now reads the shell and `runtime.js` together, which is what the rendered page is.
 - **The golden fixture referenced two custom properties that do not exist** — `--space-1` (its
   space ramp starts at `space-2`) and `--text-xs` (the shell's name is `--font-size-xs`), so the
   `text-input` component's gap and error-text size had been silently inherited. Found by

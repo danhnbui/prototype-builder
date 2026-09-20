@@ -13,8 +13,7 @@ runtime verbs that earned a place (D-28).
      idempotent, and points the registry at any contract it does not yet reference.
   5. render: registry.runtime[] modules inline BEFORE the render bodies, a declared `url`
      becomes a <script src> in the head, and load_contracts carries the authored half only.
-  6. the two verbs are present in runtime.js, byte-identical in prototype.html's copy, and
-     wired in both shells.
+  6. the two verbs live once in runtime.js, reach the RENDERED page, and are wired in both shells.
   7. the chain reaches CURRENT_SCHEMA == 11 and the shipped template carries it.
 
 Self-contained: the fixture is built here, never read from a project. Exit 0/1.
@@ -257,21 +256,23 @@ check(R._logic_key(d3) != key1, "editing a body changes the fingerprint")
 names = {h["name"] for h in R.load_logic(d3)["handlers"]}
 check("pbBadgeLater" in names, "and the re-derived graph sees the new function")
 
-print("6 · the two verbs — in runtime.js, mirrored verbatim, wired in both shells")
+print("6 · the two verbs — one copy in runtime.js, injected into both shells")
 rt = open(RUNTIME_JS, encoding="utf-8").read()
 shell = open(SHELL, encoding="utf-8").read()
 ds = open(DS_SHELL, encoding="utf-8").read()
 for fn in ("function pbPreserve(", "function pbPreserveCapture(", "function pbPreserveRestore(",
            "function pbSetStep(", "function pbSyncMachines(", "function pbStepClick("):
     check(fn in rt, "runtime.js defines %s…)" % fn[9:-1])
-# The whole runtime BODY, not three canary lines: runtime.js minus its header comment must
-# appear verbatim in the shell, or a helper added to one silently misses the other.
-lines = rt.split("\n")
-i = 0
-while i < len(lines) and (lines[i].startswith("/*") or lines[i].startswith(" *")):
-    i += 1
-body = "\n".join(lines[i:]).rstrip("\n")
-check(body in shell, "prototype.html carries the ENTIRE runtime.js body, byte-identical")
+# One copy on disk, injected into both shells. The verbs must reach the RENDERED page — that
+# is the only place a project ever sees them, and it is what the old "are the two copies the
+# same" check was a proxy for.
+body = R.shared_runtime(rt)
+check("/*__PB_RUNTIME__*/" in shell and body not in shell,
+      "prototype.html carries the marker, not a second copy of runtime.js")
+_r, _html, _ = R.render_file(os.path.join(d3, "registry.json"), SHELL, os.path.join(d3, "p.html"))
+check(body in _html, "the rendered prototype carries the whole runtime, byte-identical")
+check("function pbPreserve(" in _html and "function pbSetStep(" in _html,
+      "so both verbs reach a real page")
 check("pbStepClick(e.target)" in shell and "pbSyncMachines(document.getElementById('proto-frame'))" in shell,
       "the prototype shell wires step clicks and syncs machines after each render")
 check("pbStepClick(e.target)" in ds and "pbSyncMachines(document.getElementById('ds-root'))" in ds,

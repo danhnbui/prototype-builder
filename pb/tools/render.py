@@ -382,7 +382,34 @@ def _logic_for_shell(logic):
     return out
 
 
-def build_html(reg, shell, version="unknown", logic=None, runtime_js="", runtime_deps=()):
+def default_runtime_path():
+    """pb/template/runtime.js, resolved from this file so a caller never has to pass it."""
+    return os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                        "template", "runtime.js")
+
+
+def load_shared_runtime(path=None):
+    """Read runtime.js. Returns "" when it cannot be read, which leaves the marker in place
+    rather than failing a render over a comment block."""
+    try:
+        with open(path or default_runtime_path(), encoding="utf-8") as f:
+            return f.read()
+    except OSError:
+        return ""
+
+
+def shared_runtime(text):
+    """runtime.js minus its file header — the header addresses whoever edits runtime.js, and
+    shipping it inside a multi-megabyte artifact twice says nothing to the reader of that file."""
+    lines = text.split("\n")
+    i = 0
+    while i < len(lines) and (lines[i].startswith("/*") or lines[i].startswith(" *")):
+        i += 1
+    return "\n".join(lines[i:]).rstrip("\n")
+
+
+def build_html(reg, shell, version="unknown", logic=None, runtime_js="",
+               project_js="", project_deps=()):
     """Render a registry dict + shell HTML string into the populated prototype HTML.
 
     Pure: no file I/O, no globals. This is the single source of render truth — the
@@ -398,7 +425,7 @@ def build_html(reg, shell, version="unknown", logic=None, runtime_js="", runtime
     #    project's declared runtime modules ahead of them — a module a body calls at load time
     #    must already be defined, and this single insertion point is what guarantees the order.
     bodies, missing = _render_fn_bodies(reg)
-    bodies = (runtime_js or "") + bodies
+    bodies = (project_js or "") + bodies
 
     # 2) inline the registry (without the bulky render strings) into PB_REGISTRY
     reg_inline = _strip_render(reg)
@@ -413,6 +440,12 @@ def build_html(reg, shell, version="unknown", logic=None, runtime_js="", runtime
                    lambda m: "/*__PB_REGISTRY_START__*/" + inlined + "/*__PB_REGISTRY_END__*/",
                    shell, count=1, flags=re.S)
 
+    # The shared runtime. One copy on disk (pb/template/runtime.js), injected into BOTH shells —
+    # it used to be pasted into prototype.html as well, 291 lines kept in step by a test. A shell
+    # without the marker is an older one that still carries its own copy: leave it alone.
+    if runtime_js and "/*__PB_RUNTIME__*/" in shell:
+        shell = shell.replace("/*__PB_RUNTIME__*/", shared_runtime(runtime_js), 1)
+
     anchor = "    const PB_DATA = adaptRegistryToPBData(PB_REGISTRY);"
     if anchor not in shell:
         raise RenderError("shell is missing the PB_DATA adapter anchor.")
@@ -420,8 +453,8 @@ def build_html(reg, shell, version="unknown", logic=None, runtime_js="", runtime
 
     # Declared third-party dependencies (registry.runtime[] entries with a `url`). An empty
     # list leaves the marker in place — a shell with no marker simply carries no deps.
-    if runtime_deps:
-        shell = shell.replace(_RUNTIME_DEPS_MARK, "\n".join(runtime_deps), 1)
+    if project_deps:
+        shell = shell.replace(_RUNTIME_DEPS_MARK, "\n".join(project_deps), 1)
 
     # Fill the shell's version placeholder (no-op on a shell that lacks it — never blocks).
     shell = shell.replace("{{PB_SHELL_VERSION}}", version)
@@ -450,7 +483,8 @@ def render_file(reg_path, shell_path, out_path):
     rt_js, rt_deps, rt_missing = load_runtime(reg, base_dir)   # registry.runtime[] (schema 11)
     version = plugin_version()
     html, missing = build_html(reg, shell, version, logic=logic,
-                               runtime_js=rt_js, runtime_deps=rt_deps)
+                               runtime_js=load_shared_runtime(),
+                               project_js=rt_js, project_deps=rt_deps)
     missing += ["runtime module %s" % m for m in rt_missing]
     html = stamp(html, version)
     open(out_path, "w", encoding="utf-8").write(html)
@@ -550,7 +584,7 @@ def build_ds_html(reg, ds_shell, runtime_js, nodes_by_id, version="unknown",
     html = re.sub(r"/\*__PB_NODES_START__\*/.*?/\*__PB_NODES_END__\*/",
                   lambda m: "/*__PB_NODES_START__*/" + nodes + "/*__PB_NODES_END__*/",
                   html, count=1, flags=re.S)
-    html = html.replace("/*__PB_RUNTIME__*/", runtime_js, 1)
+    html = html.replace("/*__PB_RUNTIME__*/", shared_runtime(runtime_js), 1)
     html = html.replace("/*__PB_RENDER_FNS__*/", bodies, 1)
     if project_deps:
         html = html.replace(_RUNTIME_DEPS_MARK, "\n".join(project_deps), 1)
