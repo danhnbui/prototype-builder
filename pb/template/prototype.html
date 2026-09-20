@@ -165,24 +165,19 @@
       letter-spacing: 0.02em;
       user-select: all;                          /* easy to copy when reporting an issue */
     }
-    /* The link to the second site. NOT `.meta-tab` — two tests assert that class appears
-       exactly 4 times, and this is another site rather than a fifth tab. `margin-left:auto`
-       lives here now so the pair sits at the right end even when the link is absent (it is
-       hidden over file://, where /design-system would 404). */
-    .meta-ds-link {
-      margin-left: auto;
-      display: inline-flex; align-items: center; gap: 7px;
-      height: 30px; padding: 0 12px; border-radius: var(--radius, 8px);
-      color: var(--neutral-30, #b6bcc6); text-decoration: none;
-      font-family: var(--font-heading);
-      font-size: var(--font-size-s); font-weight: var(--font-weight-bold);
-      border: 1px solid transparent; transition: background 0.12s, color 0.12s;
-    }
-    .meta-ds-link:hover { background: rgba(255,255,255,0.08); color: var(--neutral-10, #e5e7eb); }
-    .meta-ds-link + .meta-sandbox { margin-left: 4px; }
-    /* v1.9 — the consolidated Sandbox control at the right end of the meta nav. */
+    /* The two controls at the right end of the meta nav wear ONE chip, defined once.
+       They used to be a ghost link beside a solid chip, which read as two tiers of
+       importance — but the second site and the sandbox tools are peers, and a link styled
+       as an afterthought is how the DS site stayed unvisited. Sharing the rule is also the
+       only way they cannot drift apart again.
+
+       `.meta-ds-link` is NOT `.meta-tab` — two tests assert that class appears exactly four
+       times, and this is another SITE, not a fifth tab. `margin-left:auto` sits on both so
+       the pair lands right even when the link is absent (it is hidden over file://, where
+       /design-system would 404). */
+    .meta-ds-link,
     .meta-sandbox {
-      margin-left: auto;                         /* push to the far-right of the flex strip */
+      margin-left: auto;                         /* whichever comes first pushes the pair right */
       display: inline-flex; align-items: center; gap: 8px;
       height: 30px; padding: 0 12px;
       border-radius: var(--radius, 8px);
@@ -191,11 +186,17 @@
       color: var(--neutral-10, #e5e7eb);
       font-family: var(--font-heading);
       font-size: var(--font-size-s); font-weight: var(--font-weight-bold);
-      cursor: pointer; transition: background 0.12s, border-color 0.12s;
+      cursor: pointer; text-decoration: none;
+      transition: background 0.12s, border-color 0.12s, color 0.12s;
     }
+    .meta-ds-link:hover,
     .meta-sandbox:hover { background: rgba(255,255,255,0.12); border-color: rgba(255,255,255,0.28); }
+    .meta-ds-link + .meta-sandbox { margin-left: 4px; }
+    /* The trailing glyph on each chip — dimmer than the label, because it says what the chip
+       does, not what it is. A caret for a menu; an arrow leaving the box for a new tab. */
     .meta-sandbox-dot { width: 7px; height: 7px; border-radius: 50%; background: #22c55e; }
-    .meta-sandbox-car { color: var(--neutral-40); }
+    .meta-sandbox-car,
+    .meta-ds-out { color: var(--neutral-40); }
     /* v1.9 — rows inside the Sandbox popover (reuses .copy-popover / .proto-menu-* shells). */
     .sbx-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 7px 2px; }
     .sbx-row-lbl { font-family: var(--font-body); font-size: var(--font-size-xs); font-weight: var(--font-weight-bold);
@@ -2679,9 +2680,15 @@
          produces is worse than no link. */
     function pbDsLink() {
       if (!/^https?:$/.test(location.protocol)) return '';
-      return `<a class="meta-ds-link" href="/design-system" title="The component workbench — every component as a live demo + variant grid">
+      /* Opens in a NEW TAB. The two sites are peers, not a flow: you go to the workbench to
+         check a component and come back to the screen you were reading, and a same-tab jump
+         costs you the tab, the scroll and the active role. `rel="noopener"` because
+         `target="_blank"` otherwise hands the opened page a live `window.opener`. */
+      return `<a class="meta-ds-link" href="/design-system" target="_blank" rel="noopener"
+            title="The component workbench — every component as a live demo + variant grid. Opens in a new tab.">
            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
            <span>Design system</span>
+           <svg class="meta-ds-out" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7"/><path d="M9 7h8v8"/></svg>
          </a>`;
     }
 

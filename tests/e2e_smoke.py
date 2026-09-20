@@ -159,6 +159,36 @@ def run():
             page.evaluate("typeof closeCopyPopover==='function' && closeCopyPopover()")
             page.wait_for_timeout(80)
 
+            # 1c. The two right-hand nav controls are ONE chip, and the DS link leaves the page.
+            # They were a ghost link beside a solid chip, which read as two tiers of importance
+            # for two peers. Compared by COMPUTED style, not by class list: sharing a selector is
+            # the implementation, looking identical is the contract.
+            # The click above left the pointer ON Sandbox, so it reports its :hover colours.
+            # Park the mouse first — otherwise this compares a hovered chip to a resting one.
+            page.mouse.move(0, 0)
+            page.wait_for_timeout(120)
+            CHIP = """el => { const c = getComputedStyle(el); return [c.backgroundColor,
+                c.borderColor, c.borderTopWidth, c.color, c.height, c.borderTopLeftRadius,
+                c.fontSize, c.fontWeight, c.paddingLeft].join('|'); }"""
+            ds_chip = page.eval_on_selector(".meta-ds-link", CHIP)
+            sb_chip = page.eval_on_selector(".meta-sandbox", CHIP)
+            check(ds_chip == sb_chip,
+                  "the Design system link and Sandbox render the same chip\n"
+                  f"        ds={ds_chip}\n        sb={sb_chip}")
+            check(page.get_attribute(".meta-ds-link", "target") == "_blank"
+                  and "noopener" in (page.get_attribute(".meta-ds-link", "rel") or ""),
+                  "the DS link opens a new tab, with rel=noopener")
+            with page.context.expect_page() as popup:
+                page.click(".meta-ds-link")
+            ds_page = popup.value
+            ds_page.wait_for_load_state("domcontentloaded")
+            check(ds_page.url.endswith("/design-system"),
+                  f"clicking it really opens the second site in a second tab ({ds_page.url})")
+            check(len(page.context.pages) == 2, "and the prototype tab is still open behind it")
+            ds_page.close()
+            check(page.locator(".meta-tab").count() == 4,
+                  "still exactly 4 .meta-tab — the DS link is a second SITE, not a fifth tab")
+
             # 2. registry token reaches :root
             brand = page.evaluate(
                 "getComputedStyle(document.documentElement).getPropertyValue('--brand').trim()")
