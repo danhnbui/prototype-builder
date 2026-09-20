@@ -14,6 +14,14 @@ one would hit a command that is not there.
   3. Every relative .md link inside pb/commands/ points at a file that exists.
   4. CLAUDE.md's router table and pb/commands/*.md agree, BOTH ways: no shipped command missing
      a row, no row naming a command that does not ship.
+  5. README.md's command table does the same, and names each command EXACTLY once. Rule 4 only
+     ever looked at CLAUDE.md, which is how the 24 -> 12 merge left the README at 19 rows for 12
+     commands -- five of them duplicates carrying a retired command's description under the
+     surviving name -- through a fully green sweep.
+  6. The two plugin.json versions agree. release.yml checks the tag against the ROOT
+     .claude-plugin/plugin.json; render.plugin_version() stamps the shell from
+     pb/.claude-plugin/plugin.json. Nothing made them equal, so a bump touching one file would
+     tag green and ship a mis-stamped shell.
 
 changelog.md and docs/ are excluded: they are a historical record of what pb was at the time,
 and rewriting history to keep a linter happy is worse than the dangling link.
@@ -21,6 +29,7 @@ and rewriting history to keep a linter happy is worse than the dangling link.
 Usage:  python3 tests/command_refs.py
 Exit:   0 = clean · 1 = a dangling reference or a table mismatch
 """
+import json
 import os
 import re
 import subprocess
@@ -29,7 +38,7 @@ import sys
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CMD_DIR = os.path.join(ROOT, "pb", "commands")
 
-# Retired when 24 commands merged into 13. They may still be NAMED (a retirement note, an
+# Retired when 24 commands merged into 12. They may still be NAMED (a retirement note, an
 # "absorbs the former X" aside) but must not exist as files, and must not be presented as runnable.
 RETIRED = {
     "flow", "data", "sync-flow", "sync-erd",                             # → /pb:plan --flow / --data
@@ -103,6 +112,31 @@ missing_row = sorted(shipped - rows)
 orphan_row = sorted(rows - shipped)
 check(not missing_row, "every shipped command has a table row (missing: %s)" % (missing_row or "none"))
 check(not orphan_row, "every table row names a shipped command (orphan: %s)" % (orphan_row or "none"))
+
+print("5 · README.md's command table matches what ships")
+readme = open(os.path.join(ROOT, "README.md"), encoding="utf-8").read()
+rd_rows = re.findall(r"(?m)^\| `/pb:([a-z][a-z0-9-]*)`", readme)
+rd_set = set(rd_rows)
+rd_missing = sorted(shipped - rd_set)
+rd_orphan = sorted(rd_set - shipped)
+rd_dupes = sorted({n for n in rd_rows if rd_rows.count(n) > 1})
+check(not rd_missing, "every shipped command has a README row (missing: %s)" % (rd_missing or "none"))
+check(not rd_orphan, "every README row names a shipped command (orphan: %s)" % (rd_orphan or "none"))
+check(not rd_dupes, "no command gets two README rows (duplicated: %s)" % (rd_dupes or "none"))
+
+print("6 · the two plugin.json versions agree")
+SEMVER = re.compile(r"^\d+\.\d+\.\d+$")
+vers = {}
+for rel in (".claude-plugin/plugin.json", "pb/.claude-plugin/plugin.json"):
+    try:
+        vers[rel] = json.load(open(os.path.join(ROOT, rel), encoding="utf-8")).get("version")
+    except (OSError, ValueError) as e:
+        vers[rel] = "unreadable (%s)" % e
+distinct = set(vers.values())
+check(len(distinct) == 1, "root and pb plugin.json declare one version (%s)"
+      % ", ".join("%s=%s" % (k, v) for k, v in sorted(vers.items())))
+check(all(SEMVER.match(str(v) or "") for v in vers.values()),
+      "both versions are bare SemVer (%s)" % ", ".join(sorted(str(v) for v in distinct)))
 
 print()
 if fails:
