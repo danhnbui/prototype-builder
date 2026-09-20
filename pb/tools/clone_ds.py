@@ -10,7 +10,7 @@ single **DS-export** JSON. This tool is the deterministic half — given that ex
   1. merges its `tokens` into `registry.json`'s `tokens{}` (additive by default),
   2. sets `meta.designSystem` / `meta.platform` / `meta.dsSource` (provenance),
   3. writes `design-system/<name>/<name>.md` — the scannable DS reference,
-  4. writes `design-system/<name>/.source.json` — the snapshot `/pb:check-drift` compares
+  4. writes `design-system/<name>/.source.json` — the snapshot `/pb:test --drift` compares
      the live source against to detect DS drift.
 
 Pure stdlib (NS4). Deterministic except for the `clonedAt` provenance stamp.
@@ -21,6 +21,9 @@ DS-export shape (normalized — what the ladder produces / a fixture supplies):
     "platform": "web",
     "source": { "type": "figma|code-library|mcp|common", "ref": "<url|path|name>" },
     "tokens": { "color-brand": { "value": "#2563eb", "kind": "color" }, ... },
+                 — a W3C DTCG document: flat (as above, or already `{$value,$type}`) **or**
+                   nested with `{group.token}` aliases. Merge and drift are leaf-wise and
+                   report the dotted leaf path, so either shape works.
     "components": [ { "id": "button", "level": "atom", "variants": ["primary"],
                      "purpose": "...", "renderFn": "renderCmpButton" }, ... ]
   }
@@ -59,6 +62,52 @@ def _normalize_tokens(toks):
         else:
             out[name] = t
     return out
+
+
+def _leaf_map(doc):
+    """Flatten a DTCG token document to `{dotted.path: token}` for every **leaf**.
+
+    A DS export may be flat (pb's own shape — `{"color-brand": {...}}`, one segment per path)
+    or **nested with aliases** (tiered DS naming — `ds.primitive.color.brand.500`); both are
+    valid DTCG, so every token loop here works leaf-wise instead of over top-level keys. A
+    `$type` inherited from an enclosing group is materialized onto the leaf, so a leaf merges
+    and compares independently of the group that carried its type.
+    """
+    out = {}
+    for path, tok, typ in _tokens.walk(doc):
+        leaf = dict(tok)
+        if typ is not None and "$type" not in leaf:
+            leaf["$type"] = typ
+        out[".".join(path)] = leaf
+    return out
+
+
+def _set_leaf(doc, path, tok, overwrite):
+    """Merge one leaf into the DTCG document `doc` at dotted `path`, creating intermediate
+    groups as needed and never touching a sibling. Additive: an existing leaf is kept unless
+    `overwrite`. Returns "added" | "updated" | "skipped"."""
+    parts = path.split(".")
+    replaced = False
+    node = doc
+    for key in parts[:-1]:
+        child = node.get(key)
+        if _tokens.is_group(child):
+            node = child
+            continue
+        if child is not None:            # a token (or a scalar) occupies the group slot
+            if not overwrite:
+                return "skipped"
+            replaced = True
+        node[key] = {}
+        node = node[key]
+    leaf = parts[-1]
+    if leaf not in node:
+        node[leaf] = tok
+        return "updated" if replaced else "added"
+    if node[leaf] == tok or not overwrite:
+        return "skipped"
+    node[leaf] = tok                     # a leaf, or a group the source now types as a token
+    return "updated"
 
 
 def _now():
@@ -111,7 +160,7 @@ def _render_reference_md(name, tokens, components):
               "- **R2 · Variant before spawn.** New state/size/style → add a variant, never a second component.",
               "- **R3 · Auto-layout.** Every Figma frame uses auto-layout; no absolutely positioned children.",
               "- **R4 · Naming.** Kebab-case `id`, unique; `renderFn` = `renderCmp{PascalCase}`.", "",
-              "## Naming contract  (enforced by `/pb:build-check-design-system` and `/pb:build-figma-handoff`)", "",
+              "## Naming contract  (enforced by `/pb:build` and `/pb:handoff`)", "",
               "- `id` — kebab-case, globally unique. tokens — DTCG `$type ∈ color|dimension|fontFamily|shadow|…`; no raw hex/px.", ""]
     return "\n".join(lines)
 
@@ -124,18 +173,14 @@ def clone(export, registry_path, name=None, overwrite_tokens=False):
     ex_tokens = _normalize_tokens(export.get("tokens", {}))
     ex_components = export.get("components", [])
 
-    # 1 · merge tokens (additive by default)
+    # 1 · merge tokens, leaf-wise (additive by default) — a nested export merges one token at
+    #     a time into the matching group, so overlapping trees compose instead of colliding.
     reg.setdefault("tokens", {})
-    added, updated, skipped = [], [], []
-    for tname, tval in ex_tokens.items():
-        if tname not in reg["tokens"]:
-            reg["tokens"][tname] = tval
-            added.append(tname)
-        elif overwrite_tokens and reg["tokens"][tname] != tval:
-            reg["tokens"][tname] = tval
-            updated.append(tname)
-        else:
-            skipped.append(tname)
+    buckets = {"added": [], "updated": [], "skipped": []}
+    for tpath, tval in _leaf_map(ex_tokens).items():
+        buckets[_set_leaf(reg["tokens"], tpath, tval, overwrite_tokens)].append(tpath)
+    added, updated, skipped = buckets["added"], buckets["updated"], buckets["skipped"]
+    total = len(_leaf_map(_normalize_tokens(reg["tokens"])))
 
     # 2 · meta provenance
     meta = reg.setdefault("meta", {})
@@ -160,7 +205,7 @@ def clone(export, registry_path, name=None, overwrite_tokens=False):
     with open(os.path.join(dsdir, ".source.json"), "w", encoding="utf-8") as f:
         json.dump(snapshot, f, indent=2, sort_keys=True)
 
-    # The GHN DS Bridge "Scan DS" catalog (portable publish keys + variables), if the export carries
+    # The DS Bridge "Scan DS" catalog (portable publish keys + variables), if the export carries
     # it — the source of truth registry_to_figma.py reads for INSTANCE keys + variable refs (WS3).
     catalog = export.get("catalog")
     wrote_catalog = isinstance(catalog, dict)
@@ -173,7 +218,7 @@ def clone(export, registry_path, name=None, overwrite_tokens=False):
 
     print(f"✓ cloned DS '{name}' ({platform}) from {source.get('type')}:{source.get('ref')}")
     print(f"  tokens: +{len(added)} added, {len(updated)} updated, {len(skipped)} unchanged "
-          f"({len(reg['tokens'])} total) · components: {len(ex_components)}")
+          f"({total} total) · components: {len(ex_components)}")
     print(f"  wrote design-system/{name}/{name}.md + design-system/{name}/.source.json"
           + (f" + ds-catalog.json ({len(catalog.get('components', []))} components, "
              f"{len(catalog.get('variables', []))} variables)" if wrote_catalog else ""))
@@ -182,7 +227,12 @@ def clone(export, registry_path, name=None, overwrite_tokens=False):
 
 
 def _diff_tokens(a, b):
-    """(added, removed, changed) token-name lists comparing snapshot a → current b."""
+    """(added, removed, changed) **leaf-path** lists comparing snapshot a → current b.
+
+    Leaf-wise, so a nested export reports `ds.primitive.color.brand.500` — the token that
+    actually moved — instead of the one root group that contains it. Drift's whole job is
+    saying *what* changed."""
+    a, b = _leaf_map(a), _leaf_map(b)
     ak, bk = set(a), set(b)
     added = sorted(bk - ak)
     removed = sorted(ak - bk)

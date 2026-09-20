@@ -1,11 +1,11 @@
 ---
 name: figma-use
-description: Authoring rules for the GHN DS Bridge code→Figma bridge — how to emit / edit valid declarative node JSON that the plugin rebuilds as real, linked component instances. Loaded by /pb:build-figma-handoff Step 6. The transformer (registry_to_figma.py) emits this deterministically; use this skill when hand-editing the emitted JSON or authoring a piece by hand. Real keys/variants/props only, prefer tokens, instances as references, auto-layout everywhere, flag gaps — never invent. DS-neutral. (A legacy Figma-MCP write path is retained behind --mcp; its rituals are in the appendix.)
+description: Authoring rules for the DS Bridge code→Figma bridge — how to emit / edit valid declarative node JSON that the plugin rebuilds as real, linked component instances. Loaded by /pb:handoff Step 6. The transformer (registry_to_figma.py) emits this deterministically; use this skill when hand-editing the emitted JSON or authoring a piece by hand. Real keys/variants/props only, prefer tokens, instances as references, auto-layout everywhere, flag gaps — never invent. DS-neutral. (A legacy Figma-MCP write path is retained behind --mcp; its rituals are in the appendix.)
 ---
 
-# figma-use — GHN DS Bridge node-JSON authoring
+# figma-use — DS Bridge node-JSON authoring
 
-The **bridge** puts prototype content into Figma by exchanging **declarative node JSON** with the GHN
+The **bridge** puts prototype content into Figma by exchanging **declarative node JSON** with the
 DS Bridge plugin: pb emits it (deterministically, via `registry_to_figma.py`), you paste it into the
 plugin's **Code → Figma** tab, and the plugin rebuilds it as real, **linked component instances**. This
 skill is the authoring contract for that JSON — for when you hand-edit the emitted `figma-nodes.json`
@@ -71,7 +71,7 @@ every frame; declared gaps are the only unresolved items. Any miss → report it
 ---
 
 ## Appendix — legacy Figma-MCP write path (`--mcp`, deprecated)
-When `/pb:build-figma-handoff --mcp` is used (no plugin available), writes go through the Figma MCP
+When `/pb:handoff --mcp` is used (no plugin available), writes go through the Figma MCP
 `use_figma` instead of the node-JSON paste. The old fail-closed rituals apply: auto-layout on every
 created frame; bind every fill/stroke/spacing/radius/type to a Figma **variable** (never raw); name
 variants `prop=value` then `combineAsVariants` into a `ComponentSet`; images as an `ImagePaint` fill on

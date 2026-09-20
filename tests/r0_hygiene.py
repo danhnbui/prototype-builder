@@ -1,13 +1,15 @@
 #!/usr/bin/env python3
 """
-r0_hygiene.py — guards the v1.5.1 R0 groundwork so it can't silently regress:
+r0_hygiene.py — guards the R0 groundwork so it can't silently regress:
 
-  1. Command renames landed: flow.md / data.md / handoff-close.md exist.
-  2. Backward-compat aliases resolve: sync-flow.md / sync-erd.md / hand-off.md are thin
-     redirect stubs that name their new target, and the target exists.
-  3. No stale /pb: invocations of the old names anywhere but changelog.md + the alias stubs.
+  1. The three merged commands exist: plan.md / test.md / handoff.md.
   4. lint_registry.py is the tool; check.py is a working shim (import + CLI, same exit codes).
-  5. handoff-close writes handoff/ (prototype + bundle + AGENTS.md) and AGENTS.template.md ships.
+  5. /pb:handoff writes handoff/ (prototype + bundle + AGENTS.md) and AGENTS.template.md ships.
+
+Sections 2 and 3 checked the v1.5.1 alias stubs (sync-flow / sync-erd / hand-off). Those were
+deleted when 24 commands merged into 15, so the checks are gone with them — and their real
+successor is tests/command_refs.py, which resolves EVERY /pb:* reference rather than three
+named ones, and asserts the retired names ship no file.
 
 Usage:  python3 tests/r0_hygiene.py
 Exit:   0 = clean · 1 = a regression
@@ -32,39 +34,9 @@ def check(cond, msg):
         fails.append(msg)
 
 
-print("1 · renamed command files exist")
-for f in ("flow.md", "data.md", "handoff-close.md"):
+print("1 · the merged commands exist")
+for f in ("plan.md", "test.md", "handoff.md"):
     check(os.path.isfile(os.path.join(CMDS, f)), f"pb/commands/{f}")
-
-print("2 · alias stubs resolve to their new target")
-for stub, target in (("sync-flow.md", "flow"), ("sync-erd.md", "data"), ("hand-off.md", "handoff-close")):
-    p = os.path.join(CMDS, stub)
-    txt = open(p, encoding="utf-8").read() if os.path.isfile(p) else ""
-    check(os.path.isfile(p) and f"/pb:{target}" in txt and os.path.isfile(os.path.join(CMDS, f"{target}.md")),
-          f"{stub} → /pb:{target} (stub names target, target exists)")
-
-print("3 · no stale /pb: invocations of old names (excl. changelog + alias stubs + alias docs)")
-stale_re = re.compile(r"/pb:(sync-flow|sync-erd|hand-off)(?![a-z])")
-# A line that documents the mapping (arrow, 'alias', or 'deprecated') is allowed to name the
-# old command; a genuine invocation line would not. This keeps the guard meaningful.
-alias_doc_re = re.compile(r"→|->|alias|deprecated", re.IGNORECASE)
-alias_stubs = {"sync-flow.md", "sync-erd.md", "hand-off.md"}
-offenders = []
-for path in glob.glob(os.path.join(ROOT, "**", "*.*"), recursive=True):
-    if "/.git/" in path or os.path.basename(path) == "changelog.md":
-        continue
-    if os.path.basename(path) in alias_stubs:
-        continue
-    if not path.endswith((".md", ".py", ".json", ".html")):
-        continue
-    try:
-        for ln in open(path, encoding="utf-8"):
-            if stale_re.search(ln) and not alias_doc_re.search(ln):
-                offenders.append(f"{os.path.relpath(path, ROOT)}: {ln.strip()[:70]}")
-                break
-    except (UnicodeDecodeError, IsADirectoryError):
-        pass
-check(not offenders, f"clean (offenders: {offenders})")
 
 print("4 · lint_registry.py tool + check.py shim")
 check(os.path.isfile(os.path.join(TOOLS, "lint_registry.py")), "pb/tools/lint_registry.py exists")
@@ -80,9 +52,14 @@ imp = subprocess.run([sys.executable, "-c", f"import sys; sys.path.insert(0, {TO
                       "assert hasattr(check, 'main') and hasattr(check, 'check')"], capture_output=True)
 check(imp.returncode == 0, "`import check` re-exports the API")
 
-print("5 · handoff-close writes handoff/ + AGENTS template ships")
-hc = open(os.path.join(CMDS, "handoff-close.md"), encoding="utf-8").read()
-check("handoff/" in hc and "bundle/" in hc and "AGENTS.md" in hc, "handoff-close names handoff/ + bundle/ + AGENTS.md")
+print("5 · /pb:handoff writes handoff/ + AGENTS template ships")
+hc = open(os.path.join(CMDS, "handoff.md"), encoding="utf-8").read()
+check("handoff/" in hc and "bundle/" in hc and "AGENTS.md" in hc,
+      "handoff mode 1 names handoff/ + bundle/ + AGENTS.md")
+check("handoff-dev/" in hc and "logic.md" in hc and "rules.md" in hc,
+      "handoff mode 2 names handoff-dev/ + the two Markdown docs")
+check("G-FP6" in hc and "registry_to_figma.py" in hc,
+      "handoff mode 3 kept the Figma gates and the deterministic lowering")
 check(os.path.isfile(os.path.join(ROOT, "pb", "template", "AGENTS.template.md")), "pb/template/AGENTS.template.md")
 
 print()

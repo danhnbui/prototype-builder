@@ -1,0 +1,107 @@
+name: ci
+
+# The regression suite. No release ships red.
+#
+# Job NAMES are load-bearing: `main`'s branch protection requires the contexts
+# "unit (python, stdlib-only)" and "e2e (playwright chromium, dev-only)". They must
+# match exactly, or every PR to main is blocked on checks that never report.
+
+on:
+  push:
+    branches: [main]          # push CI on main only; PRs cover every branch
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  unit:
+    name: unit (python, stdlib-only)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      # Every test that does NOT drive a browser. Playwright is deliberately absent
+      # here, which is what "stdlib-only" asserts: pb's own tooling has no pip deps.
+      - name: Regression suite (stdlib)
+        run: |
+          set -u
+          # The browser-driven five run in the e2e job, with Playwright present.
+          BROWSER="e2e_smoke test_inspect test_sandbox verbs_browser sandbox_shell"
+          pass=0; fail=0; skipped=0; failed=""
+          for f in tests/*.py; do
+            base=$(basename "$f" .py)
+            skip=0
+            for b in $BROWSER; do
+              if [ "$base" = "$b" ]; then skip=1; fi
+            done
+            if [ "$skip" -eq 1 ]; then skipped=$((skipped+1)); continue; fi
+            if python3 "$f" > /tmp/out.txt 2>&1; then
+              pass=$((pass+1)); echo "PASS  $base"
+            else
+              rc=$?; fail=$((fail+1)); failed="$failed $base"
+              echo "::group::FAIL  $base  (exit $rc)"; cat /tmp/out.txt; echo "::endgroup::"
+            fi
+          done
+          echo "--- $pass pass, $fail fail, $skipped deferred to the e2e job ---"
+          test "$skipped" -eq 5 || { echo "::error::expected 5 browser tests, saw $skipped"; exit 1; }
+          test "$fail" -eq 0 || { echo "::error::red:$failed"; exit 1; }
+
+      - name: Render is deterministic (same registry twice -> same bytes)
+        run: |
+          python3 pb/tools/render.py fixtures/golden/registry.json pb/template/prototype.html /tmp/g1.html
+          python3 pb/tools/render.py fixtures/golden/registry.json pb/template/prototype.html /tmp/g2.html
+          a=$(sha256sum /tmp/g1.html | cut -d' ' -f1)
+          b=$(sha256sum /tmp/g2.html | cut -d' ' -f1)
+          test "$a" = "$b" || { echo "::error::render is not deterministic"; exit 1; }
+
+      - name: Registry contract is clean on the golden
+        run: python3 pb/tools/lint_registry.py --strict fixtures/golden/registry.json
+
+  e2e:
+    name: e2e (playwright chromium, dev-only)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    env:
+      PLAYWRIGHT_VERSION: "1.55.0"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ env.PLAYWRIGHT_VERSION }}
+      - name: Install Playwright (dev/CI-only — never shipped to users)
+        run: |
+          pip install "playwright==${PLAYWRIGHT_VERSION}"
+          python3 -m playwright install --with-deps chromium
+
+      # These five exit 2 as a "clean skip" when Playwright is missing. Here it is
+      # installed, so a skip means the harness broke — treat it as failure, or the
+      # suite reports green while asserting nothing about the shell in a browser.
+      - name: Browser suite (a skip is a failure here)
+        run: |
+          set -u
+          fail=0
+          for f in tests/e2e_smoke.py tests/test_inspect.py tests/test_sandbox.py \
+                   tests/verbs_browser.py tests/sandbox_shell.py; do
+            python3 "$f" > /tmp/out.txt 2>&1; rc=$?
+            case $rc in
+              0) echo "PASS  $(basename "$f")" ;;
+              2) fail=$((fail+1)); echo "::error::$(basename "$f") SKIPPED but Playwright is installed" ;;
+              *) fail=$((fail+1))
+                 echo "::group::FAIL  $(basename "$f")  (exit $rc)"; cat /tmp/out.txt; echo "::endgroup::" ;;
+            esac
+          done
+          test "$fail" -eq 0 || exit 1

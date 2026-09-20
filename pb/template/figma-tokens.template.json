@@ -1,6 +1,6 @@
 {
   "schemaVersion": "2.0",
-  "_comment": "DTCG token name (the CSS-var name, no --) → its Figma Variable. Portable: `key` is the publish key (stable across files); `id` is a per-file cache. Seeded empty at /pb:init; populated from the Scan DS catalog at /pb:pull-ds and as the user accepts matches at Gate G-FP3 of /pb:build-figma-handoff. registry_to_figma.py reads this (then the ds-catalog) to emit token refs.",
+  "_comment": "DTCG token name (the CSS-var name, no --) → its Figma Variable. Portable: `key` is the publish key (stable across files); `id` is a per-file cache. Seeded empty at /pb:init; populated from the Scan DS catalog at /pb:pull-ds and as the user accepts matches at Gate G-FP3 of /pb:handoff. registry_to_figma.py reads this (then the ds-catalog) to emit token refs.",
 
   "collections": {
     "_example_{design-system}": { "id": "VariableCollectionId:1:2", "key": "col_ds" },

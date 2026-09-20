@@ -47,7 +47,7 @@ def _kebab(s):
 
 
 def _normalize_input(data):
-    """Accept EITHER a frame-export ({frame, layers[]}) OR **GHN DS Bridge serialize output**
+    """Accept EITHER a frame-export ({frame, layers[]}) OR **DS Bridge serialize output**
     ({meta, roots[<node>]}) — the plugin's Figma→Code direction. A bridge node is normalized to a
     frame-export: the first root's children become layers, and an INSTANCE's component reference
     (set / name / mainComponentName) becomes the DS-component hint (kebab), matched against known

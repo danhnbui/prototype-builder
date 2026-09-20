@@ -18,7 +18,8 @@ components that have to be rebuilt. Be specific and constructive — every criti
 ## Output
 A short list: each item is `<lens> · <the gap> · <suggested resolution>`. Mark each **blocking**
 (must resolve before building) or **note** (can proceed with a stated assumption). Feed blocking items to
-`think-clarify` to ask the user; record resolved trade-offs via `/pb:clarify` into `decisions.md`.
+`think-clarify` to ask the user; record each resolved decision via `/pb:clarify` — as an `ia.rules[]`
+rule and one `decisions.md` entry.
 
 ## Rules
 - **Critique the brief, not the person.** Frame everything as a question or a fix.

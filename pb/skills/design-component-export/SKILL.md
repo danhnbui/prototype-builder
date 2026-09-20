@@ -1,6 +1,6 @@
 ---
 name: design-component-export
-description: Export Product Builder components/screens to a deterministic React+Tailwind scaffold — the mechanical scaffold tier of /pb:handoff-dev. Use when emitting a runnable code starting point from the registry (no MCP, no repo integration). Produces React wrappers that reuse each render body + tokens.css + a token-mapped Tailwind theme. Not for idiomatic, DS-integrated per-component JSX (that is the hardened tier) or for building a component in the registry (use design-component-build).
+description: Export Product Builder components/screens to a deterministic React+Tailwind scaffold — the mechanical scaffold tier of /pb:handoff. Use when emitting a runnable code starting point from the registry (no MCP, no repo integration). Produces React wrappers that reuse each render body + tokens.css + a token-mapped Tailwind theme. Not for idiomatic, DS-integrated per-component JSX (that is the hardened tier) or for building a component in the registry (use design-component-build).
 ---
 
 # design-component-export

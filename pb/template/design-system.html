@@ -42,6 +42,15 @@
   :root[data-theme="light"]{ --ds-bg:#fbfbfc; --ds-surface:#ffffff; --ds-ink:#101319; --ds-mut:#5e6873; --ds-faint:#98a1ac; --ds-line:#e7e9ee; --ds-stage:#f6f7f9; --ds-accent:#1c4ed8; }
 
   *{box-sizing:border-box}
+  /* A demo stage shows the PROJECT's components, so it must be painted in the PROJECT's
+     colours. The page chrome follows the viewer's OS theme; the project's tokens have
+     exactly one theme. Uncoupled, a light design system viewed on a dark-mode machine
+     renders its components on a near-black stage — nothing wrong with either set, they were
+     simply never joined up. The project's own surface/text tokens win here, with the chrome
+     tokens as the fallback for a project that declares neither. */
+  .ds-render-fail { border:1px dashed var(--danger,#c2410c); border-radius:8px; padding:10px 12px; font-size:12.5px; line-height:1.5; color:var(--ds-ink); background:rgba(194,65,12,.05); }
+  .ds-render-fail code { font-family:var(--ds-mono); font-size:11.5px; background:rgba(127,127,127,.14); padding:0 4px; border-radius:3px; }
+  .ds-render-fail-msg { margin-top:6px; font-family:var(--ds-mono); font-size:11px; color:var(--ds-mut); }
   body{margin:0;background:var(--ds-bg);color:var(--ds-ink);font-family:var(--ds-sans);font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased}
   header.ds-top{position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:16px;padding:14px 24px;background:color-mix(in srgb,var(--ds-bg) 88%,transparent);backdrop-filter:blur(8px);border-bottom:1px solid var(--ds-line)}
   header.ds-top h1{margin:0;font-size:17px;font-weight:650;letter-spacing:-.01em}
@@ -63,11 +72,12 @@
   .cmp-head .push:hover{border-color:var(--ds-accent);color:var(--ds-accent)}
   .cmp-body{padding:0}
   .sub{font-family:var(--ds-mono);font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--ds-faint);padding:14px 16px 0}
-  .stage{margin:10px 16px 4px;background:var(--ds-stage);border:1px solid var(--ds-line);border-radius:10px;padding:22px;display:flex;flex-wrap:wrap;gap:16px;align-items:center}
+  [data-step-pane][hidden]{display:none !important}
+  .stage{margin:10px 16px 4px;background:var(--ds-project-surface,var(--ds-stage));color:var(--ds-project-ink,var(--ds-ink));border:1px solid var(--ds-line);border-radius:10px;padding:22px;display:flex;flex-wrap:wrap;gap:16px;align-items:center}
   .grid{margin:6px 16px 16px;display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px}
-  .cell{display:flex;flex-direction:column;gap:8px}
+  .cell{display:flex;flex-direction:column;gap:8px;color:var(--ds-project-ink,var(--ds-ink))}
   .cell .lab{font-family:var(--ds-mono);font-size:11px;color:var(--ds-mut)}
-  .cell .box{background:var(--ds-stage);border:1px solid var(--ds-line);border-radius:9px;padding:16px;display:flex;align-items:center;justify-content:center;min-height:52px;overflow:auto}
+  .cell .box{background:var(--ds-project-surface,var(--ds-stage));color:var(--ds-project-ink,var(--ds-ink));border:1px solid var(--ds-line);border-radius:9px;padding:16px;display:flex;align-items:center;justify-content:center;min-height:52px;overflow:auto}
 
   .tok-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:2px;background:var(--ds-line);border:1px solid var(--ds-line);border-radius:12px;overflow:hidden}
   .tok{display:flex;align-items:center;gap:11px;padding:10px 13px;background:var(--ds-surface)}
@@ -106,6 +116,7 @@
 <main id="ds-root"><p class="empty">Loading…</p></main>
 <div id="ds-toast"></div>
 
+<!--__PB_RUNTIME_DEPS__-->
 <script>
   const PB_REGISTRY = /*__PB_REGISTRY_START__*/ null /*__PB_REGISTRY_END__*/;
   const PB_NODES = /*__PB_NODES_START__*/ {} /*__PB_NODES_END__*/;
@@ -118,14 +129,118 @@
 
   // ── workbench ────────────────────────────────────────────────────────────────────
   var LEVEL_ORDER = { atom:0, molecule:1, organism:2, template:3, page:4 };
-  var INTERACT_RE = /data-action|data-nav|data-go|data-redirect|data-required|data-validate|onclick=|<button|<input|<select|<textarea/i;
+  var INTERACT_RE = /data-action|data-nav|data-go|data-redirect|data-required|data-validate|data-machine|data-step-go|onclick=|<button|<input|<select|<textarea/i;
+  /* Couple the demo stage to the PROJECT's theme.
+     The page chrome follows the viewer's OS dark-mode preference; a project's tokens have
+     exactly one theme. Uncoupled, a light design system viewed on a dark-mode machine draws
+     its components on a near-black stage — measured on a real project as the brand orange on
+     #101216. Nothing is wrong with either token set; they were simply never joined up.
+
+     Done in JS, not in CSS, because `var(--x, fallback)` does NOT fall back when --x exists
+     and resolves to EMPTY — you get an invalid declaration, which is exactly the trap the
+     first attempt here fell into. Token names also vary per project (--color-bg-surface,
+     --bg-soft, --bg-base, …), so the first NON-EMPTY candidate wins and, when none resolves,
+     nothing is set and the chrome's own stage colour stays. */
+  function mountThemeBridge(){
+    var cs = getComputedStyle(document.documentElement);
+    function firstSet(names){
+      for (var i = 0; i < names.length; i++) {
+        var v = cs.getPropertyValue(names[i]).trim();
+        if (v) return v;
+      }
+      return '';
+    }
+    var surface = firstSet(['--color-bg-surface','--bg-surface','--bg-app-base','--bg-base','--bg-soft','--surface','--bg-page']);
+    if (!surface) return;                       // nothing resolvable: leave the chrome alone
+    var ink = firstSet(['--color-text-primary','--text-primary','--text-body','--ink','--fg-primary']);
+
+    // Surface and ink move TOGETHER or not at all. Setting the surface alone is how a dark
+    // chrome plus a light project surface becomes near-white text on white. Many projects
+    // never name a text token, and one that does may name the BRAND colour (a real project
+    // resolves --text-primary to its orange) — unreadable as body text on any surface. So
+    // when no token resolves, or the one that does has too little contrast against the
+    // surface, derive the ink from the surface's luminance instead.
+    function lum(c){
+      var d = document.createElement('div');
+      d.style.color = c; document.body.appendChild(d);
+      var m = getComputedStyle(d).color.match(/\d+/g);
+      d.remove();
+      if (!m) return null;
+      var f = m.slice(0, 3).map(function(v){
+        v = v / 255;
+        return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+      });
+      return 0.2126 * f[0] + 0.7152 * f[1] + 0.0722 * f[2];
+    }
+    var ls = lum(surface);
+    if (ls === null) return;
+    var li = ink ? lum(ink) : null;
+    var contrast = (li === null) ? 0
+      : (Math.max(ls, li) + 0.05) / (Math.min(ls, li) + 0.05);
+    if (contrast < 4.5) ink = (ls > 0.5) ? '#101319' : '#f2f3f5';   // WCAG AA for body text
+
+    document.documentElement.style.setProperty('--ds-project-surface', surface);
+    document.documentElement.style.setProperty('--ds-project-ink', ink);
+  }
+  // Runs after the body exists (it measures a probe element to normalise colours).
+  try {
+    if (document.body) { mountThemeBridge(); }
+    else { document.addEventListener('DOMContentLoaded', mountThemeBridge, { once: true }); }
+  } catch (e) { /* a theme is never worth failing the page over */ }
+
   var MAX_CELLS = 16;
 
-  function defaultProps(c){ var p={}; (c.properties||[]).forEach(function(pr){ if(pr.default!==undefined) p[pr.id]=pr.default; }); return p; }
+  // A prop default, as DATA rather than as whatever the author happened to type. A demo is
+  // built from these, so a component whose body does props.rows.map(...) gets exactly what
+  // lands here — and a default of '[]' is a two-character STRING, whose .map is not a
+  // function. Measured on a real project: 11 of 133 components could not render for this
+  // reason alone. The prototype never hits it, because there a parent passes real props via
+  // pbUse and the default never fires, which is why nothing caught it until a second site
+  // existed. lint's R-PROPTYPE reports both shapes so they get fixed at the source; this
+  // keeps the page usable until they are. An empty table is a poor demo; a thrown exception
+  // is not a demo at all.
+  function coerceDefault(v, type){
+    if (v === null || typeof v !== 'string') return v;
+    var wants = (type === 'array' || type === 'object');
+    if (!wants && !/^\s*[\[{]/.test(v)) return v;
+    try { return JSON.parse(v); } catch (e) {}
+    if (type === 'array') return [];
+    if (type === 'object') return {};
+    return /^\s*\[/.test(v) ? [] : {};
+  }
+  function defaultProps(c){
+    var p = {};
+    (c.properties||[]).forEach(function(pr){
+      if (pr.default !== undefined) p[pr.id] = coerceDefault(pr.default, pr.type);
+    });
+    // A spec sidecar's `usage.example` is real sample data authored for the demo — it beats
+    // any default, which is at best a placeholder.
+    if (c.usage && typeof c.usage === 'object' && c.usage.example && typeof c.usage.example === 'object') {
+      Object.keys(c.usage.example).forEach(function(k){ p[k] = c.usage.example[k]; });
+    }
+    return p;
+  }
   function safeRender(c, props){
     var fn = window[c.renderFn];
     if (typeof fn !== 'function') return '<span style="color:var(--danger);font:12px var(--ds-mono)">no render fn: '+pbEscape(c.renderFn||c.id)+'</span>';
-    try { return fn(props||{}); } catch(e){ return '<span style="color:var(--danger);font:12px var(--ds-mono)">render error: '+pbEscape(String(e && e.message || e))+'</span>'; }
+    try { return fn(props||{}); } catch(e){
+      // Name the component AND the prop. `render error: x.map is not a function`, repeated
+      // 11 times down a page, tells a reader nothing about which component or which field to
+      // fix. The message usually carries the offending identifier, so match it back to a
+      // declared prop and say so outright.
+      var msg = String(e && e.message || e);
+      var m = msg.match(/([A-Za-z_$][\w$]*)\.\w+ is not a function/);
+      var culprit = m && (c.properties||[]).filter(function(pr){ return pr.id === m[1]; })[0];
+      return '<div class="ds-render-fail">'
+        + '<strong>' + pbEscape(c.id) + '</strong> could not render its demo'
+        + (culprit
+            ? ' — prop <code>' + pbEscape(culprit.id) + '</code> is declared <code>'
+              + pbEscape(culprit.type || 'string') + '</code> with default <code>'
+              + pbEscape(JSON.stringify(culprit.default)) + '</code>, but the body uses it as a collection.'
+              + ' Declare it <code>array</code> with a real literal, or give the spec sidecar a <code>usage.example</code>.'
+            : '')
+        + '<div class="ds-render-fail-msg">' + pbEscape(msg) + '</div></div>';
+    }
   }
   function hasStateProp(c){ return (c.properties||[]).some(function(p){ return p.id === 'state'; }); }
   function isInteractive(c){
@@ -203,6 +318,7 @@
     document.getElementById('ds-title').textContent = (reg.meta && reg.meta.name) || 'Components';
     document.title = ((reg.meta && reg.meta.name) || 'Design system') + ' — design system';
     document.getElementById('ds-root').innerHTML = buildComponents(reg.components || []) + buildFoundations(reg.tokens || {});
+    pbSyncMachines(document.getElementById('ds-root'));   // a data-machine demo opens on its initial pane
   }
 
   // ── contained interactions for demos (self-contained toggles/sorts already work via the
@@ -211,6 +327,7 @@
   document.addEventListener('click', function(e){
     var push = e.target.closest('[data-push]');
     if (push){ openPush(push.getAttribute('data-push')); return; }
+    if (e.target.closest('[data-step-go]')){ e.preventDefault(); pbStepClick(e.target); return; }
     var el = e.target.closest('[data-action],[data-nav],[data-go]');
     if (!el) return;
     var action = el.getAttribute('data-action');
@@ -234,7 +351,7 @@
       var d = document.createElement('dialog'); d.id='pushdlg'; d.className='pushdlg'; document.body.appendChild(d); return d;
     })();
     dlg.innerHTML = '<div class="pd-head"><b>Push “'+pbEscape(id)+'” to Figma</b><button class="x" onclick="document.getElementById(\'pushdlg\').close()">×</button></div>'
-      + '<div class="pd-body"><p>GHN DS Bridge node JSON — paste into the plugin’s <b>Code → Figma</b> tab, then Build.</p>'
+      + '<div class="pd-body"><p>DS Bridge node JSON — paste into the plugin’s <b>Code → Figma</b> tab, then Build.</p>'
       + '<textarea readonly id="pushta">'+pbEscape(json)+'</textarea>'
       + (gaps.length ? '<div class="gapnote">⚠ '+gaps.length+' gap(s): a DS key/variable is missing — resolve at /pb:pull-ds (Scan DS). Never invented.</div>' : '')
       + '</div><div class="pd-foot"><button class="primary" onclick="pbCopyPush()">Copy</button><button onclick="document.getElementById(\'pushdlg\').close()">Close</button></div>';

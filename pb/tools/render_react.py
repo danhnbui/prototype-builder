@@ -3,7 +3,7 @@
 render_react.py — the SCAFFOLD export tier (R2, v1.7): deterministic registry → React + Vite.
 
 pb's export tiers, cheapest first:
-  host      — the runnable single-file prototype (/pb:validate). No code export.
+  host      — the runnable single-file prototype (/pb:handoff --tier=host). No code export.
   scaffold  — THIS: a deterministic, self-contained React+Vite app that faithfully reuses each
               registry render body, with the design tokens as CSS vars + a Tailwind theme.
   hardened  — idiomatic, DS-integrated per-component JSX (MCP-resolved, repo-matched, reviewed).
@@ -225,7 +225,7 @@ def emit(registry_path, out_dir, screen=None, component=None):
         written.append(rel)
     open(os.path.join(out_dir, "README.md"), "w", encoding="utf-8").write(
         f"# {name} — scaffold export (React + Vite)\n\n"
-        "Deterministic **scaffold** tier from `/pb:handoff-dev --tier=scaffold`. Each component/screen\n"
+        "Deterministic **scaffold** tier from `/pb:handoff --tier=scaffold`. Each component/screen\n"
         "is a React wrapper that reuses its registry render body; styling is the design tokens\n"
         "(`src/tokens.css` `:root` vars), also mapped into `tailwind.config.js`.\n\n"
         "```\nnpm install\nnpm run dev\n```\n\n"

@@ -430,5 +430,50 @@
         ]
       }
     ]
+  },
+  "content": {
+    "populated": true,
+    "terms": [
+      {
+        "id": "session",
+        "term": "Session",
+        "definition": "A signed-in period that begins at login and ends at sign-out or timeout. Not the same as an account.",
+        "aka": [
+          "sign-in"
+        ],
+        "avoid": [
+          "login session"
+        ]
+      },
+      {
+        "id": "account",
+        "term": "Account",
+        "definition": "The durable record a person signs in to. Survives every session.",
+        "aka": [],
+        "avoid": [
+          "profile"
+        ]
+      }
+    ],
+    "strings": [
+      {
+        "key": "action.sign-in",
+        "text": "Sign in",
+        "kind": "action",
+        "note": "never \"Log in\""
+      },
+      {
+        "key": "action.cancel",
+        "text": "Cancel",
+        "kind": "action",
+        "note": ""
+      },
+      {
+        "key": "error.bad-email",
+        "text": "Enter a valid email address",
+        "kind": "error",
+        "note": "data-validate=\"email\""
+      }
+    ]
   }
 }

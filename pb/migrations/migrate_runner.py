@@ -108,7 +108,7 @@ def run(args=None):
             sys.exit(1)
         shutil.copy2(backup, registry_path)
         print(f"✓ Restored from backup: {os.path.basename(backup)}")
-        with open(registry_path) as f:
+        with open(registry_path, encoding="utf-8") as f:
             reg = json.load(f)
         _rerender(reg, registry_path)
         print("✓ Rollback complete. Backups are preserved.")
@@ -119,7 +119,7 @@ def run(args=None):
         print(f"✗ Registry not found: {registry_path}")
         sys.exit(1)
 
-    with open(registry_path) as f:
+    with open(registry_path, encoding="utf-8") as f:
         reg = json.load(f)
 
     from_v = reg.get("meta", {}).get("schemaVersion", 2)  # unstamped → schema 2
@@ -188,7 +188,7 @@ def run(args=None):
     if os.path.exists(shell):
         try:
             render_mod = _load_render()
-            with open(shell) as f:
+            with open(shell, encoding="utf-8") as f:
                 shell_src = f.read()
             # Resolve any renderSrc bodies (v1.4) from disk before the pure build_html.
             resolved = render_mod.load_bodies(working, base_dir)
@@ -200,8 +200,13 @@ def run(args=None):
 
     # 4. Write registry.json exactly once
     try:
-        with open(registry_path, "w") as f:
-            json.dump(working, f, indent=2)
+        # ensure_ascii=False, deliberately. The default escapes every non-ASCII character to
+        # \uXXXX, which on a project with non-English content rewrites EVERY line that has any
+        # and inflates the file (measured: 900 KB -> 1.06 MB on a real registry, for a migration
+        # that changed 126 keys). A version update must move what it says it moves and nothing
+        # else, or a lossless rollback cannot be proven by diffing.
+        with open(registry_path, "w", encoding="utf-8") as f:
+            json.dump(working, f, indent=2, ensure_ascii=False)
             f.write("\n")
     except Exception as e:
         print(f"✗ Write failed: {e}")
@@ -214,7 +219,7 @@ def run(args=None):
         project_dir = os.path.dirname(os.path.abspath(registry_path))
         out_path = os.path.join(project_dir, "prototype.html")
         try:
-            with open(out_path, "w") as f:
+            with open(out_path, "w", encoding="utf-8") as f:
                 f.write(html)
             print("✓ prototype.html re-rendered.")
         except Exception as e:
@@ -253,11 +258,11 @@ def _rerender(reg, registry_path):
     out_path = os.path.join(project_dir, "prototype.html")
     try:
         render_mod = _load_render()
-        with open(shell) as f:
+        with open(shell, encoding="utf-8") as f:
             shell_src = f.read()
         resolved = render_mod.load_bodies(reg, project_dir)
         html, _ = render_mod.build_html(resolved, shell_src)
-        with open(out_path, "w") as f:
+        with open(out_path, "w", encoding="utf-8") as f:
             f.write(html)
         print("✓ prototype.html re-rendered.")
     except Exception as e:

@@ -9,7 +9,7 @@ object (no `$value`); a `$value` of the form `"{group.token}"` is an **alias** t
 token. `$description` is optional prose.
 
 pb writes a **flat** DTCG document for its own projects — the token name IS the CSS
-custom-property name (`brand` → `--brand`) — but a cloned DS (e.g. the ghn-ds MCP's
+custom-property name (`brand` → `--brand`) — but a cloned DS (e.g. a tiered DS MCP's
 semantic/primitive tiers) may be **nested with aliases**. Both are valid DTCG and both
 resolve here, so this module is the single token authority for every Python consumer
 (render_react.py, ds_serve.py, clone_ds.py, lint_registry.py, and the Figma bridge). The

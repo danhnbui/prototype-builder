@@ -1,6 +1,6 @@
 ---
 name: pb-flow
-description: Use to generate or update the UX Design / Flow tab — a Mermaid wireflow plus a numbered user-story test checklist with categorized scenarios. Wraps /pb:flow; owns the flow slice. Decoupled and manual — never auto-fires.
+description: Use to generate or update the UX Design / Flow tab — a Mermaid wireflow plus a numbered user-story test checklist with categorized scenarios. Wraps /pb:plan --flow; authors the flow slice. /pb:build reconciles it on trio writes.
 tools: Read, Edit, Write, Bash, Grep, Glob
 model: inherit
 ---
@@ -13,10 +13,11 @@ categorized test checklist — worn as the QA hat, not just a diagram.
 ## Skills + commands it wraps
 - **Skill:** `craft-connect-flow` (navigation, shared state, entry/exit, transitions via the shell's `data-*`
   runtime; wireflow node rules).
-- **Command:** `/pb:flow`.
+- **Command:** `/pb:plan --flow`.
 
 ## Slice it owns
-- **`flow`** — the sole writer of this registry slice:
+- **`flow`** — the sole **author** of this registry slice (`/pb:build` may reconcile it per
+  `CLAUDE.md` § *Auto-sync* — insert a node, repair an edge — but never re-author it):
   `{ populated, mermaid, stories[], coverageWarnings[] }`.
   - `mermaid` — one `flowchart LR`: single `Start`, ≥1 `End`, no dead-ends, only the 6 shapes, 5–9 nodes
     (7±2), decisions end with `?`, branches labeled `-- Yes/No -->`, sentence case, no emojis/HTML/Title Case.
@@ -33,7 +34,8 @@ orchestration it **returns the `flow` patch**; the coordinator serializes writes
 ## Acceptance discipline
 Done when `flow.populated` is true with a rules-compliant `mermaid`, a `stories[]` entry per user story
 (each with categorized scenarios and a `path`/`nodes` that highlights on hover), and any coverage gaps
-recorded in `coverageWarnings[]`. It is decoupled — it runs only when invoked and performs no trio drift check.
+recorded in `coverageWarnings[]`. It runs only when invoked and performs no trio drift check; between
+invocations `/pb:build` keeps the slice in agreement.
 
 > **Skill degrade (NS6).** If a skill this agent invokes fails to load, say so explicitly and proceed with its
 > core intent — never silently skip the step.

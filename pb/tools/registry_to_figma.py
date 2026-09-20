@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-registry_to_figma.py — the deterministic registry → GHN DS Bridge node-JSON transformer (WS3).
+registry_to_figma.py — the deterministic registry → DS Bridge node-JSON transformer (WS3).
 
-The analog of render.py, but the target is the GHN DS Bridge plugin's declarative node JSON
+The analog of render.py, but the target is the DS Bridge plugin's declarative node JSON
 instead of HTML — so a code→Figma push costs ~0 model tokens (a token lever). The model NEVER
 hand-writes the node JSON. The output is pasted into the plugin's *Code → Figma* tab, which
 rebuilds it as real, linked component INSTANCES.

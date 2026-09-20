@@ -19,16 +19,35 @@ Kinds:
   components | screens — a list of entries keyed by `id`; <id> selects one entry.
   tokens | meta        — a nested dict; <id> is a **dotted key path** (e.g. `meta.name`,
                          `tokens.brand`, `tokens.color.bg`).
+  flow | erd           — same dotted-key form (`flow.mermaid`, `erd.table`). D-29: the
+                         auto-sync in /pb:build reads `flow mermaid` (~15 lines) to place a
+                         node without dragging every story's scenarios[] into context.
+
+Projection (D-17, `get` only — never `set`/`list`; shapes what's PRINTED, never writes):
+  --no-prose        — drop logicNotes/uiLogic/anatomy/spec/usage from the printed slice.
+                       At real-project scale these prose fields are the majority of a
+                       screen slice's bytes (logicNotes alone: ~70% of one screen) — the
+                       build loop reads/edits structure, not prose, so it shouldn't have
+                       to pull prose into context just to reach a sibling key.
+  --fields a,b,c    — emit ONLY these top-level keys, in the order given (not the slice's
+                       internal order — the caller's order is the stable one: the same
+                       --fields list produces the same shape from any entry). Every named
+                       field must exist on the resolved slice or `get` exits non-zero
+                       (a typo'd field name fails loudly rather than silently printing a
+                       partial or empty object).
+  Both together: --fields selects first, then --no-prose drops any prose key that
+  survived the selection.
 
 Writes use the canonical registry format — `json.dumps(indent=2, ensure_ascii=False)` + a
 trailing newline — so an empty-patch `set` is byte-identical (idempotent). Pure stdlib (NS4).
 
 Usage:
-  python3 slice.py get  <kind> <id> [--registry PATH]
+  python3 slice.py get  <kind> <id> [--registry PATH] [--no-prose] [--fields a,b,c]
   python3 slice.py set  <kind> <id> [--registry PATH] [--patch FILE]   # patch from FILE or stdin
   python3 slice.py list <kind>      [--registry PATH]
 
-Exit: 0 on success; non-zero with a message on error (unknown kind, missing id/key, bad JSON).
+Exit: 0 on success; non-zero with a message on error (unknown kind, missing id/key,
+unknown --fields name, bad JSON).
 """
 import argparse
 import json
@@ -36,8 +55,14 @@ import os
 import sys
 
 LIST_KINDS = ("components", "screens")   # id-keyed lists
-DICT_KINDS = ("tokens", "meta")          # dotted-key dicts
+# D-29: flow/erd joined the dict kinds so /pb:build's auto-sync can read `flow mermaid`
+# (~15 lines) without pulling every story's scenarios[] into context.
+DICT_KINDS = ("tokens", "meta", "flow", "erd", "content")   # dotted-key dicts
 KINDS = LIST_KINDS + DICT_KINDS
+
+# D-17: the prose keys --no-prose drops. Schema-11 may move these out of registry.json
+# entirely (a later wave's call) — until then this is the read-side workaround.
+PROSE_KEYS = ("logicNotes", "uiLogic", "anatomy", "spec", "usage")
 
 
 def _load(reg_path):
@@ -85,6 +110,39 @@ def _deep_merge(dst, patch):
     return dst
 
 
+def _parse_fields(raw):
+    """Split a `--fields a,b,c` value into a name list. None in, None out (flag unset)."""
+    if raw is None:
+        return None
+    fields = [f.strip() for f in raw.split(",") if f.strip()]
+    if not fields:
+        sys.exit("slice: --fields needs at least one field name")
+    return fields
+
+
+def _project(entry, fields, no_prose):
+    """Shape a slice for PRINTING only — never mutates `entry`, never writes.
+
+    --fields selects (in the caller's order; a missing name is a hard error, not a
+    silent drop) and --no-prose then removes any PROSE_KEYS key that survived."""
+    if fields is None and not no_prose:
+        return entry
+    if not isinstance(entry, dict):
+        if fields is not None:
+            sys.exit(f"slice: --fields needs a dict-shaped slice, got {type(entry).__name__}")
+        return entry  # --no-prose on a non-dict (e.g. a scalar token leaf) is a no-op
+
+    result = entry
+    if fields is not None:
+        missing = [f for f in fields if f not in entry]
+        if missing:
+            sys.exit(f"slice: --fields unknown key(s): {', '.join(missing)}")
+        result = {f: entry[f] for f in fields}
+    if no_prose:
+        result = {k: v for k, v in result.items() if k not in PROSE_KEYS}
+    return result
+
+
 def _read_patch(patch_file):
     raw = open(patch_file, encoding="utf-8").read() if patch_file else sys.stdin.read()
     if not raw.strip():
@@ -101,6 +159,7 @@ def cmd_get(args):
         entry = _find_entry(reg, args.kind, args.id)
     else:
         entry = _dotted_get(reg, args.kind, args.id)
+    entry = _project(entry, _parse_fields(args.fields), args.no_prose)
     print(json.dumps(entry, indent=2, ensure_ascii=False))
 
 
@@ -155,10 +214,7 @@ def cmd_list(args):
             if item.get("level"):
                 bits.append(f"[{item['level']}]")
             print("  ".join(bits))
-    elif args.kind == "meta":
-        for k in reg.get("meta", {}):
-            print(k)
-    else:  # tokens — print dotted paths of leaves (DTCG leaves carry $value)
+    elif args.kind == "tokens":  # print dotted paths of leaves (DTCG leaves carry $value)
         def walk(node, trail):
             if isinstance(node, dict) and "$value" in node:
                 print(trail)
@@ -167,6 +223,9 @@ def cmd_list(args):
                 for k, v in node.items():
                     walk(v, f"{trail}.{k}" if trail else k)
         walk(reg.get("tokens", {}), "")
+    else:  # meta | flow | erd — a plain dict: its top-level keys
+        for k in reg.get(args.kind, {}):
+            print(k)
 
 
 def main():
@@ -176,11 +235,16 @@ def main():
     def add_common(sp, with_id=True):
         sp.add_argument("kind", choices=KINDS)
         if with_id:
-            sp.add_argument("id", help="entry id (components/screens) or dotted key (tokens/meta)")
+            sp.add_argument("id", help="entry id (components/screens) or dotted key (tokens/meta/flow/erd)")
         sp.add_argument("--registry", default="registry.json", help="path to registry.json")
 
     g = sub.add_parser("get", help="print one slice as JSON")
     add_common(g)
+    g.add_argument("--no-prose", action="store_true",
+                    help="drop logicNotes/uiLogic/anatomy/spec/usage from the printed slice")
+    g.add_argument("--fields",
+                    help="comma-separated top-level keys to emit, in that order "
+                         "(combine with --no-prose to also drop any prose key that survives)")
     g.set_defaults(func=cmd_get)
 
     s = sub.add_parser("set", help="merge a patch into one slice (patch from --patch FILE or stdin)")

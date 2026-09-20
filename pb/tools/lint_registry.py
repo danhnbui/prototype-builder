@@ -16,8 +16,16 @@ projects don't hard-break — NS6, a migration path). Other rules are fixed seve
 
 Each finding prints as:  <SEVERITY> [<CODE>] <location>: <message>
 
-Usage:  python3 lint_registry.py [--strict] <registry.json>
+Usage:  python3 lint_registry.py [--strict] [--report] [--sync-elements] <registry.json>
+
+--report        rank, never gate: a histogram by code, the items carrying the most, the
+                shape metrics, and a "fix first" list. ALWAYS exits 0 — at 87 findings on a
+                real project a flat list is unreadable, and the ordering is the product.
+                Thresholds from an optional memory/doctor.json beside the registry.
+--sync-elements APPEND a screens[].elements[] entry per composed-but-undeclared component.
+                Append-only and idempotent; never edits, reorders or removes an entry.
 """
+import glob
 import json
 import os
 import re
@@ -47,6 +55,10 @@ _PBUSE = re.compile(r"pbUse\(\s*['\"]([a-z0-9][a-z0-9-]*)['\"]")
 
 ERROR, WARN = "ERROR", "WARN"
 
+# Set by the last check() run: how many var(--…) references were composed at runtime and so
+# could not be verified statically. --report prints it under information; it is never a finding.
+_TOKENREF_DYNAMIC = [0]
+
 
 class Finding:
     __slots__ = ("severity", "code", "where", "msg")
@@ -63,6 +75,195 @@ class Finding:
 
 def pascal(id_):
     return "".join(part[:1].upper() + part[1:] for part in str(id_).split("-") if part)
+
+
+# A part name that is PROSE, not a label: it carries sentence punctuation. R-NEST-HINT skips
+# these outright. Measured: 6 of the 12 hints on a real project came from matching a word
+# inside a description like "Toolbar — search + three filter comboboxes + download" (→ combobox)
+# or "Hidden input carrying the value" (→ input). A substring/token test cannot tell those from
+# a real label, so the discriminator is the punctuation that marks it as a sentence.
+_PROSE_NAME = re.compile(r"[—–,:;+()/]|\.\s|\S\s+\S+\s+\S+\s+\S+")
+_WORDS = re.compile(r"[a-z0-9]+")
+
+
+def _hint_component(name, ids_by_len):
+    """The component id a part NAME most likely refers to, or None (R-NEST-HINT).
+
+    Whole-token, longest-match, prose-rejecting — in that order. The old rule was a bare
+    substring test (`g in name.lower()`), which fired on any id appearing anywhere in a
+    10-word description. `ids_by_len` is the component-id list sorted longest-first so
+    'Department Tag Select' resolves to 'department-tag-select', not 'select', and
+    'Label Wrap' to 'label-wrap', not 'label' — the specific answer, not the first one.
+    """
+    raw = str(name or "").strip()
+    if not raw or _PROSE_NAME.search(raw):
+        return None
+    toks = _WORDS.findall(raw.lower())
+    if not toks or len(toks) > 4:
+        return None
+    joined = "-".join(toks)
+    for cid in ids_by_len:                     # longest id first → most specific wins
+        parts = cid.split("-")
+        n = len(parts)
+        if n > len(toks):
+            continue
+        if joined == cid:
+            return cid
+        # the id's words as a CONSECUTIVE run of the name's words
+        if any(toks[i:i + n] == parts for i in range(len(toks) - n + 1)):
+            return cid
+    return None
+
+
+# A `default` that is a STRING but opens like a collection literal. `'[]'` is not an empty
+# list — it is a two-character string, and `'[]'.map` is not a function.
+_COLLECTION_LITERAL = re.compile(r"^\s*[\[{]")
+
+
+# A `var(--name)` reference in a render body. Group 1 is the name, group 2 whatever follows
+# inside the parens — a fallback, or nothing. Names are captured loosely on purpose so a
+# runtime-composed one still matches and can be recognised as such rather than missed.
+_VAR_REF = re.compile(r"var\(\s*--([A-Za-z0-9_$\-]*(?:\$\{[^}]*\}[A-Za-z0-9_$\-]*)*)\s*(,[^)]*)?\)")
+# A name built by interpolation — `var(--bg-${tone}-muted)`, `var(--space-${size})`. Its real
+# value is only known at runtime, so it is counted and reported as information, never a finding.
+_VAR_DYNAMIC = re.compile(r"\$\{|\$\{?[A-Za-z_]")
+
+
+_CUSTOM_PROP = re.compile(r"(?m)^\s*--([A-Za-z0-9_-]+)\s*:")
+# The same, anywhere in a body — inline `style="--x:…"` and a generated <style> alike.
+_CUSTOM_PROP_ANY = re.compile(r"--([A-Za-z0-9_-]+)\s*:")
+_SHELL_PROPS_CACHE = []
+
+
+def _shell_custom_props():
+    """The custom properties the shipped shell declares in its own <style> — the OTHER producer
+    of `var(--x)`, beside the project's tokens. Returns None when the shell cannot be read, which
+    switches R-TOKENREF off rather than letting it report every shell variable as missing."""
+    if _SHELL_PROPS_CACHE:
+        return _SHELL_PROPS_CACHE[0]
+    path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                        "template", "prototype.html")
+    try:
+        with open(path, encoding="utf-8") as f:
+            html = f.read()
+    except OSError:
+        _SHELL_PROPS_CACHE.append(None)
+        return None
+    props = set()
+    for style in re.findall(r"<style[^>]*>(.*?)</style>", html, re.S):
+        props |= set(_CUSTOM_PROP.findall(style))
+    _SHELL_PROPS_CACHE.append(props or None)
+    return _SHELL_PROPS_CACHE[0]
+
+
+def _check_token_refs(add, reg, components, screens, base_dir, resolved):
+    """R-TOKENREF — a render body asks for a custom property that nothing will ever set.
+
+    The inverse of the unused-token count in --report, and the one that actually breaks a screen:
+    an unresolvable `var(--x)` makes the browser drop the whole declaration, silently, with no
+    console error. It happens when a token is renamed or retired and consumers still say the old
+    name, when a `$value` aliases something missing, or when a `$value` is a composite (shadow,
+    typography) that a single custom property cannot hold.
+
+    WHAT COUNTS AS A PRODUCER — getting this wrong is what makes a rule like this useless. Three
+    things legitimately set a custom property, and the first draft of this rule knew only the first:
+      1. the project's tokens (alias-resolved; composites are skipped, so they read as absent)
+      2. the SHELL, which declares 58 of its own (`--border`, `--font-body`, `--bg-soft`, …)
+      3. a render body, for a component-scoped property it sets and reads itself
+         (`--pb-stat-tone-bg`) or that a parent sets inline on its root (`--pb-tt-max`)
+    Resolving against (1) alone reported every golden component and both demo screens — all false.
+
+    AND A FALLBACK CHANGES THE QUESTION. `var(--x, y)` is a deliberate statement that `--x` may be
+    unset, so an absent name there is the design working, not a defect. It has exactly one failure
+    mode, and it is the nastiest in this whole class: if `--x` EXISTS but resolves to nothing, the
+    fallback does NOT apply — the declaration is invalid and is dropped. So:
+
+        no fallback + no producer      -> a finding
+        fallback    + resolves empty   -> a finding (the trap)
+        fallback    + simply absent    -> not a finding, ever
+
+    A name composed at runtime (`var(--bg-${tone}-muted)`) is not a name until it runs; those are
+    counted and reported as information. With no shell to read the rule does not run at all — a
+    check that cannot see one of its three producers is worse than no check.
+
+    Returns the count of runtime-composed references, which --report prints as information.
+    """
+    shell_vars = _shell_custom_props()
+    if shell_vars is None:
+        return 0
+
+    bodies = {}
+    for kind, items in (("component", components), ("screen", screens)):
+        for i, item in enumerate(items):
+            if not isinstance(item, dict):
+                continue
+            body = _body_of(item, base_dir)
+            if body and "--" in body:
+                bodies[(kind, i)] = body
+    # Producer 3, collected across ALL bodies: the component that SETS `--pb-tt-max` on a root is
+    # usually not the one that reads it.
+    body_vars = set()
+    for body in bodies.values():
+        body_vars |= set(_CUSTOM_PROP_ANY.findall(body))
+    producers = set(resolved) | shell_vars | body_vars
+    empty = {n for n, v in resolved.items() if isinstance(v, str) and not v.strip()}
+
+    dynamic = 0
+    for (kind, i), body in bodies.items():
+        if "var(--" not in body:
+            continue
+        dangling, trapped = set(), set()
+        for m in _VAR_REF.finditer(body):
+            name, fallback = m.group(1), bool(m.group(2))
+            if not name or _VAR_DYNAMIC.search(name):
+                dynamic += 1
+            elif name in empty:
+                trapped.add(name)
+            elif not fallback and name not in producers:
+                dangling.add(name)
+        if not dangling and not trapped:
+            continue
+        item = (components if kind == "component" else screens)[i]
+        where = f"{kind}s[{i}] id={item.get('id', '')!r}"
+        if dangling:
+            add(WARN, "R-TOKENREF", where,
+                "body references var(--%s) with no fallback, and nothing sets %s — not the token "
+                "document, not the shell, not any render body. The declaration is dropped silently."
+                % ("), var(--".join(sorted(dangling)), "it" if len(dangling) == 1 else "them"))
+        if trapped:
+            add(WARN, "R-TOKENREF", where,
+                "token(s) %s exist but resolve to nothing, so var(--…, fallback) does NOT fall "
+                "back — a fallback applies only when a property is UNSET. Give them a value or "
+                "remove them." % ", ".join(sorted(trapped)))
+    return dynamic
+
+
+def _check_prop_types(add, comp, where):
+    """R-PROPTYPE — a collection prop whose declared type and default disagree (D-26).
+
+    Two shapes, both measured on a real project and both wrong in the hand-off bundle a
+    developer receives:
+      1. type array/object, default a string   — `{"type":"array","default":"[{name:'…'}]"}`
+      2. type string, default a collection lit — `{"type":"string","default":"[]"}`
+
+    Why it matters beyond documentation: the design-system site builds a demo from
+    `default`, so a component whose body does `props.rows.map(...)` gets the STRING `'[]'`
+    and throws. 11 of 133 components on the real project fail exactly this way. The
+    prototype is unaffected — there a parent passes real props via pbUse and the default
+    never fires — which is why nothing caught it until the second site existed.
+    """
+    for j, pr in enumerate(comp.get("properties") or []):
+        if not isinstance(pr, dict):
+            continue
+        typ, dflt, pid = pr.get("type"), pr.get("default"), pr.get("id", f"#{j}")
+        if typ in ("array", "object") and isinstance(dflt, str):
+            add(WARN, "R-PROPTYPE", f"{where} properties[{pid!r}]",
+                f"type {typ!r} but default is a string ({dflt[:40]!r}…) — a demo built from "
+                f"this default gets a string, not a {typ}; use a real {typ} literal")
+        elif typ == "string" and isinstance(dflt, str) and _COLLECTION_LITERAL.match(dflt):
+            add(WARN, "R-PROPTYPE", f"{where} properties[{pid!r}]",
+                f"default {dflt[:40]!r} looks like a collection but type is 'string' — "
+                f"declare \"type\":\"array\" (or \"object\") and give a real literal")
 
 
 def check(reg, strict=False, base_dir=None):
@@ -125,6 +326,7 @@ def check(reg, strict=False, base_dir=None):
         if c.get("level") not in LEVEL_ENUM:
             add(ERROR, "R-LEVEL", where,
                 f"level {c.get('level')!r} missing or not in {sorted(LEVEL_ENUM)} — required (schema 9)")
+        _check_prop_types(add, c, where)
         _scan_body(add, _resolve_body(add, c, where, base_dir), where, hex_px_sev)
 
     # ── anatomy nesting: declared globals must be instanced (R-NEST / R-NEST-HINT) ──
@@ -135,6 +337,14 @@ def check(reg, strict=False, base_dir=None):
     # terms are DERIVED from the registry's actual global ids — no hardcoded names.
     global_ids = {cid for cid, c in comp_by_id.items()
                   if isinstance(c, dict) and c.get("scope") == "global"}
+    # R-NEST-HINT stays scoped to GLOBALS. D-10 makes a local orgId legal, but the hint's job
+    # is DS instance reuse in the Figma hand-off, which is a global concern; widening it to
+    # every component turned 12 hints into 64 on a real project — precise, and exactly the
+    # noise D-22 exists to remove. The local-child case is served by making it legal (above)
+    # and by --sync-elements for the screen half.
+    # Sorted longest-first so the most specific id wins (see _hint_component).
+    all_ids_by_len = sorted((cid for cid in comp_by_id if isinstance(cid, str)),
+                            key=lambda s: (-len(s.split("-")), -len(s), s))
     for i, c in enumerate(components):
         if not isinstance(c, dict):
             continue
@@ -147,21 +357,28 @@ def check(reg, strict=False, base_dir=None):
             where = f"components[{i}] id={cid!r} part#{p.get('n')}"
             org = p.get("orgId")
             if org is not None:
-                target = comp_by_id.get(org)
-                if target is None:
+                # D-10: an orgId may reference ANY registry component, local or global.
+                # The old rule ERRORed on a local target, which contradicted R-COMPOSE-MATCH
+                # by construction: on a real project non-atom components compose 132
+                # local-child edges, so of 57 components carrying the composed-not-declared
+                # warning only 4 could be cleared by declaring globals — 39 were blocked
+                # outright. registry_to_figma.py already lowers a non-DS child as a FRAME
+                # from anatomy, so the restriction guarded nothing. The Figma publish-key
+                # concern stays with R-NEST-FIGMA.
+                if comp_by_id.get(org) is None:
                     add(ERROR, "R-NEST", where,
                         f"part orgId {org!r} resolves to no component")
-                elif target.get("scope") != "global":
-                    add(ERROR, "R-NEST", where,
-                        f"part orgId {org!r} is scope={target.get('scope')!r}; only "
-                        f"scope:'global' components may be nested as reused instances")
             elif c.get("scope") != "global":
-                # drift detector: a part that LOOKS like a global but doesn't declare it
-                nm = str(p.get("name", "")).lower()
-                hit = next((g for g in global_ids if g in nm), None)
-                if hit:
+                # drift detector: a part that LOOKS like a component but doesn't declare it
+                # Resolve against EVERY component, then emit only when the best match is a
+                # global. A part named 'Toggle Input' resolves to the local `toggle-input`,
+                # not the global `input` — and now that a local orgId is legal (D-10),
+                # suggesting `input` there would be wrong advice. A check that would print a
+                # wrong answer stays quiet instead (D-08).
+                hit = _hint_component(p.get("name"), all_ids_by_len)
+                if hit and hit in global_ids:
                     add(WARN, "R-NEST-HINT", where,
-                        f"part name {p.get('name')!r} looks like it nests global {hit!r} "
+                        f"part name {p.get('name')!r} looks like the component {hit!r} "
                         f"but has no orgId — add \"orgId\":\"{hit}\" to force instance reuse "
                         f"in the Figma hand-off")
 
@@ -269,6 +486,11 @@ def check(reg, strict=False, base_dir=None):
             add(WARN, "R-DANGER", "tokens",
                 f"runtime-required token {req!r} is missing — the error runtime styles "
                 f"with var(--{req}); add it or fresh submits show no danger border")
+
+    # The other direction, and the one that actually breaks a screen: a body asking for a
+    # custom property the token document cannot supply. R-DANGER above checks four names pb's
+    # own runtime needs; this checks every name the PROJECT's bodies reference.
+    _TOKENREF_DYNAMIC[0] = _check_token_refs(add, reg, components, screens, base_dir, resolved)
 
     # ── flow / erd shape sanity when populated ────────────────────────────────
     flow = reg.get("flow") or {}
@@ -455,11 +677,194 @@ def _report(findings, label, ok_msg):
     sys.exit(2 if errors else 1)
 
 
+def sync_elements(reg, path, base_dir):
+    """--sync-elements (D-11): APPEND a screens[].elements[] entry per composed-but-undeclared
+    component. Returns (added, undeclared_report).
+
+    Append-only, and every rule here is load-bearing:
+      * never edit, reorder or remove an existing entry — on a real project the 208 existing
+        entries carry hand-written labels averaging 345 chars (111 with a date) plus token
+        lists; regenerating them destroys authoring nobody can reproduce;
+      * declared-but-not-composed is REPORTED, never deleted (it may be a not-yet-built part);
+      * idempotent — a second run is a byte-for-byte no-op.
+    Measured on a real project: 66 composed-but-undeclared, 0 declared-but-not-composed, so
+    append-only clears the screen half of R-COMPOSE-MATCH completely.
+    """
+    added, stale = [], []
+    for s in reg.get("screens") or []:
+        if not isinstance(s, dict):
+            continue
+        body = _body_of(s, base_dir) or ""
+        composed = set(_PBUSE.findall(body))
+        els = s.setdefault("elements", [])
+        declared = {e.get("orgId") for e in els if isinstance(e, dict) and e.get("orgId")}
+        for oid in sorted(composed - declared):
+            els.append({"id": oid, "label": f"(auto) composed {oid}",
+                        "orgId": oid, "state": "default"})
+            added.append((s.get("id"), oid))
+        for oid in sorted(declared - composed):
+            stale.append((s.get("id"), oid))
+    if added:
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(json.dumps(reg, indent=2, ensure_ascii=False) + "\n")
+    return added, stale
+
+
+def _pascal_calls(text, cid):
+    """True when `text` reaches component `cid` other than through pbUse — i.e. a direct
+    `renderCmpX(...)` or `window['renderCmpX'](...)`. The sidebar is reached exactly this
+    way from header-footer-app, and missing it is what made a naive orphan check report 36
+    orphans on a project that has none."""
+    return f"renderCmp{pascal(cid)}" in text
+
+
+def report(reg, path, base_dir, findings):
+    """--report (D-22): rank, never gate. Always exits 0.
+
+    lint emits 87 flat warnings on a real project — accurate and unreadable. The product
+    here is the ORDERING: which code dominates, which item carries the most, and what the
+    shape metrics say. Thresholds come from an optional memory/doctor.json beside the
+    registry (absent → the measured defaults below), which is what keeps this at schema 10.
+    """
+    import collections
+    th = {"body_lines_warn": 500, "body_lines_high": 1000, "registry_kb": 500,
+          "slice_kb": 20, "decisions_kb": 500}
+    cfg = os.path.join(base_dir or ".", "memory", "doctor.json")
+    if os.path.isfile(cfg):
+        try:
+            th.update(json.load(open(cfg, encoding="utf-8")))
+        except (OSError, json.JSONDecodeError):
+            print("note: memory/doctor.json unreadable — using defaults")
+
+    comps = reg.get("components") or []
+    screens = reg.get("screens") or []
+    items = [x for x in comps + screens if isinstance(x, dict)]
+    bodies = {}
+    for it in items:
+        b = _body_of(it, base_dir)
+        if b:
+            bodies[it.get("id")] = b
+    joined = "\n".join(bodies.values())
+
+    print("── findings by code " + "─" * 40)
+    by_code = collections.Counter(f.code for f in findings)
+    for code, n in by_code.most_common():
+        sev = "ERROR" if any(f.severity == ERROR for f in findings if f.code == code) else "warn"
+        print(f"  {n:5d}  {code:<18s} {sev}")
+    if not findings:
+        print("  (none)")
+
+    print("\n── items carrying the most " + "─" * 33)
+    per_item = collections.Counter(
+        m.group(1) for f in findings for m in [re.search(r"id='([^']+)'", f.where)] if m)
+    for iid, n in per_item.most_common(8):
+        print(f"  {n:5d}  {iid}")
+    if not per_item:
+        print("  (none)")
+
+    print("\n── shape " + "─" * 51)
+    reg_kb = os.path.getsize(path) / 1024 if os.path.isfile(path) else 0
+    # Count each BODY FILE once. Three screens can share one renderSrc (they do on a real
+    # project), and counting it per screen would report 16 oversized bodies where there are 14.
+    by_src = {}
+    for it in items:
+        src = it.get("renderSrc") or it.get("id")
+        if it.get("id") in bodies:
+            by_src.setdefault(src, (it.get("id"), bodies[it["id"]]))
+    lines = {ident: text.count("\n") + 1 for ident, text in by_src.values()}
+    over = sorted((n, k) for k, n in lines.items() if n > th["body_lines_warn"])
+    high = [x for x in over if x[0] > th["body_lines_high"]]
+    biggest = max(lines.items(), key=lambda kv: kv[1], default=("—", 0))
+    slices = sorted(((len(json.dumps(it, ensure_ascii=False)), it.get("id")) for it in items),
+                    reverse=True)
+    def flag(cond):
+        return "  ⚠" if cond else ""
+    print(f"  registry            {reg_kb:8.0f} KB{flag(reg_kb > th['registry_kb'])}")
+    print(f"  components/screens  {len(comps):5d} / {len(screens)}")
+    print(f"  tokens              {len(reg.get('tokens') or {}):5d}")
+    print(f"  bodies > {th['body_lines_warn']:<4d} lines {len(over):5d}{flag(over)}"
+          f"   > {th['body_lines_high']} lines: {len(high)}")
+    print(f"  largest body        {biggest[0]} ({biggest[1]} lines)")
+    if slices:
+        print(f"  largest slice       {slices[0][1]} ({slices[0][0] / 1024:.0f} KB)"
+              f"{flag(slices[0][0] / 1024 > th['slice_kb'])}")
+    dec = os.path.join(base_dir or ".", "memory", "decisions.md")
+    d_kb = 0
+    if os.path.isfile(dec):
+        d_kb = os.path.getsize(dec) / 1024
+        sibs = len(glob.glob(os.path.join(base_dir or ".", "memory", "decisions-*.md")))
+        rotated = f"  (+{sibs} rotated sibling{'s' if sibs != 1 else ''})" if sibs else ""
+        print(f"  decisions log       {d_kb:8.0f} KB{flag(d_kb > th['decisions_kb'])}{rotated}")
+
+    print("\n── information (never a finding) " + "─" * 27)
+    # Orphans. GUARDED: a component is reached by pbUse OR by a direct renderCmp* call.
+    # Without the second clause this reports 36 on a project whose true count is 0.
+    used = set(_PBUSE.findall(joined))
+    orphans = [c.get("id") for c in comps if isinstance(c, dict)
+               and c.get("id") not in used and not _pascal_calls(joined, c.get("id", ""))]
+    print(f"  components reached by nothing      {len(orphans)}"
+          + (f"  {orphans[:6]}" if orphans else ""))
+    # Unused tokens. INFORMATION by decision: a design system ships full ramps, so an
+    # unreferenced token is not a defect. Runtime-composed names are honoured.
+    names = []
+    _tok_walk(reg.get("tokens") or {}, "", names)
+    dyn = set(re.findall(r"var\(--([a-z0-9-]*)'\s*\+", joined)) | \
+          set(re.findall(r"'--([a-z0-9-]*)'\s*\+", joined))
+    unref = [n for n in names
+             if f"--{n}" not in joined and not any(p and n.startswith(p) for p in dyn)]
+    print(f"  tokens never referenced            {len(unref)} of {len(names)}"
+          f"   (a DS ships full ramps — not a defect)")
+    st = reg.get("staleness")
+    if isinstance(st, dict) and st and all(
+            all(v == 0 for v in g.values()) for g in st.values() if isinstance(g, dict)):
+        print("  staleness                          present but all zero — nothing writes it (deprecated)")
+
+    print("\n── fix first " + "─" * 47)
+    rank = []
+    if any(f.severity == ERROR for f in findings):
+        rank.append(f"{sum(1 for f in findings if f.severity == ERROR)} error(s) — these block --strict")
+    if by_code.get("R-COMPOSE-MATCH"):
+        # --sync-elements only writes screens[].elements[]; components declare theirs by hand.
+        # Recommending it once the screen half is already clear sends the reader in a circle.
+        screen_half = sum(1 for f in findings
+                          if f.code == "R-COMPOSE-MATCH" and f.where.startswith("screens["))
+        rank.append(f"{by_code['R-COMPOSE-MATCH']} R-COMPOSE-MATCH — run --sync-elements to clear "
+                    f"the screen half ({screen_half})" if screen_half else
+                    f"{by_code['R-COMPOSE-MATCH']} R-COMPOSE-MATCH, all on components — the screen "
+                    f"half is clear; declare each component's elements[] by hand or drop the claim")
+    if by_code.get("R-PROPTYPE"):
+        rank.append(f"{by_code['R-PROPTYPE']} R-PROPTYPE — each one is a component that cannot demo, and wrong docs in the hand-off")
+    if high:
+        rank.append(f"{len(high)} body/bodies over {th['body_lines_high']} lines — use slice.py --no-prose to keep context small")
+    if d_kb > th["decisions_kb"]:
+        rank.append(f"decisions log at {d_kb:.0f} KB — rotate it: "
+                    f"decisions_rotate.py memory/decisions.md --apply "
+                    f"(whole entries, by date, verified lossless)")
+    for i, r in enumerate(rank, 1):
+        print(f"  {i}. {r}")
+    if not rank:
+        print("  nothing ranked — clean")
+    print()
+
+
+def _tok_walk(node, trail, out):
+    for k, v in node.items():
+        if isinstance(k, str) and k.startswith("$"):
+            continue
+        name = f"{trail}-{k}" if trail else k
+        if isinstance(v, dict) and "$value" in v:
+            out.append(name)
+        elif isinstance(v, dict):
+            _tok_walk(v, name, out)
+
+
 def main():
     args = sys.argv[1:]
     strict = "--strict" in args
     figma = "--figma" in args
-    args = [a for a in args if a not in ("--strict", "--figma")]
+    do_report = "--report" in args
+    do_sync = "--sync-elements" in args
+    args = [a for a in args if a not in ("--strict", "--figma", "--report", "--sync-elements")]
 
     # --figma: cross-check the registry against figma-transfer.json (nested-global reuse).
     if figma:
@@ -472,11 +877,32 @@ def main():
         return
 
     if len(args) != 1:
-        sys.exit("usage: lint_registry.py [--strict] <registry.json>  |  "
-                 "lint_registry.py --figma <registry.json> <figma-transfer.json>")
+        sys.exit("usage: lint_registry.py [--strict] [--report] [--sync-elements] <registry.json>"
+                 "  |  lint_registry.py --figma <registry.json> <figma-transfer.json>")
     path = args[0]
     reg = _load_json(path)
-    findings = check(reg, strict=strict, base_dir=os.path.dirname(os.path.abspath(path)))
+    base_dir = os.path.dirname(os.path.abspath(path))
+
+    # --sync-elements: an append-only registry write, then stop. Never combined with a report
+    # run, so the numbers a report prints always describe the file as it is on disk.
+    if do_sync:
+        added, stale = sync_elements(reg, path, base_dir)
+        for sid, oid in added:
+            print(f"  + screens[{sid!r}].elements[]: {oid}")
+        for sid, oid in stale:
+            print(f"  ? screens[{sid!r}] declares {oid!r} but the body does not compose it "
+                  f"— left in place; remove it by hand if it is stale")
+        print(f"lint_registry.py --sync-elements: {len(added)} appended, "
+              f"{len(stale)} declared-but-not-composed, 0 removed — {path}")
+        sys.exit(0)
+
+    findings = check(reg, strict=strict, base_dir=base_dir)
+
+    # --report: ranks and never gates (D-22). Always exit 0, whatever the findings say.
+    if do_report:
+        report(reg, path, base_dir, findings)
+        sys.exit(0)
+
     _report(findings, "lint_registry.py --strict" if strict else "lint_registry.py", f"clean — {path}")
 
 

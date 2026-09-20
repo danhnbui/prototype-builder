@@ -5,13 +5,13 @@ R2 lets a project emit code, not just the HTML prototype, at one of three tiers.
 meta fields carry that:
 
   - `meta.outputTier`   — which tier the project's export targets:
-                          "host"     (the default — the runnable single-file prototype, /pb:validate),
+                          "host"     (the default — the runnable single-file prototype, /pb:handoff --tier=host),
                           "scaffold" (deterministic registry → React+Tailwind, no MCP),
                           "hardened" (DS-integrated, repo-matched — resolved via MCP + review).
                           Defaults to "host" (== pre-R2 behavior).
   - `meta.exportTarget` — the machine-readable export/production target, mirroring the Stack Lock
                           (e.g. "html", "react-tailwind", "react-antd"). null until set at
-                          /pb:init or /pb:handoff-dev. The Stack Lock in constitution.md is the
+                          /pb:init or /pb:handoff. The Stack Lock in constitution.md is the
                           human-facing record; this is the field tools read. (Migrations never
                           write constitution.md — memory_notes() advises recording it there.)
 
@@ -51,7 +51,7 @@ def describe():
 
 
 def memory_notes():
-    return ("Projects can now export code via /pb:handoff-dev --tier=host|scaffold|hardened. "
+    return ("Projects can now export code via /pb:handoff --tier=host|scaffold|hardened. "
             "Record the intended export target in the Stack Lock of memory/constitution.md "
             "(e.g. \"Export target: react-tailwind\") — meta.exportTarget mirrors it for the "
             "tooling. No constitution edit is auto-applied; defaults are safe (tier \"host\", "

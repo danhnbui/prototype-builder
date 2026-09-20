@@ -28,7 +28,7 @@ Locked at `/pb:init`. A switch requires explicit approval **and** a `decisions.m
 
 > The Stack Lock records the **intended production** language/framework — it guides design decisions and
 > component thinking. It does **not** change the prototype artifact: the prototype is always rendered
-> **HTML** (`prototype.html` from `registry.json`), regardless of the lock. `/pb:validate` wraps that single
+> **HTML** (`prototype.html` from `registry.json`), regardless of the lock. `/pb:handoff --tier=host` wraps that single
 > file in a runnable reference build; it does not emit framework-specific component source (NS9).
 
 ## Design System Lock
@@ -50,8 +50,8 @@ one server / two routes); duplicates are pruned automatically.
 
 ## Figma Hand-off
 
-Every export to Figma goes through `/pb:build-figma-handoff` — never hand-draw prototype frames into
-Figma directly. Default is **BRIDGE mode**: `registry_to_figma.py` lowers the registry to **GHN DS
+Every export to Figma goes through `/pb:handoff` — never hand-draw prototype frames into
+Figma directly. Default is **BRIDGE mode**: `registry_to_figma.py` lowers the registry to **DS
 Bridge node JSON** (INSTANCE-by-key + token refs, auto-layout on every frame), which is pasted into the
 plugin's *Code → Figma* tab and rebuilt as linked instances. The Figma MCP is a read-only **context**
 provider (match/enrich at G-FP3/G-FP4), never the writer. The **offline G-FP6 audit** must pass on the

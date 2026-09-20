@@ -16,6 +16,9 @@ dist/
 .claude/settings.local.json
 .claude/launch.json
 
+# Temporary read-only reference clone of a real project (review only — NEVER commit; erased when the remediation ends)
+/.reference/
+
 # Local preview scratch (not a plugin deliverable)
 /registry.json
 /prototype.html

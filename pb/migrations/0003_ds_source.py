@@ -55,5 +55,5 @@ def memory_notes():
     return ("The design system is now a cloned, verifiable source. Run /pb:pull-ds to clone "
             "your DS into design-system/<name>/ (+ registry tokens + a .source.json snapshot); "
             "meta.dsSource then records where it came from and meta.platform its platform. "
-            "/pb:check-drift will audit the clone against that source. No constitution edit is "
+            "/pb:test --drift will audit the clone against that source. No constitution edit is "
             "required — these fields default safely (platform \"web\", dsSource null).")

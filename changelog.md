@@ -2,6 +2,455 @@
 
 All notable changes to Product Builder. Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [2.0.0] — 2026-09-20
+
+*A major, for one reason: **twenty-four commands became twelve and the old names were deleted, not
+aliased** — see Removed below, and [docs/upgrade-to-2.0.md](docs/upgrade-to-2.0.md) to move a project
+across. Alongside that: `/pb:test` stops grading its own homework, a trade-off is stored as the rule
+it always was (**schema 12**), the UX Design tab is restructured into five segments, and the `flow` /
+`erd` slices stop being something you had to remember to refresh.*
+
+### Removed — BREAKING
+
+**Twenty-four commands became twelve, and the twelve retired names were deleted rather than
+aliased.** This is the whole reason 2.0.0 is a major. An old name is not redirected — it reports
+that no such command exists. Nothing in an existing project stores these names; they live in habits
+and in team docs.
+
+| Retired | Run instead |
+|---|---|
+| `/pb:flow` · `/pb:sync-flow` | `/pb:plan --flow` |
+| `/pb:data` · `/pb:sync-erd` | `/pb:plan --data` |
+| `/pb:check-drift` | `/pb:test --drift` |
+| `/pb:validate` | `/pb:handoff --tier=host` |
+| `/pb:preview-ds` | `/pb:preview`, then the `/design-system` route |
+| `/pb:build-check-design-system` | `/pb:build` — now §3a of the loop, automatic |
+| `/pb:build-figma-handoff` | `/pb:handoff` → mode 3 (Figma) |
+| `/pb:handoff-close` · `/pb:hand-off` | `/pb:handoff` → mode 1 (everything) |
+| `/pb:handoff-dev` | `/pb:handoff` → mode 2 (engineering) |
+
+[AGENTS.md](AGENTS.md) §2 requires a backward-compat alias for every rename, to be dropped only in
+a later major. These shipped without one, so by §2's own logic the release carrying them is that
+major (**D-34**). The aliases are not added retroactively — a major is precisely where a removal is
+allowed to land, and stubbing twelve commands would buy a smaller version number in exchange for
+twelve more files to keep in step.
+
+**Upgrading an existing project takes about five minutes:
+[docs/upgrade-to-2.0.md](docs/upgrade-to-2.0.md).**
+
+### Added
+
+- **`/pb:test` plans the run, then delegates the grading (D-32).** D-31 stopped a verdict from outliving
+  the code it described; this stops it from being written by the context that authored the design. Two
+  steps of a test run are model judgment — the constitution-drift audit and the summary — and both ran in
+  the same window that built the thing under test, which reads its own intent and scores the intent.
+  - **§2a — a plan of record.** Before anything executes, `/pb:test` writes
+    `memory/test-plans/<stamp>.md`: **one item per test case**, each a binary question, admissible only
+    if it opens *Does/Did/Is/Are/Was*, names the single observation that settles it, needs nothing from
+    the spec or the conversation to answer, and is phrased so **`yes` means the check held**. Uniform
+    polarity is what lets a plan be tallied mechanically. The question belongs to the **lane** and is
+    stated once in its heading, so a plan is a handful of small tables — `| # | Scenario | Answer |
+    Evidence |` — rather than a page of restated sentences.
+  - **Never an open question.** *Should · Consider whether · Is it correct that*, anything answerable
+    *it depends*, anything asking whether coverage is **sufficient** or **worth adding**, anything asking
+    for a rating — rejected and rewritten. A check that cannot be phrased admissibly produces **no item**:
+    project health ranks rather than judges, so it contributes none. **`blocked`** is not a third answer —
+    it is an item never reached, it names its blocker, and it never counts toward a pass.
+  - **§2b — sonnet subagents.** `pb-tester` on `model: sonnet`, one per lane, ≤25 items each, ≤8 per run,
+    dispatched in one message. Each gets the plan path, its item ids, the registry and its lane's command —
+    and explicitly **not** the spec, the plan, the decisions log, the prior `lastResult` (*"it was green
+    last time"* is the same bias by another door), or any framing from the authoring session. Each returns
+    `<id> · yes|no|blocked · <evidence>` rows and nothing else; recommendations are not a tester's output.
+  - **§11 — reconcile, don't summarize.** Every plan id gets exactly one answer, an unanswered item is
+    `blocked` rather than dropped, evidence is quoted rather than paraphrased, and a returned `no`
+    **cannot be overturned** — disagreement earns a new row and a fresh agent, with both shown.
+    `--no-delegate` self-grades and stamps every judged item as such.
+  - **The chat output is short.** Rows are filled back into the plan file in place; what prints is a
+    header, one line per `no` or `blocked`, and `<N> items · <Y> held · <Z> failed · <B> blocked`.
+    Held items are a count and a file path — a report that prints 38 successes buries the three lines
+    worth reading. Evidence is one line each: the observation, never a narrative.
+- **A trade-off is a rule, so it is stored as one — schema 12 (D-33).** v2.0.0 moved `meta.tradeoffs[]`
+  into UX Design → Logic *because* a trade-off is a rule captured at the moment it was decided (D-30),
+  and then left it as a separate array, with a separate view, a separate capture step and a separate
+  renderer. The reasoning arrived at the right place and stopped one step short. It is now a field on
+  the rule:
+  - **`ia.rules[].decision{ question, options[], chose, why, status?, supersededOn?, affects? }`** —
+    any rule, any kind, and the card draws it. `options[]` carries what **lost**, which is the one
+    thing a rule cannot state for itself and the entire reason this was ever a separate record.
+  - A fourth kind, **`decision`**: a rule you have settled but not yet expressed as a state machine, a
+    matrix or a constraint. Upgrading it later is a `kind` change and the block stays.
+  - `[SUPERSEDED <date>]` in a title becomes **`decision.status`**. That convention existed because the
+    schema had no status field; now it does. A title written the old way still renders dimmed.
+  - **Migration `0010`** converts every trade-off, stamping `origin: "tradeoff"` so the rollback can put
+    it back. A rule edited since the migration is kept as a rule and reported, never demoted. The field
+    is **emptied, not removed** (`AGENTS.md` §3), and `down()` refills it byte-for-byte.
+  - `/pb:clarify` no longer has a trade-off task. It writes the rule and its decision in one act, and
+    still appends one `decisions.md` entry each — now naming the rule id it produced.
+  - **The Others sub-tab goes with it.** `meta.others` had no schema, no writer and no check, and both
+    slices that own its content (`content`, `ia.rules[]`) exist. The field stays in the registry;
+    removal waits for a major.
+  - **A project that has not migrated loses nothing.** Its trade-offs still render in Logic → Rules,
+    through the same decision renderer, under a banner naming the one command that converts them. D-30
+    refused to hide 12k characters of someone's terminology; this refuses to hide 22 of their decisions.
+- **Stale-claim detection — a verdict and a rule now carry what they were computed from (D-31).**
+  Three surfaces asserted things nothing re-checked. On a real project three scenarios read
+  `3/3 passing` after **141 of 141** render bodies had changed underneath them; `ranAt` was written
+  but read by nothing except a tooltip.
+  - `logic_extract` emits **`itemHash`**, a digest per item of its own body plus everything it
+    composes. `/pb:test` stamps `lastResult.inputs` for the screens a scenario actually exercises,
+    and the shell shows a verdict whose inputs moved as **stale** (`⟳`), never as pass. That project
+    now reads `0/3 passing · 3 stale`, which is the true statement.
+  - `logic_extract` emits **`stateWriters`**: which declared states the code actually puts the system
+    into — but only when the rule declares `stateField` (the property holding the state) and marks
+    computed states `derived`. Without it the check makes no claim, because an unqualified scan
+    cannot tell a domain state from a UI variant sharing the word, nor an assigned machine from a
+    derived one.
+  - **`L-RULEREF`** in `logic_check.py`: every function name a rule cites — `implementedBy[]`,
+    `readers[]`, `implemented[].name`, `invariants[].enforcedBy` — must resolve in the derived graph.
+- **Compare — one screen, two devices, at their real widths.** The Sandbox menu gains a **Compare**
+  switch: turn the mode on and the same screen renders twice, side by side, on exactly one more
+  device (the picker appears under the switch, with the primary and the unsupported sizes
+  disabled). Switching it on chooses the first available second device, so the toggle does
+  something the moment you flip it rather than arming an empty state. Each frame lays out at
+  its **true CSS width** (1280 really is 1280, so the wrapping and the media queries are the real
+  ones) and the pair shares **one** `scale()`. That last part is the whole design: fitting each frame
+  to its own box would draw a 429px phone the same size as a 1280px laptop, which destroys the only
+  thing a side-by-side is for. Each frame is captioned with its device and size, and choosing the
+  compared device as the primary drops the compare rather than pairing a device with itself. A
+  `ResizeObserver` on the stage re-fits the pair when the structure panel takes the width — a single
+  frame rides that out in CSS, but a scale computed in JS at render time does not.
+- **Two frames, one session.** Both frames show the same screen, so anything that happens inside that
+  screen has to happen in both or the comparison is a lie. Screen navigation re-renders and always
+  did; everything under it did not — a wizard step, a revealed password, a typed value, a validation
+  error each landed only in the frame that was clicked. A `MutationObserver` re-serialises the acting
+  frame's `innerHTML` into its twin, which is general by construction: both frames hold identical
+  markup, so an element's twin is the node in the same position, and the mirror carries whatever
+  `registry.runtime[]` invents next without knowing a single verb by name. The three things
+  `innerHTML` does not hold are carried as the DOM properties they are — `value` / `checked` /
+  `selectedIndex` on an input and change listener, `scrollTop` / `scrollLeft` on a capturing scroll
+  listener. **Scroll is half of in-page navigation**: a jump to a section, a `scrollIntoView`, a
+  re-render that returns to the top all move one frame, and the twin, put back where it was, was
+  simply not looking at the content that had arrived — the content reached both devices, only one of
+  them showed it. It carries as a **proportion**, since two frames of different widths lay the same
+  screen out at different heights.
+- **Two frames, two radio groups.** A radio button group is every radio sharing a name *and a form
+  owner*, across the whole document — so two frames of one screen is two of every radio in it, and the
+  browser treats them as one group where only one can be checked. The second frame's radio silently
+  unchecked the first frame's, with no event and no mutation to notice it by. A project that drives
+  its in-page navigation from CSS-only radio state — `:has(#view-a:checked) .view-a { display:flex }`,
+  which is how a prototype gets tabs and master-detail without a line of JS — therefore rendered its
+  content in **exactly one** of the two frames, and the other looked empty. It was not empty: it was
+  showing a view that had lost its radio. Each secondary frame now gets an empty `<form>` of its own
+  and its radios point at it, which is the other half of what defines a group and the half nothing
+  selects on: same names, same ids, the project's CSS untouched. It is re-applied after every mirror
+  copy, because `innerHTML` brings the original attributes back with it.
+- **One frame drives the session.** Two frames in one document means every id in a screen body exists
+  twice, so a project's own handler splits down the middle: `this` and `closest` find the frame that
+  was clicked, `document.getElementById` always finds the first one. A click in the second frame ran
+  half in each — the pane switched in frame A while the tab highlight moved in frame B — and the
+  mirror then copied one half over the other, leaving **both** frames showing a state that never
+  existed. A click in a secondary frame is replayed on the primary frame's twin node, so the handler
+  runs once, in one frame, with `this` and the ids agreeing, and the mirror carries the result back.
+  The second frame stays live; it is just not a second session, which is what the shared id space had
+  already decided. What the browser drives itself is left alone — a text field, a select and a label
+  keep their own click so the caret stays in the frame being typed in, and ⌥-click stays frame-local
+  because the inspector is read-only.
+- **The Prototype tab's browser chrome is a Chrome window.** Chrome's own metrics and Chrome's own
+  neutrals — window controls, a tab with the concave notch where it meets the toolbar, real icons in
+  place of the `‹` and `⟳` glyphs, and an omnibox that de-emphasises everything but the host, the way
+  Chrome does. The greys are deliberately **not** registry tokens: painting the tab strip in
+  `var(--neutral-10)` made the browser take on the project's brand, so in a screenshot you could not
+  tell where the product ended and the window began. Only the favicon and the profile avatar carry
+  the project's colour, because in real Chrome those are the two things the site supplies. `app` gains
+  the same window controls. Furniture that does nothing (forward, extensions, the kebab) is inert and
+  `aria-hidden` rather than `disabled`: it is not a control pb declined to implement, it is Chrome's.
+- **A phone now runs a phone's browser.** `browser` + mobile rendered the desktop tab strip inside a
+  429px bezel — the shell's one plainly impossible screenshot. Mobile gets a status bar and a single
+  address pill with a tab counter. Tablets keep the tab strip; iPads really do show one.
+- **…and a tablet runs a tablet's browser.** The tab strip was the right call; everything around it was
+  the desktop's. `browser` + tablet drew macOS traffic lights, a window kebab and an extensions puzzle
+  inside an iPad bezel, and — because only the desktop branch drew any of it — the tablet was the one
+  device whose **OS status bar disappeared** the moment you switched Chrome from App to Browser, which
+  is backwards: a status bar belongs to the device, not to the chrome mode. A tablet browser is now the
+  status bar, a tab strip and a toolbar, with the window manager's furniture gone. The **Dynamic Island**
+  went with it: it is a phone's camera housing, and an iPad does not have one — it was a black pill sitting
+  in the middle of every tablet status bar for no reason anybody could name.
+
+- **A third rule kind — `constraint`.** `ia.rules[]` could draw a state machine or a matrix and nothing
+  else, so a rule that is neither — most scoring rules — rendered as a title over a paragraph with the
+  enforcement point left unnamed. A `constraint` rule carries `invariants[]` (`must` / `enforcedBy` /
+  `when` / `message?`) and draws them as a table, each `enforcedBy` linking into the derived ripple.
+  An invariant with **no** `enforcedBy` renders as a warning: a stated rule nothing enforces is the
+  finding, not a blank cell. Unknown kinds still degrade to title + summary.
+- **Content — the fifth UX Design segment, and the `content` registry slice.** One place for the words
+  the product uses. `terms[]` is the glossary: what a domain word means, what else the team says for it
+  (`aka`), and what it is deliberately never called (`avoid`). `strings[]` is the wording deck: the
+  canonical text for every action, status, label, title, empty state, toast and error, grouped by `kind`.
+  A term may carry `rule: "<ia.rules id>"`, which links it to the Logic segment and back.
+
+  Both halves are **hand-authored** — no tool derives either — so the segment runs exactly one check, and
+  runs it on authored data only (D-08 Kind A): a wording, **or a declared rule's state or overlay label**,
+  that uses a word another term banned. Scanning rule labels is the half that earns its keep: a rule is
+  transcribed from a spec once and then nothing re-reads it, so its labels are the wording most likely to
+  drift from the code. On a real 143-item project it caught two on the first render.
+
+  `content` is **optional and additive** — absent, the segment renders an empty state, so per
+  `pb/migrations/manifest.py`'s own rule (bump on *a new required field, a shape change, a renamed key*)
+  **`CURRENT_SCHEMA` stays at 11**. `slice.py` gains `content` as a dict kind, so `get content terms`
+  reads the glossary without dragging the wording deck along.
+
+  **Known gap, stated plainly:** nothing *writes* `content` yet — no command, agent or tool authors it.
+  It is the fifth registry slot pb ships with a reader and no writer (`ia.rules[]`, `ia.jobs[]`,
+  `logic/*.writes[]`, `logic/*.affordances[].why` are the others). Seeded by hand until that is fixed.
+- **The logic contract — `logic/{components,screens}/<id>.json` via `logicSrc` (schema 11, D-28).**
+  Two halves, and the split is the point. **Derived** — `seam`, `handlers`, `disclosure` — is written
+  by `logic_extract.py --contracts` and rewritten every run, so it cannot drift from the code it
+  describes. **Hand-authored** — `writes[]` and `affordances[].why` — is never touched by a tool,
+  because static derivation traces which store slices a file *reads* but not which it *mutates*: the
+  mutation happens inside a store helper. `writes[]` is the one thing a human has to state, and the
+  Logic tab's ripple view draws it beside the derived reads.
+- **`registry.runtime[]` — a project's own module layer.** Real `.js` files inlined **before** every
+  render body, plus declared third-party dependencies (`url` → a `<script src>` in the head). This
+  retires the fake-component hack: on the project this was measured against, three components whose
+  render bodies return `''` carried **2,567 lines and 103 functions** purely to obtain a module scope,
+  and a parser had to be hand-injected by editing the shell. `/pb:preview` watches `runtime/**/*.js`.
+- **Two runtime verbs that earned their place.** `data-machine` / `data-step` (with `data-step-pane`,
+  `data-step-go`, `data-step-initial`, `data-step-dot`, and `pbSetStep()` for the transitions a click
+  cannot express) replaces four copies of one six-state wizard carrying **63** bespoke
+  `data-<prefix>-state` attributes and a per-copy CSS block. `data-preserve` marks what survives a
+  re-render — `pbPreserve(fn)` captures, re-renders, restores, then fires `input`+`change` once
+  everything is back — retiring **24** call sites that each passed a hand-maintained list of element
+  ids. Both live in `runtime.js`, so both sites get them.
+- **The `ia` slice** (`jobs[]` in the three-field JTBD form, `layers[]` with one declared purpose each).
+- **`logic_extract.py --contracts`** (with `--dry-run`): refreshes the derived half, leaves every other
+  key exactly as the author wrote it, rewrites nothing when nothing changed, and points the registry at
+  any contract it does not yet reference.
+- **`meta.shell: 'none'`** — a third chrome option beside `browser` and `app`: the screen renders
+  flat, with no tab strip, no synthesised URL and no window frame. The browser metaphor is set
+  dressing on an internal back-office tool and costs 77px of height. Tablet and mobile keep their
+  device frame and status bar — that is a phone, not a browser.
+- **`decisions_rotate.py`** — the why-log rotation D-21 specified and the first pass of this release
+  did not ship, while five files told users their glob must be `decisions*.md` **because** rotation
+  moves older entries. Size-triggered (500 KB, never the calendar), whole entries chosen **by their
+  own heading date** — a real log runs 22 August entries, then 86 July, then 78 August, so "the
+  tail" is not "the oldest" — undated entries pinned, every touched file backed up, and the whole
+  `decisions*.md` family compared entry for entry afterwards. On a real 875 KB / 187-entry log:
+  497 KB live + 378 KB archived, all 187 byte-identical. `lint --report` names it past the threshold.
+- **`R-TOKENREF`** — a lint rule for the `var(--x)` that nothing will ever set. An unresolvable
+  custom property makes the browser drop the whole declaration, silently; pb counted *unused* tokens
+  and never asked the question that actually breaks a screen. Three things count as producers (the
+  project's tokens, the shell's own 58, and a property a body sets itself) and a fallback changes the
+  question — `var(--x, y)` is a finding only when `--x` exists and resolves to **empty**, the one
+  case where a fallback does not apply. Seven of its nine tests are a false-positive corpus.
+
+### Changed
+
+- **UI Logic Trade-offs moved from Project Summary to UX Design → Logic (D-30).** A third view beside
+  Rules and Ripple. A trade-off *is* a rule captured at the moment it was decided, carrying the one
+  thing no rule can — the options that lost — so it belongs beside the rules it produced rather than
+  in a tab read before building and never during. `meta.tradeoffs[]`, `/pb:clarify` and the
+  `memory/decisions.md` mirror are all unchanged; only where it is read moved. The renderer now
+  honours a `[SUPERSEDED <date>]` prefix on `title` (dashed, dimmed, chipped) — a convention projects
+  invented because the schema has no `status` field.
+
+- **Flow and Data ride the trio (D-29).** After a **trio-touching** patch (a screen, a component,
+  logic), `/pb:build` reconciles the `flow` and `erd` slices **in the same turn** — a new screen gains
+  a node, its edges and a story stub; a removed one loses them; a new data-bearing field gains an
+  `erd.table[]` row. Canonical rule: `CLAUDE.md` § *Auto-sync*; the step is `build.md` §4.5, and
+  `/pb:orchestrate` runs it **once per wave**, between apply and render. Four bounds keep it cheap:
+  reconcile never regenerate, populated slices only, never re-author, defer restructuring. **Non-trio
+  tweaks still skip it** — load-bearing rule 3 is unchanged. `/pb:flow` and `/pb:data` remain the
+  *authors* of their slices (first population, the five-lens QA pass, any restructuring).
+- **UX Design is four segments** — Logic · Information Architecture · User Flow · Test Cases. Test
+  Cases is promoted out of the User Flow aside into its own segment; Information Architecture becomes a
+  50/50 job list | site map split with the role filter inside the job list, and JTBDs that no screen
+  serves are flagged there.
+- **`slice.py` gained `flow` and `erd` dict kinds**, so the reconcile can read `flow mermaid` (~15
+  lines) without dragging every story's `scenarios[]` into context.
+
+### Deprecated
+
+- **`meta.others` (D-30).** The only registry field with no schema, no writer and no check — a raw
+  HTML string. It had become the dumping ground for exactly the things that had no home: on a real
+  project, 12,466 characters of roles, status sets, entities, terminology, fixed column wording and
+  business rules. Those now have `content` and `ia.rules[]`, so `others` is the symptom, not a
+  feature. The field stays in the registry (`AGENTS.md` §3) and its tab renders **only while it is
+  non-empty**, under a banner naming the slice that owns each kind of content — deprecating it by
+  silently hiding 12k characters of someone's terminology would be data loss, not a tidy-up.
+
+### Fixed
+
+- **Chrome · None did nothing.** `PB_SHELL_OPTS` offered the third option, `PB_SHELLS` mapped it, the
+  CSS styled it and `protoChrome` honoured it — and `setProtoShell` still read
+  `v === 'app' ? 'app' : 'browser'`, quietly coercing the third value back to the first. Four layers,
+  three of them agreeing, and the button lit up while the tab strip stayed. It validates against
+  `PB_SHELLS` now. A second, **two**-option chrome toggle was still being built a few lines above in
+  `renderPrototype` — dead since v1.9 along with the rest of the header-tool builders, and the reason
+  a third option was easy to miss; all of it is gone, with the CSS that dressed it.
+- **The structure tree opened where you could not see it, then closed itself.** Its toggle lives in
+  the Sandbox popover, and the popover is anchored over the exact strip of page the panel slides
+  into — so flipping the switch appeared to do nothing. The panel you could not see was then
+  dismissed by your next click anywhere in the prototype. Toggling now closes the menu so the result
+  is visible, the click-outside dismissal is gone (a panel you explicitly opened should not vanish
+  when you use the thing it describes), and the panel has its own heading and ✕.
+- **The scenario list read "scenario" for every row.** It keyed on `sc.title`, a field the authored
+  shape has never had — `/pb:plan` writes `{ text, category, test }`. The menu now lists each runnable
+  scenario by its **description**, the same sentence UX Design → Test Cases shows, with the last-run
+  glyph in front of it; picking one jumps to the screen the scenario starts on and names it, instead
+  of being an inert list. The row is called **Scenario testing**: nothing about it involves a terminal.
+- **Reset session sat above the controls it resets.** It is last in the box now, under a divider.
+- **The structure panel described the page you were looking at.** Under every screen it listed each
+  entry in `elements[]` and the component it points at — three lines of description per screen, and
+  the half most likely to be wrong, since `elements[]` is a declaration that drifts (`R-COMPOSE-MATCH`
+  exists because of it). It is **page names only** now, indented by depth in the derived nav graph so
+  a screen sits under whatever reaches it, flat when a project has no graph. ⌥-click already answers
+  *what is this element*, and it answers from the DOM.
+- **Chrome and Device disagreed about what "selected" looks like.** Two segmented picks in the same
+  menu, one filling solid brand and one a soft tint — the soft one was an override added for the
+  popover and never applied to its neighbour. Stated once now, for both.
+- **A long scenario list was unreadable.** Scenarios are authored as full sentences, so forty of them
+  made a wall of prose in a dropdown. They are grouped by the story that owns them (`<optgroup>`, so
+  the scope is stated once rather than implied per row) and each is clamped to its first line, with
+  the whole sentence in the option's tooltip.
+- **`pbProtoSubmit` scoped validation to `.proto-device`, a class the shell has never emitted.** The
+  fallback therefore reached `document` every time. With one frame that was the same thing; with two
+  it made frame B's submit validate frame A's empty inputs and refuse to navigate. It scopes to
+  `.proto-screen`. `pbResetSandbox` and `pbApplyRoleGating` were `#proto-frame`-only for the same
+  reason and are now frame-agnostic — an ungated second copy of a gated screen would show a role
+  exactly what it may not see.
+- **A rule's state machine drew scope and timeline as the same kind of thing — and with three
+  overlays the bands collided with the states.** The state baseline was a constant (`y = 74`) while
+  the overlay stack grows per band, so the third one landed on the boxes. Beyond the collision, a band
+  was a rounded pill overshooting its span by a few pixels, which made *"holds across all five states"*
+  and *"holds across three"* look alike, and its label floated in the middle of a full-width band,
+  attached to nothing. The two are now different things on the page: the bands get their own **Scope**
+  zone with a rule under it and the states are captioned **Timeline**; each band aligns **exactly** to
+  the boxes it spans, with square corners and solid end caps (a span has ends, a pill does not) and its
+  label at the start of the span; bands sort **widest first**, so a narrower scope sits visibly inside a
+  wider one, and the table's overlay rows follow the same order; and the baseline and SVG height are
+  computed from the stack instead of guessed.
+- **Test Cases is a master–detail split: cards on the left, the case at 50% width on the right.** On the
+  reference project the tab stacked 22 coverage notes (17,249 chars, longest 2,057) and 6 scenarios
+  (7,307 chars, longest **2,404**) as full paragraphs — one scenario alone filled a screen.
+  - **The card** carries the verdict glyph, the lens chip, the date, a two-line claim and one dim line
+    saying what running it involves (`from quan-ly-chu-ky · 1 step · 4 expects · as hr`). Clicking it
+    opens the panel; clicking it again, or `Esc`, closes it. **The two columns scroll independently** —
+    the segment owns the viewport height rather than sitting in the page scroller, so reading a long
+    case never drags the list out of view and the panel's close button stays pinned; under 900px the
+    split stacks onto the page's own scroller. The claim is the authored `title`, else it
+    is derived — the text's first strong break at least 24 characters in, capped at 110, never ending
+    inside a parenthesis. The minimum is the part that matters: breaking at the first delimiter yields
+    *"Cổng trọng số"*, a fragment that identifies nothing. Delimiters are punctuation, not words, so it
+    holds in any language, and the claim is always a **prefix** of the authored text, never a paraphrase.
+  - **The panel** is the only place the whole text appears, and it appears structured: the verdict
+    (story · verdict · detail · last run), **How it runs** — the `test{}` block said as sentences, with
+    the asserted value bold (`The frame reads **"Chưa bắt đầu"**`, `No console error fires`) — and the
+    author's notes.
+  - **The notes keep the structure the author already wrote.** Newlines separate blocks, `·` opens a
+    bullet, backticks become code, `**…**` is honoured, and a block over 400 characters with no newlines
+    at all — all 22 gap notes — is broken where a sentence starts with an ALL-CAPS run, because that is
+    how this author marks a new thought (`CẬP NHẬT 2026-08-10`). **Emphasis is reported, never
+    invented**: a run is bold because the author capitalised it. Single short caps words are skipped
+    (HR, KPI, UI and PRD are nouns, not shouting) and hyphen guards keep it out of identifiers, so
+    `T-ROLE-EL` never renders as T-**ROLE**-EL. The longest note yields 9 bold runs in 2,057 characters.
+- **`coverageWarnings[]` gains optional `title` and `status`.** `status` is `open` (default) ·
+  `resolved` · `accepted`; only `open` rides the warning rail and counts in the tally, while settled
+  ones stay visible below a divider. Two of the reference project's 22 notes open with *"ĐÃ GIẢI
+  QUYẾT"* — resolved weeks earlier — and several more record deliberate decisions, yet all 22 counted
+  as open gaps. A fixed gap and an accepted one are both records worth keeping; counting them as open
+  makes the number wrong. Both fields are optional and additive: a project that authored neither
+  renders and counts exactly as before.
+- **`render.py`'s logic cache ignored the extractor itself.** `_logic_key` fingerprinted the
+  registry and the render bodies but not `logic_extract.py`, so teaching the extractor to derive
+  something new left a long-running `/pb:preview` serving the old graph forever — the data never
+  changed, so the cache never missed. The same staleness bug as D-31, one level up.
+
+- **`/pb:update-version` escaped every non-ASCII character** it wrote (`json.dump`'s default), so a
+  migration on a project with non-English content rewrote every line that had any and inflated the
+  file — measured at 900 KB → 1.06 MB on a real registry, for a migration that changed 126 keys. It
+  now writes UTF-8, and reads and writes every file with an explicit encoding.
+- **`runtime.js` was physically duplicated into `prototype.html`** — 291 lines existing twice,
+  kept in step by a test rather than by the build, and this release had grown them from 156. Both
+  shells now take the runtime through the `/*__PB_RUNTIME__*/` marker `design-system.html` already
+  used: `prototype.html` drops **7,062 → 6,774 lines** and the drift class goes away. Removing it
+  exposed a bug it had been hiding — `logic_extract` learns the shell's globals by reading that
+  file, so `pbUse` moving out made **every composed body in every project** report `L-UNDEF`. The
+  extractor now reads the shell and `runtime.js` together, which is what the rendered page is.
+- **The golden fixture referenced two custom properties that do not exist** — `--space-1` (its
+  space ramp starts at `space-2`) and `--text-xs` (the shell's name is `--font-size-xs`), so the
+  `text-input` component's gap and error-text size had been silently inherited. Found by
+  `R-TOKENREF` on its first run.
+- **The prototype inlined three graph fields nothing on the page reads** — `handlers[].bodyHash`
+  (the largest single field), `handlers[].localCalls` and `items[].shellVerbs`, all of them for
+  tools rather than for the shell. `build_html` now inlines a projection: **50 KB off every render
+  and every hand-off**, with the full graph unchanged for `logic_check --freeze`.
+- **`test.roles` now scopes the shell's scenario list**, not just `test_run.py`'s execution — the
+  role half of D-27 reached the runner but not the list a reviewer reads.
+- **A Mermaid `[[subprocess]]` node was painted input-purple** while the legend promised
+  subprocess-grey. Mermaid emits both as a `<polygon>` with no `<line>`s, so the point count is the
+  only thing telling them apart.
+- **The DS site's runtime drift-guard checked three canary lines**, which pass happily while a helper
+  added to `runtime.js` is missing from `prototype.html`'s physically duplicated copy. It now compares
+  the entire block, byte for byte.
+- **`slice.py list` fell through to the tokens tree** for any dict kind but `meta` — latent before this
+  release (only `tokens`/`meta` existed), surfaced by adding `flow`/`erd`. Each dict kind now lists its
+  own keys; `tests/slice_cli.py` guards it.
+- **The IA segment threw away a site map it had already derived.** `pbRenderIA()` returned the "No jobs
+  yet" empty state for the *whole* tab whenever `ia.jobs` was empty — but the site map is derived from
+  the nav graph and needs no authored job at all. On a real 143-item project with **10 screens placed,
+  hubs and overlays resolved**, the tab rendered nothing. The two columns now answer for themselves: the
+  map draws whenever `nav.depth` has screens, and "No jobs yet" is confined to the job-list column.
+  `pbRenderSiteMap` tolerates an absent `ia` (layer names fall back to `Layer <n>`), and every node
+  keeps flagging itself `no job`, so an unauthored IA reads as honestly incomplete rather than absent.
+
+### Notes
+
+- `staleness{}` **stays in `registry.json`** per D-19 / `AGENTS.md` §3 ("never remove or repurpose an
+  existing field in place"). Only the shell's reader is gone.
+- **Schema 10 → 11.** Run `/pb:update-version --apply`. Migration `0009` is additive and **copies**
+  prose — `logicNotes` and `uiLogic` are not deleted, not moved, not one character rewritten — which
+  makes it pb's first information-lossless rollback. Proven on a copy of a real 143-item project:
+  apply, roll back, and the whole directory is byte-for-byte what it was.
+- Three verb candidates were **rejected on measurement**, not on taste. `data-save` — an attribute
+  cannot express the project-specific middle of a save. `data-group`/`data-panel` — it would replace a
+  `:has()` mechanism with **0** R1/R2 violations across 222 uses, which is a downgrade. `data-bind` —
+  deferred.
+- No deterministic test can assert that a model reconciled a flow; the trio / non-trio / unpopulated
+  rehearsal must be re-run by hand whenever `build.md` §4.5 is edited.
+
+- **Deferred, on the record.** This major does *not* spend itself on the three fields
+  [AGENTS.md](AGENTS.md) §3 parks behind one: `staleness`, `meta.tradeoffs[]` and `meta.others` stay
+  **emptied, not removed**, so nothing reading them breaks and a later major can still drop them.
+- **Known issue — `clone_ds.py` and null token values.** A design system whose `$value`s are `null`
+  clones with a `✓` while both resolvers silently drop the dead tokens, leaving a render that falls
+  back to shell defaults and looks plausible. Measured on a real DS export (68 tokens). Unowned; see
+  [DESIGN.md](DESIGN.md).
+
+## [1.11.1] — 2026-09-19
+
+*P0 render fix. A real project at scale rendered **blank on both routes** under v1.11.0; the cause was
+one line in `render.py`.*
+
+### Fixed
+- **`render.py` no longer blanket-escapes `</` in render bodies.** `_escape_body` used to rewrite every
+  `</` → `<\/`. That is correct for the one sequence that can end a `<script>` element — the literal
+  `</script` — but it also hit the JS **regex literal `/</g`**, the standard HTML-escape idiom
+  `.replace(/</g, '&lt;')`, turning it into `/<\/g`: an unterminated regex that killed the entire inline
+  script (`Uncaught SyntaxError: Invalid regular expression`). A project with 17 such bodies showed a
+  blank prototype **and** a blank design-system site. The escape is now **narrow** — `</script` only,
+  case-insensitive, word-bounded — which is what the HTML spec requires and what a JS body can tolerate.
+  Both render targets share the fix (`_render_fn_bodies`). The `json.dumps` escapes for the inlined
+  registry and node JSON are unchanged: `\/` is a valid JSON escape and JSON has no regex literals.
+- New regression guard **`tests/render_escape.py`**: the unit probe (`/</g` untouched, `</script`
+  escaped in any case), both targets rendered with a `/</g` body and a literal `</script>` string
+  (closer count must equal the shell's), and — when `node` is on PATH — a syntax check of the emitted
+  script plus a negative control proving the old blanket escape fails it.
+
+### Notes
+- `lint_registry.py`'s `R-SCRIPT` still flags a literal `</script` in a body (belt and suspenders).
+- Discovered by serving a real project through the shipped tools rather than a fixture; that project had
+  been running on a hand-patched plugin copy with exactly this narrow escape, so upstream never saw it.
+
 ## [1.11.0] — 2026-07-24
 
 *One registry, two sites. `registry.json` now projects into a 4-tab prototype **and** a live design-system site — both deterministic renders, both served by one `/pb:preview`. The UI Design tab is retired.*
@@ -12,7 +461,7 @@ All notable changes to Product Builder. Format follows [Keep a Changelog](https:
   **variant grid** (cartesian product over its enum properties) and — when **interactive** — a **live
   clickable demo**. Interactivity is auto-detected by keyword: a `state` property *or* body wiring
   (`data-action`/`data-nav`/`onclick`/`<button>`/`<input>`/…). Token foundations render as swatches.
-- **Push to Figma, per component.** Each component carries its GHN DS Bridge node JSON (pre-computed by
+- **Push to Figma, per component.** Each component carries its DS Bridge node JSON (pre-computed by
   `registry_to_figma.build_component_nodes`) in a copy dialog — paste into the plugin's *Code → Figma* tab.
   Unresolved DS keys are honest gaps, never invented.
 - **Shared runtime (`pb/template/runtime.js`).** The render/interaction helper set is single-sourced and
