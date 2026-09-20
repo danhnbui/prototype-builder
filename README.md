@@ -85,10 +85,10 @@ If `/pb:init` says Python isn't installed, it will tell you exactly how to fix i
 | `/pb:build` | The cheap loop: targeted `registry.json` patches, trio-gated, no per-tweak render; `--render` to view |
 | `/pb:pull-ds` | Clone the design system (DS MCP → Figma link → code library → common) → registry tokens + a scannable reference + a `.source.json` drift snapshot; records `meta.dsSource` + `meta.platform` |
 | `/pb:preview` | Live preview dev server: watch `registry.json` → render → live-reload the browser (start once, leave running) |
-| `/pb:preview-ds` | Storybook-style server for the cloned DS: token foundations as swatches + the component catalog (read-only) |
+| `/pb:preview` | Storybook-style server for the cloned DS: token foundations as swatches + the component catalog (read-only) |
 | `/pb:test` | Sandbox testing: scenario `test{}` blocks (functional), `--roles`, `--server`, `--security`, `--explore` → live ✓/✗ glyphs |
 | `/pb:explore` | Parallel design options: N `pb-builder` agents propose alternatives → compare → keep one |
-| `/pb:build-check-design-system` | DS-first reuse → variant → local + naming contract |
+| `/pb:build` | DS-first reuse → variant → local + naming contract |
 | `/pb:handoff` | One-way registry → Figma (6 gates incl. G-FP6 render audit, DS-neutral, auto-layout) |
 | `/pb:plan --flow` | UX Design / Flow — wireflow + test checklist (authoring; `/pb:build` keeps it in sync) |
 | `/pb:plan --data` | Data — field/type/example table + ERD (authoring; `/pb:build` keeps it in sync) |

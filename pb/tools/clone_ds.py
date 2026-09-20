@@ -111,7 +111,7 @@ def _render_reference_md(name, tokens, components):
               "- **R2 · Variant before spawn.** New state/size/style → add a variant, never a second component.",
               "- **R3 · Auto-layout.** Every Figma frame uses auto-layout; no absolutely positioned children.",
               "- **R4 · Naming.** Kebab-case `id`, unique; `renderFn` = `renderCmp{PascalCase}`.", "",
-              "## Naming contract  (enforced by `/pb:build-check-design-system` and `/pb:handoff`)", "",
+              "## Naming contract  (enforced by `/pb:build` and `/pb:handoff`)", "",
               "- `id` — kebab-case, globally unique. tokens — DTCG `$type ∈ color|dimension|fontFamily|shadow|…`; no raw hex/px.", ""]
     return "\n".join(lines)
 

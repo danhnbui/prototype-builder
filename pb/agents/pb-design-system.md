@@ -1,6 +1,6 @@
 ---
 name: pb-design-system
-description: Use when a component is added or changed to decide reuse vs extend-with-a-variant vs build-local, and to manage design tokens under the naming contract. Wraps /pb:build-check-design-system as the DS-first gate for pb-builder.
+description: Use when a component is added or changed to decide reuse vs extend-with-a-variant vs build-local, and to manage design tokens under the naming contract. Wraps /pb:build as the DS-first gate for pb-builder.
 tools: Read, Edit, Write, Bash, Grep, Glob
 model: inherit
 ---
@@ -15,7 +15,7 @@ enforces the naming contract so the registry stays clean and deduped.
 - **Skills:** `build-check-design-system` (the reuse/variant/local decision + naming contract),
   `design-component-build` (author a new local component when nothing fits), `figma-use` (only when a write
   to a Figma canvas is in play — fail-closed rituals, token/variable binding).
-- **Command:** `/pb:build-check-design-system` (sub-command of `/pb:build`).
+- **Command:** `/pb:build` (sub-command of `/pb:build`).
 
 ## Slice it owns
 - **`tokens`** — the design-token slice (add a `"scope":"local"` token only when nothing fits; never a raw

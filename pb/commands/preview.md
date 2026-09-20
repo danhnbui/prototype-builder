@@ -42,6 +42,31 @@ Leave it running. Each `/pb:build` (no `--render` needed) re-renders and reloads
 A registry that won't render (invalid JSON mid-edit, a missing shell anchor) shows a recoverable
 error page with the cause — fix and save, and it reloads clean.
 
+## 2b · The `/design-system` route — the component workbench
+
+The second route is the design-system site, and it is the same server: no second command, no second
+process. Absorbs the former `/pb:preview-ds`, which existed only to say "open the other route".
+
+It live-renders **this project's** components — never the upstream clone — grouped by `scope` → atomic
+`level`, through `render.build_ds()`, the SAME renderer `render.py --ds` uses. It inlines the registry,
+the shared `runtime.js` and the emitted `renderCmp*` bodies, so a component renders identically here and
+in the prototype; nothing is duplicated. A component or token edit re-renders **both** routes.
+
+- **Interactive is auto-detected.** A component gets a live, clickable demo when it declares a `state`
+  property **or** its body wires interaction (`data-action` / `data-nav` / `onclick` / `<button>` /
+  `<input>`). Everything else gets the variant grid only — the cartesian product of its enum
+  `properties`. A `state`-less interactive component is a defect; declare `state` when you add
+  interaction (see `/pb:build` §3a).
+- **Push to Figma** on a component emits its DS Bridge node JSON to paste into the plugin's
+  *Code → Figma* tab. Unresolved DS keys are honest gaps — resolve them at `/pb:pull-ds` Scan DS, never
+  invent one.
+- **Token foundations** render as swatches beneath the components.
+- **To disk** (a hand-off snapshot, not a preview): `--write` writes both files, or run
+  `render.py --ds registry.json design-system.html runtime.js <out>.html [ds-catalog.json]`.
+
+*(Retired with it: `ds_serve.py`, which browsed the upstream `.source.json` clone's metadata. This live,
+registry-driven site superseded it. The `.source.json` snapshot stays — `/pb:test --drift` reads it.)*
+
 ## 3 · One canonical launcher entry (only if you use an in-app preview pane)
 Viewing in a browser needs no `launch.json`. If you use an in-app **preview pane** (which reads
 `.claude/launch.json`), keep exactly **one** entry per project. After `serve.py` prints its bound port,

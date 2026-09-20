@@ -1,11 +1,11 @@
 ---
 name: design-component-build
-description: Build a new local component for Product Builder — its render body file, anatomy/spec, state variants, and token-only styling at the right atomic level. Use when /pb:build-check-design-system decides "build local" (nothing existing fits). Produces the registry entry + the render/components/<id>.js body. Not for deciding reuse-vs-build (that is /pb:build-check-design-system) or screen-level purpose (use ref-blueprint).
+description: Build a new local component for Product Builder — its render body file, anatomy/spec, state variants, and token-only styling at the right atomic level. Use when /pb:build decides "build local" (nothing existing fits). Produces the registry entry + the render/components/<id>.js body. Not for deciding reuse-vs-build (that is /pb:build) or screen-level purpose (use ref-blueprint).
 ---
 
 # design-component-build
 
-Construct a new **local** component once `/pb:build-check-design-system` has ruled out reuse and variant.
+Construct a new **local** component once `/pb:build` has ruled out reuse and variant.
 The output is a registry `components[]` entry plus its render body file.
 
 ## 1 · Pick the atomic level

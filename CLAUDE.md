@@ -15,17 +15,15 @@ the playbook, [prototype-builder.md](prototype-builder.md) (authored in Phase 2)
 | `/pb:clarify` | User Insights + UI Logic Trade-offs → Project Summary; append trade-offs to `decisions.md` | P4 |
 | `/pb:plan` | Implementation plan **+** per-tab task breakdown (acceptance · skill · **agent · deps · slice**) **+** first authoring of the `flow` and `erd` slices (`--flow` / `--data` / `--mock`). Routine changes need none of it — `/pb:build` reconciles both automatically | P4 |
 | `/pb:orchestrate` | Dispatch `memory/tasks.md` to the agent roster in dependency **waves** — serial registry writes, render once per wave, `acceptance`-gated | P4 |
-| `/pb:build` | The cheap loop: targeted `registry.json` patches, trio-gated, **no per-tweak render** | P3 |
-| `/pb:preview` | Live preview dev server: watch `registry.json` → deterministic render → live-reload. **Serves both sites**: the prototype at `/` and the **design system** at `/design-system` | P3 |
-| `/pb:preview-ds` | Open the **design-system site** (the `/design-system` route of `/pb:preview`) — live components: interactive demo + variant grid + push-to-figma + token foundations. *(Supersedes the old `ds_serve.py` upstream-clone browser.)* | P3 |
+| `/pb:build` | The cheap loop: targeted `registry.json` patches, trio-gated, **no per-tweak render**. §3a is the DS-first check on every new/changed component (reuse → variant → local + the naming contract) | P3 |
+| `/pb:preview` | Live preview dev server: watch `registry.json` → deterministic render → live-reload. **One server, two routes** — the prototype at `/` and the design-system workbench at `/design-system` (§2b: live demo + variant grid + Push-to-Figma + tokens) | P3 |
 | `/pb:test` | **Check everything.** No flag = scenarios · roles · server · security · constitution drift · ranked health · shell coherence · DS drift, one verdict. A mode flag narrows it (`--drift` is the old `/pb:check-drift`) | P3 |
 | `/pb:explore` | Parallel design options: N `pb-builder` sub-agents propose alternatives → compare → keep one | P3 |
-| `/pb:build-check-design-system` | *(sub)* DS-first: reuse vs extend-variant vs build-local; enforce the naming contract | P3 |
 | `/pb:handoff` | **The one hand-off command.** Asks who is receiving it: **1** everything incl. a vendored Product Builder (recipient keeps building) · **2** engineering — `prototype.html` + `design-system.html` + `logic.md` + `rules.md` + `constitution.md` · **3** Figma, lowered deterministically then written through the MCP (falls back to the DS Bridge plugin). One command; no sub-commands | P6 |
 | `/pb:validate` | Wrap `prototype.html` in a runnable reference build (Vite/Next) — serves the single file, not a component export | P6 |
 | `/pb:update-version` | Versioned schema update: dry-run / `--apply` / `--rollback` / `--to <N>` | P6 |
 
-> **Retired — the files are gone, not stubbed** (see AGENTS.md §2: this needs a major bump). `/pb:flow` + `/pb:data` → `/pb:plan --flow` / `--data` (and their older `sync-` aliases) · `/pb:check-drift` → `/pb:test --drift` · `/pb:handoff-close`, `/pb:handoff-dev`, `/pb:hand-off`, `/pb:build-figma-handoff` → `/pb:handoff`. 24 commands became 15.
+> **Retired — the files are gone, not stubbed** (see AGENTS.md §2: this needs a major bump). `/pb:flow` + `/pb:data` → `/pb:plan --flow` / `--data` (and their older `sync-` aliases) · `/pb:check-drift` → `/pb:test --drift` · `/pb:handoff-close`, `/pb:handoff-dev`, `/pb:hand-off`, `/pb:build-figma-handoff` → `/pb:handoff` · `/pb:build-check-design-system` → `/pb:build` §3a · `/pb:preview-ds` → `/pb:preview` §2b. 24 commands became 13.
 
 > Shipped as a Claude Code **plugin** (`pb@product-builder`, defined in `./.claude-plugin/marketplace.json` + `./pb/`) — commands invoke as `/pb:*`. After install, **restart Claude Code** to load them. (G1 decision: plugin ✓)
 

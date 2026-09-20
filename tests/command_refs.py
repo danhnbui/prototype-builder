@@ -4,7 +4,7 @@ command_refs.py — every /pb:* reference resolves, and the router table matches
 
 The gap this closes: nothing guarded command cross-links. `skill_refs_lint.py` checks that a
 skill a command invokes exists; no test checked that a COMMAND another file points at exists.
-So v1.13.0's merge — 24 commands down to 15 — could have left `/pb:flow`, `/pb:check-drift` and
+So the merge — 24 commands down to 13 — could have left `/pb:flow`, `/pb:check-drift` and
 `/pb:handoff-close` referenced from 36 files with a green sweep, and the first person to follow
 one would hit a command that is not there.
 
@@ -29,12 +29,14 @@ import sys
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CMD_DIR = os.path.join(ROOT, "pb", "commands")
 
-# Retired in v1.13.0. They may still be NAMED (a retirement note, a "the old X" aside) but must
-# not exist as files and must not be presented as runnable.
+# Retired when 24 commands merged into 13. They may still be NAMED (a retirement note, an
+# "absorbs the former X" aside) but must not exist as files, and must not be presented as runnable.
 RETIRED = {
-    "flow", "data", "sync-flow", "sync-erd",      # → /pb:plan --flow / --data
-    "check-drift",                                 # → /pb:test --drift
+    "flow", "data", "sync-flow", "sync-erd",                             # → /pb:plan --flow / --data
+    "check-drift",                                                       # → /pb:test --drift
     "handoff-close", "handoff-dev", "hand-off", "build-figma-handoff",   # → /pb:handoff
+    "build-check-design-system",                                         # → /pb:build §3a
+    "preview-ds",                                                        # → /pb:preview §2b
 }
 
 SKIP_PREFIX = ("changelog.md", "docs/", ".venv/")

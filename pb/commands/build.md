@@ -70,9 +70,62 @@ The **trio** = a **screen**, a **component**, or **logic** (states, validation, 
    is a grep that misses. On `no/revise` → stop / adjust.
 2. **Stack Lock.** Honor `memory/constitution.md` → Stack Lock. A language/framework switch needs
    explicit approval **and** a `decisions.md` entry.
-3. **DS / component.** For any new or changed component, run **`/pb:build-check-design-system`**
-   (DS-first: reuse → variant → local; naming contract). Invoke skills as needed:
-   `think-layout` (layout), `think-logic` (state/rules), `design-component-build` (new custom component).
+3. **DS / component.** For any new or changed component, run **§3a** below — DS-first: reuse →
+   variant → local, then the naming contract. Invoke skills as needed: `think-layout` (layout),
+   `think-logic` (state/rules), `design-component-build` (a new custom component).
+
+### 3a · DS-first check (every new or changed component)
+
+Keeps the component set DS-first and non-duplicating. Absorbs the former
+`/pb:build-check-design-system`, which was only ever reachable from here.
+
+**Scan the index by function + purpose.** Read the design system's component index —
+`design-system/{name}/{name}.md`, the `Component | renderFn | Props / variants | Purpose | Scope | Level`
+table. Match by **what it does**, not what it is called: a "Sign-in CTA" is a Button; a "code box row"
+is an OTP input.
+
+**Then decide, in this order:**
+- **R0 / R1 · Reuse.** An existing component (global or local) already covers the function → reuse it;
+  the screen element points at it via `orgId`. Create nothing.
+- **R2 · Variant.** It covers the function but needs a new state / size / style → **extend it with a
+  variant** (add an option to its `properties`). Do **not** spawn a second component.
+- **Build local.** Nothing fits → create a **local** component (`"scope":"local"`). Invoke
+  `design-component-build` for the render body (`render/components/<id>.js`, referenced by `renderSrc`)
+  + anatomy/spec. Every component **MUST** carry a **`level`** (`atom` | `molecule` | `organism` |
+  `template`) — required since schema 9, enforced by `R-LEVEL`. Tag it by what it composes: a primitive
+  (button, input, heading) is an `atom`; a small cluster (field + label + error) is a `molecule`; a
+  self-contained section (a sign-in card) is an `organism`.
+  **DS-granularity rule:** a component mapping to a **single DS component** (`dsMatch`) is an `atom`
+  even when visually composite — it lowers to one Figma INSTANCE — so don't decompose it. Build the
+  smallest level that fits and compose upward (constitution principle 5 · DS rule R0.5).
+
+> **Interactivity → confirm + declare `state`.** When the user asks for state / click / hover / any
+> interaction, **confirm it is interactive** and give it a `state` property (`default / …`) and/or the
+> wiring (`data-action` / `data-nav` / an `onclick=` runtime helper). The design-system site
+> auto-detects interactivity by exactly that — a `state` property OR body `data-*` / `onclick` /
+> control tags — and gives such a component a **live, clickable demo**; others get the variant grid
+> only. A `state`-less interactive component is a defect.
+
+> **Component-first / atomic law** (enforced by `R-COMPOSE` / `R-LEVEL-ORDER`, ERROR under `--strict`):
+> ONLY `atom` render bodies may emit raw HTML primitives (`<button>`, `<input>`, `<h1>`, …). Every
+> `molecule` / `organism` / `template` / screen body is **pure composition** — layout containers plus
+> `pbUse('<child-id>', props)` calls to lower levels. The `pbUse` set must match the declared
+> `elements[]` / `anatomy.parts[]` `orgId`s (`R-COMPOSE-MATCH`), and a level composes strictly lower
+> levels. NEVER inline UI that bypasses a component (R0). NEVER spawn a second component when a
+> variant suffices (R2). NEVER build a higher level when a lower one composes to the same result (R0.5).
+
+**Naming contract** (also enforced at `/pb:handoff` mode 3):
+- **`id`** — kebab-case, unique **across global and local** (R4). No collisions.
+- **`renderFn`** — `renderCmp{PascalCase}` (`text-input` → `renderCmpTextInput`).
+- **tokens** — every color / space / radius / shadow is a **W3C DTCG** token (`tokens.<name>` =
+  `{ "$value", "$type" }`). No raw hex or px in a render body or `sizing`; if none fits, add a token
+  rather than inlining a value. (`lint_registry.py` flags raw hex/px and non-DTCG `$type`; `--strict`
+  makes them errors.)
+- **anchors** — every element referenced by `anatomy.parts[]` or `spec.stack[]` carries a stable anchor
+  class (`.field__label`, `.btn`, …) so handoff redlines and Figma matching resolve.
+
+**Report the decision** — `reuse <id>` / `variant on <id>` / `new local <id>` — plus any new tokens
+created, then continue to §4.
 
 ## 4 · Apply the targeted patch
 Patch the **one** touched slice — `pb/tools/slice.py set <kind> <id>` (patch JSON on stdin) merges
