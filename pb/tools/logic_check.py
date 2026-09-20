@@ -37,6 +37,10 @@ CHECKS
   Kind A  L-UNDEF      a `pb*`-named helper called but defined nowhere (no body, not
                        the shell, not a nested closure).
   Kind A  L-DUPDEF     the same top-level function name defined in two files.
+  Kind A  L-RULEREF    a declared rule cites a function name — implementedBy[],
+                       readers[], implemented[].name, invariants[].enforcedBy — that no
+                       render body defines. The rule still renders as the explanation of
+                       how the product works while pointing at nothing.
   Kind A  L-HAS-R1     a `:has()`-toggled element (its selector's SUBJECT — the last
                        compound, not every class the rule mentions) also carries an
                        inline `display` in the same tag on the same line. Inline
@@ -128,6 +132,19 @@ files; the second silently shadows the first wherever both are loaded. Kind A.
 Known false-positive mode: none identified against the reference project (measured
 0); a same-named function nested INSIDE another function (not top-level) is
 correctly excluded, since it is a distinct closure, not a redefinition.""",
+    "L-RULEREF": """\
+L-RULEREF — a rule in `ia.rules[]` names a function that is defined nowhere in the
+render bodies. Rules link themselves to their implementation by NAME (implementedBy[],
+readers[], implemented[].name, and a constraint's invariants[].enforcedBy); nothing
+re-checked those names, so a rename left the Logic tab presenting a rule as the
+explanation of how the product works while its link pointed at a function that no
+longer existed. Kind A: the graph knows every top-level definition, so a name absent
+from it is absent — no baseline and no outside opinion involved. Skipped entirely when
+the graph derived no handlers (an empty graph would flag every name). Known
+false-positive mode: a rule may legitimately cite a function that lives in the SHELL
+rather than a render body (pbUse, pbToast); those are not in handlers[] and would read
+as missing — cite the render-body function that calls them instead."""
+,
     "L-HAS-R1": """\
 L-HAS-R1 — a `:has()`-toggled element carries an inline `display` in `style=`
 alongside `class=` in the SAME tag on the SAME line. Inline style beats any class
@@ -228,6 +245,41 @@ def check_undefined(graph):
 def check_duplicates(graph):
     return [Finding(ERROR, "L-DUPDEF", f"fn={name!r}", f"defined at top level in more than one file: {', '.join(files)}")
             for name, files in sorted(graph.get("duplicates", {}).items())]
+
+
+def check_rule_refs(graph, registry):
+    """Kind A — every function name a declared rule cites must resolve in the derived graph.
+
+    A rule links itself to the code that implements it by NAME: `implementedBy[]`, `readers[]`,
+    `implemented[].name`, and a constraint's `invariants[].enforcedBy`. Nothing re-checked those
+    names, so a rename left the rule pointing at a function that no longer exists while the Logic
+    tab went on rendering it as the explanation of how the product works. Derived-vs-derived, so
+    ERROR: the graph knows every top-level definition, and a name absent from it is absent.
+
+    The rule half is authored, but the NAMES are claims about derived facts — which is why this
+    is Kind A and not the declared-vs-observed Kind B (where a baseline can legitimately lag).
+    """
+    known = {h["name"] for h in graph.get("handlers", [])}
+    if not known:
+        return []                       # no graph derived — the check would be noise, not signal
+    rules = ((registry.get("ia") or {}).get("rules")) or registry.get("rules") or []
+    out = []
+    for rule in (rules if isinstance(rules, list) else []):
+        if not isinstance(rule, dict):
+            continue
+        rid = rule.get("id")
+        cites = [("implementedBy", n) for n in (rule.get("implementedBy") or [])]
+        cites += [("readers", n) for n in (rule.get("readers") or [])]
+        cites += [("implemented[].name", (e or {}).get("name")) for e in (rule.get("implemented") or [])]
+        cites += [("invariants[].enforcedBy", (i or {}).get("enforcedBy"))
+                  for i in (rule.get("invariants") or [])]
+        for field, name in cites:
+            if isinstance(name, str) and name and name not in known:
+                out.append(Finding(
+                    ERROR, "L-RULEREF", f"rule={rid!r} {field}",
+                    f"cites {name!r}, which is defined nowhere in the render bodies — "
+                    f"renamed or deleted, and the rule still points at it"))
+    return out
 
 
 # ───────────────────────── Kind A: the :has() reveal contract ───────────────────
@@ -409,6 +461,7 @@ def run(project_dir, shell_path=None):
     findings += check_dead_seam(graph)
     findings += check_undefined(graph)
     findings += check_duplicates(graph)
+    findings += check_rule_refs(graph, registry)
     findings += check_has_rules(project_dir)
     findings += check_elements(graph, registry)
     findings += check_anatomy(graph, registry)

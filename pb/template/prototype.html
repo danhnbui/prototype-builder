@@ -15,13 +15,13 @@
     components/screens get a render/<kind>/<id>.js body file.
   • Preview live with /pb:preview (watches registry.json + render/*.js and
     live-reloads the browser).
-  • Regenerate this file with /pb:build --render (also auto-run at /pb:handoff-close
-    and /pb:validate). Never copy or edit it by hand.
+  • Regenerate this file with /pb:build --render (also auto-run at /pb:handoff
+    and /pb:handoff --tier=host). Never copy or edit it by hand.
 
   THE 4 TABS  (components live on the design-system site — design-system.html at /design-system)
   ─────────────────────────────────────────────────────────────
   1. Prototype        ← the live, interactive flow (data-* runtime)
-  2. Project Summary  ← Overview · Insights · Trade-offs · Others
+  2. Project Summary  ← Overview · Insights  (Trade-offs moved to UX Design → Logic; Others deprecated, D-30)
   3. UX Design        ← wireflow (Mermaid) + user stories / QA test cases
   4. Data             ← ERD diagram / table + entity inspector
 
@@ -596,8 +596,8 @@
       cursor: default;
     }
     .sync-button.is-copied:hover { background: #10b981; }
-    /* View-only (/pb:handoff-close --people): hide every authoring CTA + the Figma push panel. */
-    /* View-only (/pb:handoff-close --people): hide EVERY authoring affordance — the sync bars,
+    /* View-only (/pb:handoff --people): hide every authoring CTA + the Figma push panel. */
+    /* View-only (/pb:handoff --people): hide EVERY authoring affordance — the sync bars,
        the Figma push panel, and any empty-state build CTA (T3.3). */
     body.view-only .sync-button,
     body.view-only .fp-panel,
@@ -1013,6 +1013,9 @@
     .pb-test-glyph--pass     { color:var(--success); }
     .pb-test-glyph--fail     { color:var(--danger); }
     .pb-test-glyph--untested { color:var(--text-tertiary); }
+    /* A verdict whose inputs moved is neither pass nor fail — it is unknown, and green would be
+       a claim nobody checked. Warning colour, not success, not error. */
+    .pb-test-glyph--stale    { color:#c2410c; }
     .pb-test-head { display:flex; align-items:center; justify-content:space-between; gap:0.5em; margin:0 0 0.75em; }
     .pb-test-summary {
       font: var(--font-weight-bold) var(--font-size-xxs)/var(--line-height-xxs) var(--font-body);
@@ -1576,7 +1579,7 @@
 
     /* ========================================================================
        FLOW DOC — Mermaid canvas + test-checklist sidebar (v0.3.8+)
-       Used by User Flow tab when populated by /pb:flow
+       Used by User Flow tab when populated by /pb:plan --flow
        Layout: 3:7 split (checklist left, canvas right). Single flow per surface.
        ======================================================================== */
     .flow-doc-grid {
@@ -2264,6 +2267,11 @@
     .flow-doc-path { margin-top:4px; font-size: var(--font-size-xs); color:var(--text-tertiary); }
     .flow-doc-checks { margin:6px 0 0; padding-left:2px; list-style:none; display:flex; flex-direction:column; gap:4px; }
     .flow-doc-checks li { font-size: var(--font-size-xs); color:var(--text-active-secondary); }
+    /* Coverage gaps: list rows on a warning rail, same rhythm as the stories above them. */
+    .flow-doc-gaps { list-style: none; margin: 18px 0 0; padding: 0; }
+    .flow-doc-gaps > li { border-left: 2px solid #c2410c; background: rgba(194,65,12,.045);
+      border-radius: 0 6px 6px 0; padding: 8px 12px; margin-bottom: 6px;
+      font-size: var(--font-size-xs); line-height: var(--line-height-p-xs); }
     /* Data — one styled table per entity (Table view) */
     .erd-tables { display:flex; flex-direction:column; gap:22px; }
     .erd-entity-title { margin:0 0 8px; font-family: var(--font-heading); font-size: var(--font-size-base); font-weight: var(--font-weight-bold); color:var(--text-active-primary); }
@@ -2324,6 +2332,8 @@
        same tabstrip-on-top shell — each pane scrolls on its own, the row itself does not. */
     .ux-scroll-wrap > .ia-layout,
     .ux-scroll-wrap > .ux-flow-body { flex: 1; min-height: 0; overflow: hidden; }
+    /* The section heading spans both columns; only the grid below it flexes to fill the viewport. */
+    .ia-head { flex: 0 0 auto; }
     .ia-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; align-items: stretch; }
     .ia-jobs-col, .ia-map-col { min-height: 0; overflow: auto; padding-right: 8px; }
     /* The job list can be empty while the derived site map beside it is full — the empty state
@@ -2344,6 +2354,13 @@
     .lg-link:hover { text-decoration: underline; }
     .lg-link--write { font-weight: var(--font-weight-bold); }
     .lg-card { border: 1px solid var(--border); border-radius: 12px; padding: 16px 18px; margin: 0 0 18px; }
+    /* `.meta-h3` carries margin-top:28px to separate sections in a scrolling document. As a card's
+       FIRST child that margin is padding the card a second time — 43px above the heading against
+       15px below the last row. Collapse the outer margins; the card's own padding is the spacing. */
+    .lg-card > :first-child, .ia-card > :first-child, .lg-detail > :first-child,
+    .ct-term > :first-child, .ia-node > :first-child { margin-top: 0; }
+    .lg-card > :last-child, .ia-card > :last-child, .lg-detail > :last-child,
+    .ct-term > :last-child, .ia-node > :last-child { margin-bottom: 0; }
     .lg-chip { display: inline-block; font-size: 11px; line-height: 18px; padding: 0 8px; border-radius: 999px; background: rgba(127,127,127,.12); vertical-align: middle; }
     .lg-chip--kind { background: rgba(79,70,229,.12); color: var(--brand, #4f46e5); }
     .lg-chip--save { background: rgba(22,163,74,.15); color: #15803d; }
@@ -2366,6 +2383,8 @@
     .lg-table th { text-align: left; font-size: 11px; letter-spacing: .04em; text-transform: uppercase; color: var(--text-tertiary); padding: 6px 10px; border-bottom: 1px solid var(--border); }
     .lg-table td { padding: 8px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
     .lg-tr-ov td { background: rgba(194,65,12,.04); }
+    .lg-st--dead { stroke: #c2410c; stroke-dasharray: 4 3; fill: rgba(194,65,12,.06); }
+    .lg-tr-dead td { background: rgba(194,65,12,.06); }
     .lg-matrix td, .lg-matrix th { text-align: center; }
     .lg-matrix td:first-child, .lg-matrix th:first-child { text-align: left; }
     .lg-ripple { display: grid; grid-template-columns: 260px minmax(0, 1fr); gap: 18px; align-items: start; }
@@ -2382,18 +2401,29 @@
     .lg-sec { margin: 12px 0; }
     .lg-sec-h { font-size: 11px; letter-spacing: .04em; text-transform: uppercase; color: var(--text-tertiary); margin-bottom: 4px; }
     .lg-line { padding: 3px 0; font-size: var(--font-size-s); }
+    /* A superseded trade-off stays readable — it is the record of a decision that was reversed,
+       which is worth more than a deletion — but must never read as current. */
+    .lg-card--sup { opacity: .62; border-style: dashed; }
+    .tw-opts { margin: 2px 0 0; padding-left: 20px; font-size: var(--font-size-s); line-height: 1.55; }
     /* Information Architecture */
     .ia-roles { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin: 6px 0 10px; }
     .ia-stats { margin: 0 0 16px; font-size: var(--font-size-xs); color: var(--text-tertiary); }
-    .ia-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 4px; vertical-align: middle; }
+    /* flex:0 0 auto — a role dot lives in flex rows (.ia-node-t, .ia-jrow); with the default
+       shrink a long title squashes it into an ellipse instead of truncating the title. */
+    .ia-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 4px; vertical-align: middle; flex: 0 0 auto; }
     .ia-job { display: inline-flex; align-items: center; gap: 2px; font-size: var(--font-size-s); line-height: 20px; padding: 3px 10px; border-radius: 999px; border: 1px solid var(--border); background: rgba(127,127,127,.05); margin: 0 6px 6px 0; }
     .ia-job--new { border-style: dashed; border-color: #c2410c; background: rgba(194,65,12,.06); }
     .ia-card { border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; margin: 0 0 14px; }
-    .ia-card--new { border-color: #c2410c; background: rgba(194,65,12,.03); }
-    .ia-new-row { display: grid; grid-template-columns: 1fr auto auto; gap: 12px; align-items: center; padding: 6px 0; border-top: 1px dashed var(--border); }
-    .ia-new-actions { display: flex; gap: 6px; }
+    /* A flagged row stays in the list; the warning rail is what marks it, not a separate box. */
+    .ia-new-actions { display: flex; gap: 6px; flex: 0 0 auto; }
+    .ia-jrow-why { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;
+                   flex-wrap: wrap; margin-top: 8px; }
+    .ia-jrow-why > .lg-dim { flex: 1 1 300px; min-width: 0; line-height: 1.45; }
     .ia-jrow { display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: baseline; padding: 7px 0; border-top: 1px solid var(--border); font-size: var(--font-size-s); line-height: 1.45; }
+    .ia-jrow--new { background: rgba(194,65,12,.045); border-left: 2px solid #c2410c;
+                    padding-left: 10px; padding-right: 10px; border-radius: 0 6px 6px 0; }
     .ia-jrow--new .ia-jrow-text { color: #c2410c; }
+    .ia-jrow--new .ia-jrow-text em { color: inherit; opacity: .78; }
     .ia-jrow-text em { font-style: normal; color: var(--text-secondary, #555); }
     .ia-jrow-meta { white-space: nowrap; }
     .ia-map-head, .ia-map-row { display: grid; gap: 12px; align-items: start; }
@@ -2415,6 +2445,69 @@
     .ia-ov { font-size: 11px; padding: 0 6px; border-radius: 6px; border: 1px dashed #c2410c; color: #c2410c; cursor: pointer; }
     .ia-from { font-size: 11px; margin: 0 0 2px 4px; }
     .ia-orphans { margin-top: 8px; font-size: var(--font-size-xs); }
+    /* Site map as an org chart: a fixed-height canvas the user pans/zooms inside, so a deep tree
+       never stretches the column. HTML nodes over an SVG edge layer — the nodes keep their styling,
+       hover and click, which is what a pure-SVG chart would have cost. */
+    .ia-map-col { display: flex; flex-direction: column; overflow: hidden; }
+    .ia-map-title { flex: 0 0 auto; margin-bottom: 8px; }
+    .ia-canvas { flex: 1 1 auto; min-height: 260px; height: auto; }
+    .ia-stage { pointer-events: none; }
+    .ia-edges { position: absolute; inset: 0; }
+    .ia-edge { fill: none; stroke: var(--text-tertiary); stroke-width: 1.4; }
+    .ia-rowline { stroke: var(--border); stroke-dasharray: 3 5; }
+    .ia-rowlab { position: absolute; left: 0; font-size: 11px; letter-spacing: .04em; text-transform: uppercase;
+                 color: var(--text-tertiary); line-height: 1.3; pointer-events: auto; cursor: help; }
+    .ia-rowlab-n { display: block; font-size: 10px; opacity: .8; }
+    .ia-node--card { position: absolute; margin: 0; box-sizing: border-box; overflow: hidden;
+                     pointer-events: auto; background: var(--neutral-0, #fff); cursor: default; }
+    .ia-node--card:hover { border-color: var(--border); }
+    /* Text wraps; nothing is ever cut. The card's height is computed to hold it. */
+    .ia-node--card .ia-node-t { align-items: flex-start; }
+    .ia-node--card .ia-node-t > strong { min-width: 0; overflow-wrap: anywhere; }
+    .ia-node--card .ia-node-t .ia-dot { margin-top: 5px; }
+    .ia-node-id { font-size: 11px; overflow-wrap: anywhere; line-height: 1.35; }
+    .ia-node--ov .ia-node-t { overflow-wrap: anywhere; line-height: 1.35; }
+    .ia-node-m { font-size: 11px; color: var(--text-tertiary); margin-top: 4px;
+                 display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+    .ia-node-go { flex: 0 0 auto; font: inherit; font-size: 10px; line-height: 16px; padding: 0 7px;
+                  border: 1px solid var(--border); border-radius: 999px; background: transparent;
+                  color: var(--brand, #4f46e5); cursor: pointer; white-space: nowrap; opacity: 0; transition: opacity .12s; }
+    .ia-node--card:hover .ia-node-go, .ia-node-go:focus-visible { opacity: 1; }
+    .ia-node-go:hover { background: rgba(79,70,229,.10); border-color: var(--brand, #4f46e5); }
+    .ia-rail-toggle { font: inherit; font-size: 10px; line-height: 14px; padding: 0 4px; margin-right: 2px;
+                      border: 1px solid var(--border); border-radius: 4px; background: transparent;
+                      color: inherit; cursor: pointer; }
+    .ia-rail-toggle:hover { border-color: #c2410c; color: #c2410c; }
+    .ia-rowlab--ov { color: #c2410c; }
+    /* Overlays: dashed like the chips they replaced, so a drawer never reads as a screen. */
+    .ia-edge--ov { stroke: #c2410c; stroke-dasharray: 3 4; opacity: .65; }
+    .ia-rowline--ov { stroke: #c2410c; opacity: .45; }
+    .ia-node--ov { border-style: dashed; border-color: #c2410c; background: rgba(194,65,12,.04); }
+    .ia-node--ov .ia-node-t { color: #c2410c; font-family: var(--font-mono, ui-monospace, monospace); font-size: 11px; }
+    /* The job list carries its own heading; the frame around it was one border too many. */
+    .ia-card--flat { border: 0; padding: 0; }
+    /* Content — glossary + wording deck */
+    .ct-filter { margin-left: auto; width: 200px; font: inherit; font-size: var(--font-size-s); padding: 5px 10px; border: 1px solid var(--border); border-radius: 8px; background: transparent; color: inherit; }
+    .ct-terms { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 14px; }
+    /* Flex column so the rule link can sit on the card's BOTTOM edge (margin-top:auto) rather
+       than in the header, where a long rule title wrapped and shoved the term name around. */
+    .ct-term { border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; display: flex; flex-direction: column; }
+    .ct-term-h { display: flex; align-items: baseline; flex-wrap: wrap; gap: 8px; }
+    .ct-en { font-size: var(--font-size-xs); color: var(--text-tertiary); }
+    .ct-def { margin: 6px 0 0; font-size: var(--font-size-s); line-height: 1.5; }
+    .ct-line { margin-top: 8px; display: flex; align-items: center; flex-wrap: wrap; gap: 5px; }
+    .ct-rule-line { margin-top: auto; padding-top: 10px; }
+    .ct-rule { font-size: var(--font-size-xs); }
+    .ct-aka, .ct-avoid { font-size: 11px; line-height: 18px; padding: 0 8px; border-radius: 999px; }
+    .ct-aka { background: rgba(127,127,127,.12); }
+    .ct-avoid { background: rgba(194,65,12,.10); color: #c2410c; text-decoration: line-through; }
+    .ct-group { margin-bottom: 18px; }
+    .ct-group-h { font-size: 11px; letter-spacing: .04em; text-transform: uppercase; color: var(--text-tertiary); margin-bottom: 2px; }
+    .ct-table { table-layout: fixed; }
+    .ct-key { width: 26%; }
+    .ct-key code { font-size: var(--font-size-xs); color: var(--text-tertiary); }
+    .ct-text { width: 40%; font-weight: var(--font-weight-bold); }
+    .ct-note { color: var(--text-tertiary); font-size: var(--font-size-xs); }
   </style>
 
   <!-- Mermaid CDN — used by the ERD tab. Keep this even if you don't ship ERD;
@@ -2456,6 +2549,7 @@
         handoff: { view: 'component', organisms: [], screens: [], selectedScreenId: null, selectedElementId: null },
         flow: { populated: false },
         erd: { populated: false },
+        content: { terms: [], strings: [] },
       };
     }
 
@@ -2473,6 +2567,7 @@
       d.handoff.screens   = reg.screens || [];
       if (reg.flow) d.flow = reg.flow;
       if (reg.erd)  d.erd  = reg.erd;
+      if (reg.content) d.content = reg.content;
       return d;
     }
 
@@ -2494,7 +2589,7 @@
        ========================================================================= */
     const state = {
       metaView: 'prototype',          // 'prototype' | 'summary' | 'flow' | 'handoff' | 'erd'
-      summarySubTab: 'overview',      // 'overview' | 'insights' | 'tradeoffs' | 'others' (v0.3.0)
+      summarySubTab: 'overview',      // 'overview' | 'insights' | 'others' (deprecated, D-30)
       handoffDrawerOpenFor: null,     // null | <organism.id> — opens right-side drawer (v0.3.0)
       handoffDrawerSegment: 'anatomy', // 'anatomy' | 'spec' | 'uiLogic' | 'usage' (v0.3.17)
       screenDrawerOpenFor: null,      // null | element.id — screen-view element drawer (v0.3.18)
@@ -2506,6 +2601,8 @@
       handoffScope: null,            // 'global' | 'local' — UI Design component sub-tab
       erdView: null,                 // 'diagram' | 'table' — Data tab view mode
       erdVariant: {},                // { <entity>: 'schema' | <mock label> } — per-table data set (4.4)
+      contentView: null,             // Content sub-view: 'terms' | 'strings'
+      iaOverlaysOpen: true,          // site map: show the overlay rail (collapsible — it is the busiest one)
       uxView: null,                  // UX Design sub-tab: 'ia' | 'flow' | 'logic' (D-14)
       iaRole: 'all',                 // Information Architecture role filter
       logicView: null,               // 'rules' | 'ripple'
@@ -2527,7 +2624,7 @@
     /* Icon helper (DS-agnostic) — set the icon source via registry config.iconCdn (e.g. your
        design system's SVG CDN). Leave it unset to fall back to an inline SVG placeholder. */
     const ICON_CDN = (PB_REGISTRY && PB_REGISTRY.config && PB_REGISTRY.config.iconCdn) || '';
-    /* View-only mode (set by /pb:handoff-close --people): hides every authoring CTA. */
+    /* View-only mode (set by /pb:handoff --people): hides every authoring CTA. */
     const VIEW_ONLY = !!(PB_REGISTRY && PB_REGISTRY.config && PB_REGISTRY.config.viewOnly);
     function safeIcon(name, size = 16) {
       if (ICON_CDN) {
@@ -2692,11 +2789,11 @@
       '/pb:plan':        'Generate the implementation plan and per-tab task breakdown.',
       '/pb:build':       'Patch registry.json (trio-gated). Add --render to regenerate prototype.html.',
       '/pb:preview':     'Start the live dev server — watches registry.json and live-reloads the browser.',
-      '/pb:flow':   'Generate the UX Design tab — Mermaid wireflow + QA test checklist.',
-      '/pb:data':    'Generate the Data tab — field/type table + Mermaid ERD with PK/FK guardrails.',
-      '/pb:check-drift': 'Audit the trio against the constitution. Read-only — no writes.',
-      '/pb:handoff-close':    '--people for a view-only prototype, --context for a portable bundle.',
-      '/pb:validate':    'Wrap prototype.html in a runnable Vite/Next reference build.',
+      '/pb:plan --flow':   'Generate the UX Design tab — Mermaid wireflow + QA test checklist.',
+      '/pb:plan --data':    'Generate the Data tab — field/type table + Mermaid ERD with PK/FK guardrails.',
+      '/pb:test --drift': 'Audit the trio against the constitution. Read-only — no writes.',
+      '/pb:handoff':    '--people for a view-only prototype, --context for a portable bundle.',
+      '/pb:handoff --tier=host':    'Wrap prototype.html in a runnable Vite/Next reference build.',
       '/pb:update-version': 'Run versioned schema updates. Dry-run by default; use --apply to execute.',
     };
 
@@ -2707,11 +2804,11 @@
       '/pb:plan':        'Run /pb:plan to produce the implementation plan + a per-tab task breakdown (each task: acceptance + skill).',
       '/pb:build':       'Run /pb:build to apply a targeted registry.json patch (trio-gated); add --render to regenerate prototype.html.',
       '/pb:preview':     'Run /pb:preview to start the live dev server — it watches registry.json + render/*.js and reloads the browser.',
-      '/pb:flow':   'Run /pb:flow to (re)generate the UX Design tab — a Mermaid wireflow plus a QA test checklist.',
-      '/pb:data':    'Run /pb:data to (re)generate the Data tab — a field/type/example table plus a Mermaid erDiagram (PK/FK/cardinality guardrails).',
-      '/pb:check-drift': 'Run /pb:check-drift to audit the trio (screens, components, logic) against the constitution (report-only, no writes).',
-      '/pb:handoff-close':    'Run /pb:handoff-close --people for a view-only self-documenting prototype.html, or --context for a portable bundle.',
-      '/pb:validate':    'Run /pb:validate to scaffold a runnable reference build from prototype.html.',
+      '/pb:plan --flow':   'Run /pb:plan --flow to (re)generate the UX Design tab — a Mermaid wireflow plus a QA test checklist.',
+      '/pb:plan --data':    'Run /pb:plan --data to (re)generate the Data tab — a field/type/example table plus a Mermaid erDiagram (PK/FK/cardinality guardrails).',
+      '/pb:test --drift': 'Run /pb:test --drift to audit the trio (screens, components, logic) against the constitution (report-only, no writes).',
+      '/pb:handoff':    'Run /pb:handoff --people for a view-only self-documenting prototype.html, or --context for a portable bundle.',
+      '/pb:handoff --tier=host':    'Run /pb:handoff --tier=host to scaffold a runnable reference build from prototype.html.',
       '/pb:update-version': 'Run /pb:update-version to apply a versioned registry schema update (dry-run by default; --apply to execute).',
     };
     function chatPromptFor(slashCommand) {
@@ -2953,7 +3050,7 @@
       if (orgIds.length === 0) scope = 'screens';
       if (scrIds.length === 0) scope = 'components';
 
-      let cmd = `/pb:build-figma-handoff --scope=${scope} --batch`;
+      let cmd = `/pb:handoff --mode=3 --scope=${scope} --batch`;
       if (orgIds.length > 0 && orgIds.length < allOrg) cmd += ` --organism=${orgIds.join(',')}`;
       if (scrIds.length > 0 && scrIds.length < allScr) cmd += ` --screen=${scrIds.join(',')}`;
 
@@ -2979,7 +3076,7 @@
           <button class="fp-progress-close" onclick="pbHideProgress()" aria-label="Dismiss">×</button>
         </div>
         <div id="fp-progress-body"></div>
-        <div class="fp-progress-hint">Run the copied command — <code>/pb:build-figma-handoff</code> reports progress here as it pushes.</div>`;
+        <div class="fp-progress-hint">Run the copied command — <code>/pb:handoff</code> reports progress here as it pushes.</div>`;
       document.body.appendChild(el);
       setTimeout(() => el.classList.add('is-visible'), 10);
       _fpRenderProgress();
@@ -3186,7 +3283,7 @@
 
     /* v0.3.2 — empty-state helper for tabs that haven't been synced yet. */
     function renderEmptyState({ icon, title, body, ctaLabel, command, label, learnHref, learnLabel, meta }) {
-      // View-only (/pb:handoff-close --people): an unpopulated tab must show NO authoring CTA.
+      // View-only (/pb:handoff --people): an unpopulated tab must show NO authoring CTA.
       // Render a neutral note instead of the build action (T3.3).
       if (VIEW_ONLY) {
         return `
@@ -3242,7 +3339,7 @@
         blurb: 'The why behind the prototype: objectives, principles, user insights, and the UI-logic trade-offs that shaped it. Auto-synced from your spec and clarify steps.',
         howItWorks: [
           'Overview = objectives + principles, folded in from /pb:specify and the constitution.',
-          'User Insights + Trade-offs are captured by /pb:clarify.',
+          'User Insights are captured by /pb:clarify; the UI-logic trade-offs it also writes are shown in UX Design → Logic → Trade-offs, beside the rules they produced.',
           'This tab is documentation — there is nothing to build here directly.',
         ],
         commands: ['/pb:specify', '/pb:clarify'],
@@ -3250,16 +3347,17 @@
       },
       flow: {
         title: 'UX Design',
-        blurb: 'How the product is wired, in four views: the rules and ripple behind the behaviour, the jobs each role needs done and the screens that serve them, the user-flow wireflow, and every test case.',
+        blurb: 'How the product is wired, in five views: the rules and ripple behind the behaviour, the jobs each role needs done and the screens that serve them, the user-flow wireflow, every test case, and the words the product uses.',
         howItWorks: [
-          'Logic — declared rules (state machines, permission matrices) linked to the code that implements them, plus the derived ripple of every handler: what it reads, which store slice it touches, what it re-renders.',
+          'Logic — declared rules (state machines, permission matrices, constraint sets) linked to the code that implements them, plus the derived ripple of every handler: what it reads, which store slice it touches, what it re-renders. A constraint whose `enforcedBy` is empty is drawn as a warning — a rule nothing enforces is the finding.',
           'Information Architecture — job list on the left as "when / I want to / so I can", the derived site map on the right. A job with no screen is flagged unhandled; the site map flags the inverse — a screen with no job — per node, so screen coverage never needs its own summary.',
           'User Flow — one flowchart covering every job in Information Architecture, with the matching user stories beside it. Hovering a story highlights the path it satisfies.',
           'Test Cases — every scenario each user story must satisfy, by lens (UX · UI · Function · Business · System edge), with the coverage gaps and last-run results.',
+          'Content — the glossary and the wording deck: what each domain term means (and what it is never called), plus the canonical text for every action, status and message. A wording that uses a banned word is flagged.',
           'Layers, edges and overlays in the site map are DERIVED from the sidebar and the render bodies — only each job and each layer’s purpose are authored.',
           'The flow, its stories and the data model stay in step automatically — /pb:build reconciles them whenever a screen, component or logic changes.',
         ],
-        commands: ['/pb:flow', '/pb:init', '/pb:plan'],
+        commands: ['/pb:plan --flow', '/pb:init', '/pb:plan'],
         skills: ['build-flow', 'craft-connect-flow'],
       },
       handoff: {
@@ -3270,18 +3368,18 @@
           'Click any component or screen to open its spec (anatomy, redlines, UI logic, usage) on the right.',
           'Push to Figma transfers the selection one-way, reusing matched design-system components.',
         ],
-        commands: ['/pb:build', '/pb:build-check-design-system', '/pb:build-figma-handoff'],
+        commands: ['/pb:build', '/pb:build', '/pb:handoff'],
         skills: ['apply-design-system', 'design-component-build', 'figma-generate-library'],
       },
       erd: {
         title: 'Data',
         blurb: 'The entity-relationship model behind the prototype — field/type/example tables plus a Mermaid ER diagram with PK/FK/cardinality guardrails, for a future production build.',
         howItWorks: [
-          '/pb:data derives entities and relationships from your spec; /pb:build keeps the table in step as screens and fields change.',
+          '/pb:plan --data derives entities and relationships from your spec; /pb:build keeps the table in step as screens and fields change.',
           'Toggle Diagram / Table; click an entity to inspect its fields on the right.',
           'Mock data sets let you preview edge cases (empty / sparse / overflow) against the UI.',
         ],
-        commands: ['/pb:data'],
+        commands: ['/pb:plan --data'],
         skills: ['build-logic', 'think-logic'],
       },
     };
@@ -3876,27 +3974,37 @@
 
     /* =========================================================================
        TAB 2 — PROJECT SUMMARY
-       4 sub-sections (per 02-architecture.md §7 Addition C):
          2.1 Overview              (Objectives + Principles, auto-syncs)
          2.2 User Insights         (Quantitative + Research Summary + Executive Summary)
-         2.3 UI Logic Trade-offs   (decisions captured during /pb:clarify)
-         2.4 Others                (reserved per-project)
+         Others                    (DEPRECATED, D-30 — shown only while a project still has content
+                                    in it, under a banner naming where each kind now belongs)
+       UI Logic Trade-offs left this tab in v1.12.0 for UX Design → Logic (D-30).
        Empty sub-sections render with empty-state copy.
        ========================================================================= */
     /* v0.3.0 — Tab 2 sub-tab navigation. Only the active sub-section renders. */
+    /* UI Logic Trade-offs moved to UX Design → Logic: a trade-off IS a rule, recorded at the
+       moment it was decided, and it belongs beside the rules it produced rather than three tabs
+       away in a document nobody opens while building.
+
+       `Others` is DEPRECATED — see D-30. It was the only field with no schema, so it became the
+       dumping ground for the terminology and business rules that had no home; they now have one
+       (Content, and Logic's rules). The tab appears ONLY while a project still has content in it,
+       carrying a banner that names where each kind belongs. Nothing writes it, and when it is
+       empty it does not render at all. */
     const SUMMARY_SUBTABS = [
       ['overview',  'Overview'],
       ['insights',  'User Insights'],
-      ['tradeoffs', 'UI Logic Trade-offs'],
-      ['others',    'Others'],
     ];
+    const pbHasOthers = () => !!(PB_DATA && PB_DATA.others && String(PB_DATA.others).trim());
+    const pbSummarySubtabs = () => pbHasOthers() ? SUMMARY_SUBTABS.concat([['others', 'Others']]) : SUMMARY_SUBTABS;
 
     function renderMetaSummary() {
       const o  = (PB_DATA && PB_DATA.overview) || {};
       const ui = (PB_DATA && PB_DATA.userInsights) || {};
       const hasSummary = !!(o.objectives || (o.principles && o.principles.length) ||
-        ui.quantitative || ui.researchSummary || ui.executiveSummary ||
-        (PB_DATA.uiLogicTradeoffs && PB_DATA.uiLogicTradeoffs.length) || PB_DATA.others);
+        ui.quantitative || ui.researchSummary || ui.executiveSummary || pbHasOthers());
+      // A sub-tab that no longer exists must not survive in state from an earlier render.
+      if (!pbSummarySubtabs().some(([id]) => id === state.summarySubTab)) state.summarySubTab = 'overview';
 
       const header = pbPageHeader({ title: 'Project Summary', infoKey: 'summary' });
 
@@ -3916,14 +4024,13 @@
         return;
       }
 
-      const subTabs = SUMMARY_SUBTABS.map(([id, label]) =>
+      const subTabs = pbSummarySubtabs().map(([id, label]) =>
         `<button class="meta-subtab ${state.summarySubTab === id ? 'active' : ''}"
                  onclick="setSummarySubTab('${id}')">${label}</button>`
       ).join('');
       const body = {
         overview:  pbRenderOverview,
         insights:  pbRenderUserInsights,
-        tradeoffs: pbRenderTradeoffs,
         others:    pbRenderOthers,
       }[state.summarySubTab]();
 
@@ -4042,53 +4149,59 @@
       `;
     }
 
+    /* Trade-offs live in UX Design → Logic (D-30). A trade-off is a rule caught at the moment it
+       was decided — the options that lost are the part no rule can carry — so it belongs beside
+       the rules it produced, not three tabs away.
+
+       `[SUPERSEDED <date>]` in the title is a convention the projects invented because the schema
+       has no status field; the renderer honours it rather than showing a dead decision at the same
+       weight as a live one. A `status` field is the real fix — see D-30's caveat. */
+    const PB_SUPERSEDED = /^\s*\[SUPERSEDED([^\]]*)\]\s*/i;
+
     function pbRenderTradeoffs() {
       const t = (PB_DATA && PB_DATA.uiLogicTradeoffs) || [];
       if (!t.length) {
-        return `
-          <div class="meta-section">
-            <div class="meta-h2">2.3 UI Logic Trade-offs</div>
-            <p class="meta-p" style="color:var(--text-tertiary);font-style:italic">
-              No UI logic trade-offs recorded yet. Run <code>/pb:clarify</code> to capture them.
-            </p>
-          </div>
-        `;
+        return `<p class="meta-p lg-dim">No trade-offs recorded yet. A trade-off is the decision behind a rule — the question, the options weighed, what was chosen and why. Run <code>/pb:clarify</code> to capture them.</p>`;
       }
-      return `
-        <div class="meta-section">
-          <div class="meta-h2">2.3 UI Logic Trade-offs</div>
-          ${t.map((to, i) => `
-            <div style="margin-bottom:24px">
-              <p class="meta-label">Trade-off ${i+1} — ${pbEscape(to.title || '')}</p>
-              ${to.question ? `<p class="meta-p"><strong>Question:</strong> ${pbEscape(to.question)}</p>` : ''}
-              ${(function(){
-                const opts = Array.isArray(to.options) ? to.options
-                  : (typeof to.options === 'string' ? to.options.split('|').map(s => s.trim()).filter(Boolean) : []);
-                return opts.length ? `<p class="meta-p"><strong>Options considered:</strong></p><ul>${
-                  opts.map(opt => `<li>${pbEscape(opt)}</li>`).join('')
-                }</ul>` : '';
-              })()}
-              ${to.decision ? `<p class="meta-p"><strong>Decision:</strong> ${pbEscape(to.decision)}</p>` : ''}
-              ${to.why ? `<p class="meta-p"><strong>Why:</strong> ${pbEscape(to.why)}</p>` : ''}
-              ${to.tabsAffected ? `<p class="meta-p" style="color:var(--text-tertiary);font-size:var(--font-size-xs)">Affects: ${pbEscape(to.tabsAffected)}</p>` : ''}
-            </div>
-          `).join('')}
-        </div>
-      `;
+      return t.map((to, i) => {
+        const raw = to.title || '';
+        const sup = PB_SUPERSEDED.exec(raw);
+        const title = sup ? raw.replace(PB_SUPERSEDED, '') : raw;
+        const opts = Array.isArray(to.options) ? to.options
+          : (typeof to.options === 'string' ? to.options.split('|').map(s => s.trim()).filter(Boolean) : []);
+        return `
+          <div class="lg-card ${sup ? 'lg-card--sup' : ''}" id="tradeoff-${i + 1}">
+            <div class="meta-h3">${i + 1} · ${pbEscape(title)}
+              ${sup ? `<span class="lg-chip lg-chip--dead" style="text-decoration:none">superseded${pbEscape(sup[1] || '')}</span>` : ''}</div>
+            ${to.question ? `<p class="meta-p">${pbEscape(to.question)}</p>` : ''}
+            ${opts.length ? `<div class="lg-sec"><div class="lg-sec-h">Options weighed</div>
+              <ul class="tw-opts">${opts.map(op => `<li>${pbEscape(op)}</li>`).join('')}</ul></div>` : ''}
+            ${to.decision ? `<div class="lg-sec"><div class="lg-sec-h">Decision</div><p class="meta-p">${pbEscape(to.decision)}</p></div>` : ''}
+            ${to.why ? `<div class="lg-sec"><div class="lg-sec-h">Why</div><p class="meta-p">${pbEscape(to.why)}</p></div>` : ''}
+            ${to.tabsAffected ? `<div class="lg-dim">Affects: ${pbEscape(to.tabsAffected)}</div>` : ''}
+          </div>`;
+      }).join('');
     }
 
+    /* Deprecated (D-30). Rendered only when a project still has content here, and always under a
+       banner naming where each kind now belongs — a deprecation that silently hid 12k characters
+       of someone's terminology would be data loss wearing a tidy-up's clothes. */
     function pbRenderOthers() {
       const o = PB_DATA && PB_DATA.others;
+      if (!o) return '';
       return `
         <div class="meta-section">
-          <div class="meta-h2">2.4 Others</div>
-          <div style="margin-bottom:24px">
-            <p class="meta-label">Notes</p>
-            ${o
-              ? `<div class="meta-p">${o}</div>`
-              : `<p class="meta-p"><em style="color:var(--text-tertiary)">Not recorded yet.</em></p>`
-            }
+          <div class="meta-h2">Others <span class="lg-chip lg-chip--dead" style="text-decoration:none">deprecated</span></div>
+          <div class="pb-qa-warn">
+            <div class="pb-qa-warn-head">⚠ This field has no schema and nothing writes it</div>
+            <ul class="pb-qa-warn-list">
+              <li>Domain terms, status labels, fixed column wording → <strong>UX Design → Content</strong></li>
+              <li>Business rules, permission matrices, state machines, scoring invariants → <strong>UX Design → Logic → Rules</strong></li>
+              <li>Screen structure and what reaches what → <strong>UX Design → Information Architecture</strong></li>
+              <li>Why a UI choice was made → <strong>UX Design → Logic → Trade-offs</strong></li>
+            </ul>
           </div>
+          <div class="meta-p">${o}</div>
         </div>
       `;
     }
@@ -4105,7 +4218,7 @@
        project, or a hand-off rendered before it existed — each view renders an
        honest empty state rather than a broken one.
        ========================================================================= */
-    const UX_SUBTABS = [['logic', 'Logic'], ['ia', 'Information Architecture'], ['flow', 'User Flow'], ['tests', 'Test Cases']];
+    const UX_SUBTABS = [['logic', 'Logic'], ['ia', 'Information Architecture'], ['flow', 'User Flow'], ['tests', 'Test Cases'], ['content', 'Content']];
 
     function pbUxDefaultView() {
       const L = window.PB_LOGIC;
@@ -4122,11 +4235,13 @@
     function pbUxSubtabs() {
       const L = window.PB_LOGIC || {};
       const tc = pbTestCounts();
+      const C = PB_DATA.content || {};
       const counts = {
         ia: (L.ia && L.ia.jobs) ? L.ia.jobs.length : 0,
         flow: (PB_DATA.flow && PB_DATA.flow.flows) ? PB_DATA.flow.flows.length : 0,
         logic: (L.rules || []).length,
         tests: tc.total + tc.manual,
+        content: (C.terms || []).length + (C.strings || []).length,
       };
       const cur = pbUxView();
       return `<div class="meta-subtabs ux-subtabs">` + UX_SUBTABS.map(([id, label]) =>
@@ -4160,19 +4275,31 @@
 
     /* ── Information Architecture ─────────────────────────────────────────── */
     function pbSetIaRole(r) { state.iaRole = r; renderMetaFlow(); }
+    function pbToggleIaOverlays() { state.iaOverlaysOpen = state.iaOverlaysOpen === false; renderMetaFlow(); }
 
     const pbJtbd = j =>
       `When <em>${pbEscape(j.when || '…')}</em>, I want to <strong>${pbEscape(j.want || j.job || '')}</strong>, so I can <em>${pbEscape(j.so || '…')}</em>`;
     const pbJobPill = j =>
       `<span class="ia-job ${(j.screens || []).length ? '' : 'ia-job--new'}" title="${pbEscape('When ' + (j.when || '') + ', I want to ' + (j.want || '') + ', so I can ' + (j.so || ''))}">`
       + `${(j.roles || []).map(pbRoleDot).join('')}${pbEscape(j.want || j.job || '')}</span>`;
-    const pbJobRow = j =>
-      `<div class="ia-jrow ${(j.screens || []).length ? '' : 'ia-jrow--new'}">`
-      + `<span class="ia-jrow-roles">${(j.roles || []).map(pbRoleDot).join('')}</span>`
-      + `<span class="ia-jrow-text">${pbJtbd(j)}</span>`
-      + `<span class="lg-dim ia-jrow-meta">${pbEscape(j.priority || '')} · `
-      + ((j.screens || []).length ? `${j.screens.length} screen${j.screens.length > 1 ? 's' : ''}` : `<span class="lg-warn">no screen</span>`)
-      + `</span></div>`;
+    /* An unhandled job stays IN the list, flagged — it is not a different kind of thing, it is the
+       same job missing a screen, and lifting it into a separate callout meant reading it twice and
+       losing its place in the list. Its evidence and the two actions ride the row. */
+    const pbJobRow = j => {
+      const n = (j.screens || []).length;
+      const actions = (n || VIEW_ONLY) ? '' : `<span class="ia-new-actions">`
+        + `<button class="sync-button" onclick="openCopyPopover('/pb:plan --job ${pbEscape(j.id)}', this)">Plan a screen</button>`
+        + `<button class="lg-view" onclick="openCopyPopover('/pb:build --job ${pbEscape(j.id)} --into &lt;screen-id&gt;', this)">Fold into…</button>`
+        + `</span>`;
+      return `<div class="ia-jrow ${n ? '' : 'ia-jrow--new'}">`
+        + `<span class="ia-jrow-roles">${(j.roles || []).map(pbRoleDot).join('')}</span>`
+        + `<span class="ia-jrow-text">${pbJtbd(j)}`
+        + (n ? '' : `<div class="ia-jrow-why">${j.source ? `<span class="lg-dim">${pbEscape(j.source)}</span>` : ''}${actions}</div>`)
+        + `</span>`
+        + `<span class="lg-dim ia-jrow-meta">${pbEscape(j.priority || '')} · `
+        + (n ? `${n} screen${n > 1 ? 's' : ''}` : `<span class="lg-warn">no screen</span>`)
+        + `</span></div>`;
+    };
 
     function pbRenderIA() {
       const L = window.PB_LOGIC;
@@ -4191,38 +4318,25 @@
       const roles = (((PB_REGISTRY || {}).meta || {}).roles) || [];
       const rf = state.iaRole || 'all';
       const jobs = allJobs.filter(j => rf === 'all' || (j.roles || []).includes(rf));
-      const covered = jobs.filter(j => (j.screens || []).length);
       const unassigned = jobs.filter(j => !(j.screens || []).length);
 
       // Role chips count jobs, so they only mean something once jobs exist.
-      const chips = allJobs.length ? `<div class="ia-roles"><span class="lg-dim">Role</span>
+      const chips = allJobs.length ? `<div class="ia-roles">
           <button class="lg-view ${rf === 'all' ? 'active' : ''}" onclick="pbSetIaRole('all')">All <span class="meta-subtab-count">${allJobs.length}</span></button>
           ${roles.map(r => `<button class="lg-view ${rf === r.id ? 'active' : ''}" onclick="pbSetIaRole('${pbEscape(r.id)}')">${pbRoleDot(r.id)}${pbEscape(r.name || r.id)} <span class="meta-subtab-count">${allJobs.filter(j => (j.roles || []).includes(r.id)).length}</span></button>`).join('')}
         </div>` : '';
-      const stats = allJobs.length
-        ? `<div class="ia-stats">${jobs.length} jobs · ${covered.length} covered · <span class="${unassigned.length ? 'lg-warn' : ''}">${unassigned.length} not handled by anything</span></div>`
+      // Counts the "All jobs" heading already carries are gone; only the one that is a FINDING
+      // stays, and only while it is non-zero — a green "0 not handled" is noise on every render.
+      const stats = unassigned.length
+        ? `<div class="ia-stats"><span class="lg-warn">${unassigned.length} not handled by anything</span></div>`
         : '';
 
       // Every job with no screen is flagged twice: the callout below, and the "no screen"
       // badge on its row in the All jobs list — the site map flags the inverse (a screen with
       // no job) per node, so screen-side coverage never needs its own separate summary here.
-      const newBlock = unassigned.length ? `
-        <div class="ia-card ia-card--new">
-          <div class="meta-h3">Not handled by anything <span class="lg-chip lg-chip--dead" style="text-decoration:none">${unassigned.length}</span></div>
-          <p class="meta-p lg-dim">No screen serves these jobs yet. Give one a screen, fold it into an existing screen, or drop it.</p>
-          ${unassigned.map(j => `<div class="ia-new-row">
-              <span class="ia-jrow-text">${(j.roles || []).map(pbRoleDot).join('')}${pbJtbd(j)}</span>
-              <span class="lg-dim">${pbEscape(j.source || '')}</span>
-              <span class="ia-new-actions">
-                <button class="sync-button" onclick="openCopyPopover('/pb:plan --job ${pbEscape(j.id)}', this)">Plan a screen</button>
-                <button class="lg-view" onclick="openCopyPopover('/pb:build --job ${pbEscape(j.id)} --into &lt;screen-id&gt;', this)">Fold into…</button>
-              </span></div>`).join('')}
-        </div>` : '';
-
       const jobsBody = allJobs.length
-        ? `<div class="ia-card">
+        ? `<div class="ia-card ia-card--flat">
             <div class="meta-h3">All jobs <span class="meta-subtab-count">${jobs.length}</span></div>
-            <p class="meta-p lg-dim">Jobs-to-be-done form: <em>when</em> [situation], <em>I want to</em> [motivation], <em>so I can</em> [outcome].</p>
             ${jobs.map(pbJobRow).join('')}
           </div>`
         : renderEmptyState({
@@ -4232,26 +4346,91 @@
             ctaLabel: 'Capture the jobs', command: '/pb:init',
           });
 
-      return `<div class="ia-layout">
-        <div class="ia-jobs-col">
+      // Site map first, job list second. The section heading is lifted OUT of the columns and
+      // spans both — left in the job column it would have ridden along to the right-hand side,
+      // which is the one place a section title must never sit.
+      return `<div class="ia-head">
           <div class="meta-h2">3.2 Information Architecture</div>
-          <p class="meta-p" style="color:var(--text-tertiary)">Every job a role needs done. A job with no screen is unfinished work.</p>
-          ${chips}
-          ${stats}
-          ${newBlock}
-          ${jobsBody}
         </div>
+        <div class="ia-layout">
         <div class="ia-map-col">
           ${pbRenderSiteMap(ia, jobs, rf)}
+        </div>
+        <div class="ia-jobs-col">
+          ${chips}
+          ${stats}
+          ${jobsBody}
         </div>
       </div>`;
     }
 
-    /* The site map. Layer membership and every edge are DERIVED — layer 0 is each screen a
-       sidebar item targets, deeper layers come from data-nav / data-go / setProtoScreen in the
-       render bodies, and overlays are the drawer/modal/dialog components a screen composes.
-       Only each layer's PURPOSE is authored; asking an author to redraw a hierarchy the code
-       already encodes is how the two drift apart. */
+    /* The site map, drawn as an org chart. Layer membership and every edge are DERIVED — layer 0
+       is each screen a sidebar item targets, deeper layers come from data-nav / data-go /
+       setProtoScreen in the render bodies, and overlays are the drawer/modal/dialog components a
+       screen composes. Only each layer's PURPOSE is authored; asking an author to redraw a
+       hierarchy the code already encodes is how the two drift apart.
+
+       It used to be a grid of columns, one per depth, which read as a table rather than a
+       structure: you could see WHICH layer a screen sat in but not WHAT reaches it. A tidy tree
+       answers the second question, which is the one the words "site map" promise. */
+    const IA_NW = 220, IA_HGAP = 22, IA_VGAP = 56, IA_GUT = 96, IA_PAD = 20;
+    /* Node height is DERIVED from the longest title and id in the chart, not fixed: a card grows
+       to hold its text rather than clipping it. One height for every card keeps the row grid and
+       the edge maths exact — only the tallest card decides it. */
+    const IA_NH_BASE = 72, IA_TITLE_LH = 19, IA_ID_LH = 15;
+    const pbIaLines = (s, charsPerLine) => Math.max(1, Math.ceil(String(s || '').length / charsPerLine));
+
+    /* Leaving the whole card clickable made every attempt to READ the chart a navigation away from
+       it — you cannot drag past a node, or point at one while talking, without being thrown into
+       the Logic tab. The jump is an explicit affordance now; the card is just a card. */
+    const pbIaGoBtn = id =>
+      `<button class="ia-node-go" title="Open ${pbEscape(id)} in the Logic ripple"
+        onclick="event.stopPropagation();pbLogicGo('item','${pbEscape(id)}')">ripple →</button>`;
+
+    /* Tidy-tree layout: leaves take the next free column, a parent centres over its children.
+       Returns post-order nodes (position is absolute, so order is irrelevant) + parent→child edges. */
+    function pbIaTreeLayout(N, S, visible) {
+      const placed = new Set();
+      const nodes = [], edges = [];
+      let cursor = 0, maxRow = 0;
+      const kidsOf = id => ((N.children || {})[id] || []).filter(c => S[c] && visible(c) && !placed.has(c));
+
+      const layout = (id, row) => {
+        placed.add(id);
+        maxRow = Math.max(maxRow, row);
+        const cs = kidsOf(id);
+        // Claim the whole child set BEFORE recursing: two siblings that share a child must not
+        // both place it, and the graph is a DAG, not a tree.
+        cs.forEach(c => placed.add(c));
+        const centers = cs.map(c => layout(c, row + 1));
+        let x;
+        if (centers.length) {
+          x = (centers[0] + centers[centers.length - 1]) / 2;
+        } else {
+          x = cursor + IA_NW / 2;
+          cursor += IA_NW + IA_HGAP;
+        }
+        nodes.push({ id, row, x });
+        centers.forEach(cx => edges.push({ x1: x, r1: row, x2: cx, r2: row + 1 }));
+        return x;
+      };
+
+      // Roots in sidebar order — the hub list IS the product's own entry order — then any other
+      // depth-0 screen, then whatever the walk never reached (a cycle, a stray parent).
+      const roots = [];
+      const push = id => { if (S[id] && visible(id) && roots.indexOf(id) === -1) roots.push(id); };
+      (N.hubs || []).forEach(h => {
+        [h.key].concat((h.children || []).map(c => c.key)).forEach(k => { if ((N.depth || {})[k] === 0) push(k); });
+      });
+      Object.keys(N.depth || {}).forEach(id => { if (N.depth[id] === 0) push(id); });
+      roots.forEach(r => { if (!placed.has(r)) { layout(r, 0); cursor += IA_HGAP; } });
+      Object.keys(N.depth || {}).forEach(id => {
+        if (!placed.has(id) && S[id] && visible(id)) { layout(id, N.depth[id] || 0); cursor += IA_HGAP; }
+      });
+
+      return { nodes, edges, maxRow, width: Math.max(IA_NW, cursor - IA_HGAP) };
+    }
+
     function pbRenderSiteMap(ia, jobs, rf) {
       const N = (window.PB_LOGIC || {}).nav;
       if (!N || !N.depth) return '';
@@ -4266,65 +4445,125 @@
       const layers = (ia && ia.layers) || [];
       const declared = layers.filter(l => l.depth !== 'overlay').sort((a, b) => a.depth - b.depth);
       const overlayLayer = layers.find(l => l.depth === 'overlay');
-      const maxDepth = Math.max(0, ...Object.values(N.depth), declared.length - 1);
-      const cols = [];
-      for (let d = 0; d <= maxDepth; d++) {
-        cols.push(declared.find(l => l.depth === d) || { depth: d, name: 'Layer ' + d, purpose: '' });
+      const layerAt = d => declared.find(l => l.depth === d) || { name: 'Layer ' + d, purpose: '' };
+
+      const T = pbIaTreeLayout(N, S, visible);
+      if (!T.nodes.length) return '';
+
+      // ~26 chars of 13px title and ~32 of 11px mono id fit one line of a 220px card.
+      const IA_NH = IA_NH_BASE
+        + (Math.max(...T.nodes.map(n => pbIaLines(title(n.id), 26))) - 1) * IA_TITLE_LH
+        + (Math.max(...T.nodes.map(n => pbIaLines(n.id, 32))) - 1) * IA_ID_LH;
+
+      /* Overlays are part of the structure, not a footnote — they are the drawers and modals a
+         screen opens in place, and `ia.layers` declares a layer for them. They get their own rail
+         at the foot of the chart: each overlay sits under the mean x of the screens that open it,
+         with one dashed edge per owner, so a SHARED overlay reads as several edges converging.
+         That convergence is the reuse signal, and a count inside the node could never show it. */
+      const OV_W = 190, OV_GAP = 16;
+      const ovOpen = state.iaOverlaysOpen !== false;
+      const nodeX = {}, nodeRow = {};
+      T.nodes.forEach(n => { nodeX[n.id] = n.x; nodeRow[n.id] = n.row; });
+      const ovOwners = {};
+      T.nodes.forEach(n => ((N.overlays || {})[n.id] || []).forEach(o => {
+        (ovOwners[o] = ovOwners[o] || []).push(n.id);
+      }));
+      const meanX = o => ovOwners[o].reduce((s, i) => s + nodeX[i], 0) / ovOwners[o].length;
+      const ovAll = Object.keys(ovOwners).sort((a, b) => meanX(a) - meanX(b));
+      // Collapsed, the rail keeps its label and count but places nothing — this is the busiest
+      // row on the chart (one edge per owner), and it is not always what you came to read.
+      const ovIds = ovOpen ? ovAll : [];
+      // Place at the preferred x, then push right just enough to clear the previous one. Sorting
+      // by preference first is what keeps the edges from criss-crossing.
+      const ovX = {};
+      let ovCursor = OV_W / 2 - OV_W - OV_GAP;
+      ovIds.forEach(o => { ovCursor = ovX[o] = Math.max(meanX(o), ovCursor + OV_W + OV_GAP); });
+      const ovWidth = ovIds.length ? ovX[ovIds[ovIds.length - 1]] + OV_W / 2 : 0;
+      // Same rule as the screen cards: the tallest id decides the row's height, nothing is cut.
+      const OV_H = 56 + (ovAll.length ? Math.max(...ovAll.map(o => pbIaLines(o, 30))) - 1 : 0) * IA_ID_LH;
+
+      const W = IA_GUT + Math.max(T.width, ovWidth) + IA_PAD * 2;
+      const H = IA_PAD * 2 + (T.maxRow + 1) * (IA_NH + IA_VGAP) - IA_VGAP
+        + (ovAll.length ? IA_VGAP + (ovOpen ? OV_H : 24) : 0);
+      const cx = x => IA_GUT + IA_PAD + x;
+      const ry = r => IA_PAD + r * (IA_NH + IA_VGAP);
+      const ovY = IA_PAD + (T.maxRow + 1) * (IA_NH + IA_VGAP);
+
+      // Orthogonal elbows: down out of the parent, across the gutter between rows, down into the
+      // child. Straight segments read as hierarchy in a way curves do not.
+      const edges = T.edges.map(e => {
+        const y1 = ry(e.r1) + IA_NH, y2 = ry(e.r2), my = y1 + IA_VGAP / 2;
+        return `<path class="ia-edge" d="M${cx(e.x1)} ${y1} V${my} H${cx(e.x2)} V${y2}"/>`;
+      }).join('')
+      + ovIds.map(o => ovOwners[o].map(owner => {
+        const y1 = ry(nodeRow[owner]) + IA_NH, my = ovY - IA_VGAP / 2;
+        return `<path class="ia-edge ia-edge--ov" d="M${cx(nodeX[owner])} ${y1} V${my} H${cx(ovX[o])} V${ovY}"/>`;
+      }).join('')).join('');
+
+      const rowLines = [], rowLabs = [];
+      const rail = (top, label, count, purpose) =>
+        `<div class="ia-rowlab" style="top:${top}px;width:${IA_GUT - 14}px" title="${pbEscape(purpose || 'No purpose authored for this layer — /pb:init asks for one sentence each')}">`
+        + `${pbEscape(label)}<span class="ia-rowlab-n">${count}</span></div>`;
+      for (let r = 0; r <= T.maxRow; r++) {
+        const l = layerAt(r), n = T.nodes.filter(x => x.row === r).length;
+        rowLines.push(`<line class="ia-rowline" x1="0" y1="${ry(r) - 16}" x2="${W}" y2="${ry(r) - 16}"/>`);
+        rowLabs.push(rail(ry(r), 'L' + r + ' · ' + l.name, n, l.purpose));
       }
-      const stats = cols.map(l => {
-        const scr = Object.keys(N.depth).filter(id => N.depth[id] === l.depth && visible(id));
-        const js = jobs.filter(j => (j.screens || []).some(id => N.depth[id] === l.depth));
-        const rs = [...new Set(scr.flatMap(id => (S[id] || {}).roles || []))];
-        return { scr, js, rs, so: [...new Set(js.map(j => j.so).filter(Boolean))].slice(0, 3) };
-      });
+      if (ovAll.length) {
+        rowLines.push(`<line class="ia-rowline ia-rowline--ov" x1="0" y1="${ovY - 16}" x2="${W}" y2="${ovY - 16}"/>`);
+        rowLabs.push(`<div class="ia-rowlab ia-rowlab--ov" style="top:${ovY}px;width:${IA_GUT - 14}px"
+            title="${pbEscape((overlayLayer && overlayLayer.purpose) || 'The drawers and modals a screen opens in place')}">
+            <button class="ia-rail-toggle" onclick="pbToggleIaOverlays()" title="${ovOpen ? 'Collapse' : 'Expand'} the overlay layer">${ovOpen ? '▾' : '▸'}</button>
+            Overlay · ${pbEscape((overlayLayer && overlayLayer.name) || 'Drawer & modal')}<span class="ia-rowlab-n">${ovAll.length}</span>
+          </div>`);
+      }
 
-      const head = `<div class="ia-map-head" style="grid-template-columns:repeat(${cols.length}, minmax(0,1fr))">`
-        + cols.map((l, i) => `<div class="ia-layer">
-            <div class="ia-layer-n">L${l.depth} · ${pbEscape(l.name)} <span class="meta-subtab-count">${stats[i].scr.length} screens · ${stats[i].js.length} jobs</span></div>
-            <div class="ia-layer-p">${l.purpose ? pbEscape(l.purpose) : '<span class="lg-warn">Describe what this layer is for — /pb:init asks for one sentence per layer</span>'}</div>
-            ${stats[i].rs.length ? `<div class="ia-layer-r">${stats[i].rs.map(pbRoleDot).join('')}<span class="lg-dim">${pbEscape(stats[i].rs.map(pbRoleName).join(', '))}</span></div>` : ''}
-            ${stats[i].so.length ? `<div class="ia-layer-so"><span class="lg-dim">Solves:</span> ${stats[i].so.map(s => '“' + pbEscape(s) + '”').join(' · ')}</div>` : ''}
-          </div>`).join('') + `</div>`;
-
-      const node = id => {
-        const js = jobsOf(id);
-        const ov = (N.overlays || {})[id] || [];
-        return `<div class="ia-node ${js.length ? '' : 'ia-node--empty'}" onclick="pbLogicGo('item','${pbEscape(id)}')">
-            <div class="ia-node-t"><strong>${pbEscape(title(id))}</strong>${((S[id] || {}).roles || []).map(pbRoleDot).join('')}</div>
-            <div class="lg-dim">${pbEscape(id)}</div>
-            <div class="ia-node-j">${js.length ? js.map(j => `<span class="ia-mini" title="${pbEscape(j.want || '')}">${pbEscape(j.want || j.job || '')}</span>`).join('') : '<span class="lg-warn">no job</span>'}</div>
-            ${ov.length ? `<div class="ia-node-ov"><span class="lg-dim">overlays</span> ${ov.map(o => `<span class="ia-ov" onclick="event.stopPropagation();pbLogicGo('item','${pbEscape(o)}')">${pbEscape(o)}</span>`).join('')}</div>` : ''}
+      const nodeEls = T.nodes.map(n => {
+        const js = jobsOf(n.id), ov = (N.overlays || {})[n.id] || [];
+        const ovBit = ov.length ? ` · ${ov.length} overlay${ov.length > 1 ? 's' : ''}` : '';
+        const meta = (js.length ? `${js.length} job${js.length > 1 ? 's' : ''}` : '<span class="lg-warn">no job</span>') + ovBit;
+        const tip = (js.length ? js.map(j => '• ' + (j.want || j.job || '')).join('\n') : 'No job maps to this screen')
+          + (ov.length ? '\n\noverlays: ' + ov.join(', ') : '');
+        return `<div class="ia-node ia-node--card ${js.length ? '' : 'ia-node--empty'}"
+            style="left:${cx(n.x) - IA_NW / 2}px;top:${ry(n.row)}px;width:${IA_NW}px;height:${IA_NH}px"
+            title="${pbEscape(tip)}">
+            <div class="ia-node-t"><strong>${pbEscape(title(n.id))}</strong>${((S[n.id] || {}).roles || []).map(pbRoleDot).join('')}</div>
+            <div class="lg-dim ia-node-id">${pbEscape(n.id)}</div>
+            <div class="ia-node-m"><span>${meta}</span>${pbIaGoBtn(n.id)}</div>
           </div>`;
-      };
-
-      const rows = (N.hubs || []).map(h => {
-        const members = [h.key].concat((h.children || []).map(c => c.key)).filter(k => S[k]);
-        if (!members.filter(visible).length) return '';
-        const byDepth = cols.map(() => []);
-        const seen = new Set();
-        const walk = (id, d) => {
-          if (seen.has(id)) return;
-          seen.add(id);
-          if (visible(id)) byDepth[Math.min(d, cols.length - 1)].push(id);
-          ((N.children || {})[id] || []).forEach(c => walk(c, d + 1));
-        };
-        members.forEach(m => walk(m, 0));
-        return `<div class="ia-map-row" style="grid-template-columns:repeat(${cols.length}, minmax(0,1fr))">
-            <div class="ia-map-group">${pbEscape(h.label || h.key)}${(h.children || []).length ? ` <span class="lg-dim">${h.children.length} sub-items</span>` : ''}</div>
-            ${byDepth.map((ids, d) => `<div class="ia-col">${ids.map(id =>
-              (d ? `<div class="ia-from lg-dim">↳ from ${pbEscape(title((N.parent || {})[id] || ''))}</div>` : '') + node(id)).join('')}</div>`).join('')}
+      }).join('')
+      + ovIds.map(o => {
+        const owners = ovOwners[o];
+        return `<div class="ia-node ia-node--card ia-node--ov"
+            style="left:${cx(ovX[o]) - OV_W / 2}px;top:${ovY}px;width:${OV_W}px;height:${OV_H}px"
+            title="${pbEscape('Opened by: ' + owners.map(id => title(id)).join(', '))}">
+            <div class="ia-node-t">${pbEscape(o)}</div>
+            <div class="ia-node-m"><span>${owners.length} screen${owners.length > 1 ? 's' : ''}</span>${pbIaGoBtn(o)}</div>
           </div>`;
       }).join('');
 
       const orphans = Object.keys(S).filter(id => N.depth[id] == null && visible(id));
-      const overlayCount = [...new Set(Object.values(N.overlays || {}).flat())].length;
-      return `<div class="ia-card">
-          <div class="meta-h3">Site map <span class="meta-subtab-count">${cols.length} layer${cols.length === 1 ? '' : 's'}${overlayLayer ? ' + overlays' : ''}</span></div>
-          <p class="meta-p lg-dim">Layers and edges are derived from the sidebar and every <code>data-nav</code> / <code>setProtoScreen</code> in the render bodies. Only each layer's purpose is authored. Click a screen for its ripple.</p>
-          ${head}${rows}
-          ${overlayLayer ? `<div class="ia-layer ia-layer--ov"><div class="ia-layer-n">Overlay · ${pbEscape(overlayLayer.name)} <span class="meta-subtab-count">${overlayCount} components</span></div><div class="ia-layer-p">${pbEscape(overlayLayer.purpose || '')}</div></div>` : ''}
-          ${orphans.length ? `<div class="ia-orphans"><span class="lg-warn">Reachable from no hub:</span> ${orphans.map(id => `<span class="ia-ov">${pbEscape(id)}</span>`).join(' ')}</div>` : ''}
-        </div>`;
+      const ovCount = ovIds.length;
+
+      return `<div class="meta-h3 ia-map-title">Site map <span class="meta-subtab-count">${T.nodes.length} screens · ${T.maxRow + 1} layer${T.maxRow ? 's' : ''}${ovCount ? ` · ${ovCount} overlays` : ''}</span></div>
+        <div class="flow-canvas ia-canvas" id="iamap-canvas">
+          <div class="flow-viewport" id="iamap-viewport">
+            <div class="flow-stage ia-stage" id="iamap-stage" data-w="${W}" data-h="${H}"
+                 style="width:${W}px;height:${H}px;margin-top:${-H / 2}px;margin-left:${-W / 2}px">
+              <svg class="ia-edges" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">${rowLines.join('')}${edges}</svg>
+              ${rowLabs.join('')}
+              ${nodeEls}
+            </div>
+          </div>
+          <div class="flow-zoom-controls">
+            <button class="flow-zoom-btn" id="iamap-zoom-in"  title="Zoom in">+</button>
+            <button class="flow-zoom-btn" id="iamap-zoom-out" title="Zoom out">−</button>
+            <button class="flow-zoom-btn" id="iamap-zoom-fit" title="Fit / reset">⊙</button>
+          </div>
+          <div class="flow-zoom-readout" id="iamap-zoom-readout">100%</div>
+          <div class="flow-hint">Scroll to zoom · drag to pan · click a screen for its ripple</div>
+        </div>
+        ${orphans.length ? `<div class="ia-orphans"><span class="lg-warn">Reachable from no hub:</span> ${orphans.map(id => `<span class="ia-ov">${pbEscape(id)}</span>`).join(' ')}</div>` : ''}`;
     }
 
     /* ── Logic · Rules | Ripple ───────────────────────────────────────────── */
@@ -4334,6 +4573,16 @@
       state.logicView = 'ripple';
       state.uxView = 'logic';
       renderMetaFlow();
+    }
+    /* Jump to a DECLARED rule, not a derived node — pbLogicGo lands in the ripple, which has no
+       rule to land on. Content's glossary links here, so a term and the rule that governs it are
+       one click apart. */
+    function pbLogicGoRule(id) {
+      state.logicView = 'rules';
+      state.uxView = 'logic';
+      renderMetaFlow();
+      const el = document.getElementById('rule-' + id);
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
     function pbLogicFilter(inp) {
       const q = (inp.value || '').toLowerCase();
@@ -4351,15 +4600,17 @@
       if (!state.logicView) state.logicView = (L.rules || []).length ? 'rules' : 'ripple';
       const v = state.logicView;
       const S = L.stats;
+      const tradeoffs = (PB_DATA && PB_DATA.uiLogicTradeoffs) || [];
       return `<div class="meta-section">
           <div class="meta-h2">3.1 Logic</div>
-          <p class="meta-p" style="color:var(--text-tertiary)">Declared <strong>rules</strong> — state machines, permission matrices — linked to the code that implements them, and the derived <strong>ripple</strong> of every handler: what it reads, which store slice it touches, what it re-renders.</p>
+          <p class="meta-p" style="color:var(--text-tertiary)">Declared <strong>rules</strong> — state machines, permission matrices, constraint sets — linked to the code that implements them; the <strong>trade-offs</strong> those rules were decided by; and the derived <strong>ripple</strong> of every handler: what it reads, which store slice it touches, what it re-renders.</p>
           <div class="lg-views">
             <button class="lg-view ${v === 'rules' ? 'active' : ''}" onclick="pbSetLogicView('rules')">Rules <span class="meta-subtab-count">${(L.rules || []).length}</span></button>
+            <button class="lg-view ${v === 'tradeoffs' ? 'active' : ''}" onclick="pbSetLogicView('tradeoffs')">Trade-offs <span class="meta-subtab-count">${tradeoffs.length}</span></button>
             <button class="lg-view ${v === 'ripple' ? 'active' : ''}" onclick="pbSetLogicView('ripple')">Ripple <span class="meta-subtab-count">${S.handlers}</span></button>
             <span class="lg-stats">${S.handlers} handlers · ${S.exported} shared · ${S.saves} saves · ${S.slices} store slices · <span class="${S.deadReads ? 'lg-warn' : ''}">${S.deadReads} dead read${S.deadReads === 1 ? '' : 's'}</span></span>
           </div>
-          ${v === 'rules' ? pbRenderLogicRules(L) : pbRenderLogicRipple(L)}
+          ${v === 'rules' ? pbRenderLogicRules(L) : v === 'tradeoffs' ? pbRenderTradeoffs() : pbRenderLogicRipple(L)}
         </div>`;
     }
 
@@ -4372,7 +4623,7 @@
         <div class="lg-card" id="rule-${pbEscape(r.id)}">
           <div class="meta-h3">${pbEscape(r.title)} ${pbLgChip(r.kind, 'lg-chip--kind')}</div>
           <p class="meta-p">${pbEscape(r.summary || '')}</p>
-          ${r.kind === 'state-machine' ? pbRuleStateMachine(r) : r.kind === 'matrix' ? pbRuleMatrix(r) : ''}
+          ${r.kind === 'state-machine' ? pbRuleStateMachine(r) : r.kind === 'matrix' ? pbRuleMatrix(r) : r.kind === 'constraint' ? pbRuleConstraint(r) : ''}
         </div>`).join('');
     }
 
@@ -4380,15 +4631,37 @@
        than nodes in the chain, because that is what they are: a deadline overlay sits on top of
        whatever stage the thing is in. No Mermaid state diagram can express that, which is why
        this is hand-drawn SVG. */
+    /* Rough width of a string at a given font size. SVG <text> neither wraps nor ellipsises, so
+       this sizes the SHAPE to the text — the box grows, the label is never cut. */
+    const pbSvgTextW = (s, perChar) => String(s || '').length * (perChar || 6.2);
+
+    /* Declared states that no code puts the system into. The answer is only sound when the rule
+       named the property holding the state (`stateField`) and marked its computed states
+       `derived` — without that, a scan cannot tell a domain state from a UI variant sharing the
+       word, nor an assigned machine from one derived from dates. So: no stateField, no claim. */
+    function pbRuleUnreachable(r) {
+      const sw = ((window.PB_LOGIC || {}).stateWriters || {})[r.id];
+      if (!sw || sw.unscoped || !r.stateField) return [];
+      return Object.keys(sw).filter(k => !sw[k].derived && !(sw[k].assigns || []).length);
+    }
+
     function pbRuleStateMachine(r) {
-      const W = 190, H = 54, GAP = 46, y = 74, x0 = 12;
+      const H = 54, GAP = 46, y = 74, x0 = 12;
       const states = r.states || [], overlays = r.overlays || [];
       if (!states.length) return '';
+      // One width for every box, taken from the longest label or key in the machine.
+      const W = Math.ceil(Math.max(190, ...states.map(s =>
+        Math.max(pbSvgTextW(s.label, 7.3), pbSvgTextW(s.key, 6.2)) + 28)));
       const idx = {};
       states.forEach((s, i) => { idx[s.key] = i; });
+      // A state nothing can put the system into. Only claimed when the rule declared a
+      // `stateField`; see pbRuleUnreachable.
+      const unreachable = pbRuleUnreachable(r);
       const box = (s, i) => {
         const x = x0 + i * (W + GAP);
-        return `<g><rect x="${x}" y="${y}" width="${W}" height="${H}" rx="10" class="lg-st"/>`
+        const dead = unreachable.indexOf(s.key) !== -1;
+        return `<g><title>${pbEscape(s.label)} — ${pbEscape(s.condition || '')}${dead ? '\n\nNothing assigns ' + r.stateField + " = '" + s.key + "' — no action reaches this state" : ''}</title>`
+          + `<rect x="${x}" y="${y}" width="${W}" height="${H}" rx="10" class="lg-st ${dead ? 'lg-st--dead' : ''}"/>`
           + `<text x="${x + W / 2}" y="${y + 23}" class="lg-st-t">${pbEscape(s.label)}</text>`
           + `<text x="${x + W / 2}" y="${y + 41}" class="lg-st-k">${pbEscape(s.key)}</text></g>`;
       };
@@ -4408,17 +4681,38 @@
         const x = x0 + Math.min.apply(null, cols) * (W + GAP) - 6 + j * 4;
         const w = (Math.max.apply(null, cols) - Math.min.apply(null, cols) + 1) * (W + GAP) - GAP + 12 - j * 8;
         const oy = 14 + j * 22;
-        return `<g><rect x="${x}" y="${oy}" width="${w}" height="18" rx="9" class="lg-ov"/>`
-          + `<text x="${x + w / 2}" y="${oy + 13}" class="lg-ov-t">${pbEscape(o.label)} — ${pbEscape(o.condition || '')}</text></g>`;
+        // The band carries the LABEL only. Its condition is printed verbatim one row down in the
+        // table — putting it here too made the longest overlay spill out BOTH ends of its pill,
+        // because a band is sized by the states it spans and never by its text.
+        return `<g><title>${pbEscape(o.label)} — ${pbEscape(o.condition || '')}</title>`
+          + `<rect x="${x}" y="${oy}" width="${w}" height="18" rx="9" class="lg-ov"/>`
+          + `<text x="${x + w / 2}" y="${oy + 13}" class="lg-ov-t">${pbEscape(o.label)}</text></g>`;
       }).join('');
       const total = x0 * 2 + states.length * (W + GAP) - GAP;
-      const rows = states.map(s => `<tr><td><strong>${pbEscape(s.label)}</strong> <span class="lg-dim">${pbEscape(s.key)}</span></td><td>${pbEscape(s.condition || '')}</td></tr>`).join('')
+      const rows = states.map(s => `<tr class="${unreachable.indexOf(s.key) !== -1 ? 'lg-tr-dead' : ''}"><td><strong>${pbEscape(s.label)}</strong> <span class="lg-dim">${pbEscape(s.key)}</span></td><td>${pbEscape(s.condition || '')}${unreachable.indexOf(s.key) !== -1 ? ` <span class="lg-warn">— nothing assigns ${pbEscape(r.stateField)} = '${pbEscape(s.key)}'</span>` : ''}</td></tr>`).join('')
         + overlays.map(o => `<tr class="lg-tr-ov"><td><strong>${pbEscape(o.label)}</strong> <span class="lg-dim">overlay · ${pbEscape(o.key)}</span></td><td>${pbEscape(o.condition || '')}</td></tr>`).join('');
       return `<div class="lg-svg-wrap"><svg viewBox="0 0 ${total} 176" width="100%" style="max-width:${total}px;display:block">
           <defs><marker id="lgArr" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" class="lg-arrow-head"/></marker></defs>
           ${bands}${states.map(box).join('')}${arrows}
         </svg></div>
         <table class="lg-table"><thead><tr><th>State</th><th>Condition</th></tr></thead><tbody>${rows}</tbody></table>`;
+    }
+
+    /* The third rule shape: a set of invariants, each with the ONE function that enforces it.
+       Scoring rules are neither a machine nor a matrix — "every weight pool totals 100", "the final
+       score is clamped 0–100 at the single commit point" — and before this kind existed they could
+       only render as a title over a paragraph, with the enforcement point left unnamed. An invariant
+       with no `enforcedBy` is drawn as a warning, because a rule nothing enforces is the finding. */
+    function pbRuleConstraint(r) {
+      const inv = r.invariants || [];
+      if (!inv.length) return '';
+      return `<table class="lg-table"><thead><tr><th>Must hold</th><th>Enforced by</th><th>When</th></tr></thead><tbody>`
+        + inv.map(i => `<tr>
+            <td>${pbEscape(i.must || '')}${i.message ? `<div class="lg-dim">${pbEscape(i.message)}</div>` : ''}</td>
+            <td>${i.enforcedBy ? pbLgLink('handler', i.enforcedBy, i.enforcedBy + '()') : '<span class="lg-warn">nothing</span>'}</td>
+            <td class="lg-dim">${pbEscape(i.when || '')}</td>
+          </tr>`).join('')
+        + `</tbody></table>`;
     }
 
     function pbRuleMatrix(r) {
@@ -4453,9 +4747,9 @@
       const list = `<div class="lg-list-wrap">
           <input class="lg-search" placeholder="Filter…" oninput="pbLogicFilter(this)" autocomplete="off">
           <div id="logic-list">
+            ${group('Screens', (L.items || []).filter(i => i.kind === 'screen').map(i => row('item', i.id, i.id, `${(i.ownLogic || []).length} fns`)))}
             ${group('Store slices', Object.keys(L.slices || {}).map(k => row('slice', k, k, `${(L.slices[k].writers || []).length}w · ${(L.slices[k].readers || []).length}r`)))}
             ${group('Save handlers', saves.map(h => row('handler', h.name, h.name + '()', pbLgBase(h.file))))}
-            ${group('Screens', (L.items || []).filter(i => i.kind === 'screen').map(i => row('item', i.id, i.id, `${(i.ownLogic || []).length} fns`)))}
             ${group('Components with logic', withLogic.filter(i => i.kind === 'component').map(i => row('item', i.id, i.id, `${(i.ownLogic || []).length} fns`)))}
             ${group('Shared helpers', shared.map(h => row('handler', h.name, h.name + '()', `${(h.calledFrom || []).length} files`)))}
           </div></div>`;
@@ -4523,9 +4817,46 @@
       return C[(it.kind === 'screen' ? 'screens/' : 'components/') + it.id] || null;
     }
 
+    /* A screen is pure composition by pb's own atomic law, so "logic defined in this file" is
+       legitimately 0 for a well-built one — and the item card then had nothing to say about it.
+       The behaviour is a level down, in what it composes. Walk that tree and name it, so a screen
+       answers "what can happen here?" instead of listing component names.
+       Deliberately NOT the same as counting nested functions: a file's private markup helpers
+       (esc, stack, subHeading) are not behaviour, and promoting them would bury the signal. */
+    function pbComposedLogic(it, L) {
+      const I = {};
+      (L.items || []).forEach(i => { I[i.id] = i; });
+      const seen = new Set([it.id]);
+      const out = [];
+      (function walk(id, depth) {
+        if (depth > 4) return;
+        ((I[id] || {}).composes || []).forEach(cid => {
+          if (seen.has(cid)) return;
+          seen.add(cid);
+          if ((I[cid] || {}).ownLogic && I[cid].ownLogic.length) out.push(I[cid]);
+          walk(cid, depth + 1);
+        });
+      })(it.id, 0);
+      return out;
+    }
+
     function pbRippleItem(it, H, L) {
       const rules = (L.rules || []).filter(r => (r.displayedIn || []).includes(it.id));
       const li = ns => ns.map(n => pbLgLink('handler', n, n + '()')).join(', ');
+      const composedLogic = pbComposedLogic(it, L);
+      const composedSec = composedLogic.map(c => {
+        const fns = c.ownLogic || [];
+        return `<div class="lg-line">${pbLgLink('item', c.id)} `
+          + `<span class="lg-dim">${fns.length} fn${fns.length === 1 ? '' : 's'}</span> `
+          + fns.slice(0, 6).map(n => pbLgLink('handler', n, n + '()')).join(', ')
+          + (fns.length > 6 ? ` <span class="lg-dim">+${fns.length - 6}</span>` : '')
+          + `</div>`;
+      }).join('');
+      // An item with no logic of its own AND none in anything it composes is a real finding, not
+      // an empty panel — say so rather than rendering nothing.
+      const inert = !(it.ownLogic || []).length && !composedLogic.length && (it.composes || []).length
+        ? `<div class="lg-line lg-dim">Composes ${it.composes.length} component${it.composes.length === 1 ? '' : 's'}, none of which define behaviour — this surface is presentational. Any action here is passed in by whatever renders it.</div>`
+        : '';
       const c = pbContract(it) || {};
       const declared = (c.writes || []).map(w => pbLgChip('store.' + w, 'lg-chip--kind')).join(' ');
       const affords = (c.affordances || []).map(a =>
@@ -4537,6 +4868,8 @@
         ${pbLgSec('Rules displayed here', rules.map(r => `<a class="lg-link" href="#" onclick="pbSetLogicView('rules');return false">${pbEscape(r.title)}</a>`).join('<br>'))}
         ${pbLgSec(`Composed by (${(it.composedBy || []).length})`, (it.composedBy || []).map(c => pbLgLink('item', c)).join(', '))}
         ${pbLgSec(`Composes (${(it.composes || []).length})`, (it.composes || []).map(c => pbLgLink('item', c)).join(', '))}
+        ${pbLgSec(`Behaviour reachable through what it composes (${composedLogic.length})`, composedSec)}
+        ${inert}
         ${pbLgSec('Handlers wired in its markup', li(it.wires || []))}
         ${pbLgSec('Handlers that read its DOM', li(it.readBy || []))}
         ${pbLgSec(`Logic defined in this file (${(it.ownLogic || []).length})`, li(it.ownLogic || []))}`;
@@ -4568,20 +4901,44 @@
       const chip = cat ? `<span class="pb-qa-cat pb-qa-cat--${pbEscape(cat)}">${pbEscape(QA_CAT_LABEL[cat] || cat)}</span> ` : '';
       if (!(sc && typeof sc === 'object' && sc.test)) return `<li>☐ ${chip}${pbEscape(text)}</li>`;
       const lr = sc.lastResult || {};
-      const st = lr.status === 'pass' ? 'pass' : lr.status === 'fail' ? 'fail' : 'untested';
-      const glyphChar = st === 'pass' ? '✓' : st === 'fail' ? '✗' : '○';
-      const titleTxt = (st === 'pass' ? 'Passed' : st === 'fail' ? 'Failed' : 'Not run yet') + (lr.detail ? ' — ' + lr.detail : '') + (lr.ranAt ? ' (' + lr.ranAt + ')' : '');
+      const stale = pbResultStale(lr);
+      const st = !lr.status ? 'untested' : stale ? 'stale'
+        : lr.status === 'pass' ? 'pass' : lr.status === 'fail' ? 'fail' : 'untested';
+      const glyphChar = st === 'pass' ? '✓' : st === 'fail' ? '✗' : st === 'stale' ? '⟳' : '○';
+      const titleTxt = (st === 'pass' ? 'Passed' : st === 'fail' ? 'Failed'
+          : st === 'stale' ? (stale === 'unknown'
+              ? 'Ran before input tracking existed — re-run to confirm'
+              : 'Stale — the code changed since this ran: ' + stale)
+          : 'Not run yet')
+        + (lr.detail ? ' — ' + lr.detail : '') + (lr.ranAt ? ' (' + lr.ranAt + ')' : '');
       const glyph = `<span class="pb-test-glyph pb-test-glyph--${st}" title="${escapeHtmlAttr(titleTxt)}">${glyphChar}</span>`;
       return `<li>${glyph} ${chip}${pbEscape(text)}</li>`;
     };
+    /* Is this verdict still about the code that is here now? Returns '' when it is current, or
+       a reason string when it is not — the screens whose bodies moved, or 'unknown' for a result
+       written before inputs were recorded, which cannot be shown as green without asserting
+       something nobody checked. */
+    function pbResultStale(lr) {
+      if (!lr || !lr.status || lr.status === 'untested') return '';
+      const live = (window.PB_LOGIC || {}).itemHash;
+      if (!live) return '';                       // no derived graph — claim nothing
+      if (!lr.inputs) return 'unknown';
+      const moved = Object.keys(lr.inputs).filter(id => (live[id] || '') !== lr.inputs[id]);
+      return moved.length ? moved.join(', ') : '';
+    }
+
     function pbTestCounts() {
       const fStories = (PB_DATA.flow && PB_DATA.flow.stories) || [];
-      let total = 0, pass = 0, manual = 0;
+      let total = 0, pass = 0, manual = 0, stale = 0;
       fStories.forEach(s => (s.scenarios || []).forEach(sc => {
-        if (sc && typeof sc === 'object' && sc.test) { total++; if (sc.lastResult && sc.lastResult.status === 'pass') pass++; }
+        if (sc && typeof sc === 'object' && sc.test) {
+          total++;
+          if (pbResultStale(sc.lastResult)) stale++;
+          else if (sc.lastResult && sc.lastResult.status === 'pass') pass++;
+        }
         else manual++;
       }));
-      return { total, pass, manual };
+      return { total, pass, manual, stale };
     }
     function pbRenderTestCases() {
       const f = (PB_DATA && PB_DATA.flow) || {};
@@ -4589,23 +4946,21 @@
       if (!fStories.length) {
         return pbUxEmpty('No test cases yet',
           'Test cases ride the user flow — each story carries a checklist of scenarios across the UX, UI, Function, Business and System-edge lenses. Generate the user flow first.',
-          'Generate user flow', '/pb:flow');
+          'Generate user flow', '/pb:plan --flow');
       }
       const tc = pbTestCounts();
       const runTestsBtn = VIEW_ONLY ? '' :
         `<button class="pb-test-run-btn" type="button" onclick="openCopyPopover('/pb:test', this)" title="Copy the /pb:test command">Run tests</button>`;
-      const testsHeader = `<div class="pb-test-head"><span class="pb-test-summary">${tc.pass}/${tc.total} passing · ${tc.manual} manual</span>${runTestsBtn}</div>`;
       const warns = f.coverageWarnings || [];
-      const warnBlock = warns.length ? `
-        <div class="pb-qa-warn">
-          <div class="pb-qa-warn-head">⚠ Coverage gaps (${warns.length})</div>
-          <ul class="pb-qa-warn-list">${warns.map(w => {
+      const testsHeader = `<div class="pb-test-head"><span class="pb-test-summary">${tc.pass}/${tc.total} passing · ${tc.manual} manual${tc.stale ? ` · <span class="lg-warn">${tc.stale} stale</span>` : ''}${warns.length ? ` · <span class="lg-warn">${warns.length} coverage gaps</span>` : ''}</span>${runTestsBtn}</div>`;
+      // Gaps read as rows in the same list rhythm as the stories, flagged rather than boxed: a
+      // box of 22 findings is a wall you scroll past, and it sat above the very list it is about.
+      const warnBlock = warns.length ? `<ul class="flow-doc-gaps">${warns.map(w => {
             const note = (typeof w === 'string') ? w : (w && w.note) || '';
             const cat = (w && typeof w === 'object') ? w.category : null;
             const chip = cat ? `<span class="pb-qa-cat pb-qa-cat--${pbEscape(cat)}">${pbEscape(QA_CAT_LABEL[cat] || cat)}</span> ` : '';
             return `<li>${chip}${pbEscape(note)}</li>`;
-          }).join('')}</ul>
-        </div>` : '';
+          }).join('')}</ul>` : '';
       const testsList = '<ol class="flow-doc-stories">' + fStories.map(s =>
           `<li><strong>${pbEscape(s.title||'')}</strong><ul class="flow-doc-checks">`
           + (s.scenarios||[]).map(scenarioLi).join('') + '</ul></li>').join('') + '</ol>';
@@ -4613,8 +4968,144 @@
           <div class="meta-h2">3.4 Test Cases</div>
           <p class="meta-p" style="color:var(--text-tertiary)">Every scenario each user story must satisfy, tagged by lens (UX · UI · Function · Business · System edge). A scenario wired to a <code>test{}</code> block shows its last run result.</p>
           ${testsHeader}
-          ${warnBlock}
           ${testsList}
+          ${warnBlock}
+        </div>`;
+    }
+
+    /* ── Content ──────────────────────────────────────────────────────────────
+       Two authored halves of one thing: the words the product uses.
+
+       `terms` is the glossary — what a domain word means, what else the team says for
+       it (`aka`), and what it is deliberately never called (`avoid`). `strings` is the
+       wording deck — the canonical text for an action, a status, a message, so two
+       screens never phrase the same thing two ways.
+
+       BOTH halves are hand-authored; nothing derives them. So the only check this view
+       can honestly run is authored-vs-authored (D-08 Kind A): a wording that uses a word
+       another term banned, and a term pointing at a rule Logic does not declare. Usage
+       ("which screen actually says this") would have to come from the render bodies via
+       logic_extract.py; until it does, this view does not pretend to know it.
+       ───────────────────────────────────────────────────────────────────────── */
+    const CT_KINDS = [
+      ['action', 'Actions'], ['status', 'Statuses'], ['label', 'Labels'], ['title', 'Titles'],
+      ['empty', 'Empty states'], ['toast', 'Toasts'], ['error', 'Errors'],
+    ];
+
+    function pbSetContentView(v) { state.contentView = v; renderMetaFlow(); }
+    function pbContentFilter(inp) {
+      const q = (inp.value || '').toLowerCase();
+      document.querySelectorAll('#content-body [data-ck]').forEach(r => { r.hidden = q && r.dataset.ck.indexOf(q) === -1; });
+      document.querySelectorAll('#content-body .ct-group').forEach(g => { g.hidden = !g.querySelector('[data-ck]:not([hidden])'); });
+    }
+
+    function pbContentDrift(C) {
+      const terms = C.terms || [], strings = C.strings || [];
+      const rules = (window.PB_LOGIC || {}).rules || [];
+      const out = [];
+      // Every banned word, once, with the term that banned it.
+      const banned = [];
+      terms.forEach(t => (t.avoid || []).forEach(a => {
+        if (a) banned.push({ word: String(a), lc: String(a).toLowerCase(), term: t.term || t.id || '' });
+      }));
+      const scan = (text, label) => {
+        const lc = String(text || '').toLowerCase();
+        banned.forEach(b => {
+          if (lc.indexOf(b.lc) !== -1) {
+            out.push(`${label} says “${pbEscape(text)}” — <strong>${pbEscape(b.word)}</strong> is on ${pbEscape(b.term)}’s do-not-use list`);
+          }
+        });
+      };
+      strings.forEach(s => scan(s.text, `<code>${pbEscape(s.key || '')}</code>`));
+      // A rule's state labels are user-visible wording too, and they are the wording most likely
+      // to drift: a rule is transcribed from a spec once and then nothing re-reads it. Checking
+      // them here is what makes the glossary load-bearing rather than a second place to look.
+      rules.forEach(r => {
+        (r.states || []).forEach(s => scan(s.label, `Rule <strong>${pbEscape(r.title || r.id)}</strong> · state <code>${pbEscape(s.key || '')}</code>`));
+        (r.overlays || []).forEach(o => scan(o.label, `Rule <strong>${pbEscape(r.title || r.id)}</strong> · overlay <code>${pbEscape(o.key || '')}</code>`));
+      });
+      // Only meaningful once rules exist; a project with none would otherwise flag every link.
+      if (rules.length) {
+        const ruleIds = rules.map(r => r.id);
+        terms.forEach(t => {
+          if (t.rule && ruleIds.indexOf(t.rule) === -1) {
+            out.push(`<strong>${pbEscape(t.term || t.id || '')}</strong> points at rule <code>${pbEscape(t.rule)}</code>, which Logic does not declare`);
+          }
+        });
+      }
+      return out;
+    }
+
+    function pbRenderContentTerms(C) {
+      const terms = C.terms || [];
+      if (!terms.length) {
+        return `<p class="meta-p lg-dim">No definitions yet. A definition fixes what one domain word means — and what it is never called — so the rules, the screens and the spec all say the same thing.</p>`;
+      }
+      const ruleTitle = id => ((((window.PB_LOGIC || {}).rules) || []).find(r => r.id === id) || {}).title;
+      return `<div class="ct-terms">` + terms.map(t => {
+        const key = [t.term, t.en, t.definition, (t.aka || []).join(' ')].join(' ').toLowerCase();
+        return `<div class="ct-term" data-ck="${pbEscape(key)}">
+          <div class="ct-term-h">
+            <strong>${pbEscape(t.term || t.id || '')}</strong>
+            ${t.en ? `<span class="ct-en">${pbEscape(t.en)}</span>` : ''}
+          </div>
+          <p class="ct-def">${pbEscape(t.definition || '')}</p>
+          ${(t.aka || []).length ? `<div class="ct-line"><span class="lg-dim">also called</span> ${t.aka.map(a => `<span class="ct-aka">${pbEscape(a)}</span>`).join('')}</div>` : ''}
+          ${(t.avoid || []).length ? `<div class="ct-line"><span class="lg-dim">never</span> ${t.avoid.map(a => `<span class="ct-avoid">${pbEscape(a)}</span>`).join('')}</div>` : ''}
+          ${t.rule ? `<div class="ct-line ct-rule-line"><span class="lg-dim">rule</span> <a class="lg-link ct-rule" href="#" onclick="pbLogicGoRule('${pbEscape(t.rule)}');return false">${pbEscape(ruleTitle(t.rule) || t.rule)} →</a></div>` : ''}
+        </div>`;
+      }).join('') + `</div>`;
+    }
+
+    function pbRenderContentStrings(C) {
+      const strings = C.strings || [];
+      if (!strings.length) {
+        return `<p class="meta-p lg-dim">No wordings yet. A wording is the canonical text for one action, status or message — write it once here and every screen that needs it reads the same string.</p>`;
+      }
+      const seen = {};
+      strings.forEach(s => { seen[s.kind || 'other'] = 1; });
+      // Known kinds first, in the order above; anything else keeps its own name rather than
+      // being dropped — an unknown kind is an authoring choice, not an error.
+      const groups = CT_KINDS.filter(([k]) => seen[k])
+        .concat(Object.keys(seen).filter(k => !CT_KINDS.some(([c]) => c === k)).map(k => [k, k]));
+      return groups.map(([kind, label]) => {
+        const rows = strings.filter(s => (s.kind || 'other') === kind);
+        return `<div class="ct-group">
+          <div class="ct-group-h">${pbEscape(label)} <span class="meta-subtab-count">${rows.length}</span></div>
+          <table class="lg-table ct-table"><tbody>${rows.map(s => `
+            <tr data-ck="${pbEscape(((s.key || '') + ' ' + (s.text || '') + ' ' + (s.note || '')).toLowerCase())}">
+              <td class="ct-key"><code>${pbEscape(s.key || '')}</code></td>
+              <td class="ct-text">${pbEscape(s.text || '')}</td>
+              <td class="ct-note">${pbEscape(s.note || '')}</td>
+            </tr>`).join('')}</tbody></table>
+        </div>`;
+      }).join('');
+    }
+
+    function pbRenderContent() {
+      const C = (PB_DATA && PB_DATA.content) || {};
+      const terms = C.terms || [], strings = C.strings || [];
+      if (!terms.length && !strings.length) {
+        return pbUxEmpty('No content yet',
+          'One place for the words the product uses: what each domain term means, and the canonical wording for every action, status and message — so the same thing never gets called two names across screens.',
+          'Define the vocabulary', '/pb:clarify');
+      }
+      if (!state.contentView) state.contentView = terms.length ? 'terms' : 'strings';
+      const v = state.contentView;
+      const drift = pbContentDrift(C);
+      return `<div class="meta-section">
+          <div class="meta-h2">3.5 Content</div>
+          <p class="meta-p" style="color:var(--text-tertiary)">The words the product uses, written down once. <strong>Definitions</strong> fix what each domain term means — and what it is never called. <strong>Wordings</strong> hold the canonical text for every action, status and message, so two screens never phrase the same thing two ways.</p>
+          <div class="lg-views">
+            <button class="lg-view ${v === 'terms' ? 'active' : ''}" onclick="pbSetContentView('terms')">Definitions <span class="meta-subtab-count">${terms.length}</span></button>
+            <button class="lg-view ${v === 'strings' ? 'active' : ''}" onclick="pbSetContentView('strings')">Wordings <span class="meta-subtab-count">${strings.length}</span></button>
+            <input class="ct-filter" type="search" placeholder="Filter…" oninput="pbContentFilter(this)">
+          </div>
+          ${drift.length ? `<div class="pb-qa-warn">
+            <div class="pb-qa-warn-head">⚠ Wording conflicts (${drift.length})</div>
+            <ul class="pb-qa-warn-list">${drift.map(d => `<li>${d}</li>`).join('')}</ul>
+          </div>` : ''}
+          <div id="content-body">${v === 'terms' ? pbRenderContentTerms(C) : pbRenderContentStrings(C)}</div>
         </div>`;
     }
 
@@ -4624,9 +5115,10 @@
       const uxTabs = pbUxSubtabs();
       const view = pbUxView();
 
-      if (view === 'ia' || view === 'logic' || view === 'tests') {
+      if (view === 'ia' || view === 'logic' || view === 'tests' || view === 'content') {
         const body = view === 'ia' ? pbRenderIA()
           : view === 'logic' ? `<div class="summary-scroll">${pbRenderLogic()}</div>`
+          : view === 'content' ? `<div class="summary-scroll">${pbRenderContent()}</div>`
           : `<div class="summary-scroll">${pbRenderTestCases()}</div>`;
         $('#app').innerHTML = `
           <div class="pb-page pb-page--viewport">
@@ -4636,6 +5128,11 @@
               ${body}
             </div>
           </div>`;
+        // The site map is a pan/zoom canvas like the flow and the ERD, so it needs the same init.
+        // Dimensions ride on the stage rather than being recomputed here — the layout that knows
+        // them is the only thing that should own them.
+        const st = view === 'ia' && document.getElementById('iamap-stage');
+        if (st) initCanvas('iamap', parseInt(st.dataset.w, 10) || 1200, parseInt(st.dataset.h, 10) || 600, 0.62);
         return;
       }
 
@@ -4649,7 +5146,7 @@
                 icon: EMPTY_STATE_ICONS.flow,
                 title: 'No user flow yet',
                 body: 'Build your user flow from the project spec. Claude generates one combined left-to-right Mermaid flowchart that covers every job in Information Architecture (including edge cases).',
-                ctaLabel: 'Generate user flow', command: '/pb:flow',
+                ctaLabel: 'Generate user flow', command: '/pb:plan --flow',
               })}</div>
             </div>
           </div>`;
@@ -4665,7 +5162,7 @@
           </div>
         </div>
       `;
-      // v0.3.9 — once /pb:flow rewrites renderFlowPopulated
+      // v0.3.9 — once /pb:plan --flow rewrites renderFlowPopulated
       // to stack multiple Mermaid flows inside #flow-stage, this init renders them all,
       // strips intrinsic widths, measures the natural content size of the stage, and
       // hands off to initCanvas('flow', W, H) so the user gets pan + zoom over every
@@ -6397,7 +6894,7 @@
                 icon: EMPTY_STATE_ICONS.erd,
                 title: 'No data model yet',
                 body: 'Build the entity-relationship diagram from your spec. Claude generates a Mermaid `erDiagram` with PK/FK/cardinality guardrails — for a future production implementation.',
-                ctaLabel: 'Generate ERD', command: '/pb:data',
+                ctaLabel: 'Generate ERD', command: '/pb:plan --data',
               })}
             </div>
           </div>`;
@@ -6676,7 +7173,11 @@
     /* =========================================================================
        SHARED CANVAS — generalised pan/zoom for the User Flow + ERD tabs
        ========================================================================= */
-    function initCanvas(prefix, contentW, contentH) {
+    /* `minFit` (optional): a readable floor for the INITIAL fit. A wide, shallow org chart fits a
+       620px box at ~0.3, where the labels are 4px of noise — showing everything is worthless if
+       none of it can be read. Below the floor the canvas opens at the floor and stays pannable;
+       zooming out to the true fit is still allowed, because minS is taken from the raw value. */
+    function initCanvas(prefix, contentW, contentH, minFit) {
       var viewport = document.getElementById(prefix + '-viewport');
       var stage    = document.getElementById(prefix + '-stage');
       var readout  = document.getElementById(prefix + '-zoom-readout');
@@ -6693,10 +7194,16 @@
       function fitToViewport() {
         var vw = viewport.clientWidth, vh = viewport.clientHeight;
         var pad = 32;
-        var s = Math.min((vw - pad * 2) / contentW, (vh - pad * 2) / contentH);
-        if (s < minS) minS = Math.max(0.1, s * 0.9);
+        var raw = Math.min((vw - pad * 2) / contentW, (vh - pad * 2) / contentH);
+        if (raw < minS) minS = Math.max(0.1, raw * 0.9);
+        var s = (minFit && raw < minFit) ? minFit : raw;
         scale = Math.max(minS, Math.min(maxS, s));
+        // Centred is right when everything fits. When a `minFit` floor leaves the content wider
+        // than the box, centring hides BOTH ends — including the left gutter, where a chart puts
+        // the thing you read first. Anchor the overflowing axis to its start instead.
         tx = 0; ty = 0;
+        if (contentW * scale > vw - pad * 2) tx = pad - vw / 2 + contentW * scale / 2;
+        if (contentH * scale > vh - pad * 2) ty = pad - vh / 2 + contentH * scale / 2;
         stage.style.transition = 'transform 0.25s ease-out';
         apply();
       }

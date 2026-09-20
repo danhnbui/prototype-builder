@@ -158,6 +158,18 @@ with tempfile.TemporaryDirectory() as d:
     check("table" in run("list", "erd", *R).stdout.split(), "list erd shows erd's own keys")
     check("brand" in run("list", "tokens", *R).stdout.split(), "list tokens still walks DTCG leaves")
 
+    # The Content tab's slice: a glossary + a wording deck, read the same narrow way. Reading
+    # `content terms` must not drag the (much longer) wording deck along.
+    print("content — the glossary / wording-deck slice")
+    r = run("get", "content", "terms", *R)
+    terms = json.loads(r.stdout)
+    check(r.returncode == 0 and isinstance(terms, list) and terms, "get content terms returns the glossary")
+    check("action.sign-in" not in r.stdout, "get content terms does NOT drag strings[] along")
+    check(json.loads(run("get", "content", "strings", *R).stdout)[0]["key"], "get content strings returns the wording deck")
+    out = run("list", "content", *R).stdout.split()
+    check("terms" in out and "strings" in out and "brand" not in out, "list content shows content's own keys")
+    check(run("get", "content", "nope", *R).returncode != 0, "an unknown content key exits non-zero")
+
     print("set — dotted flow write leaves siblings intact")
     before_stories = json.load(open(reg))["flow"]["stories"]
     r = run("set", "flow", "mermaid", *R, stdin='"flowchart LR\\n  A --> B"')

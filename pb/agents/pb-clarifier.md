@@ -17,7 +17,7 @@ builds — pushing back on unclear goals and missing personas rather than buildi
 
 ## Slice it owns
 - `memory/spec.md` — authored directly.
-- **Project-Summary `meta`** — `meta.overview.objectives`, `meta.userInsights`, `meta.tradeoffs`.
+- **`meta`** — `meta.overview.objectives`, `meta.userInsights` (Project Summary), `meta.tradeoffs` (UX Design → Logic → Trade-offs, D-30).
 - `memory/decisions.md` — one appended entry per trade-off.
 
 It is the **single writer** of the Project-Summary `meta` slice. It writes `memory/spec.md` /

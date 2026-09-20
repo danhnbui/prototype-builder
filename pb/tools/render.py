@@ -152,15 +152,23 @@ _LOGIC_CACHE = {"key": None, "graph": None}
 
 
 def _logic_key(base_dir):
-    """A fingerprint of everything logic_extract reads: the registry and every render body.
+    """A fingerprint of everything logic_extract reads: the registry and every render body —
+    AND the extractor itself.
+
+    The extractor's own mtime is load-bearing, not belt-and-braces. Without it the key covers
+    only the DATA, so teaching logic_extract.py to derive something new leaves a long-running
+    `/pb:preview` serving the old graph forever: the project files never changed, so the cache
+    never missed, so the new field never appeared. Found exactly that way.
 
     Returns None if the tree cannot be stat'd, which disables the cache rather than risking a
     stale hit. Stat'ing ~150 files costs under a millisecond against the 367 the parse costs.
     """
     try:
         parts = []
-        for path in [os.path.join(base_dir, "registry.json")] + sorted(
-                glob.glob(os.path.join(base_dir, "render", "**", "*.js"), recursive=True)):
+        paths = [os.path.join(base_dir, "registry.json")] + sorted(
+            glob.glob(os.path.join(base_dir, "render", "**", "*.js"), recursive=True))
+        paths.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), "logic_extract.py"))
+        for path in paths:
             st = os.stat(path)
             parts.append((path, st.st_mtime_ns, st.st_size))
         return tuple(parts)

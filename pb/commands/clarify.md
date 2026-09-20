@@ -1,10 +1,10 @@
 ---
-description: Capture User Insights + UI Logic Trade-offs into the Project Summary tab, and append each trade-off to memory/decisions.md. Replaces the v0.4.0 after_clarify hook (folded into this command body).
+description: Capture User Insights into the Project Summary tab and UI Logic Trade-offs into UX Design -> Logic, and append each trade-off to memory/decisions.md. Replaces the v0.4.0 after_clarify hook (folded into this command body).
 ---
 
 # /pb:clarify
 
-Capture **User Insights** + **UI Logic Trade-offs**. Writes the Project-Summary tab and the decision log
+Capture **User Insights** + **UI Logic Trade-offs**. Insights land in the Project-Summary tab; trade-offs land in **UX Design → Logic → Trade-offs**, beside the rules they produced (D-30). Both write the registry and the decision log
 **from this body — no hook**.
 
 ## 1 · User Insights
@@ -45,6 +45,6 @@ later grep can rely on them:
 ```
 
 ## Result
-Tab 2 (User Insights + Trade-offs) synced; one `decisions.md` entry per trade-off. **Do not render.**
+User Insights synced to Tab 2, trade-offs to UX Design → Logic; one `decisions.md` entry per trade-off. **Do not render.**
 
 > **Skill degrade (NS6).** If a skill this command invokes fails to load, say so explicitly and proceed with its core intent — never silently skip the step.

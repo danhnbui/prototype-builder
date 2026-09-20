@@ -798,9 +798,72 @@ def extract(project_dir, shell_path=None):
         'deadReads': len(dead_seam),
     }
 
+    # ── Claim inputs: a digest per item of the code any claim about it depends on ───────────
+    # A test verdict and a rule are CLAIMS about code. Both were previously written once and
+    # never confronted with the code again — a `pass` from August survived 141 body edits. The
+    # digest is what lets a consumer tell a live claim from a stale one without re-deriving:
+    # an item's own body plus every body it composes, transitively, because a screen's behaviour
+    # is its components' behaviour too.
+    by_id = {it['id']: it for it in items}
+
+    def _closure(root, depth=4, seen=None):
+        seen = set() if seen is None else seen
+        if root in seen or depth <= 0:
+            return seen
+        seen.add(root)
+        for child in by_id.get(root, {}).get('composes', ()):
+            _closure(child, depth - 1, seen)
+        return seen
+
+    item_hash = {}
+    for it in items:
+        parts = []
+        for cid in sorted(_closure(it['id'])):
+            other = by_id.get(cid)
+            if other is not None:
+                parts.append(cid + '\0' + texts.get(other['file'], ''))
+        item_hash[it['id']] = hashlib.sha1('\0'.join(parts).encode('utf-8')).hexdigest()[:16]
+
+    # ── Rule reachability: which declared states does the code actually PUT the system in? ──
+    # A state machine can name a state nothing reaches. But a bare `= 'overdue'` scan cannot tell
+    # a domain state from a UI variant that happens to share the word, and a DERIVED machine
+    # (cycle-status computes its state from dates) assigns nothing at all — so an unqualified
+    # scan is wrong in both directions.
+    #
+    # So the check speaks ONLY when the rule says where to look: `stateField` names the property
+    # that holds the state, and a state marked `derived: true` is computed rather than assigned.
+    # Without `stateField` this emits `unscoped` and makes no claim — the D-08 discipline, where
+    # a check that would print a wrong answer stays quiet instead.
+    ia_rules = ((registry.get('ia') or {}).get('rules')) or registry.get('rules') or []
+    state_writers = {}
+    for rule in (ia_rules if isinstance(ia_rules, list) else []):
+        if not isinstance(rule, dict) or not rule.get('id'):
+            continue
+        field = rule.get('stateField')
+        states = [s for s in (rule.get('states') or []) if isinstance(s, dict) and s.get('key')]
+        if not states:
+            continue
+        if not field:
+            state_writers[rule['id']] = {'unscoped': True}
+            continue
+        per_state = {}
+        for st in states:
+            key = st.get('key')
+            if st.get('derived'):
+                per_state[key] = {'derived': True, 'assigns': []}
+                continue
+            # `<field> = 'k'` — the statement that puts the system in the state. `==`/`===`/`!==`
+            # are excluded by the lookbehind: those read the state, they do not produce it.
+            pat = re.compile(r"\b%s\s*(?<![=!<>])=\s*['\"]%s['\"]"
+                             % (re.escape(field), re.escape(key)))
+            per_state[key] = {'assigns': sorted(rel for rel, t in texts.items() if pat.search(t))}
+        state_writers[rule['id']] = per_state
+
     return {
         'handlers': handlers,
         'items': items,
+        'itemHash': item_hash,
+        'stateWriters': state_writers,
         'slices': {k: {'writers': sorted(v['writers']), 'readers': sorted(v['readers'])}
                   for k, v in sorted(slices.items())},
         'nav': nav,

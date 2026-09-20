@@ -9,6 +9,110 @@ Phase A (solution discovery) logs decisions here as each problem is walked throu
 
 ---
 
+## D-31 · A claim must carry what it was computed from — 2026-09-20
+
+**Problem.** Three surfaces asserted things nobody re-checked, and all three were the same bug.
+(1) A test verdict was written once and never confronted with the code again: on the reference
+project three scenarios read **`3/3 passing`** with a `ranAt` of 2026-08-11, after **141 of 141**
+render bodies had changed. `ranAt` was written but read by nothing except a tooltip. (2) A rule
+could name a state nothing puts the system into. (3) A rule links itself to its implementation by
+function NAME — `implementedBy[]`, `readers[]`, `implemented[].name`, `invariants[].enforcedBy` —
+and nothing re-resolved those names, so a rename left the Logic tab presenting a rule as the
+explanation of how the product works while pointing at a function that no longer existed.
+
+**Decision.** One mechanism, three applications.
+1. **`itemHash`** — `logic_extract` emits a digest per registry item: its own render body plus every
+   body it composes, transitively. `test_run.py` stamps `lastResult.inputs = {screen: digest}` for
+   the screens a scenario actually exercises (start + nav targets + asserted screens), and the shell
+   shows a verdict whose inputs moved as **stale** (`⟳`, warning colour), never as pass. A result
+   written before `inputs` existed reads `unknown` and is also stale — it cannot be shown green
+   without asserting something nobody checked.
+2. **`stateWriters`** — reachability per declared state, but **only when the rule says where to
+   look**: `stateField` names the property that holds the state and a state marked `derived: true`
+   is computed rather than assigned. Without `stateField` the extractor emits `unscoped` and the
+   shell makes no claim.
+3. **`L-RULEREF`** — a Kind A check in `logic_check.py`: every function name a rule cites must
+   resolve in the derived handler graph.
+
+**Why.** pb's thesis is that the derived half cannot drift. But nothing confronted the *declared*
+half with it, so a declared claim could outlive the code it described indefinitely — and did.
+
+**Alternatives rejected.** *A project-wide digest* — simpler, but marks every scenario stale when
+any unrelated component changes, and a noisy check gets ignored, which is the failure mode this
+repo keeps hitting. *Unqualified reachability scanning* — measured and discarded: a bare `= 'k'`
+scan cannot tell a domain state from a UI variant sharing the word (`variant = 'overdue'`), and a
+derived machine assigns nothing at all, so it was wrong in both directions. Hence `stateField`.
+*Expiring a verdict on a timer* — time is not the input; the code is.
+
+**Affects.** `pb/tools/logic_extract.py` (`itemHash`, `stateWriters`) · `pb/tools/test_run.py`
+(`_scenario_screens`, `_body_hashes`, `_scenario_inputs`, `lastResult.inputs`) ·
+`pb/tools/logic_check.py` (`check_rule_refs`, `L-RULEREF` + its `--explain`) · `pb/tools/render.py`
+(`_logic_key`) · `pb/template/prototype.html` (`pbResultStale`, the `stale` glyph, `pbRuleUnreachable`,
+`.lg-st--dead`) · `prototype-builder.md` · `changelog.md`.
+
+**Reviewed via.** On the reference project: the summary line moved from `3/3 passing` to
+**`0/3 passing · 3 stale`**; stamping current digests onto the three results restored `3/3 passing`;
+corrupting one digest gave `2/3 passing · 1 stale` naming the screen. `L-RULEREF` was proved to fire
+by injecting two bad names (2 errors) and to stay silent when restored (0). Full suite clean.
+
+**Caveat, and the bug this found in its own plumbing.** `render.py`'s `_logic_key` fingerprinted only
+the project's data, so teaching the extractor to derive something new left a long-running
+`/pb:preview` serving the old graph forever — the project files never changed, so the cache never
+missed. The extractor's own mtime is now part of the key. It is the same bug as the one being fixed,
+one level up, and it is why the first live check of `itemHash` came back undefined.
+
+---
+
+## D-30 · Trade-offs move to Logic; `meta.others` is deprecated — 2026-09-20
+
+**Problem.** Two symptoms of one gap. (1) **UI Logic Trade-offs** sat in Project Summary, a tab read
+before building and never during — so the record of *why a rule is what it is* lived three tabs away
+from the rule. (2) **`meta.others`** was the only registry field with no schema, no writer and no
+check: a raw HTML string injected unescaped. On Atlas it had accreted **12,466 characters** titled
+*"Nội dung sản phẩm — Định nghĩa & thuật ngữ"*, in seven sections — roles & permissions, the four main
+screens, the status sets, entities & terminology, the core business rules, fixed column wording, and
+the scoring rules. Every one of those is something a person needed to write down and had nowhere to
+put. `others` was not a feature; it was the symptom that `content` and `ia.rules[]` were missing.
+
+**Decision.**
+1. `meta.tradeoffs[]` renders in **UX Design → Logic → Trade-offs**, a third view beside Rules and
+   Ripple. The field, the writer (`/pb:clarify`) and the `memory/decisions.md` mirror are unchanged —
+   only where it is *read*.
+2. The renderer honours a `[SUPERSEDED <date>]` prefix on `title` (dashed border, dimmed, a chip), a
+   convention the projects invented because the schema has no status field. Atlas has 2 of 22.
+3. `meta.others` is **deprecated**. The field stays in the registry (`AGENTS.md` §3). Its tab renders
+   **only while the field is non-empty**, under a banner naming the slice that now owns each kind of
+   content. An empty `others` no longer produces a tab or an empty state.
+
+**Why.** A trade-off *is* a rule, captured at the moment it was decided — and it carries the one thing
+no rule can: the options that lost. Beside the rules it produced, it answers "why is it this way?"
+without a tab change. And deprecating `others` by hiding it would have been data loss wearing a
+tidy-up's clothes: 12k characters of someone's terminology, gone from the UI with no signpost. The
+banner makes the migration obvious and lets the field empty out naturally.
+
+**Alternatives rejected.** *Delete the Others tab outright* — silently hides real content on every
+existing project. *Leave trade-offs in Project Summary and link to them* — a link is what you build
+when you cannot decide where something lives. *Add a `status` field to trade-offs now* — a schema
+change for 2 rows on one project; the prefix convention already carries the signal, and honouring it
+costs one regex. Worth doing when a second project needs it.
+
+**Affects.** `pb/template/prototype.html` (`SUMMARY_SUBTABS`, `renderMetaSummary`, `pbRenderTradeoffs`
+rewritten into the `lg-card` idiom, `pbRenderOthers`, `pbRenderLogic`'s third view, `.lg-card--sup`) ·
+`CLAUDE.md` · `prototype-builder.md` · `pb/commands/clarify.md` · `pb/agents/pb-clarifier.md` ·
+`changelog.md`.
+
+**Reviewed via.** Live on the Atlas project at :8200 — Logic shows `Rules 4 · Trade-offs 22 ·
+Ripple 432`; all 22 cards render with question / options / decision / why; the 2 superseded entries
+carry the dashed treatment; Project Summary is down to `Overview · User Insights · Others`, and
+Others still shows its full 12k with the banner above it.
+
+**Caveat.** `meta.others` is injected **unescaped** — it must be, since its content is markup. That
+was true before this change and stays true; it is trusted authored content, not user input. The
+migration of Atlas's seven sections into `content` and `ia.rules[]` is **not** part of this decision;
+four rules and a 40-entry content slice are transcribed so far.
+
+---
+
 ## D-29 · Flow and Data ride the trio: `/pb:build` reconciles them, the Sync button goes — 2026-09-20
 **Problem:** the `flow` and `erd` slices were documented "decoupled, manual — never auto-fires", so
 nothing refreshed them as the prototype evolved. A build session that added screens left both tabs

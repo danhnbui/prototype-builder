@@ -4,10 +4,77 @@ All notable changes to Product Builder. Format follows [Keep a Changelog](https:
 
 ## [1.12.0] — 2026-09-20
 
-*The UX Design tab is restructured into four segments, the `flow` / `erd` slices stop being
+*The UX Design tab is restructured into five segments, the `flow` / `erd` slices stop being
 something you had to remember to refresh, and logic gets a home of its own at **schema 11**.*
 
 ### Added
+- **Stale-claim detection — a verdict and a rule now carry what they were computed from (D-31).**
+  Three surfaces asserted things nothing re-checked. On a real project three scenarios read
+  `3/3 passing` after **141 of 141** render bodies had changed underneath them; `ranAt` was written
+  but read by nothing except a tooltip.
+  - `logic_extract` emits **`itemHash`**, a digest per item of its own body plus everything it
+    composes. `/pb:test` stamps `lastResult.inputs` for the screens a scenario actually exercises,
+    and the shell shows a verdict whose inputs moved as **stale** (`⟳`), never as pass. That project
+    now reads `0/3 passing · 3 stale`, which is the true statement.
+  - `logic_extract` emits **`stateWriters`**: which declared states the code actually puts the system
+    into — but only when the rule declares `stateField` (the property holding the state) and marks
+    computed states `derived`. Without it the check makes no claim, because an unqualified scan
+    cannot tell a domain state from a UI variant sharing the word, nor an assigned machine from a
+    derived one.
+  - **`L-RULEREF`** in `logic_check.py`: every function name a rule cites — `implementedBy[]`,
+    `readers[]`, `implemented[].name`, `invariants[].enforcedBy` — must resolve in the derived graph.
+
+### Fixed
+- **`render.py`'s logic cache ignored the extractor itself.** `_logic_key` fingerprinted the
+  registry and the render bodies but not `logic_extract.py`, so teaching the extractor to derive
+  something new left a long-running `/pb:preview` serving the old graph forever — the data never
+  changed, so the cache never missed. The same staleness bug as D-31, one level up.
+
+### Changed
+- **UI Logic Trade-offs moved from Project Summary to UX Design → Logic (D-30).** A third view beside
+  Rules and Ripple. A trade-off *is* a rule captured at the moment it was decided, carrying the one
+  thing no rule can — the options that lost — so it belongs beside the rules it produced rather than
+  in a tab read before building and never during. `meta.tradeoffs[]`, `/pb:clarify` and the
+  `memory/decisions.md` mirror are all unchanged; only where it is read moved. The renderer now
+  honours a `[SUPERSEDED <date>]` prefix on `title` (dashed, dimmed, chipped) — a convention projects
+  invented because the schema has no `status` field.
+
+### Deprecated
+- **`meta.others` (D-30).** The only registry field with no schema, no writer and no check — a raw
+  HTML string. It had become the dumping ground for exactly the things that had no home: on a real
+  project, 12,466 characters of roles, status sets, entities, terminology, fixed column wording and
+  business rules. Those now have `content` and `ia.rules[]`, so `others` is the symptom, not a
+  feature. The field stays in the registry (`AGENTS.md` §3) and its tab renders **only while it is
+  non-empty**, under a banner naming the slice that owns each kind of content — deprecating it by
+  silently hiding 12k characters of someone's terminology would be data loss, not a tidy-up.
+
+### Added
+- **A third rule kind — `constraint`.** `ia.rules[]` could draw a state machine or a matrix and nothing
+  else, so a rule that is neither — most scoring rules — rendered as a title over a paragraph with the
+  enforcement point left unnamed. A `constraint` rule carries `invariants[]` (`must` / `enforcedBy` /
+  `when` / `message?`) and draws them as a table, each `enforcedBy` linking into the derived ripple.
+  An invariant with **no** `enforcedBy` renders as a warning: a stated rule nothing enforces is the
+  finding, not a blank cell. Unknown kinds still degrade to title + summary.
+- **Content — the fifth UX Design segment, and the `content` registry slice.** One place for the words
+  the product uses. `terms[]` is the glossary: what a domain word means, what else the team says for it
+  (`aka`), and what it is deliberately never called (`avoid`). `strings[]` is the wording deck: the
+  canonical text for every action, status, label, title, empty state, toast and error, grouped by `kind`.
+  A term may carry `rule: "<ia.rules id>"`, which links it to the Logic segment and back.
+
+  Both halves are **hand-authored** — no tool derives either — so the segment runs exactly one check, and
+  runs it on authored data only (D-08 Kind A): a wording, **or a declared rule's state or overlay label**,
+  that uses a word another term banned. Scanning rule labels is the half that earns its keep: a rule is
+  transcribed from a spec once and then nothing re-reads it, so its labels are the wording most likely to
+  drift from the code. On a real 143-item project it caught two on the first render.
+
+  `content` is **optional and additive** — absent, the segment renders an empty state, so per
+  `pb/migrations/manifest.py`'s own rule (bump on *a new required field, a shape change, a renamed key*)
+  **`CURRENT_SCHEMA` stays at 11**. `slice.py` gains `content` as a dict kind, so `get content terms`
+  reads the glossary without dragging the wording deck along.
+
+  **Known gap, stated plainly:** nothing *writes* `content` yet — no command, agent or tool authors it.
+  It is the fifth registry slot pb ships with a reader and no writer (`ia.rules[]`, `ia.jobs[]`,
+  `logic/*.writes[]`, `logic/*.affordances[].why` are the others). Seeded by hand until that is fixed.
 - **The logic contract — `logic/{components,screens}/<id>.json` via `logicSrc` (schema 11, D-28).**
   Two halves, and the split is the point. **Derived** — `seam`, `handlers`, `disclosure` — is written
   by `logic_extract.py --contracts` and rewritten every run, so it cannot drift from the code it

@@ -57,7 +57,7 @@ import sys
 LIST_KINDS = ("components", "screens")   # id-keyed lists
 # D-29: flow/erd joined the dict kinds so /pb:build's auto-sync can read `flow mermaid`
 # (~15 lines) without pulling every story's scenarios[] into context.
-DICT_KINDS = ("tokens", "meta", "flow", "erd")   # dotted-key dicts
+DICT_KINDS = ("tokens", "meta", "flow", "erd", "content")   # dotted-key dicts
 KINDS = LIST_KINDS + DICT_KINDS
 
 # D-17: the prose keys --no-prose drops. Schema-11 may move these out of registry.json

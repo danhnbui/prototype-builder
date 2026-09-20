@@ -623,8 +623,42 @@ def _run_scenario(page, console_errors, test, role_id=None):
 # ─────────────────────────────────────────────────────────────────────────────
 # Modes
 # ─────────────────────────────────────────────────────────────────────────────
+def _scenario_screens(test):
+    """Every screen a scenario actually exercises: where it starts, where it navigates, and
+    every screen it asserts on. That set — not the whole project — is what its verdict depends
+    on, so an edit elsewhere must not mark it stale."""
+    out = set()
+    if isinstance(test.get("start"), str):
+        out.add(test["start"])
+    for step in (test.get("steps") or []):
+        if isinstance(step, dict) and step.get("do") in ("nav", "go") and isinstance(step.get("target"), str):
+            out.add(step["target"])
+    for exp in (test.get("expect") or []):
+        if isinstance(exp, dict) and isinstance(exp.get("screen"), str):
+            out.add(exp["screen"])
+    return sorted(out)
+
+
+def _body_hashes(reg_path):
+    """{item id: digest} from logic_extract — the same derivation the shell is handed, so the
+    two cannot disagree about what "changed" means. Fails OPEN: no extractor, no digests, and
+    the verdict is written exactly as it was before this existed."""
+    try:
+        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+        import logic_extract
+        return logic_extract.extract(os.path.dirname(os.path.abspath(reg_path)) or ".").get("itemHash") or {}
+    except Exception as exc:                                        # noqa: BLE001
+        print("test_run: input digests skipped (%s: %s)" % (type(exc).__name__, exc))
+        return {}
+
+
+def _scenario_inputs(test, body_hash):
+    return {sid: body_hash[sid] for sid in _scenario_screens(test) if sid in body_hash}
+
+
 def run_functional(reg_path, story_filter, json_out, attach=None):
     reg = _load_json(reg_path)
+    body_hash = _body_hashes(reg_path)
     tests = list(_iter_test_scenarios(reg, story_filter))
     if not tests:
         note = ("no scenarios match --story %r" % story_filter) if story_filter else "no functional test blocks"
@@ -666,6 +700,11 @@ def run_functional(reg_path, story_filter, json_out, attach=None):
                     "status": worst, "ranAt": _now_z(),
                     "detail": "; ".join(f"{r['role']}: {r['status']}" for r in per_role),
                     "roles": per_role,
+                    # WHAT THIS VERDICT WAS COMPUTED FROM. Without it a `pass` is undated
+                    # evidence: on the reference project three scenarios read "passing" after
+                    # 141 of 141 render bodies had changed underneath them. The shell compares
+                    # these against the live digests and shows a stale verdict as stale.
+                    "inputs": _scenario_inputs(test, body_hash),
                 }
             browser.close()
 
