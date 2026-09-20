@@ -122,7 +122,7 @@ skip, leave `meta.dsSource: null` and set `meta.platform` from the DS Lock answe
 
 ## 3 · Seed the registry
 Copy `${CLAUDE_PLUGIN_ROOT}/template/registry.template.json` → `registry.json`; set `meta.name`.
-The template already carries `meta.schemaVersion: 4` (= `CURRENT_SCHEMA` from
+The template already carries `meta.schemaVersion: 12` (= `CURRENT_SCHEMA` from
 `pb/migrations/manifest.py`) and a pre-seeded `danger` token (the validation runtime needs it).
 Leave `components` / `screens` empty — `/pb:build` fills them and creates their
 `render/{components,screens}/<id>.js` body files.
@@ -155,7 +155,7 @@ design-system reference.
 
 Also set **`meta.platform`** from the DS Lock (step 2) — `web` / `ios` / `android` / `desktop`
 (default `web`). Leave **`meta.dsSource: null`** unless the DS was cloned in 2b (then `/pb:pull-ds`
-already set it). Both fields are seeded in the template at `meta.schemaVersion 5`.
+already set it). Both fields are seeded in the template at `meta.schemaVersion 12`.
 
 ## 4 · Seed memory + design system
 - `memory/decisions.md` from `${CLAUDE_PLUGIN_ROOT}/template/decisions.template.md`.

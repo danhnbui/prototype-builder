@@ -1,6 +1,6 @@
 # Phase B — orchestrated implementation
 
-> **Status: complete.** Every increment in this plan shipped in v1.12.0. It is kept as the
+> **Status: complete.** Every increment in this plan shipped in v2.0.0. It is kept as the
 > record of how the work was partitioned, not as outstanding work. What it produced, measured
 > against the project it was planned from: [remediation-validation.md](remediation-validation.md).
 

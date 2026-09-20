@@ -2199,7 +2199,7 @@
     .proto-main { display:flex; min-height:0; flex:1 1 auto; min-width:0; height:100%; }
     .proto-stage { flex:1 1 auto; min-width:0; min-height:0; overflow:auto; }
     .proto-fit { height:100%; display:flex; justify-content:center; align-items:flex-start; }
-    /* Compare mode (v1.12.0). Both frames live inside ONE .proto-pair and ONE scale() is applied
+    /* Compare mode (v2.0.0). Both frames live inside ONE .proto-pair and ONE scale() is applied
        to it — never one per frame. A per-frame fit would size a 429px phone and a 1280px laptop to
        the same box, which is the one thing a side-by-side comparison must not do: the whole point
        is seeing that the phone IS a third of the laptop. Each frame still lays out at its true CSS
@@ -2230,7 +2230,7 @@
     /* data-step panes: the runtime toggles [hidden], and a project's own display rule would
        otherwise win over the UA default — so the hidden state is stated at the same strength. */
     [data-step-pane][hidden] { display: none !important; }
-    /* Browser chrome — a Chrome window, at Chrome's own metrics (v1.12.0).
+    /* Browser chrome — a Chrome window, at Chrome's own metrics (v2.0.0).
        These greys are DELIBERATELY not registry tokens. The old chrome painted the tab strip and
        the omnibox in var(--neutral-10), so the browser took on the project's brand and stopped
        reading as the frame AROUND the design — in a screenshot you could not tell where the
@@ -2732,7 +2732,7 @@
       screenDrawerSegment: 'spec',    // 'spec' | 'uiLogic' | 'demo' (v0.3.18)
       protoDevice: null,              // 'monitor' | 'laptop' | 'tablet' | 'mobile' — defaults from meta.device
       protoShell: null,               // 'browser' | 'app' | 'none' — display chrome; defaults from meta.shell
-      protoDeviceB: null,             // compare mode: a SECOND device showing the same screen (v1.12.0)
+      protoDeviceB: null,             // compare mode: a SECOND device showing the same screen (v2.0.0)
       protoHistory: [],               // screen-id stack for the browser back button
       handoffScope: null,            // 'global' | 'local' — UI Design component sub-tab
       erdView: null,                 // 'diagram' | 'table' — Data tab view mode
@@ -3714,7 +3714,7 @@
       const isStructOpen = document.getElementById('proto-struct-panel')
         && document.getElementById('proto-struct-panel').classList.contains('is-open');
 
-      // Compare (v1.12.0) — the same screen on a second device. It must be a device this project
+      // Compare (v2.0.0) — the same screen on a second device. It must be a device this project
       // supports, and it must not be the primary: a laptop beside itself is a bug, not a view.
       const devB = (state.protoDeviceB && state.protoDeviceB !== device
                     && supported.indexOf(state.protoDeviceB) !== -1) ? state.protoDeviceB : null;
@@ -3782,7 +3782,7 @@
                                                    they emit no mutation record, so an input and
                                                    change listener carries those over on their own
          · scrollTop / scrollLeft                → the same kind of thing, and the one that made
-                                                   in-page navigation look broken (v1.12.0). A jump
+                                                   in-page navigation look broken (v2.0.0). A jump
                                                    to a section, a `scrollIntoView`, a re-render
                                                    that returns to the top: all of them move ONE
                                                    frame, and the copy above then put the twin's
@@ -3918,7 +3918,7 @@
       });
     }
 
-    /* ONE frame drives the session (v1.12.0). Two frames in one document means every id in a
+    /* ONE frame drives the session (v2.0.0). Two frames in one document means every id in a
        screen body exists twice, so a project's own handler splits down the middle: `this` and
        `closest` find the frame that was clicked, `document.getElementById` always finds the
        first one. A click in the second frame ran half in each — the pane switched in frame A,
@@ -4058,7 +4058,7 @@
         </div>`;
     }
 
-    // Display chrome. `none` is the third value (v1.12.0): an internal back-office tool is not a
+    // Display chrome. `none` is the third value (v2.0.0): an internal back-office tool is not a
     // web site, and dressing every screen in a fake tab strip, a synthesised URL and a window frame
     // spends 77px of vertical space on set dressing that misleads the reviewer. A real project
     // reached for this by hiding the chrome in its own forked stylesheet — so pb ships the option
@@ -4227,7 +4227,7 @@
       if (pair) pair.style.transform = 'none';
       if (box) { box.style.width = ''; box.style.height = ''; }
 
-      // v1.12.0 — compare mode scales the PAIR, once. Fitting each frame on its own would draw a
+      // v2.0.0 — compare mode scales the PAIR, once. Fitting each frame on its own would draw a
       // 429px phone and a 1280px laptop at the same size, which erases the one fact a side-by-side
       // exists to show. One transform keeps the ratio exactly what the device widths say it is.
       if (fit && fit.classList.contains('is-compare') && pair && box && stage) {
@@ -4568,7 +4568,7 @@
          2.1 Overview              (Objectives + Principles, auto-syncs)
          2.2 User Insights         (Quantitative + Research Summary + Executive Summary)
        Two sub-tabs, and this tab holds nothing else (D-33). UI Logic Trade-offs left for
-       UX Design → Logic in v1.12.0 (D-30) and then stopped being a separate record at all: a
+       UX Design → Logic in v2.0.0 (D-30) and then stopped being a separate record at all: a
        trade-off is a rule, so it is a field ON the rule. `Others` — the one field with no schema,
        no writer and no check — is retired with it; `content` and `ia.rules[]` are where the
        terminology and the business rules it accreted actually belong.

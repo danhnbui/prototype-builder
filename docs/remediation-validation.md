@@ -1,4 +1,4 @@
-# Remediation validation — v1.11.1 vs v1.12.0, measured on one real project
+# Remediation validation — v1.11.1 vs v2.0.0, measured on one real project
 
 The remediation was planned against a live pb project at real scale and is validated the same way:
 one registry, rendered by two trees of pb, with every number taken from a run rather than from a
@@ -7,7 +7,7 @@ content is reproduced in this repo. Both sides work on copies.
 
 | | v1 | v2 |
 |---|---|---|
-| pb | `bfbc9b2` — v1.11.1, the last release before the remediation | `152d4c5` — v1.12.0 |
+| pb | `bfbc9b2` — v1.11.1, the last release before the remediation | `152d4c5` — v2.0.0 |
 | project | untouched, schema 10 | the same copy, after adopting the new setup |
 | served | `:8300` | `:8200` |
 
@@ -57,7 +57,7 @@ the best list anyone has of what pb was missing — every hunk is a capability s
 enough to maintain a fork for, and one of them says so in its own comment: *"WHY THIS IS CSS AND NOT
 A SHELL EDIT."*
 
-| The fork's hunk | v1.11.1 | v1.12.0 |
+| The fork's hunk | v1.11.1 | v2.0.0 |
 |---|---|---|
 | ERD `origin` tinting — which rows carry over from the existing product | forked | **stock, and wider** — `keep` · `rename` · `adopt`, with a legend (the fork had `keep` only) |
 | A flat screen: no tab strip, no synthesised URL, no window frame | forked, via CSS the project could not put in the shell | **stock** — `meta.shell: 'none'`, a third toggle option |
@@ -81,7 +81,7 @@ status quo.
 The same project kept six hand-rolled verification gates in `prototype/gates/`, for the same
 reason it kept the fork. Checked one by one:
 
-| Gate | What it proves | v1.12.0 |
+| Gate | What it proves | v2.0.0 |
 |---|---|---|
 | **G0** `preflight.py` (122) | three toolchain traps that silently produce a broken artifact | trap 1 (the blanket `</` escape) fixed in v1.11.1 and guarded by `tests/render_escape.py`; traps 2 and 3 exist only to police the fork, and go with it |
 | **G1** `logic_freeze.py` (161) | every non-render top-level entity is byte-identical | `logic_check.py --freeze`, over `bodyHash` — and with a string/comment/template-literal-aware parser rather than column-0 anchors |
@@ -180,7 +180,7 @@ Whole project: **19.7 MB → 22.2 MB**.
 
 ### The documents
 
-| | v1.11.1 | v1.12.0 | |
+| | v1.11.1 | v2.0.0 | |
 |---|---|---|---|
 | `CLAUDE.md` | 136 | 164 | the router |
 | `pb/commands/` | 1,510 | 1,716 | where behaviour is specified |
@@ -220,7 +220,7 @@ test written for the second-rotation case found it before a user could.
 
 ### pb's own source, and the file that holds too much of it
 
-| | v1.11.1 | v1.12.0 | |
+| | v1.11.1 | v2.0.0 | |
 |---|---|---|---|
 | Python | 5,680 | 8,433 | +48% — two new tools (`logic_extract` 1,067, `logic_check` 508) and `lint_registry` +86% |
 | Templates | 7,048 | 8,138 | +15% |
@@ -310,4 +310,4 @@ python3 <pb>/pb/tools/serve.py          /tmp/after/registry.json  --port 8200 --
 `serve.py` resolves its shells relative to its own `__file__`, so the before-tree renders through the
 old templates and any difference is the change itself.
 
-Sweep at v1.12.0: **21 pass · 3 Playwright skips · 0 fail.**
+Sweep at v2.0.0: **21 pass · 3 Playwright skips · 0 fail.**

@@ -1,6 +1,6 @@
 # DS Bridge — plugin patch for the pb code→Figma bridge
 
-`/pb:build-figma-handoff` (bridge mode) emits **DS Bridge node JSON** via
+`/pb:handoff` mode 3 (bridge mode) emits **DS Bridge node JSON** via
 `pb/tools/registry_to_figma.py`; you paste it into the plugin's **Code → Figma** tab and it rebuilds
 linked instances. Two **targeted, additive** fixes to the plugin's `code.js` make the rebuild honor
 pb's token contract. Both are backward-compatible — existing JSON/scripts keep working.

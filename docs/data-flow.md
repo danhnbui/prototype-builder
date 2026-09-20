@@ -1,4 +1,4 @@
-# Data flow — Product Builder v1.3.0
+# Data flow — Product Builder v2.0.0
 
 How data moves through Product Builder: the cheap build loop, the Tab-2 sync fold, the flow/erd authoring
 syncs, and the two exits. See [architecture](architecture.md) for the static picture and the
@@ -30,7 +30,7 @@ flowchart TD
   subgraph GATE["3 · gate (trio writes only)"]
     G1["drift — read constitution Principles;<br/>contradiction → ⏸ pause for override"]
     G2["Stack Lock — switch needs approval + decisions.md"]
-    G3["DS / component → /pb:build-check-design-system<br/>(reuse → variant → build local)"]
+    G3["DS / component → /pb:build §3a<br/>(reuse → variant → build local)"]
     G1 --> G2 --> G3
   end
 
@@ -93,11 +93,11 @@ appending rows, never re-authoring (`CLAUDE.md` § *Auto-sync*).
 
 ```mermaid
 flowchart LR
-  subgraph flow["/pb:flow (authoring)"]
+  subgraph flow["/pb:plan --flow (authoring)"]
     F1["read memory/spec.md + plan.md"] --> F2["build ONE Mermaid wireflow<br/>+ user-story test checklist"]
     F2 --> F3["write registry.flow<br/>{ populated, mermaid, stories[], wireflowScreens, wireflowNotes }"]
   end
-  subgraph erd["/pb:data (authoring)"]
+  subgraph erd["/pb:plan --data (authoring)"]
     E1["read spec.md + plan.md;<br/>extract entities"] --> E2["field/type/example table<br/>+ Mermaid erDiagram (5 guardrails)"]
     E2 --> E3["write registry.erd<br/>{ populated, table[], mermaid, warnings[] }"]
   end
@@ -108,17 +108,17 @@ flowchart LR
   RENDER --> VIEW["UX Design / Data tabs refreshed"]
 ```
 
-- **`/pb:flow`** — one `flowchart LR` (the 18 wireflow rules), wireflow nodes whose labels
+- **`/pb:plan --flow`** — one `flowchart LR` (the 18 wireflow rules), wireflow nodes whose labels
   match `registry.screens[].name`, plus a numbered test checklist. Writes `registry.flow`, then
   `--render`.
-- **`/pb:data`** — entities → a field/type/example table + an `erDiagram`, run through the 5
+- **`/pb:plan --data`** — entities → a field/type/example table + an `erDiagram`, run through the 5
   guardrails (PK, FK, cardinality, PascalCase-singular naming, completeness); warnings become a
   prepended TODO block. Writes `registry.erd`, then `--render`.
-- **`/pb:check-drift`** — read-only audit of the trio (screens · components · logic) against the
+- **`/pb:test --drift`** — read-only audit of the trio (screens · components · logic) against the
   constitution Principles. Produces a report only; **never** writes `registry.json` or
   `prototype.html`. (`--save` writes the report to `memory/drift-reports/`.)
 
-## Figma hand-off (`/pb:build-figma-handoff`)
+## Figma hand-off (`/pb:handoff` mode 3)
 
 A **one-way** registry → Figma transfer. Default is **BRIDGE mode**: `registry_to_figma.py`
 deterministically lowers the registry's composition tree to **DS Bridge node JSON** (each screen
@@ -137,16 +137,16 @@ Roll-forward only.
 
 ```mermaid
 flowchart TD
-  subgraph people["/pb:handoff-close --people"]
+  subgraph people["/pb:handoff --people"]
     PP1["--render"] --> PP2["set config.viewOnly = true<br/>+ config.cover { title, summary, date, by }"]
     PP2 --> PP3["--render again"]
     PP3 --> PP4["prototype.html: authoring CTAs hidden,<br/>cover shown, read-only, opens anywhere"]
   end
-  subgraph ctx["/pb:handoff-close --context"]
+  subgraph ctx["/pb:handoff --context"]
     CX1["export bundle:<br/>registry.json + design-system/ +<br/>memory/constitution.md + memory/decisions.md"]
     CX1 --> CX2["/pb:init --import &lt;bundle&gt; ingests it<br/>into a fresh project"]
   end
-  subgraph val["/pb:validate"]
+  subgraph val["/pb:handoff --tier=host"]
     V1["--render first"] --> V2["scaffold Vite (or --next):<br/>package.json + config + index.html = prototype"]
     V2 --> V3["npm install && npm run build (exit 0)<br/>+ npm run preview"]
   end
@@ -157,7 +157,7 @@ flowchart TD
   non-builders.
 - **`--context`** exports a portable bundle (registry + DS + the why-log + the locks) that
   `/pb:init --import` ingests to continue the work elsewhere.
-- **`/pb:validate`** renders first, scaffolds a runnable Vite/Next build from `prototype.html`, and
+- **`/pb:handoff --tier=host`** renders first, scaffolds a runnable Vite/Next build from `prototype.html`, and
   confirms `npm run build` exits 0.
 
 Both hand-off modes and validate **render first** — never hand off or scaffold from a stale view.

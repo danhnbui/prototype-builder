@@ -9,6 +9,32 @@ Phase A (solution discovery) logs decisions here as each problem is walked throu
 
 ---
 
+## D-34 · The command merge makes the release a major — 2026-09-20
+
+**Problem.** The 24 → 12 command merge deleted twelve command files outright. [AGENTS.md](../AGENTS.md)
+§2 is explicit: *"Every rename ships a backward-compat alias plus a migration … Aliases are removed
+only in a later major release, never in the release that introduces the rename."* The work was
+stamped 1.12.0 and shipped the deviation as a recorded open question in
+[DESIGN.md](../DESIGN.md) rather than resolving it.
+
+**Decision.** Ship it as **2.0.0**. Anyone invoking one of the twelve retired names gets "command not
+found" with no redirect — that is a breaking change by any reading, and a minor version claiming
+otherwise is the version number lying about the diff.
+
+**Alternatives rejected.** *Ship 1.12.0 as-is* — keeps the deviation unresolved and the number wrong;
+the honesty of the version string is the only thing it buys anyone. *Restore twelve alias stubs and
+keep the minor* — honors §2 literally, but buys a smaller number with twelve more files to keep in
+step, and `tests/command_refs.py` would have to invert the guard that currently asserts those names
+are gone. A major is precisely the release where a removal is allowed to land; paying to defer one is
+paying for nothing.
+
+**Consequence.** The aliases §2 would have required are not added retroactively. The obligation moves
+to documentation instead: [docs/upgrade-to-2.0.md](upgrade-to-2.0.md) carries the full rename table and
+the one command that moves an existing registry, and it is linked from the README, the changelog and
+the release notes. The three dead fields §3 parks behind a major (`staleness`, `meta.tradeoffs[]`,
+`meta.others`) stay emptied-not-removed — this release does not spend its major on them, so they
+remain available to a later one.
+
 ## D-33 · A trade-off is a rule, so it is stored as one — 2026-09-20
 
 **Problem.** D-30 moved `meta.tradeoffs[]` out of Project Summary and into UX Design → Logic on the

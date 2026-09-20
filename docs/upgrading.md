@@ -4,6 +4,10 @@ A pb prototype has **three version layers that must stay coherent**. Most "the u
 confusion is one layer moving without the others. This guide makes the layers explicit and gives the
 one correct upgrade order.
 
+> **Coming from 1.x?** 2.0 renamed twelve commands and deleted the old names. Start with
+> **[upgrade-to-2.0.md](upgrade-to-2.0.md)** — the rename table plus the one command that moves your
+> registry — then come back here if a layer still looks stale.
+
 ## The three layers
 
 | # | Layer | What it is | Moves when |
@@ -18,7 +22,7 @@ with no signal why. The rendered shell is **version-stamped** so this is visible
 - an in-page `pb vX.Y.Z` badge in the meta-nav (top-right),
 - a `<!-- pb-shell vX.Y.Z · rendered <ISO> -->` comment near the top of `prototype.html`,
 - a `· pb vX.Y.Z` line in the `/pb:preview` startup banner,
-- a `⚠ Shell drift` warning from `/pb:check-drift` when the stamp is older than the installed plugin.
+- a `⚠ Shell drift` warning from `/pb:test --drift` when the stamp is older than the installed plugin.
 
 ## Canonical upgrade sequence
 
@@ -30,7 +34,7 @@ with no signal why. The rendered shell is **version-stamped** so this is visible
 4. **Restart `/pb:preview`** so the live render uses the new shell. (A preview started inside a session
    that you then reload is killed with it — see the stability tip.)
 
-After step 4, the meta-nav badge and the `/pb:check-drift` shell-coherence line should both report the
+After step 4, the meta-nav badge and the `/pb:test --drift` shell-coherence line should both report the
 current version.
 
 ## Author dev-loop (editing the plugin itself)
@@ -47,7 +51,7 @@ current version.
 |---|---|---|
 | New UI not showing in preview | 3 stale | Restart `/pb:preview`; or `/pb:build --render` then reload the page. |
 | `⚠ Schema gap` banner on build | 2 behind 1 | `/pb:update-version --apply`. |
-| `⚠ Shell drift` from `/pb:check-drift` | 3 behind 1 | Re-render (`/pb:build --render`) or restart `/pb:preview`. |
+| `⚠ Shell drift` from `/pb:test --drift` | 3 behind 1 | Re-render (`/pb:build --render`) or restart `/pb:preview`. |
 | `⚠ Shell unstamped` | 3 rendered by a plugin older than this feature | Re-render once with the current plugin. |
 | Commands still behave like the old version | 1 not loaded | Reload/restart the session after `/plugin`. |
 | Badge shows `pb vunknown` | `plugin.json` unreadable | Confirm `pb/.claude-plugin/plugin.json` has a string `version`. |

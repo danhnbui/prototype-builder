@@ -3,7 +3,7 @@
 decisions_rotate.py — keep `memory/decisions.md` small enough to read (D-21·4).
 
 The why-log only grows. A real project reached **187 entries / 875 KB in two months**, which is
-the file three commands append to and — since v1.12.0 — grep before appending. Past a point the
+the file three commands append to and — since v2.0.0 — grep before appending. Past a point the
 current decisions are buried under the historical ones.
 
   Size, never the calendar. That same project wrote 86 entries in 2026-07 and 100 in 2026-08:

@@ -8,7 +8,7 @@ rather than against taste.
 Read this before changing the render path, the registry contract, the tool surface, or the loop.
 Point changes do not need it.
 
-**Status:** v1.12.0 · schema 11 · last reviewed 2026-09-20
+**Status:** v2.0.0 · schema 12 · last reviewed 2026-09-20
 **History** lives in [docs/remediation-decisions.md](docs/remediation-decisions.md) (D-1…D-30) and
 per-project `memory/decisions.md`. Those are append-only; this file is edited in place.
 
@@ -197,14 +197,18 @@ What the design is deliberately bad at. These are accepted, not undiscovered.
 - **The `hardened` export tier** (`/pb:handoff --tier=hardened`, idiomatic / DS-integrated) is
   deferred with no owner or date.
 - **`staleness` removal** is queued behind the next major release.
-- **[docs/architecture.md](docs/architecture.md) is stale** — it still describes the v1.4.2
-  layout: its plugin tree omits `agents/` · `skills/` · `migrations/`, and its template list
-  predates `design-system.html` and `runtime.js`. Its command count reads 12, which the 24 → 12
-  merge has made *accidentally* correct — staleness that now hides itself. Either refresh it as
-  the codemap this file defers to, or fold it in and delete it.
-- **The 24 → 12 command merge shipped without compat aliases**, a recorded deviation from
-  [AGENTS.md](AGENTS.md) §2 and a breaking change for anything invoking one of the nine retired
-  names. The version is still 1.12.0; by constraint 3 and I-5 it is a 2.0.0.
+- **[docs/architecture.md](docs/architecture.md) was stale** — *refreshed 2026-09-20* to the v2.0.0
+  layout: the plugin tree now carries `agents/` · `skills/` · `migrations/` and both shells, and the
+  command surface is the real 12 rather than a count that the 24 → 12 merge had made *accidentally*
+  correct. It is kept as the codemap this file defers to, not folded in. [docs/data-flow.md](docs/data-flow.md)
+  was refreshed with it.
+- **The 24 → 12 command merge shipped without compat aliases** — *answered 2026-09-20.* It is a
+  recorded deviation from [AGENTS.md](AGENTS.md) §2 and a breaking change for anything invoking
+  one of the twelve retired names, so by constraint 3 and I-5 the release is a **2.0.0**, and it
+  ships as one. The aliases §2 would have required are not added retroactively: a major is
+  precisely the release where a removal is allowed to land, and stubbing twelve commands to
+  defer the bump would have bought a smaller version number with twelve more files to keep in
+  step. The rename table users need is [docs/upgrade-to-2.0.md](docs/upgrade-to-2.0.md).
 - **The design-system scaffold is unconnected.** `../design-system-scaffold/` already answers both
   gaps above and pb references it nowhere. It is a routed folder tree — principles → foundations →
   atoms → molecules → organisms → templates → patterns → decision trees → governance — whose

@@ -5,7 +5,7 @@ fork_parity.py — what a real project had to build itself, because pb could not
 A live pb project could not use stock pb: it ran on a hand-patched plugin cache plus its own
 copy of prototype.html carrying five hunks. That fork is the sharpest list anyone has of what pb
 was missing, because each hunk is a capability someone needed badly enough to maintain a fork for.
-All five are stock as of v1.12.0. This test keeps them that way.
+All five are stock as of v2.0.0. This test keeps them that way.
 
   1. ERD `origin` — rows carried over from an existing product are tinted, not left to prose
   2. `meta.shell: 'none'` — a flat screen; the browser metaphor is set dressing on a back-office

@@ -13,7 +13,7 @@ the plugin's SemVer in `pb/.claude-plugin/plugin.json`:
 | `meta.schemaVersion` | The registry or template **contract** changes — a new required field, a shape change, a renamed key |
 | Plugin SemVer | Any release: features, fixes, docs, refactors |
 
-**Current schema: 11** — defined as `CURRENT_SCHEMA` in `pb/migrations/manifest.py`.
+**Current schema: 12** — defined as `CURRENT_SCHEMA` in `pb/migrations/manifest.py`.
 An unstamped registry (no `meta.schemaVersion`) is treated as schema 2 (the v1.2 contract).
 
 ## When to bump CURRENT_SCHEMA
