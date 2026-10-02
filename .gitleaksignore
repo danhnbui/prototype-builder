@@ -1,0 +1,5 @@
+# Reviewed gitleaks false positives, by fingerprint (commit:file:rule:line) — a new leak still fails.
+# The fake key tests/test_security.py seeds to prove pb's own scanner catches it.
+1d82a9b6041485aa0038e7f1a1cf03f65e1e54f1:tests/test_security.py:generic-api-key:20
+# A Figma file key — a document id (it is also in the fileUrl beside it), not a credential.
+11663b0899898ffaad783d2bee4e546647e3a5e4:selftest/figma-transfer.json:generic-api-key:5
