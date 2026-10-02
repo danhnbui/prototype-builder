@@ -822,7 +822,9 @@ def extract(project_dir, shell_path=None):
             other = by_id.get(cid)
             if other is not None:
                 parts.append(cid + '\0' + texts.get(other['file'], ''))
-        item_hash[it['id']] = hashlib.sha1('\0'.join(parts).encode('utf-8')).hexdigest()[:16]
+        # A change fingerprint, not a signature — and stored, so switching algorithms would mark
+        # every item changed. nosemgrep is the reviewed exemption.
+        item_hash[it['id']] = hashlib.sha1('\0'.join(parts).encode('utf-8')).hexdigest()[:16]  # nosemgrep: python.lang.security.insecure-hash-algorithms.insecure-hash-algorithm-sha1
 
     # ── Rule reachability: which declared states does the code actually PUT the system in? ──
     # A state machine can name a state nothing reaches. But a bare `= 'overdue'` scan cannot tell

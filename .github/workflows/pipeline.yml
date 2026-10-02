@@ -1,0 +1,245 @@
+name: pipeline
+
+# test → version → release → deploy-prod.
+#
+# Every PR and push to main runs the TEST stage (the three security scans). A release is cut only
+# by running this workflow by hand from main (Actions → pipeline → Run workflow → pick the bump):
+#
+#   test         secret-scan · semgrep-owasp · trivy-scan-repo · regression (ci.yml, reused)
+#   version      bump-version     bumps every version stamp, commits "release: vX" to main
+#   release      release-tag      tags vX on that commit, opens a DRAFT GitHub Release
+#   deploy-prod  ask-deploy-prod  waits on the `production` environment's required reviewer
+#                deploy-prod      publishes the draft and marks it Latest
+#
+# One-time setup (nothing below works without it):
+#   1. Secret RELEASE_TOKEN — a fine-grained PAT from a repo ADMIN, this repo only,
+#      Contents: read & write. main's protection requires checks a fresh commit can't have yet;
+#      an admin's push bypasses that (enforce_admins is off), GITHUB_TOKEN's can't.
+#   2. Environment `production` with yourself as a required reviewer (and "prevent self-review"
+#      OFF if you are the only reviewer). ask-deploy-prod fails closed if the gate is missing.
+#
+# No third-party actions: the scanners are pinned release binaries / an image digest, checked
+# against a hard-coded SHA-256, and actions/* are pinned to commit SHAs (semgrep's
+# mutable-action-tag rule — the trivy-action tag hijack is why).
+
+on:
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: "Version bump"
+        type: choice
+        options: [patch, minor, major]
+        default: patch
+      headline:
+        description: "Release headline (optional) — titles it 'vX.Y.Z — <headline>'"
+        type: string
+        required: false
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  # A release run is never cancelled mid-flight; scan-only runs on a PR supersede each other.
+  group: pipeline-${{ github.event_name == 'workflow_dispatch' && 'release' || github.head_ref || github.ref }}
+  cancel-in-progress: ${{ github.event_name != 'workflow_dispatch' }}
+
+jobs:
+  # ─── test ──────────────────────────────────────────────────────────────────────────────────
+  secret-scan:
+    name: secret-scan
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    env:
+      GITLEAKS_VERSION: "8.30.1"
+      GITLEAKS_SHA256: "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb"
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          fetch-depth: 0          # every commit, not just the tip — a deleted secret is still leaked
+          persist-credentials: false
+      - name: Install gitleaks (pinned, checksum-verified)
+        run: |
+          f="gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          curl -fsSL -o "$RUNNER_TEMP/$f" "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/$f"
+          echo "${GITLEAKS_SHA256}  $RUNNER_TEMP/$f" | sha256sum -c -
+          tar xzf "$RUNNER_TEMP/$f" -C "$RUNNER_TEMP" gitleaks
+      # Known false positives are listed by fingerprint in .gitleaksignore, so anything new fails.
+      - name: Scan full git history
+        run: |
+          "$RUNNER_TEMP/gitleaks" git --redact --no-banner --exit-code 1 .
+
+  semgrep-owasp:
+    name: semgrep-owasp
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    container:
+      image: semgrep/semgrep:1.176.0@sha256:12672acdb0949e19f9f6a4c2b288edd0b404f268f0ca7738a2c06f372f50362e
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      # The ruleset is fetched from the registry each run, so a new rule can turn this red without
+      # a code change. Suppress a reviewed false positive inline: `# nosemgrep: <rule-id>` + why.
+      - name: OWASP Top 10 ruleset (any finding fails)
+        run: semgrep scan --config p/owasp-top-ten --metrics=off --error .
+
+  trivy-scan-repo:
+    name: trivy-scan-repo
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      TRIVY_VERSION: "0.74.0"
+      TRIVY_SHA256: "2ae6fe3ee734b7fdf11335663e18c75ea12dccc76062f09f164a3b0f8be4371a"
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - name: Install trivy (pinned, checksum-verified)
+        run: |
+          f="trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz"
+          curl -fsSL -o "$RUNNER_TEMP/$f" "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/$f"
+          echo "${TRIVY_SHA256}  $RUNNER_TEMP/$f" | sha256sum -c -
+          tar xzf "$RUNNER_TEMP/$f" -C "$RUNNER_TEMP" trivy
+      - name: Scan the repo (vulns, secrets, misconfig — HIGH/CRITICAL fail)
+        run: |
+          "$RUNNER_TEMP/trivy" fs --scanners vuln,secret,misconfig \
+            --severity HIGH,CRITICAL --exit-code 1 --no-progress .
+
+  # On PRs and pushes ci.yml already runs on its own (and owns the branch-protection contexts),
+  # so it is reused here only for a release — no release ships red.
+  regression:
+    if: github.event_name == 'workflow_dispatch'
+    uses: ./.github/workflows/ci.yml
+
+  # ─── version ───────────────────────────────────────────────────────────────────────────────
+  bump-version:
+    name: bump-version
+    needs: [secret-scan, semgrep-owasp, trivy-scan-repo, regression]
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      version: ${{ steps.bump.outputs.version }}
+      sha: ${{ steps.commit.outputs.sha }}
+    env:
+      BUMP: ${{ inputs.bump }}
+    steps:
+      - name: Preflight — main only, RELEASE_TOKEN present
+        env:
+          RELEASE_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+        run: |
+          test "$GITHUB_REF" = refs/heads/main || { echo "::error::releases are cut from main, not $GITHUB_REF"; exit 1; }
+          test -n "$RELEASE_TOKEN" || { echo "::error::secret RELEASE_TOKEN is not set — see the header of pipeline.yml"; exit 1; }
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          token: ${{ secrets.RELEASE_TOKEN }}
+          fetch-depth: 0          # tags, so an existing vX is caught below
+      - id: bump
+        name: Bump every version stamp
+        run: |
+          python3 .github/scripts/bump_version.py "$BUMP"
+          v=$(python3 -c "import json;print(json.load(open('.claude-plugin/plugin.json'))['version'])")
+          if git rev-parse -q --verify "refs/tags/v$v" >/dev/null; then
+            echo "::error::tag v$v already exists"; exit 1
+          fi
+      - name: Version guards still hold
+        run: python3 tests/command_refs.py && python3 tests/shell_version.py
+      # The tested commit + the version stamps, nothing else. If main moved since the run started,
+      # the push is rejected (non-fast-forward) rather than releasing untested code.
+      - id: commit
+        name: Commit "release vX" to main
+        env:
+          VERSION: ${{ steps.bump.outputs.version }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -am "release: v$VERSION"
+          git push origin HEAD:main
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          echo "### v$VERSION bumped ($BUMP) → $(git rev-parse --short HEAD)" >> "$GITHUB_STEP_SUMMARY"
+          git show --stat --format= HEAD >> "$GITHUB_STEP_SUMMARY"
+
+  # ─── release ───────────────────────────────────────────────────────────────────────────────
+  release-tag:
+    name: release-tag
+    needs: bump-version
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: write         # push the tag, create the draft release
+    outputs:
+      url: ${{ steps.draft.outputs.url }}
+    env:
+      VERSION: ${{ needs.bump-version.outputs.version }}
+      SHA: ${{ needs.bump-version.outputs.sha }}
+      HEADLINE: ${{ inputs.headline }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          ref: ${{ needs.bump-version.outputs.sha }}
+      - name: Verify tag matches plugin.json version
+        run: |
+          pj=$(python3 -c "import json;print(json.load(open('.claude-plugin/plugin.json'))['version'])")
+          test "$VERSION" = "$pj" || { echo "::error::v$VERSION != plugin.json $pj"; exit 1; }
+      # Pushed with GITHUB_TOKEN, so the tag triggers no other workflow — this pipeline owns releases.
+      - name: Tag the release commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "v$VERSION" -m "v$VERSION" "$SHA"
+          git push origin "v$VERSION"
+      # Hand-written notes in .github/RELEASE_NOTES_vX.md, if present, go above the generated ones.
+      - id: draft
+        name: Open a draft GitHub Release
+        run: |
+          title="v$VERSION"; [ -n "$HEADLINE" ] && title="v$VERSION — $HEADLINE"
+          args=(--draft --verify-tag --generate-notes --title "$title")
+          notes=".github/RELEASE_NOTES_v$VERSION.md"
+          [ -f "$notes" ] && args+=(--notes "$(cat "$notes")")
+          url=$(gh release create "v$VERSION" "${args[@]}")
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+          echo "### Draft: [$title]($url) — review it, then approve deploy-prod" >> "$GITHUB_STEP_SUMMARY"
+
+  # ─── deploy-prod ───────────────────────────────────────────────────────────────────────────
+  # The approval IS the environment gate: this job doesn't start until a required reviewer
+  # approves. If `production` has no reviewers it would start at once — so it checks, and fails
+  # closed, before deploy-prod can publish anything.
+  ask-deploy-prod:
+    name: ask-deploy-prod
+    needs: [bump-version, release-tag]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    environment:
+      name: production
+      url: ${{ needs.release-tag.outputs.url }}
+    env:
+      GH_TOKEN: ${{ github.token }}
+      VERSION: ${{ needs.bump-version.outputs.version }}
+    steps:
+      - name: The approval gate is real
+        run: |
+          n=$(gh api "repos/$GITHUB_REPOSITORY/environments/production" \
+                --jq '[.protection_rules[]? | select(.type == "required_reviewers")] | length')
+          test "$n" -ge 1 || { echo "::error::environment 'production' has no required reviewers — v$VERSION stays a draft"; exit 1; }
+          echo "v$VERSION approved for production."
+
+  deploy-prod:
+    name: deploy-prod
+    needs: [bump-version, ask-deploy-prod]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: write         # publish the release
+    env:
+      GH_TOKEN: ${{ github.token }}
+      VERSION: ${{ needs.bump-version.outputs.version }}
+    steps:
+      - name: Publish the release and mark it Latest
+        run: |
+          gh release edit "v$VERSION" -R "$GITHUB_REPOSITORY" --draft=false --latest
+          url=$(gh release view "v$VERSION" -R "$GITHUB_REPOSITORY" --json url --jq .url)
+          echo "### 🚀 v$VERSION is live — $url" >> "$GITHUB_STEP_SUMMARY"
