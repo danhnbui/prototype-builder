@@ -2,20 +2,25 @@ name: pipeline
 
 # test → version → release → deploy-prod.
 #
-# Every PR and push to main runs the TEST stage (the three security scans). A release is cut only
-# by running this workflow by hand from main (Actions → pipeline → Run workflow → pick the bump):
+# Every PR runs the TEST stage. Every push to main runs all of it: if a commit since the last
+# release asks for one, a version is cut automatically and the run then WAITS for you to approve
+# production. (Actions → pipeline → Run workflow does the same on demand, or forces a bump.)
 #
 #   test         secret-scan · semgrep-owasp · trivy-scan-repo
-#   version      bump-version     bumps every version stamp on a release/vX branch, runs ci.yml on
-#                                 that commit, then fast-forwards main to it
-#   release      release-tag      tags vX on that commit, opens a DRAFT GitHub Release
-#   deploy-prod  ask-deploy-prod  waits on the `production` environment's required reviewer
+#   version      bump-version     picks the bump from Conventional Commits since the last tag
+#                                 (`type!:` / BREAKING CHANGE → major · feat → minor · fix, perf →
+#                                 patch · anything else → no release, and the run stops here);
+#                                 commits the stamps on a release/vX branch, runs ci.yml on it,
+#                                 then pushes main + tag vX together
+#   release      release-tag      opens a DRAFT GitHub Release for vX
+#   deploy-prod  ask-deploy-prod  waits until a required reviewer clicks approve
 #                deploy-prod      publishes the draft and marks it Latest
 #
 # No personal token: main's protection requires the unit + e2e checks, and GITHUB_TOKEN can't
-# bypass them — so the bump commit EARNS them. A GITHUB_TOKEN push triggers no workflow, but a
-# workflow_dispatch does, so bump-version dispatches ci.yml on the release branch; once it is
-# green on that exact SHA, a plain fast-forward push to main is allowed.
+# bypass them — so the bump commit EARNS them. A GITHUB_TOKEN push triggers no workflow (so the
+# bump commit can't re-trigger this one), but a workflow_dispatch does: bump-version dispatches
+# ci.yml on the release branch, and once it is green on that exact SHA, a plain fast-forward
+# push to main is allowed.
 #
 # One-time setup: environment `production` with yourself as a required reviewer ("prevent
 # self-review" OFF if you are the only one). ask-deploy-prod fails closed if the gate is missing.
@@ -28,10 +33,10 @@ on:
   workflow_dispatch:
     inputs:
       bump:
-        description: "Version bump"
+        description: "Version bump (auto = from commit messages)"
         type: choice
-        options: [patch, minor, major]
-        default: patch
+        options: [auto, patch, minor, major]
+        default: auto
       headline:
         description: "Release headline (optional) — titles it 'vX.Y.Z — <headline>'"
         type: string
@@ -44,9 +49,10 @@ permissions:
   contents: read
 
 concurrency:
-  # A release run is never cancelled mid-flight; scan-only runs on a PR supersede each other.
-  group: pipeline-${{ github.event_name == 'workflow_dispatch' && 'release' || github.head_ref || github.ref }}
-  cancel-in-progress: ${{ github.event_name != 'workflow_dispatch' }}
+  # PR runs supersede each other. Main runs never cancel one another — a run can sit at the
+  # approval gate for days; bump-version below is what serializes the releases themselves.
+  group: pipeline-${{ github.event_name == 'pull_request' && github.head_ref || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   # ─── test ──────────────────────────────────────────────────────────────────────────────────
@@ -114,37 +120,51 @@ jobs:
   bump-version:
     name: bump-version
     needs: [secret-scan, semgrep-owasp, trivy-scan-repo]
-    if: github.event_name == 'workflow_dispatch'
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-24.04
     timeout-minutes: 30
+    # One release at a time: two merges in a row queue here, and the second bumps from the
+    # first's tag instead of re-releasing the same commits.
+    concurrency:
+      group: pipeline-bump-version
+      cancel-in-progress: false
     permissions:
-      contents: write         # push the release branch, fast-forward main
+      contents: write         # push the release branch, main and the tag
       actions: write          # dispatch ci.yml on the release branch
     outputs:
       version: ${{ steps.bump.outputs.version }}
       sha: ${{ steps.commit.outputs.sha }}
     env:
-      BUMP: ${{ inputs.bump }}
+      BUMP: ${{ inputs.bump || 'auto' }}
       GH_TOKEN: ${{ github.token }}
     steps:
       - name: Preflight — main only
         run: |
           test "$GITHUB_REF" = refs/heads/main || { echo "::error::releases are cut from main, not $GITHUB_REF"; exit 1; }
+      # main's tip, not the triggering SHA: a release queued behind another must stack on it.
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
-          fetch-depth: 0          # tags, so an existing vX is caught below
+          ref: main
+          fetch-depth: 0          # history + tags: the auto bump reads commits since vX
       - id: bump
-        name: Bump every version stamp
+        name: Pick the bump and stamp the version
         run: |
-          python3 .github/scripts/bump_version.py "$BUMP"
+          set -o pipefail         # a bare `run:` is bash -e only; without this, tee hides a failure
+          python3 .github/scripts/bump_version.py "$BUMP" | tee "$RUNNER_TEMP/bump.txt"
           v=$(python3 -c "import json;print(json.load(open('.claude-plugin/plugin.json'))['version'])")
-          if git rev-parse -q --verify "refs/tags/v$v" >/dev/null; then
-            echo "::error::tag v$v already exists"; exit 1
+          if ! git diff --quiet; then
+            if git rev-parse -q --verify "refs/tags/v$v" >/dev/null; then
+              echo "::error::tag v$v already exists"; exit 1
+            fi
+          else
+            echo "### No release — nothing since the last tag asks for one (feat / fix / perf / breaking)" >> "$GITHUB_STEP_SUMMARY"
           fi
       - name: Version guards still hold
+        if: steps.bump.outputs.version != ''
         run: python3 tests/command_refs.py && python3 tests/shell_version.py
       - id: commit
         name: Commit "release vX" to a release branch
+        if: steps.bump.outputs.version != ''
         env:
           VERSION: ${{ steps.bump.outputs.version }}
         run: |
@@ -156,6 +176,7 @@ jobs:
       # The required checks, earned on the exact commit main will point at. Job names in ci.yml
       # are the branch-protection contexts, so this run is what lets the push below through.
       - name: Run ci.yml on the release commit (no release ships red)
+        if: steps.bump.outputs.version != ''
         env:
           VERSION: ${{ steps.bump.outputs.version }}
           SHA: ${{ steps.commit.outputs.sha }}
@@ -171,15 +192,17 @@ jobs:
           echo "ci run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$id"
           gh run watch "$id" --interval 15 --exit-status > /dev/null \
             || { echo "::error::ci.yml failed on the release commit — $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$id"; exit 1; }
-      # Tested commit + version stamps, nothing else. If main moved since the run started, this is
-      # a non-fast-forward and is rejected rather than releasing on top of untested code.
-      - name: Fast-forward main to the release commit
+      # main and the tag move together or not at all (--atomic). If main moved since checkout,
+      # the fast-forward is rejected rather than releasing on top of untested code.
+      - name: Push main + tag vX
+        if: steps.bump.outputs.version != ''
         env:
           VERSION: ${{ steps.bump.outputs.version }}
         run: |
-          git push origin HEAD:main
-          echo "### v$VERSION bumped ($BUMP) → $(git rev-parse --short HEAD)" >> "$GITHUB_STEP_SUMMARY"
-          git show --stat --format= HEAD >> "$GITHUB_STEP_SUMMARY"
+          git tag -a "v$VERSION" -m "v$VERSION"
+          git push --atomic origin HEAD:main "refs/tags/v$VERSION"
+          { echo "### v$VERSION ($BUMP) → $(git rev-parse --short HEAD)"; echo '```'
+            cat "$RUNNER_TEMP/bump.txt"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
       # Pass or fail, the release branch was only ever scaffolding.
       - name: Delete the release branch
         if: always() && steps.commit.outputs.sha != ''
@@ -191,32 +214,26 @@ jobs:
   release-tag:
     name: release-tag
     needs: bump-version
+    if: needs.bump-version.outputs.version != ''
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:
-      contents: write         # push the tag, create the draft release
+      contents: write         # create the draft release
     outputs:
       url: ${{ steps.draft.outputs.url }}
     env:
       VERSION: ${{ needs.bump-version.outputs.version }}
-      SHA: ${{ needs.bump-version.outputs.sha }}
       HEADLINE: ${{ inputs.headline }}
       GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
-          ref: ${{ needs.bump-version.outputs.sha }}
+          ref: v${{ needs.bump-version.outputs.version }}
+          persist-credentials: false
       - name: Verify tag matches plugin.json version
         run: |
           pj=$(python3 -c "import json;print(json.load(open('.claude-plugin/plugin.json'))['version'])")
           test "$VERSION" = "$pj" || { echo "::error::v$VERSION != plugin.json $pj"; exit 1; }
-      # Pushed with GITHUB_TOKEN, so the tag triggers no other workflow — this pipeline owns releases.
-      - name: Tag the release commit
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git tag -a "v$VERSION" -m "v$VERSION" "$SHA"
-          git push origin "v$VERSION"
       # Hand-written notes in .github/RELEASE_NOTES_vX.md, if present, go above the generated ones.
       - id: draft
         name: Open a draft GitHub Release
