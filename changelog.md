@@ -2,6 +2,26 @@
 
 All notable changes to Product Builder. Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [2.0.1] — 2026-10-02
+
+*A patch: CI only — nothing in `pb/` changed for users.*
+
+### Added
+
+- **A release pipeline** (`.github/workflows/pipeline.yml`): test → version → release →
+  deploy-prod. Every PR runs gitleaks over the full history, semgrep's OWASP Top 10 and trivy, and
+  checks that the version is bumped as far as its Conventional Commits ask for
+  (`python3 .github/scripts/bump_version.py auto` does the bump). Merging an unreleased version tags
+  it, opens a draft GitHub Release, and waits for a required reviewer before publishing.
+  `release.yml` is retired into it.
+
+### Fixed
+
+- **The render-determinism check was a coin flip on the clock.** It compared raw bytes of two
+  renders, which differ in the second-resolution `pb-shell` stamp whenever the renders straddle a
+  second. `tests/render_determinism.py` now compares with the timestamp normalized, and asserts the
+  stamp is present and names the current version.
+
 ## [2.0.0] — 2026-09-20
 
 *A major, for one reason: **twenty-four commands became twelve and the old names were deleted, not
