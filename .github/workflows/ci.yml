@@ -10,7 +10,7 @@ on:
   push:
     branches: [main]          # push CI on main only; PRs cover every branch
   pull_request:
-  workflow_call:              # reused by pipeline.yml so a release can't ship red
+  workflow_dispatch:          # pipeline.yml runs this on its release commit — no release ships red
 
 permissions:
   contents: read
