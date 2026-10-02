@@ -1,4 +1,4 @@
-# Product Builder v2.0.0 — router (read first)
+# Product Builder v2.0.1 — router (read first)
 
 Standalone, CLAUDE.md-native prototype builder. **No SpecKit** — no `extension.yml`,
 `preset.yml`, or `after_*` hooks. State lives in `registry.json`; commands are native
