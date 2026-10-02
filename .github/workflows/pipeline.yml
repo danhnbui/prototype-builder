@@ -5,18 +5,20 @@ name: pipeline
 # Every PR and push to main runs the TEST stage (the three security scans). A release is cut only
 # by running this workflow by hand from main (Actions → pipeline → Run workflow → pick the bump):
 #
-#   test         secret-scan · semgrep-owasp · trivy-scan-repo · regression (ci.yml, reused)
-#   version      bump-version     bumps every version stamp, commits "release: vX" to main
+#   test         secret-scan · semgrep-owasp · trivy-scan-repo
+#   version      bump-version     bumps every version stamp on a release/vX branch, runs ci.yml on
+#                                 that commit, then fast-forwards main to it
 #   release      release-tag      tags vX on that commit, opens a DRAFT GitHub Release
 #   deploy-prod  ask-deploy-prod  waits on the `production` environment's required reviewer
 #                deploy-prod      publishes the draft and marks it Latest
 #
-# One-time setup (nothing below works without it):
-#   1. Secret RELEASE_TOKEN — a fine-grained PAT from a repo ADMIN, this repo only,
-#      Contents: read & write. main's protection requires checks a fresh commit can't have yet;
-#      an admin's push bypasses that (enforce_admins is off), GITHUB_TOKEN's can't.
-#   2. Environment `production` with yourself as a required reviewer (and "prevent self-review"
-#      OFF if you are the only reviewer). ask-deploy-prod fails closed if the gate is missing.
+# No personal token: main's protection requires the unit + e2e checks, and GITHUB_TOKEN can't
+# bypass them — so the bump commit EARNS them. A GITHUB_TOKEN push triggers no workflow, but a
+# workflow_dispatch does, so bump-version dispatches ci.yml on the release branch; once it is
+# green on that exact SHA, a plain fast-forward push to main is allowed.
+#
+# One-time setup: environment `production` with yourself as a required reviewer ("prevent
+# self-review" OFF if you are the only one). ask-deploy-prod fails closed if the gate is missing.
 #
 # No third-party actions: the scanners are pinned release binaries / an image digest, checked
 # against a hard-coded SHA-256, and actions/* are pinned to commit SHAs (semgrep's
@@ -108,34 +110,28 @@ jobs:
           "$RUNNER_TEMP/trivy" fs --scanners vuln,secret,misconfig \
             --severity HIGH,CRITICAL --exit-code 1 --no-progress .
 
-  # On PRs and pushes ci.yml already runs on its own (and owns the branch-protection contexts),
-  # so it is reused here only for a release — no release ships red.
-  regression:
-    if: github.event_name == 'workflow_dispatch'
-    uses: ./.github/workflows/ci.yml
-
   # ─── version ───────────────────────────────────────────────────────────────────────────────
   bump-version:
     name: bump-version
-    needs: [secret-scan, semgrep-owasp, trivy-scan-repo, regression]
+    needs: [secret-scan, semgrep-owasp, trivy-scan-repo]
     if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-24.04
-    timeout-minutes: 5
+    timeout-minutes: 30
+    permissions:
+      contents: write         # push the release branch, fast-forward main
+      actions: write          # dispatch ci.yml on the release branch
     outputs:
       version: ${{ steps.bump.outputs.version }}
       sha: ${{ steps.commit.outputs.sha }}
     env:
       BUMP: ${{ inputs.bump }}
+      GH_TOKEN: ${{ github.token }}
     steps:
-      - name: Preflight — main only, RELEASE_TOKEN present
-        env:
-          RELEASE_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+      - name: Preflight — main only
         run: |
           test "$GITHUB_REF" = refs/heads/main || { echo "::error::releases are cut from main, not $GITHUB_REF"; exit 1; }
-          test -n "$RELEASE_TOKEN" || { echo "::error::secret RELEASE_TOKEN is not set — see the header of pipeline.yml"; exit 1; }
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
-          token: ${{ secrets.RELEASE_TOKEN }}
           fetch-depth: 0          # tags, so an existing vX is caught below
       - id: bump
         name: Bump every version stamp
@@ -147,20 +143,49 @@ jobs:
           fi
       - name: Version guards still hold
         run: python3 tests/command_refs.py && python3 tests/shell_version.py
-      # The tested commit + the version stamps, nothing else. If main moved since the run started,
-      # the push is rejected (non-fast-forward) rather than releasing untested code.
       - id: commit
-        name: Commit "release vX" to main
+        name: Commit "release vX" to a release branch
         env:
           VERSION: ${{ steps.bump.outputs.version }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git commit -am "release: v$VERSION"
-          git push origin HEAD:main
+          git push origin "HEAD:refs/heads/release/v$VERSION"
           echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+      # The required checks, earned on the exact commit main will point at. Job names in ci.yml
+      # are the branch-protection contexts, so this run is what lets the push below through.
+      - name: Run ci.yml on the release commit (no release ships red)
+        env:
+          VERSION: ${{ steps.bump.outputs.version }}
+          SHA: ${{ steps.commit.outputs.sha }}
+        run: |
+          gh workflow run ci.yml --ref "release/v$VERSION"
+          for _ in $(seq 30); do
+            id=$(gh run list --workflow ci.yml --commit "$SHA" --event workflow_dispatch \
+                   --json databaseId --jq '.[0].databaseId // empty')
+            [ -n "$id" ] && break
+            sleep 5
+          done
+          test -n "$id" || { echo "::error::ci.yml never started for $SHA"; exit 1; }
+          echo "ci run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$id"
+          gh run watch "$id" --interval 15 --exit-status > /dev/null \
+            || { echo "::error::ci.yml failed on the release commit — $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$id"; exit 1; }
+      # Tested commit + version stamps, nothing else. If main moved since the run started, this is
+      # a non-fast-forward and is rejected rather than releasing on top of untested code.
+      - name: Fast-forward main to the release commit
+        env:
+          VERSION: ${{ steps.bump.outputs.version }}
+        run: |
+          git push origin HEAD:main
           echo "### v$VERSION bumped ($BUMP) → $(git rev-parse --short HEAD)" >> "$GITHUB_STEP_SUMMARY"
           git show --stat --format= HEAD >> "$GITHUB_STEP_SUMMARY"
+      # Pass or fail, the release branch was only ever scaffolding.
+      - name: Delete the release branch
+        if: always() && steps.commit.outputs.sha != ''
+        env:
+          VERSION: ${{ steps.bump.outputs.version }}
+        run: git push origin --delete "release/v$VERSION" || true
 
   # ─── release ───────────────────────────────────────────────────────────────────────────────
   release-tag:
