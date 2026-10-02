@@ -19,11 +19,15 @@ name: pipeline
 # No personal token: main's protection requires the unit + e2e checks, and GITHUB_TOKEN can't
 # bypass them — so the bump commit EARNS them. A GITHUB_TOKEN push triggers no workflow (so the
 # bump commit can't re-trigger this one), but a workflow_dispatch does: bump-version dispatches
-# ci.yml on the release branch, and once it is green on that exact SHA, a plain fast-forward
-# push to main is allowed.
+# ci.yml on the release branch. Classic protection only counts those checks for a direct push
+# when the commit heads an open, up-to-date PR — so it opens one ("release: vX"), and once the
+# checks are green the fast-forward push lands and GitHub marks that PR merged.
 #
-# One-time setup: environment `production` with yourself as a required reviewer ("prevent
-# self-review" OFF if you are the only one). ask-deploy-prod fails closed if the gate is missing.
+# One-time setup:
+#   1. Environment `production` with yourself as a required reviewer ("prevent self-review" OFF
+#      if you are the only one). ask-deploy-prod fails closed if the gate is missing.
+#   2. Settings → Actions → General → "Allow GitHub Actions to create and approve pull requests"
+#      ON — bump-version opens the release PR with GITHUB_TOKEN.
 #
 # No third-party actions: the scanners are pinned release binaries / an image digest, checked
 # against a hard-coded SHA-256, and actions/* are pinned to commit SHAs (semgrep's
@@ -131,6 +135,7 @@ jobs:
     permissions:
       contents: write         # push the release branch, main and the tag
       actions: write          # dispatch ci.yml on the release branch
+      pull-requests: write    # open the release PR the required checks are counted against
     outputs:
       version: ${{ steps.bump.outputs.version }}
       sha: ${{ steps.commit.outputs.sha }}
@@ -173,6 +178,17 @@ jobs:
           git commit -am "release: v$VERSION"
           git push origin "HEAD:refs/heads/release/v$VERSION"
           echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+      # Without an open PR at this SHA, main's protection reports the checks as "expected" and
+      # rejects the push even though they passed (GH006). The PR is never merged by hand: the
+      # push below lands its head on main, and GitHub closes it as merged.
+      - name: Open the release PR
+        if: steps.bump.outputs.version != ''
+        env:
+          VERSION: ${{ steps.bump.outputs.version }}
+        run: |
+          gh pr create --base main --head "release/v$VERSION" --title "release: v$VERSION" \
+            --body "Opened by the pipeline so main's required checks count for this commit. It lands on main by itself once ci.yml is green — don't merge it by hand." \
+            || { echo "::error::could not open the release PR — is Settings → Actions → General → 'Allow GitHub Actions to create and approve pull requests' on?"; exit 1; }
       # The required checks, earned on the exact commit main will point at. Job names in ci.yml
       # are the branch-protection contexts, so this run is what lets the push below through.
       - name: Run ci.yml on the release commit (no release ships red)
