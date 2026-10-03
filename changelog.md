@@ -332,7 +332,11 @@ workbench, and a component's anatomy and spec are measured rather than typed. **
 - **The preview server's JSON depth limit no longer depends on the Python version.** Python 3.11's
   parser raises `RecursionError` on deeply nested input; 3.14's parses it. `serve.py` now counts the
   nesting itself (`JSON_MAX_DEPTH`, 64) before parsing a settings save or a score sheet, so every
-  version refuses it with the same 400.
+  version refuses it with the same 400. The count is a single linear pass, so a hostile body cannot make
+  it slow.
+- **Hardening from CodeQL.** The preview server's page-round files and `explore.py`'s manifest read
+  check the real path stays inside the exploration folder; an exploration id can no longer end in a
+  newline; `pbMachine` escapes a backslash in a machine name as well as a quote.
 - **Tests ran against a folder outside the repo.** `ia_view`, `ui_primitives`, `chrome_states` and
   `chrome_foundation` used a sibling demo project when one existed, so they passed on the author's
   machine and failed in CI. They now build their fixtures from `fixtures/golden`. `spec_measure`'s

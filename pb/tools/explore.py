@@ -106,7 +106,7 @@ CANDIDATES_DIR = os.path.join("render", "_candidates")
 # project's .gitignore block already ignores .preview/ — runtime state, never a source.
 SERVER_FILE = os.path.join(".preview", "server.json")
 SERVER_LOG = os.path.join(".preview", "server.log")
-_ID = re.compile(r"^[a-z0-9][a-z0-9-]*$")
+_ID = re.compile(r"^[a-z0-9][a-z0-9-]*\Z")
 _PBUSE = re.compile(r"pbUse\(\s*['\"]([a-z0-9][a-z0-9-]*)['\"]")
 
 # ref-design-compare §4 — the ten criteria. /pb:explore swaps in or adds 1–2 for the brief.
@@ -215,8 +215,11 @@ def load_manifest(base_dir, target):
     if not _ID.match(target or ""):
         raise ExploreError("not an exploration id: %r" % target, EXIT_USAGE)
     path = manifest_path(base_dir, target)
+    real = os.path.realpath(path)
+    if not real.startswith(os.path.realpath(os.path.join(base_dir, EXPLORE_DIR)) + os.sep):
+        raise ExploreError("not an exploration id: %r" % target, EXIT_USAGE)
     try:
-        with open(path, encoding="utf-8") as f:
+        with open(real, encoding="utf-8") as f:
             return json.load(f)
     except FileNotFoundError:
         raise ExploreError("no open exploration %r (expected %s)" % (target, os.path.relpath(path, base_dir)), EXIT_USAGE)

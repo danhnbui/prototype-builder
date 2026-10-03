@@ -104,7 +104,7 @@ META_MAX_BYTES = 64 * 1024
 META_BODY_TIMEOUT = 3.0       # seconds the body of a settings save may take to arrive
 SCORES_MAX_BYTES = 1024 * 1024  # POST /__pb_explore/<id>/scores: a sheet of scores + notes is larger than a settings save
 JSON_MAX_DEPTH = 64            # a settings save nests 2 deep and a score sheet 4; past this it is not a payload
-_JSON_STRING = re.compile(r'"(?:[^"\\]|\\.)*"')
+_JSON_SPECIAL = re.compile(r'[\[\]{}"\\]')   # one character each: linear, whatever the input
 FIGMA_FILE_RE = re.compile(r"^https://(www\.)?figma\.com/(file|design)/\S+$")
 LOOPBACK_ADDRS = ("127.0.0.1", "::1", "::ffff:127.0.0.1")
 LOOPBACK_HOSTS = ("127.0.0.1", "localhost", "[::1]")
@@ -120,13 +120,23 @@ META_LINK_WARNING = ("designSystem.designLink: not a figma.com/file/… or figma
 def _json_too_deep(text, limit=JSON_MAX_DEPTH):
     """True when JSON text nests past `limit`, counted before parsing so the answer does not depend on
     the Python version: 3.11's parser raises RecursionError on deep input, 3.14's parses it."""
-    depth = 0
-    for ch in re.findall(r"[\[\]{}]", _JSON_STRING.sub("", text)):
-        if ch in "[{":
+    depth, in_str, escaped = 0, False, -1
+    for m in _JSON_SPECIAL.finditer(text):
+        i, ch = m.start(), m.group()
+        if i == escaped:                      # the character after a backslash, inside a string
+            continue
+        if in_str:
+            if ch == "\\":
+                escaped = i + 1
+            elif ch == '"':
+                in_str = False
+        elif ch == '"':
+            in_str = True
+        elif ch in "[{":
             depth += 1
             if depth > limit:
                 return True
-        else:
+        elif ch in "]}":
             depth -= 1
     return False
 
@@ -564,20 +574,19 @@ class Handler(BaseHTTPRequestHandler):
             self.send_header("Content-Length", "0")
             self.end_headers()
             return
-        root = (Path(self.state.base_dir) / explore.EXPLORE_DIR / target).resolve()
-        try:
-            # relative_to() raises ValueError on traversal; resolve() expands symlinks first
-            candidate = (root / "/".join(urllib.parse.unquote(p) for p in rest)).resolve()
-            candidate.relative_to(root)
-        except ValueError:
+        root = os.path.realpath(os.path.join(self.state.base_dir, explore.EXPLORE_DIR, target))
+        # realpath expands symlinks and `..` first, so anything that resolves outside the round is refused
+        candidate = os.path.realpath(os.path.join(root, "/".join(urllib.parse.unquote(p) for p in rest)))
+        if candidate != root and not candidate.startswith(root + os.sep):
             return self._send(b"403 forbidden", ctype="text/plain", status=403)
-        if candidate.is_dir():
-            candidate = candidate / "index.html"
+        if os.path.isdir(candidate):
+            candidate = os.path.join(candidate, "index.html")
         try:
-            data = candidate.read_bytes()
+            with open(candidate, "rb") as f:
+                data = f.read()
         except OSError:
             return self._send(b"404 not found", ctype="text/plain", status=404)
-        self._send(data, ctype=mimetypes.guess_type(str(candidate))[0] or "application/octet-stream")
+        self._send(data, ctype=mimetypes.guess_type(candidate)[0] or "application/octet-stream")
 
     def do_POST(self):
         path = self.path.split("?", 1)[0]

@@ -291,7 +291,7 @@
     function pbMachine(x) {
       if (!x) return null;
       if (x.nodeType === 1) return x.closest('[data-machine]');
-      return document.querySelector('[data-machine="' + String(x).replace(/"/g, '\\"') + '"]');
+      return document.querySelector('[data-machine="' + String(x).replace(/\\/g, '\\\\').replace(/"/g, '\\"') + '"]');
     }
     function pbStep(x) {
       var root = pbMachine(x);
