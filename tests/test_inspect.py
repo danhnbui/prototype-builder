@@ -136,8 +136,11 @@ def run():
             page.wait_for_timeout(150)
             after = page.evaluate("() => state.protoScreenId")
             check(after == before == "login", f"⌥-click did not navigate (screen {before!r}->{after!r})")
-            check(page.locator('.proto-toast', has_text="Copied").count() >= 1,
-                  "⌥-click shows a 'Copied' toast")
+            # "Copied" is the TOOL talking (not the product's own data-toast), so it is the tool's toast
+            # (#pb-ui-toast, bottom-right) — and it names the reference that was copied.
+            check(page.locator('#pb-ui-toast.is-on', has_text="Copied").count() >= 1
+                  and page.locator('.proto-toast', has_text="Copied").count() == 0,
+                  "⌥-click shows a 'Copied' toast — the tool's, not the product's")
 
             # A normal (no-Alt) valid submit STILL navigates — zero runtime regression.
             inp = page.locator('#proto-frame .field__input')

@@ -1,0 +1,43 @@
+/* product.css — the PROJECT's responsive base, the counterpart of chrome.css (which is the tool's).
+   render.py emits it, followed by every component/screen `styleSrc` file, into one
+   <style id="pb-product-css"> in both sites. Scoped to .pb-product; never styles the tool.
+
+   Why container queries and never @media: the device frames are <div>s in one document, so a
+   @media rule answers the BROWSER WINDOW — a 429px phone frame on a 1440px monitor matched
+   `min-width: 1024px`. Every place a project renders is a container named `pb-screen`
+   (the prototype's .proto-screen, the design system's demo stage and variant cells), so
+   `@container pb-screen (…)` answers the frame the design is actually shown in.
+
+   Size classes (fixed — container queries cannot read custom properties):
+     compact   <  600px   mobile  (429)
+     medium    600–1023px tablet  (834)
+     expanded  ≥ 1024px   laptop  (1280) · monitor (1920)
+   Mobile first: the base rule is compact; widen with min-width queries. */
+
+.proto-screen.pb-product, .stage.pb-product, .box.pb-product { container: pb-screen / inline-size; }
+
+/* Show/hide by size class — the cheap way to swap navigation (bottom tabs ↔ sidebar) or
+   content (cards ↔ table) without a stylesheet of your own. */
+@container pb-screen (max-width: 599.98px) {
+  .pb-product .r-medium-up, .pb-product .r-expanded-up { display: none !important; }
+}
+@container pb-screen (min-width: 600px) and (max-width: 1023.98px) {
+  .pb-product .r-compact, .pb-product .r-expanded-up { display: none !important; }
+}
+@container pb-screen (min-width: 1024px) {
+  .pb-product .r-compact, .pb-product .r-below-expanded { display: none !important; }
+}
+
+/* A grid that is 1 column compact, 2 medium, 3 expanded. Override the count with --r-cols-m /
+   --r-cols-x on the element. */
+.pb-product .r-cols { display: grid; gap: var(--space-3, 12px); grid-template-columns: minmax(0, 1fr); }
+@container pb-screen (min-width: 600px) {
+  .pb-product .r-cols { grid-template-columns: repeat(var(--r-cols-m, 2), minmax(0, 1fr)); }
+}
+@container pb-screen (min-width: 1024px) {
+  .pb-product .r-cols { grid-template-columns: repeat(var(--r-cols-x, 3), minmax(0, 1fr)); }
+}
+
+/* A readable measure for content on wide frames — a phone column stretched to 1920px is not a
+   desktop layout. */
+.pb-product .r-measure { width: 100%; max-width: var(--r-measure, 72rem); margin-inline: auto; }

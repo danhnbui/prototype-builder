@@ -1,6 +1,7 @@
 ---
 name: craft-connect-flow
 description: Connect multiple Product Builder screens into a working journey — navigation, shared state, entry/exit points, and transitions — using the shell's declarative data-* runtime. Use when building a multi-screen prototype or mapping its flow — loaded by /pb:build and /pb:plan --flow. Not for single-screen behavior (use think-logic) or arranging one screen's elements (use think-layout).
+user-invocable: false
 ---
 
 # craft-connect-flow

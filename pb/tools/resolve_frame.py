@@ -31,10 +31,14 @@ Exit: 0 ok (even with gaps — gaps are expected, not errors) · 2 usage/IO erro
 """
 import argparse
 import glob
+import importlib
 import json
 import os
 import re
 import sys
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+pbslice = importlib.import_module("slice")  # the registry write path: lock + atomic write (`import slice` shadows the builtin)
 
 
 def _load(path):
@@ -74,7 +78,7 @@ def _normalize_input(data):
 def _known_components(registry_path, reg):
     ids = {c.get("id") for c in reg.get("components", []) if c.get("id")}
     root = os.path.dirname(os.path.abspath(registry_path))
-    for sp in glob.glob(os.path.join(root, "design-system", "*", ".source.json")):
+    for sp in glob.glob(os.path.join(glob.escape(root), "design-system", "*", ".source.json")):
         try:
             for c in _load(sp).get("components", []):
                 if c.get("id"):
@@ -95,38 +99,43 @@ def _uniq(base, taken):
 
 def resolve(frame, registry_path):
     frame = _normalize_input(frame)
-    reg = _load(registry_path)
-    known = _known_components(registry_path, reg)
-    frame_meta = frame.get("frame", {})
-    screen_id = _kebab(frame_meta.get("name") or frame_meta.get("id") or "screen") or "screen"
-    screen_name = frame_meta.get("name") or screen_id
+    # A read-modify-write of registry.json: the registry is read INSIDE the lock (a copy loaded before
+    # it could be stale by the time the write lands) and written atomically. A held lock is refused
+    # (RegistryLocked — main reports it), not overwritten.
+    if not os.path.isfile(registry_path):
+        _load(registry_path)                  # raises FileNotFoundError; no lock file is made for nothing
+    with pbslice.registry_lock(registry_path, "resolve_frame"):
+        reg = _load(registry_path)
+        known = _known_components(registry_path, reg)
+        frame_meta = frame.get("frame", {})
+        screen_id = _kebab(frame_meta.get("name") or frame_meta.get("id") or "screen") or "screen"
+        screen_name = frame_meta.get("name") or screen_id
 
-    elements, gaps, taken = [], [], set()
-    mapped = 0
-    for layer in frame.get("layers", []):
-        label = layer.get("name", "layer")
-        candidate = layer.get("component") or _kebab(label)
-        eid = _uniq(_kebab(label), taken)
-        if candidate in known:
-            elements.append({"id": eid, "label": label, "orgId": candidate})
-            mapped += 1
-        else:
-            # NEVER invent a component — placeholder + gap.
-            elements.append({"id": eid, "label": label, "placeholder": True})
-            gaps.append({"layer": label, "type": layer.get("type", "?"), "candidate": candidate, "element": eid})
+        elements, gaps, taken = [], [], set()
+        mapped = 0
+        for layer in frame.get("layers", []):
+            label = layer.get("name", "layer")
+            candidate = layer.get("component") or _kebab(label)
+            eid = _uniq(_kebab(label), taken)
+            if candidate in known:
+                elements.append({"id": eid, "label": label, "orgId": candidate})
+                mapped += 1
+            else:
+                # NEVER invent a component — placeholder + gap.
+                elements.append({"id": eid, "label": label, "placeholder": True})
+                gaps.append({"layer": label, "type": layer.get("type", "?"), "candidate": candidate, "element": eid})
 
-    # screen patch (data skeleton — /pb:build fills the render body later)
-    screen = {"id": screen_id, "name": screen_name, "elements": elements,
-              "figmaFrameId": frame_meta.get("id"), "layout": {"type": "stack"}}
-    screens = reg.setdefault("screens", [])
-    screens[:] = [s for s in screens if s.get("id") != screen_id] + [screen]
-    reg.setdefault("meta", {})["entry"] = "figma"
+        # screen patch (data skeleton — /pb:build fills the render body later)
+        screen = {"id": screen_id, "name": screen_name, "elements": elements,
+                  "figmaFrameId": frame_meta.get("id"), "layout": {"type": "stack"}}
+        screens = reg.setdefault("screens", [])
+        screens[:] = [s for s in screens if s.get("id") != screen_id] + [screen]
+        reg.setdefault("meta", {})["entry"] = "figma"
 
-    with open(registry_path, "w", encoding="utf-8") as f:
-        json.dump(reg, f, indent=2)
+        pbslice._write(registry_path, reg)
 
-    if gaps:
-        _write_gaps(registry_path, screen_name, frame_meta.get("id"), gaps)
+        if gaps:
+            _write_gaps(registry_path, screen_name, frame_meta.get("id"), gaps)
 
     print(f"✓ resolved frame '{screen_name}' → screen '{screen_id}': "
           f"{mapped}/{len(elements)} layers mapped to DS components, {len(gaps)} gap(s).")
@@ -150,8 +159,7 @@ def _write_gaps(registry_path, screen_name, frame_id, gaps):
     for g in gaps:
         block.append(f"- **{g['layer']}** ({g['type']}) — no DS component matched "
                      f"`{g['candidate']}`. Placeholder element `{g['element']}`.\n")
-    with open(path, "w", encoding="utf-8") as f:
-        f.write(existing + "".join(block))
+    pbslice.atomic_write_text(path, existing + "".join(block))
 
 
 def main(argv=None):
@@ -165,6 +173,9 @@ def main(argv=None):
         sys.exit(f"resolve_frame: no registry at {registry}")
     try:
         return resolve(_load(args.src), registry)
+    except pbslice.RegistryLocked as e:
+        print(f"resolve_frame: {e}", file=sys.stderr)
+        return 2
     except (OSError, json.JSONDecodeError) as e:
         print(f"resolve_frame: {e}", file=sys.stderr)
         return 2

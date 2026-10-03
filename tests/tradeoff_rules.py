@@ -7,7 +7,8 @@ tradeoff_rules.py — schema 12 (D-33): a trade-off is a rule, so it is stored a
      meta.tradeoffs rather than removing it (AGENTS.md §3).
   2. down() restores the array byte-for-byte; a rule edited since the migration is kept as a
      rule and reported, never demoted back into a flat row.
-  3. The chain reaches CURRENT_SCHEMA == 12 and the shipped template carries the new shape.
+  3. 0010 is in the chain, the chain reaches CURRENT_SCHEMA (12 or later — this file owns 0010,
+     not the current schema number) and the shipped template carries the new shape.
   4. The rendered shell draws the decision on the rule card — question, what won, what LOST,
      why — for any kind, and dims a superseded one in place.
   5. There is no Trade-offs view and no Others sub-tab left to click.
@@ -103,10 +104,12 @@ def test_migration():
 
     print("3 · the chain and the shipped template")
     mf = _load(MANIFEST, "manifest")
-    check(mf.CURRENT_SCHEMA == 12, f"CURRENT_SCHEMA == 12 (got {mf.CURRENT_SCHEMA})")
+    check(mf.CURRENT_SCHEMA >= 12, f"CURRENT_SCHEMA is at least 12, 0010's target (got {mf.CURRENT_SCHEMA})")
+    check(max(t for _f, t, _s in mf._REGISTRY) == mf.CURRENT_SCHEMA, "the chain reaches CURRENT_SCHEMA")
     check((11, 12, "0010_tradeoff_rules") in mf._REGISTRY, "0010 is wired into the chain")
     tpl = json.load(open(TEMPLATE, encoding="utf-8"))
-    check(tpl["meta"]["schemaVersion"] == 12, "the template is stamped 12")
+    check(tpl["meta"]["schemaVersion"] == mf.CURRENT_SCHEMA,
+          f"the template is stamped CURRENT_SCHEMA ({tpl['meta']['schemaVersion']} vs {mf.CURRENT_SCHEMA})")
     check("tradeoffs" not in tpl["meta"] and "others" not in tpl["meta"],
           "a NEW project is not born with either retired field")
     check(tpl.get("ia", {}).get("rules") == [], "and is born with ia.rules[]")
@@ -170,18 +173,24 @@ def test_shell():
                 page.on("pageerror", lambda e: errs.append(str(e)))
                 page.on("console", lambda m: errs.append(m.text) if m.type == "error" else None)
                 open_logic(page, srv.url)
-                body = page.eval_on_selector("#app", "e => e.innerText")
+                # The decision is the History tab's latest entry (v2.1.0 rule card) — read its text
+                # whether or not the tab is the one open.
+                body = page.eval_on_selector("#app", "e => e.textContent")
                 check("When do we validate?" in body, "the question renders")
-                check("Inline" in body and "over On submit" in body,
-                      "what won is shown over what LOST — the part a rule cannot say for itself")
+                won = page.eval_on_selector_all(".lgc-opts li.lgc-on", "e => e.map(x => x.textContent)")
+                lost = page.eval_on_selector_all(".lgc-opts li:not(.lgc-on)", "e => e.map(x => x.textContent)")
+                check(any("Inline" in x for x in won) and any("On submit" in x for x in lost),
+                      "what won is shown beside what LOST — the part a rule cannot say for itself")
                 check("Catches errors before the user commits." in body, "and the why")
-                check(page.locator(".lg-card--sup").count() == 1
-                      and page.locator(".lg-chip--dead").count() == 1,
-                      "a superseded decision dims in place with a chip, rather than disappearing")
+                sup = page.locator(".lg-card--sup")
+                srow = page.locator(".pb-scan-tr.is-dim")
+                check(sup.count() == 1 and "superseded" in sup.locator(".lgc-supnote").text_content()
+                      and srow.count() == 1 and "Superseded" in srow.locator(".st").text_content(),
+                      "a superseded decision stays in place — a dimmed row saying Superseded, whose card carries a superseded pill — rather than disappearing")
 
                 print("5 · nothing left to click that no longer exists")
                 views = page.eval_on_selector_all(".lg-view", "e => e.map(x => x.innerText.split(' ')[0])")
-                check(views == ["Rules", "Ripple"], f"Logic has two views, not three ({views})")
+                check(views == ["Rules", "Impact"], f"Logic has two views, not three ({views})")
                 check("2" in page.eval_on_selector(".lg-view", "e => e.innerText"),
                       "and the Rules count includes them")
                 page.evaluate("setMetaView('summary')")

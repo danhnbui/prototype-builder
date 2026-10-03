@@ -8,7 +8,10 @@ like tests/e2e_smoke.py) and verifies prototype behaviour four ways:
   --functional (DEFAULT)  Run every flow.stories[].scenarios[] that carries a `.test`
                           block: navigate from test.start, execute each step, assert
                           each expect item, then write a `lastResult` verdict back into
-                          the registry (read by the UX-tab test glyph).
+                          the registry (read by the UX-tab test glyph). The write happens AFTER
+                          the run, under the registry lock, on a fresh read of the registry:
+                          only the `lastResult` of the scenarios that ran is set, so an edit
+                          saved during the run survives.
   --roles                 For each meta.roles entry, drive setProtoRole() and walk the
                           screens: screens/elements gated to OTHER roles must be absent
                           for a non-admin role and present for an admin one. Leaks = ERROR.
@@ -44,6 +47,7 @@ Usage:
                       [--attach [URL]] [--story <id|title>] [--json <out>]
 """
 import argparse
+import importlib
 import json
 import os
 import re
@@ -55,6 +59,10 @@ from datetime import datetime, timezone
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 SERVE = os.path.join(HERE, "serve.py")
+sys.path.insert(0, HERE)
+# The registry's write path (advisory lock + atomic write). importlib because `import slice` would
+# shadow the builtin of the same name in this module — serve.py does the same.
+pbslice = importlib.import_module("slice")
 
 ERROR, WARN = "ERROR", "WARN"
 
@@ -118,10 +126,49 @@ def _write_json(path, obj):
         json.dump(obj, f, indent=2, ensure_ascii=False)
 
 
-def _write_registry(path, reg):
-    """Persist the registry back to disk (indent=2, key order preserved by the dict)."""
-    with open(path, "w", encoding="utf-8") as f:
-        json.dump(reg, f, indent=2, ensure_ascii=False)
+def _scenario_keys(reg):
+    """[(key, scenario, test)] for every object scenario with a `.test` block, in registry order. The
+    key — (story id or title, which story of that name, scenario text, which scenario of that text) —
+    finds the same scenario in a copy of the registry read later, whatever was added or reordered
+    around it in the meantime."""
+    out, stories_seen = [], {}
+    for story in ((reg.get("flow") or {}).get("stories") or []):
+        if not isinstance(story, dict):
+            continue
+        sk = str(story.get("id") or story.get("title") or "")
+        stories_seen[sk] = sn = stories_seen.get(sk, 0) + 1
+        texts_seen = {}
+        for sc in (story.get("scenarios") or []):
+            if isinstance(sc, dict) and isinstance(sc.get("test"), dict):
+                tk = str(sc.get("text") or "")
+                texts_seen[tk] = tn = texts_seen.get(tk, 0) + 1
+                out.append(((sk, sn, tk, tn), sc, sc["test"]))
+    return out
+
+
+def _save_verdicts(path, verdicts):
+    """Persist `lastResult` verdicts: {scenario key: (the test block that ran, the verdict)}.
+
+    The run took minutes and the registry may have changed under it, so this is NOT "write back the
+    registry I loaded": it takes the registry lock, RE-READS the registry inside it, sets only the
+    `lastResult` of the scenarios that ran on that fresh copy, and writes atomically. A scenario that
+    is gone, renamed, or whose `test` block was edited since the run began is skipped — a verdict is
+    evidence about the test that produced it. The lock is never held during the browser run.
+    Returns (saved, skipped keys). Raises RegistryLocked if another writer holds the lock."""
+    with pbslice.registry_lock(path, "test_run --functional"):
+        fresh = _load_json(path)
+        live = {key: (sc, test) for key, sc, test in _scenario_keys(fresh)}
+        saved, skipped = 0, []
+        for key, (ran_test, verdict) in verdicts.items():
+            hit = live.get(key)
+            if hit is None or hit[1] != ran_test:
+                skipped.append(key)
+                continue
+            hit[0]["lastResult"] = verdict
+            saved += 1
+        if saved:
+            pbslice._write(path, fresh)
+    return saved, skipped
 
 
 def _now_z():
@@ -669,6 +716,8 @@ def run_functional(reg_path, story_filter, json_out, attach=None):
 
     sync_playwright = _require_playwright()
     findings, results = [], []
+    key_of = {id(sc): key for key, sc, _t in _scenario_keys(reg)}
+    verdicts = {}                       # scenario key -> (test that ran, lastResult); saved after the run
     with sync_playwright() as p:
         with _transport(reg_path, attach) as srv:
             browser, page, cerr = _open_page(p, srv.url)
@@ -696,7 +745,7 @@ def run_functional(reg_path, story_filter, json_out, attach=None):
                 # when every declared role passes.
                 worst = ("fail" if any(r["status"] == "fail" for r in per_role)
                          else "skip" if any(r["status"] == "skip" for r in per_role) else "pass")
-                sc["lastResult"] = {
+                verdicts[key_of[id(sc)]] = (test, {
                     "status": worst, "ranAt": _now_z(),
                     "detail": "; ".join(f"{r['role']}: {r['status']}" for r in per_role),
                     "roles": per_role,
@@ -705,10 +754,19 @@ def run_functional(reg_path, story_filter, json_out, attach=None):
                     # 141 of 141 render bodies had changed underneath them. The shell compares
                     # these against the live digests and shows a stale verdict as stale.
                     "inputs": _scenario_inputs(test, body_hash),
-                }
+                })
             browser.close()
 
-    _write_registry(reg_path, reg)  # persist lastResult verdicts (read by the UX-tab glyph)
+    # Persist the verdicts (read by the UX-tab glyph) — now, after the run, under the registry lock.
+    try:
+        saved, skipped = _save_verdicts(reg_path, verdicts)
+        if skipped:
+            findings.append(Finding(
+                WARN, "T-WRITE", reg_path,
+                f"{len(skipped)} verdict(s) not saved — the scenario or its test block changed while the "
+                f"run was in progress; re-run to record it"))
+    except pbslice.RegistryLocked as e:
+        findings.append(Finding(WARN, "T-WRITE", reg_path, f"lastResult verdicts NOT saved — {e}"))
     passed = sum(1 for r in results if r["status"] == "pass")
     if json_out:
         _write_json(json_out, {"mode": "functional", "passed": passed, "total": len(results),

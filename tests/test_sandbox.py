@@ -178,6 +178,52 @@ def run():
                    (sc.get("lastResult") or {}).get("detail") for sc in scen),
               "each lastResult carries a detail + ranAt")
 
+    # ── 1b · the verdicts are saved under the registry lock, after the run, on a fresh read ──
+    # What is asserted is WHERE the write happens, not whether the scenarios pass (section 1 does that),
+    # so a browser that times out loading the page (the shell pulls Mermaid from a CDN) is retried
+    # rather than blamed on the lock.
+    print("test_run.py --functional (lastResult is written under the registry lock, never during the run):")
+    sys.path.insert(0, TOOLS)
+    import importlib
+    pbslice = importlib.import_module("slice")              # `import slice` would shadow the builtin
+    with tempfile.TemporaryDirectory() as tmp:
+        reg_path = copy_golden(tmp)
+        proc = subprocess.Popen([sys.executable, TEST_RUN, reg_path, "--functional"],
+                                stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+        free = 0
+        while proc.poll() is None and free < 3:             # the run is under way: can anyone else take the lock?
+            try:
+                with pbslice.registry_lock(reg_path, "a test probing the lock", timeout=0.1):
+                    free += 1
+            except pbslice.RegistryLocked:
+                pass
+            time.sleep(0.2)
+        out, _ = proc.communicate(timeout=120)
+        check(free >= 3, f"the registry lock is FREE while the browser runs ({free} probes took it mid-run)")
+    waiting, out, reg, statuses = False, "", None, []
+    for attempt in range(3):
+        with tempfile.TemporaryDirectory() as tmp:
+            reg_path = copy_golden(tmp)
+            with pbslice.registry_lock(reg_path, "a test holding the lock"):
+                proc = subprocess.Popen([sys.executable, TEST_RUN, reg_path, "--functional"],
+                                        stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
+                                        env=dict(os.environ, PB_LOCK_TIMEOUT="60"))
+                time.sleep(9)                                # long enough for the run to finish and reach the write
+                waiting = proc.poll() is None
+                mid = load(reg_path)
+                mid["meta"]["editedWhileLocked"] = "yes"      # an edit saved while the run was held up
+                pbslice._write(reg_path, mid)
+            out, _ = proc.communicate(timeout=120)
+            reg = load(reg_path)
+            statuses = [(sc.get("lastResult") or {}).get("status") for sc in iter_test_scenarios(reg)]
+        if "Traceback" not in out:
+            break                                            # the run reached the write (a browser timeout is a Traceback: try again)
+    check(waiting, "with the lock held, the finished run WAITS to save its verdicts (it does not write around the lock)")
+    check(statuses and all(s in ("pass", "fail") for s in statuses),
+          f"…then saves a verdict for every scenario once it can ({statuses}, rc={proc.returncode})\n{out}")
+    check(reg["meta"].get("editedWhileLocked") == "yes",
+          "…on a fresh read: the edit saved while it waited is NOT overwritten by the registry it loaded at the start")
+
     # ── 2 · flip one expect → RED ────────────────────────────────────────────
     print("test_run.py --functional (a flipped expect turns RED):")
     with tempfile.TemporaryDirectory() as tmp:
@@ -309,12 +355,13 @@ def run():
 
             # 3 — UX Design → Test Cases: a no-test scenario shows ☐; an un-run test scenario ○.
             # Test Cases became a UX-Design SUB-tab (UX_SUBTABS, shell ~4136): a .meta-subtab
-            # button calling pbSetUxView('tests'), not the old [data-tab="tests"]. This step went
+            # button carrying data-ux-view="tests" (it calls pbSetUxView(this.dataset.uxView) — the id is data
+            # now, not a quoted JS string in the onclick, M1), not the old [data-tab="tests"]. This step went
             # on clicking a selector the shell had stopped emitting and timed out every time —
             # unseen, because the file skipped on every machine that had no Playwright.
             page.click('.meta-tab >> nth=2')  # UX Design
             page.wait_for_timeout(150)
-            page.click("""[onclick*="pbSetUxView('tests')"]""")
+            page.click('.ux-subtabs .meta-subtab[data-ux-view="tests"]')
             page.wait_for_timeout(200)
             txt = page.locator("#app").inner_text()
             check("☐" in txt, "a scenario WITHOUT a test{} block renders the manual ☐ glyph")

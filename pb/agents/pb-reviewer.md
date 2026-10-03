@@ -12,7 +12,7 @@ secrets/PII before a hand-off or exit. It surfaces findings and suggested fixes;
 **never** auto-fixes and **never** writes.
 
 ## Skills + commands it wraps
-- **Skill:** `check-drift`.
+- **Skill:** none of its own — the audit rules live in `/pb:test` §7–§10, which it runs as `--drift`.
 - **Command:** `/pb:test --drift` — audit the trio (screens · components · logic) against
   `memory/constitution.md` `## Principles`, reading render bodies where a `renderSrc` points at one.
 - **Tools:**
@@ -35,5 +35,5 @@ constitution); `lint_registry.py` and `security_scan.py` have run and their find
 contradiction, contract error, or secret/PII hit has been silenced. As the gate, it does not sign off while an
 `ERROR`-severity finding stands unaddressed.
 
-> **Skill degrade (NS6).** If the `check-drift` skill fails to load, say so explicitly and proceed with its
+> **Skill degrade (NS6).** If a tool this agent runs fails to load, say so explicitly and proceed with its
 > core intent — never silently skip the step.

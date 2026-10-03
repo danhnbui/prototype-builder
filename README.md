@@ -1,4 +1,4 @@
-# Product Builder v2.0.1
+# Product Builder v2.1.0
 
 A standalone, CLAUDE.md-native prototype builder for Claude Code. Turn a PRD into two interactive,
 self-documenting sites from **one `registry.json`** — a **4-tab prototype** (a real click-through flow
@@ -60,6 +60,10 @@ state stays in each prototype's folder.)
 **only** thing pb needs on your machine is **Python 3** (already present on most Macs and Linux; on Windows
 install it from python.org and tick "Add to PATH"). No other setup, no `pip install`.
 
+Those skills are **internal**: each sets `user-invocable: false`, so only the 13 commands appear in the `/`
+menu. `think-clarify`, for example, is how `/pb:init` and `/pb:specify` decide what to ask — it is not a
+second `/pb:clarify`. `tests/skill_refs_lint.py` keeps it that way.
+
 ## Non-technical quickstart (for PMs & designers)
 
 No terminal knowledge needed — you just talk to Claude Code:
@@ -75,19 +79,20 @@ If `/pb:init` says Python isn't installed, it will tell you exactly how to fix i
 
 ## Commands
 
-Twelve commands. Flags narrow a command; they are not commands of their own.
+Thirteen commands. Flags narrow a command; they are not commands of their own.
 
 | Command | Does |
 |---|---|
 | `/pb:init` | Scaffold: PRD intake (Q&A or file), set Stack + DS locks, seed `registry.json` + `memory/`. `--import <bundle>` to adopt one; `--figma <frame>` to start from a Figma frame |
 | `/pb:pull-ds` | Clone the design system (DS MCP → Figma link → code library → common) → registry tokens + a scannable reference + a `.source.json` drift snapshot |
 | `/pb:specify` | Produce the spec / PRD |
-| `/pb:clarify` | User Insights → Project Summary; each contested UI decision becomes one `ia.rules[]` rule carrying the decision it was made by; appends to `decisions.md` |
-| `/pb:plan` | Implementation plan + per-tab task breakdown (acceptance · skill · agent · deps · slice), and the first authoring of the flow and data slices (`--flow` / `--data` / `--mock`) |
-| `/pb:orchestrate` | Dispatch `memory/tasks.md` to the 8-agent roster in dependency **waves** — serial registry writes, render once per wave, acceptance-gated |
+| `/pb:clarify` | User Insights → Project Summary; the jobs each role needs done, approved at a human gate (G-JTBD); then the information architecture — several genuinely different groupings of those jobs, scored side by side on the compare page, one chosen at a second gate (G-IA); each contested UI decision becomes one `ia.rules[]` rule carrying the decision it was made by; appends to `decisions.md` |
+| `/pb:plan` | Implementation plan + per-tab task breakdown (acceptance · skill · agent · deps · slice) built from the IA `/pb:clarify` chose (`--ia <job-id> --into <screen-id>` places one late job), and the first authoring of the flow and data slices (`--flow` / `--data` / `--mock`) |
+| `/pb:orchestrate` | Dispatch `memory/tasks.md` to the 8 routable agents of the 9-agent roster in dependency **waves** — serial registry writes, render once per wave, acceptance-gated |
 | `/pb:build` | The cheap loop: targeted `registry.json` patches, trio-gated, no per-tweak render. Runs the DS-first reuse → variant → local check on every new component, and keeps flow + data in sync. `--render` to regenerate both sites |
 | `/pb:preview` | Live preview dev server: watch `registry.json` → render → live-reload. One server, two routes — the prototype at `/`, the design-system workbench at `/design-system` |
 | `/pb:test` | **Check everything.** No flag = scenarios · roles · server · security · drift · health · shell coherence · DS drift, one verdict. Writes a yes/no test plan, then delegates it to subagents that never saw the design. A flag narrows it (`--drift`, `--roles`, `--security`, …) |
+| `/pb:report` | A retrospective for the pb maintainer: scans the project's decisions log, `memory/`, backups, explore rounds and (opt-in, `--sessions`) session transcripts, then writes one report of facts and ranked proposals for the next pb release to `memory/reports/`. Read-only on the project |
 | `/pb:explore` | An **id** → N agents diverge that render body, scored against a rubric, keep one. A **goal sentence** → the gated discovery pipeline |
 | `/pb:handoff` | The one hand-off. Asks who is receiving it: **1** everything incl. a vendored Product Builder · **2** engineering (`--tier=host` runnable · `--tier=scaffold` React+Tailwind) · **3** Figma |
 | `/pb:update-version` | Schema version update: dry-run / `--apply` / `--rollback` / `--to <N>` |
@@ -127,3 +132,7 @@ Twelve commands. Flags narrow a command; they are not commands of their own.
 
 Design-system-agnostic: no hardcoded design system anywhere — set your tokens, components, and icon
 source per project.
+
+## License
+
+[MIT](LICENSE)

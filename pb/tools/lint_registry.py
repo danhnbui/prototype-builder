@@ -11,21 +11,53 @@ Severity → exit code:
   1  warnings only
   2  at least one error
 
---strict promotes the raw-hex / raw-px warnings to errors (default is WARN so existing
+--strict promotes the "strict" rules below from WARN to ERROR (default is WARN so existing
 projects don't hard-break — NS6, a migration path). Other rules are fixed severity.
 
 Each finding prints as:  <SEVERITY> [<CODE>] <location>: <message>
 
-Usage:  python3 lint_registry.py [--strict] [--report] [--sync-elements] <registry.json>
+Rules (severity · default → under --strict):
+  R-IO R-JSON R-SHAPE R-KEBAB R-DUPID R-RENDERFN R-LEVEL R-SCRIPT R-SPECSRC R-NEST
+  R-ORGID R-RENDERSRC(missing file) R-DTCG-TYPE(bad $type)
+  R-LEVEL-ORDER(an atom composes)                                           ERROR · always
+  R-HEX · R-PX                       raw hex / px in a body                 WARN → ERROR
+  R-COMPOSE · R-COMPOSE-MATCH(declared, not composed)
+  R-LEVEL-ORDER(composes its own level or higher)
+                                     the component-first / atomic law       WARN → ERROR
+  R-PROP-DECLARED                    a component body reads props.X that properties[]
+                                     does not declare (wiring props — dataX, ariaX, onX,
+                                     id, className, full, layout keys — are skipped)  WARN → ERROR
+  R-PROP-USED                        a properties[].options[] value the body never renders
+                                     (no branch, literal, lookup key or pass-through)
+                                     · the `state` property — a fake interactive state  WARN → ERROR
+                                     · any other property                   WARN · always
+  R-COMPOSE-TEXT R-COMPOSE-MATCH(composed, not declared) R-LEVEL-ORDER(composes nothing)
+  R-NEST-HINT R-PROPTYPE R-RENDERSRC(both set) R-DTCG-TYPE(legacy shape)
+  R-TOKENREF R-DANGER R-FLOW R-ERD                                          WARN · always
+  R-EXEC (--exec only)               a body throws, returns a non-string or '' when run
+                                     with {} and once per `state` option   ERROR · always
+  R-NEST-FIGMA (--figma only)        a declared nested global has no Figma instance  ERROR
 
+Usage:  python3 lint_registry.py [--strict] [--exec] [--report] [--sync-elements] <registry.json>
+        python3 lint_registry.py --figma <registry.json> <figma-transfer.json>
+        python3 lint_registry.py --help
+
+--exec          also RUN every render body in node (R-EXEC): components once with {} and
+                once per `state` option on their default props, screens once with {};
+                pbUse is stubbed so each body is judged alone. Opt-in. No node on PATH →
+                one line saying no body was executed (skipped, not passed) and the static
+                verdict alone; node is an isolated exception to the stdlib-only core.
 --report        rank, never gate: a histogram by code, the items carrying the most, the
                 shape metrics, and a "fix first" list. ALWAYS exits 0 — at 87 findings on a
                 real project a flat list is unreadable, and the ordering is the product.
                 Thresholds from an optional memory/doctor.json beside the registry.
 --sync-elements APPEND a screens[].elements[] entry per composed-but-undeclared component.
-                Append-only and idempotent; never edits, reorders or removes an entry.
+                Append-only and idempotent; never edits, reorders or removes an entry. Takes the
+                registry lock (exit 2 with a message naming the holder if it is held) and writes
+                atomically; every other mode is read-only and takes no lock.
 """
 import glob
+import importlib
 import json
 import os
 import re
@@ -33,6 +65,9 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import tokens as _tok  # noqa: E402  (sibling module; the W3C DTCG token resolver)
+pbslice = importlib.import_module("slice")  # the registry write path: lock + atomic write (`import slice` shadows the builtin)
+from logic_extract import strip_comments  # noqa: E402  (quote-aware; the props scans read code, not prose)
+import spec_parts as _parts  # noqa: E402  (anatomy parts from either sidecar shape: parts[] or schema-13 instanceOf)
 
 # Tokens the shell's runtime references by name; absence is a latent Principle-1 gap.
 RUNTIME_REQUIRED_TOKENS = ("danger",)
@@ -156,6 +191,114 @@ def _shell_custom_props():
     return _SHELL_PROPS_CACHE[0]
 
 
+# ── responsive: styleSrc sheets + meta.responsive ──────────────────────────────────────────
+# The device frames are <div>s in one document, so a width/height @media rule answers the
+# BROWSER WINDOW, never the frame — a 429px phone frame on a 1440px monitor matches
+# `min-width: 1024px`. Responsive rules are `@container pb-screen (…)` (pb/template/product.css).
+_DEVICE_CLASS = {"mobile": "compact", "tablet": "medium", "laptop": "expanded",
+                 "monitor": "expanded", "desktop": "expanded"}
+_MEDIA_SIZE = re.compile(r"@media[^{]*\b(?:min-|max-)?(?:width|height|device-width|aspect-ratio)\b")
+_CONTAINER_PRELUDE = re.compile(r"@container[^{]*\{")
+_CSS_COMMENT = re.compile(r"/\*.*?\*/", re.S)
+_CSS_PRELUDE = re.compile(r"([^{};]+)\{")
+_R_UTIL = re.compile(r"(?<![\w-])r-(?:compact|medium-up|expanded-up|below-expanded|cols)(?![\w-])")
+_ADAPTS = re.compile(r"@container\b")
+
+
+def _size_classes(meta):
+    devs = meta.get("devices") if isinstance(meta.get("devices"), list) else []
+    return {_DEVICE_CLASS[d] for d in devs if d in _DEVICE_CLASS}
+
+
+def _style_of(item, base_dir):
+    src = item.get("styleSrc")
+    if not src or base_dir is None:
+        return None
+    try:
+        with open(os.path.normpath(os.path.join(base_dir, src)), encoding="utf-8") as f:
+            return f.read()
+    except OSError:
+        return None
+
+
+def _check_styles(add, meta, components, screens, comp_by_id, base_dir, hex_px_sev, strict):
+    """styleSrc sheets are scoped, token-only and use container queries; and when the project
+    says it is responsive, every screen can reach a rule that adapts it."""
+    for kind, items in (("component", components), ("screen", screens)):
+        for i, item in enumerate(items):
+            if not isinstance(item, dict) or not item.get("styleSrc"):
+                continue
+            where = f"{kind}s[{i}] id={item.get('id', '')!r}"
+            css = _style_of(item, base_dir)
+            if css is None:
+                if base_dir is not None:
+                    add(ERROR, "R-STYLESRC", where, f"styleSrc file not found: {item['styleSrc']}")
+                continue
+            css = _CSS_COMMENT.sub("", css)
+            if _MEDIA_SIZE.search(css):
+                add(ERROR if strict else WARN, "R-STYLE-MEDIA", where,
+                    "a size @media rule answers the browser window, not the device frame — "
+                    "use @container pb-screen (min-width: …) (see pb/template/product.css)")
+            scope = (".c-" if kind == "component" else ".s-") + item.get("id", "")
+            for pre in _CSS_PRELUDE.findall(css):
+                pre = pre.strip()
+                if not pre or pre.startswith("@") or re.fullmatch(r"(from|to|[\d.]+%)(\s*,\s*(from|to|[\d.]+%))*", pre):
+                    continue
+                for sel in (x.strip() for x in pre.split(",")):
+                    if sel and not re.match(re.escape(scope) + r"(?![\w-])", sel):
+                        add(WARN, "R-STYLE-SCOPE", where,
+                            f"selector {sel!r} is not scoped to {scope} — a sheet styles its own "
+                            f"root class and what is inside it, never another item")
+                        break
+            body = _CONTAINER_PRELUDE.sub("{", css)
+            for m in dict.fromkeys(_HEX.findall(body)):
+                add(hex_px_sev, "R-HEX", where, f"raw hex {m} in styleSrc — use a token (Principle 2)")
+            for m in dict.fromkeys(_PX.findall(body)):
+                add(hex_px_sev, "R-PX", where, f"raw px {m} in styleSrc — use a token (Principle 2)")
+
+    classes = _size_classes(meta)
+    responsive = meta.get("responsive")
+    if len(classes) < 2:
+        return
+    if responsive is None:
+        # An older project that was never asked. Asking is /pb:build §1b's job, before its next
+        # screen/component write — an additive field must not turn an existing project's CI red.
+        return
+    if responsive is False:
+        add(WARN, "R-RESPONSIVE", "meta.responsive",
+            f"meta.responsive is false but meta.devices spans {len(classes)} size classes — the "
+            "other frames show an unadapted layout; trim meta.devices to the primary device")
+        return
+
+    texts = {}
+
+    def text_of(item):
+        key = id(item)
+        if key not in texts:
+            texts[key] = (_body_of(item, base_dir) or "") + "\n" + (_style_of(item, base_dir) or "")
+        return texts[key]
+
+    for i, scr in enumerate(screens):
+        if not isinstance(scr, dict):
+            continue
+        seen, stack, adapts = set(), [scr], False
+        while stack and not adapts:
+            it = stack.pop()
+            t = text_of(it)
+            if _ADAPTS.search(t) or _R_UTIL.search(t):
+                adapts = True
+                break
+            for oid in _PBUSE.findall(t):
+                if oid not in seen and isinstance(comp_by_id.get(oid), dict):
+                    seen.add(oid)
+                    stack.append(comp_by_id[oid])
+        if not adapts:
+            add(WARN, "R-RESPONSIVE", f"screens[{i}] id={scr.get('id', '')!r}",
+                f"meta.responsive is true across {', '.join(sorted(classes))} but nothing this screen "
+                "renders adapts — no @container rule and no r-* size-class utility in its body, its "
+                "styleSrc, or any component it composes")
+
+
 def _check_token_refs(add, reg, components, screens, base_dir, resolved):
     """R-TOKENREF — a render body asks for a custom property that nothing will ever set.
 
@@ -266,6 +409,245 @@ def _check_prop_types(add, comp, where):
                 f"declare \"type\":\"array\" (or \"object\") and give a real literal")
 
 
+# ── the props contract: R-PROP-DECLARED · R-PROP-USED ───────────────────────────────────
+# `properties[]` is what three consumers believe a component takes: the design-system site
+# builds its demo and its variant grid from it, and the Figma and React hand-offs lower it
+# into component properties. A body that reads a prop nobody declared, or a declared option
+# the body never renders, makes all three describe a component that does not exist.
+#
+# WIRING props are skipped by R-PROP-DECLARED: runtime attributes a parent hands an atom to
+# pass straight through (`dataNav`, `dataAction`, `id`, `className`, `full`, …). Three sources,
+# none invented here: the set registry_to_figma.instance_props drops as "prototype-runtime
+# attrs, not DS properties"; the id / class props logic_extract counts as DOM-handle producers
+# (`idPrefix`, `cls`, `wrapClass`, `rowClass`); and the DOM's own wiring attributes (`htmlFor`,
+# `href`, `tabIndex`, `roles` → data-roles). Measured: without this guard every button in the
+# golden fixture and 9 of the 10 reads one real project's button makes are reported, none a variant.
+_WIRING_PROP = re.compile(
+    r"^(?:data[A-Z_$][\w$]*|data-[\w-]+|aria[A-Z][\w$]*|aria-[\w-]+|on[A-Z][\w$]*"
+    r"|id|idPrefix|key|className|class|cls|wrapClass|rowClass|htmlFor|href|tabIndex|roles"
+    r"|full|dir|gap|padding|maxWidth|grow|align|justify)$")
+_OBJECT_PROTO = {"hasOwnProperty", "toString", "toLocaleString", "valueOf", "constructor",
+                 "isPrototypeOf", "propertyIsEnumerable"}
+# `var p = props || {};` — the body reads its props through another name.
+_PROPS_ALIAS = re.compile(r"\b(?:var|let|const)\s+([A-Za-z_$][\w$]*)\s*=\s*props\s*"
+                          r"(?:\|\|\s*\{\s*\}\s*)?(?=[;,\n)])")
+# `var { tone, size: sz, state = 'default', ...rest } = props;`
+_PROPS_DESTRUCT = re.compile(r"\b(?:var|let|const)\s*\{([^}]*)\}\s*=\s*(?:props|\(\s*props\b)")
+_CALL_KEYWORD_TAIL = re.compile(r"(?:^|[^\w$])(?:if|while|for|switch|catch|return|typeof|void|in|of)\s*$")
+_MEMBERSHIP_TESTS = {"if", "while", "switch", "indexOf", "lastIndexOf", "includes", "has",
+                     "hasOwnProperty", "test", "match", "search", "startsWith", "endsWith"}
+
+
+def _blank_strings(code):
+    """`code` with the inside of every '…' and "…" literal blanked to spaces, quotes kept — so a
+    read scan never mistakes markup text (`'<i>props.tone</i>'`) for a read. Template literals
+    are left whole: their `${…}` holes are code. Run on comment-stripped text."""
+    out, i, n, q = [], 0, len(code), None
+    while i < n:
+        c = code[i]
+        if q:
+            if c == "\\" and i + 1 < n:
+                out.append("  ")
+                i += 2
+                continue
+            if c == q or c == "\n":
+                q = None
+                out.append(c)
+            else:
+                out.append(" ")
+            i += 1
+            continue
+        if c in ("'", '"'):
+            q = c
+        elif c == "`":                         # copy the template through untouched
+            j = i + 1
+            while j < n and code[j] != "`":
+                j += 2 if code[j] == "\\" else 1
+            out.append(code[i:j + 1])
+            i = j + 1
+            continue
+        out.append(c)
+        i += 1
+    return "".join(out)
+
+
+def _props_names(text):
+    """The names `props` is read through in a body: `props` itself plus any plain alias."""
+    names = {"props"}
+    names |= {m.group(1) for m in _PROPS_ALIAS.finditer(text)}
+    return names
+
+
+def _prop_reads(text, names):
+    """Every prop name a (comment-stripped) body reads: `props.x`, `props?.x`, `props['x']`, an
+    alias's `p.x`, and destructured keys. Object-prototype names are not props."""
+    alt = "|".join(re.escape(n) for n in sorted(names))
+    rx = re.compile(r"(?<![\w$.])(?:%s)\s*(?:\?\.|\.)\s*([A-Za-z_$][\w$]*)"
+                    r"|(?<![\w$.])(?:%s)\s*\[\s*(['\"])([^'\"\\]+)\2\s*\]" % (alt, alt))
+    reads = set()
+    for m in rx.finditer(text):
+        reads.add(m.group(1) or m.group(3))
+    for m in _PROPS_DESTRUCT.finditer(text):
+        for part in m.group(1).split(","):
+            key = re.split(r"[:=]", part, 1)[0].strip()
+            if key and not key.startswith("..."):
+                reads.add(key.strip("'\""))
+    return reads - _OBJECT_PROTO
+
+
+def _props_escape_whole(text, names):
+    """True when the whole props object leaves the body — handed to a call (`helper(props)`,
+    `pbUse('x', props)`, `Object.assign({}, props)`) or spread (`...props`). Its values may then
+    be rendered somewhere this scan cannot see, so R-PROP-USED stays silent rather than guess."""
+    alt = "|".join(re.escape(n) for n in sorted(names))
+    if re.search(r"\.\.\.\s*(?:%s)\b" % alt, text):
+        return True
+    for m in re.finditer(r"(\(|,)\s*(?:%s)\s*(?=[,)])" % alt, text):
+        before = text[:m.start()].rstrip()
+        if re.match(r"[^)]*\)\s*(?:=>|\{)", text[m.end():]) or \
+                re.search(r"\bfunction\s*[\w$]*\s*\([^)]*$", text[:m.end()]):
+            continue              # a parameter list — `function renderCmpX(props) {`, `(props) =>`
+        if m.group(1) == "(":
+            if not before or not re.search(r"[\w$\])]$", before) or _CALL_KEYWORD_TAIL.search(before):
+                continue          # `if (props)` is a test, not a hand-off
+        return True
+    return False
+
+
+def _prop_passes_through(text, pid, names):
+    """True when the prop's value flows into output or a child UNBRANCHED — concatenated into
+    markup (`'btn--' + props.tone`, `${props.tone}`), set as an object value (`tone: props.tone`,
+    a pbUse child's prop), or passed to a call. Every value then reaches the DOM, so which of
+    them are styled is a question for CSS this scan cannot read; the rule stays silent."""
+    alt = "|".join(re.escape(n) for n in sorted(names))
+    ref = r"(?:(?:%s)\s*(?:\?\.|\.)\s*%s(?![\w$])|(?:%s)\s*\[\s*['\"]%s['\"]\s*\])" % (
+        alt, re.escape(pid), alt, re.escape(pid))
+    fallback = r"(?:\s*(?:\|\||\?\?)\s*(?:'[^'\n]*'|\"[^\"\n]*\"|[\w$.]+))?"
+
+    def flows(r):
+        # A value, not a test: `+ (props.state === 'x' ? …)` compares the prop, it does not
+        # hand it on, so a comparison or `&&` / `?` straight after the reference disqualifies it.
+        v = r + r"(?!\s*(?:[=!]==?|[<>]=?|&&|\?(?![?.])))"
+        if any(re.search(p, text) for p in (
+                r"\+\s*\(?\s*" + v,                              # '…' + props.x
+                r + fallback + r"\s*\)?\s*\+",                   # props.x + '…'
+                r"\$\{\s*" + v,                                  # `${props.x}`
+                r"[\w$'\"\]]\s*:\s*\(?\s*" + v)):                # { tone: props.x } · a : props.x
+            return True
+        # helper(props.x) — but a membership TEST is not a hand-off: `STATES.indexOf(props.state)`
+        # whitelists the value and the branch after it still decides what renders. Counting it
+        # hid a real project's programme card, whose declared 'joined' state falls back to 'live'.
+        for m in re.finditer(r"([\w$]+)\s*\(\s*" + r + fallback + r"\s*[,)]", text):
+            if m.group(1) not in _MEMBERSHIP_TESTS:
+                return True
+        return False
+
+    if flows(ref):
+        return True
+    # one hop through a local that HOLDS the value (any fallback after it, but not a comparison):
+    # `var tone = props.tone || 'default';` · `, state = props.state || (…);` then `'x--' + tone`
+    for m in re.finditer(r"(?:\b(?:var|let|const)\s+|,\s*)([A-Za-z_$][\w$]*)\s*=\s*\(?\s*" + ref
+                         + r"\s*(?:\|\||\?\?|\)|[;,\n])", text):
+        if flows(r"(?<![\w$.])%s(?![\w$])" % re.escape(m.group(1))):
+            return True
+    return False
+
+
+def _option_rendered(text, pid, value, default, names):
+    """Whether the body can render option `value` of prop `pid` — the R-PROP-USED test.
+
+    Five ways a value counts as rendered, each a false-positive guard measured on a real body:
+      1. it is the prop's `default` — the fall-through every `=== 'other'` branch leaves
+         (golden `button`: `props.state === 'disabled'`; `'default'` is never written). With no
+         `default` declared the FIRST option is the fall-through (a `ds-link` with options
+         link · brand, whose body tests 'brand' only);
+      2. it appears as a quoted literal anywhere in the code — a branch, a whitelist, a case;
+      3. it is an object KEY — a lookup table (`var TONE = { muted: … }; TONE[props.tone]`);
+      4. a boolean option (`true`/`false`, JSON or string) on a prop the body tests for
+         truthiness or against a bare boolean (`if (props.dots)`, `!!props.caret`,
+         `props.coverage !== false`);
+      5. the prop passes through unbranched (see _prop_passes_through — checked by the caller).
+    """
+    v = _js_value(value)
+    if default is not None and _js_value(default) == v:
+        return True
+    ev = re.escape(v)
+    if re.search(r"(['\"`])%s\1" % ev, text):
+        return True
+    if re.search(r"(?:(?<![\w$.-])%s|(['\"])%s\1)\s*:(?!:)" % (ev, ev), text):
+        return True
+    if v in ("true", "false"):
+        alt = "|".join(re.escape(n) for n in sorted(names))
+        ref = r"(?:%s)\s*\.\s*%s(?![\w$])" % (alt, re.escape(pid))
+        if re.search(ref + r"\s*(?:&&|\|\||\?(?![?.])|\)|[=!]==?\s*(?:true|false)\b)", text) or \
+           re.search(r"!\s*" + ref, text):
+            return True
+    return False
+
+
+def _js_value(value):
+    """An option value as the body would write it: JSON booleans are `true`/`false` (Python's
+    `str(True)` is 'True', which no JS body ever compares against)."""
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    return str(value)
+
+
+def _check_props(add, comp, where, body, strict):
+    """R-PROP-DECLARED + R-PROP-USED for one component. Comments are stripped first, so a
+    header that mentions `props.legacy` or a retired option is not read as code."""
+    if not isinstance(body, str) or not body.strip():
+        return
+    text = strip_comments(body)          # literals kept: an option is matched against them
+    bare = _blank_strings(text)          # literals blanked: markup text is never a read
+    names = _props_names(bare)
+    declared = {}
+    for pr in comp.get("properties") or []:
+        if isinstance(pr, dict):
+            pid = pr.get("id") or pr.get("name")
+            if isinstance(pid, str) and pid:
+                declared[pid] = pr
+
+    reads = _prop_reads(bare, names)
+    undeclared = sorted(n for n in reads - set(declared)
+                        if not _WIRING_PROP.match(n))
+    if undeclared:
+        add(ERROR if strict else WARN, "R-PROP-DECLARED", where,
+            "body reads %s, which properties[] does not declare — the design-system demo and "
+            "variant grid, and the Figma / React hand-offs, cannot see %s; declare each (type + "
+            "default) or stop reading it" % (", ".join("props." + n for n in undeclared),
+                                             "it" if len(undeclared) == 1 else "them"))
+
+    if _props_escape_whole(bare, names):
+        return
+    for pid, pr in declared.items():
+        opts = pr.get("options")
+        if not isinstance(opts, list) or not opts or _prop_passes_through(bare, pid, names):
+            continue
+        default = pr.get("default")
+        if default is None:
+            first = opts[0].get("value") if isinstance(opts[0], dict) else opts[0]
+            default = first if not isinstance(first, (dict, list)) else None
+        missing = []
+        for o in opts:
+            val = o.get("value") if isinstance(o, dict) else o
+            if val is None or isinstance(val, (dict, list)):
+                continue
+            if not _option_rendered(text, pid, val, default, names):
+                missing.append(_js_value(val))
+        if not missing:
+            continue
+        is_state = pid == "state"
+        how = ("the body never reads props.%s at all" % pid if pid not in reads else
+               "no branch, literal or lookup names %s" % ("it" if len(missing) == 1 else "them"))
+        add(ERROR if (strict and is_state) else WARN, "R-PROP-USED", f"{where} properties[{pid!r}]",
+            "declares %s but the body never renders %s — %s, so that cell of the variant grid "
+            "paints the default%s"
+            % (", ".join(repr(m) for m in missing), "it" if len(missing) == 1 else "them", how,
+               " (a declared state nothing renders is a fake interactive state: branch on it, "
+               "or drop the option)" if is_state else "; branch on it or drop the option"))
+
+
 def check(reg, strict=False, base_dir=None):
     """Return a list of Finding for the registry dict. strict promotes hex/px to errors.
 
@@ -327,7 +709,9 @@ def check(reg, strict=False, base_dir=None):
             add(ERROR, "R-LEVEL", where,
                 f"level {c.get('level')!r} missing or not in {sorted(LEVEL_ENUM)} — required (schema 9)")
         _check_prop_types(add, c, where)
-        _scan_body(add, _resolve_body(add, c, where, base_dir), where, hex_px_sev)
+        cbody = _resolve_body(add, c, where, base_dir)
+        _scan_body(add, cbody, where, hex_px_sev)
+        _check_props(add, c, where, cbody, strict)
 
     # ── anatomy nesting: declared globals must be instanced (R-NEST / R-NEST-HINT) ──
     # Mirrors screens[].elements[].orgId (R-ORGID): a component anatomy part that IS a
@@ -349,12 +733,11 @@ def check(reg, strict=False, base_dir=None):
         if not isinstance(c, dict):
             continue
         cid = c.get("id", "")
-        _anatomy = c.get("anatomy")
-        parts = ((_anatomy.get("parts") if isinstance(_anatomy, dict) else None)) or []
-        for p in parts:
-            if not isinstance(p, dict):
-                continue
-            where = f"components[{i}] id={cid!r} part#{p.get('n')}"
+        # Either shape: legacy anatomy.parts[] or the schema-13 measured anatomy, whose
+        # `instance` parts carry their component as `instanceOf` (read here as orgId).
+        new_shape = _parts.label(c) != "anatomy.parts[]"
+        for p in _parts.parts(c):
+            where = f"components[{i}] id={cid!r} part#{p.get('n')}" + (f" ({p.get('name')})" if new_shape else "")
             org = p.get("orgId")
             if org is not None:
                 # D-10: an orgId may reference ANY registry component, local or global.
@@ -367,7 +750,7 @@ def check(reg, strict=False, base_dir=None):
                 # concern stays with R-NEST-FIGMA.
                 if comp_by_id.get(org) is None:
                     add(ERROR, "R-NEST", where,
-                        f"part orgId {org!r} resolves to no component")
+                        f"part {'instanceOf' if new_shape else 'orgId'} {org!r} resolves to no component")
             elif c.get("scope") != "global":
                 # drift detector: a part that LOOKS like a component but doesn't declare it
                 # Resolve against EVERY component, then emit only when the best match is a
@@ -377,10 +760,11 @@ def check(reg, strict=False, base_dir=None):
                 # wrong answer stays quiet instead (D-08).
                 hit = _hint_component(p.get("name"), all_ids_by_len)
                 if hit and hit in global_ids:
+                    fix = (f"is not an instance of it — compose it with pbUse('{hit}') and re-measure "
+                           f"(spec_measure.py)" if new_shape else f"has no orgId — add \"orgId\":\"{hit}\"")
                     add(WARN, "R-NEST-HINT", where,
                         f"part name {p.get('name')!r} looks like the component {hit!r} "
-                        f"but has no orgId — add \"orgId\":\"{hit}\" to force instance reuse "
-                        f"in the Figma hand-off")
+                        f"but {fix} to force instance reuse in the Figma hand-off")
 
     # ── screens: kebab id, uniqueness, renderFn, orgId refs, render-body ──────
     seen_screen = {}
@@ -416,9 +800,7 @@ def check(reg, strict=False, base_dir=None):
         if kind == "screen":
             return {el.get("orgId") for el in (item.get("elements") or [])
                     if isinstance(el, dict) and el.get("orgId")}
-        an = item.get("anatomy")
-        parts = (an.get("parts") if isinstance(an, dict) else None) or []
-        return {p.get("orgId") for p in parts if isinstance(p, dict) and p.get("orgId")}
+        return {p.get("orgId") for p in _parts.parts(item) if p.get("orgId")}
 
     for kind, items in (("component", components), ("screen", screens)):
         for i, item in enumerate(items):
@@ -453,7 +835,7 @@ def check(reg, strict=False, base_dir=None):
             if extra:
                 add(WARN, "R-COMPOSE-MATCH", where,
                     f"body composes {sorted(extra)} not declared in "
-                    f"{'elements[]' if kind == 'screen' else 'anatomy.parts[]'}")
+                    f"{'elements[]' if kind == 'screen' else _parts.label(item)}")
             if rank is not None:
                 for oid in sorted(composed):
                     child = comp_by_id.get(oid)
@@ -464,6 +846,9 @@ def check(reg, strict=False, base_dir=None):
                 if lvl in ("molecule", "organism", "template") and not composed:
                     add(WARN, "R-LEVEL-ORDER", where,
                         f"{lvl} composes no lower-level component (no pbUse) — inlining markup that should be a component?")
+
+    _check_styles(add, reg.get("meta") if isinstance(reg.get("meta"), dict) else {},
+                  components, screens, comp_by_id, base_dir, hex_px_sev, strict)
 
     # ── tokens: W3C DTCG $type validity + legacy-shape + runtime-required presence ──
     # tokens is a DTCG document (flat or nested-with-aliases). Validate each token's $type
@@ -532,11 +917,7 @@ def check_nesting_figma(reg, transfer):
         if not isinstance(c, dict):
             continue
         cid = c.get("id", "")
-        _anatomy = c.get("anatomy")
-        parts = ((_anatomy.get("parts") if isinstance(_anatomy, dict) else None)) or []
-        for p in parts:
-            if not isinstance(p, dict):
-                continue
+        for p in _parts.parts(c):
             org = p.get("orgId")
             if not org:
                 continue
@@ -558,6 +939,171 @@ def check_nesting_figma(reg, transfer):
                     f"nested instance componentKey {got!r} != the global {org!r}'s DS key "
                     f"{want!r} — it instances a different component than the global reuses")
     return findings
+
+
+# ── R-EXEC (--exec): run every body once, the way the page will ──────────────────────────
+# `--strict` is static, so a body that throws, returns nothing, or declares a function nobody
+# calls passes it (on one real project a header comment above `function renderX(){}` shipped
+# past seven builders and a clean --strict, rendering `undefined`, and the project had to run its own
+# node gate by hand: "run your body and assert it returns a non-empty string").
+#
+# The harness is node's `vm`, fed on stdin — no temp file, no shell, so a project path with
+# glob syntax in it (`[HR] Project`) cannot break it. Each body is wrapped by render.py's own
+# _render_fn_bodies, so the gate sees exactly the wrap decision the page gets, the comment case included.
+# The shared runtime (pbFrame, pbSlot, …) loads as shipped; then pbUse is stubbed to a marker so
+# a body is judged alone — a broken child fails the child, not every parent that composes it.
+_EXEC_PRELUDE = r"""
+var window = this, self = this;
+function pbEscape(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+var __pbNoop = function () {};
+var setTimeout = function () { return 0; }, clearTimeout = __pbNoop, setInterval = setTimeout,
+    clearInterval = __pbNoop, requestAnimationFrame = setTimeout, cancelAnimationFrame = __pbNoop;
+"""
+_EXEC_STUBS = r"""
+pbUse = function (id) { return '<pb-use data-id="' + pbEscape(id) + '"></pb-use>'; };
+"""
+_EXEC_HARNESS = r"""
+'use strict';
+const vm = require('vm');
+const job = JSON.parse(require('fs').readFileSync(0, 'utf8'));
+const msg = (e) => String((e && e.message) || e).split('\n')[0].slice(0, 160);
+const quiet = { log() {}, info() {}, warn() {}, error() {}, debug() {} };
+const ctx = vm.createContext({ console: quiet });
+const run = (code, name) => vm.runInContext(code, ctx, { timeout: job.ms, filename: name });
+const notes = [];
+run(job.prelude + '\nvar PB_REGISTRY = ' + job.registry + ';', 'pb-exec-prelude.js');
+try { run(job.runtime, 'runtime.js'); } catch (e) { notes.push(['runtime.js', msg(e)]); }
+run(job.stubs, 'pb-exec-stubs.js');
+for (const m of job.modules) { try { run(m.js, m.src); } catch (e) { notes.push([m.src, msg(e)]); } }
+const results = [];
+for (const b of job.bodies) {
+  const r = { key: b.key, runs: [] };
+  try { run(b.js, b.src); } catch (e) { r.compile = msg(e); results.push(r); continue; }
+  for (const p of b.runs) {
+    try {
+      const out = run('window[' + JSON.stringify(b.fn) + '](JSON.parse(' + JSON.stringify(p.props) + '))', b.src);
+      r.runs.push({ label: p.label, type: out === null ? 'null' : typeof out,
+                    empty: typeof out === 'string' && !out.trim() });
+    } catch (e) { r.runs.push({ label: p.label, error: msg(e) }); }
+  }
+  results.push(r);
+}
+process.stdout.write(JSON.stringify({ notes, results }));
+"""
+
+
+def check_exec(reg, base_dir, node=None, ms=2000):
+    """R-EXEC — execute every render body in Node and fail on a throw, a non-string or an empty
+    string. Components run once with `{}` and once per `state` option (on their default props,
+    as the design-system grid paints that cell); screens run once with `{}`.
+
+    Opt-in (`--exec`). Node is an isolated exception to the stdlib-only core (DESIGN.md
+    constraint 2), so with no `node` on PATH this returns no findings and one note saying the
+    bodies were NOT executed — skipped, never passed. Returns (findings, notes)."""
+    import shutil
+    import subprocess
+    node = node or shutil.which("node")
+    if not node:
+        return [], ["R-EXEC skipped — node not found on PATH; no render body was executed "
+                    "(not a pass)"]
+    import render as _render  # noqa: E402  (sibling; lazy — the static lint never needs it)
+
+    findings = []
+
+    def add(sev, code, where, msg):
+        findings.append(Finding(sev, code, where, msg))
+
+    _resolve_specs(lambda *a: None, reg, base_dir)   # usage.example feeds the state runs
+    bodies, raw = [], {}
+    for kind, key in (("component", "components"), ("screen", "screens")):
+        items = reg.get(key) if isinstance(reg.get(key), list) else []
+        for i, item in enumerate(items):
+            if not isinstance(item, dict) or not item.get("renderFn"):
+                continue
+            src = item.get("renderSrc")
+            if src and not os.path.isfile(os.path.join(base_dir or ".", src)):
+                continue                                  # R-RENDERSRC already says so
+            body = _body_of(item, base_dir)
+            if not src and not body:
+                continue
+            where = f"{kind}s[{i}] id={item.get('id', '')!r}"
+            js, _missing = _render._render_fn_bodies(
+                {"components": [{"renderFn": item["renderFn"], "render": body}]})
+            runs = [{"label": "{}", "props": "{}"}]
+            for pr in (item.get("properties") or []) if kind == "component" else []:
+                if isinstance(pr, dict) and pr.get("id") == "state":
+                    for o in pr.get("options") or []:
+                        val = o.get("value") if isinstance(o, dict) else o
+                        if val is None:
+                            continue
+                        props = dict(_render._default_props(item))
+                        props["state"] = val
+                        runs.append({"label": f"state={val}",
+                                     "props": json.dumps(props, ensure_ascii=False)})
+            bodies.append({"key": where, "fn": item["renderFn"], "src": src or where,
+                           "js": js, "runs": runs})
+            raw[where] = body
+    modules = []
+    for entry in reg.get("runtime") or []:
+        if isinstance(entry, dict) and entry.get("src"):
+            js, _tags, _miss = _render.load_runtime({"runtime": [entry]}, base_dir or ".")
+            if js:
+                modules.append({"src": entry["src"], "js": js})
+    slim = {"meta": reg.get("meta") or {}, "tokens": reg.get("tokens") or {},
+            "components": [{k: c.get(k) for k in ("id", "renderFn", "level", "scope", "properties")}
+                           for c in reg.get("components") or [] if isinstance(c, dict)],
+            "screens": [{k: s.get(k) for k in ("id", "renderFn", "roles")}
+                        for s in reg.get("screens") or [] if isinstance(s, dict)]}
+    job = {"ms": ms, "prelude": _EXEC_PRELUDE, "stubs": _EXEC_STUBS, "modules": modules,
+           "runtime": _render.load_shared_runtime(), "bodies": bodies,
+           "registry": json.dumps(slim, ensure_ascii=False).replace("</", "<\\/")}
+    budget = 30 + sum(len(b["runs"]) for b in bodies) * ms / 1000.0
+    try:
+        p = subprocess.run([node, "-e", _EXEC_HARNESS], input=json.dumps(job, ensure_ascii=False),
+                           capture_output=True, text=True, encoding="utf-8", timeout=budget)
+        out = json.loads(p.stdout) if p.returncode == 0 else None
+    except subprocess.TimeoutExpired:
+        add(ERROR, "R-EXEC", "<exec>", f"node did not finish within {budget:.0f}s — blocked, not passed")
+        return findings, []
+    except (OSError, ValueError) as e:
+        out, p = None, None
+        err = str(e)
+    if out is None:
+        err = (p.stderr.strip().splitlines() or ["no output"])[-1] if p is not None else err
+        add(ERROR, "R-EXEC", "<exec>", f"the execution gate could not run ({err[:160]}) — blocked, not passed")
+        return findings, []
+
+    notes = ["R-EXEC note: %s did not load under node (%s) — a body that calls it may fail here "
+             "for that reason, not its own" % (src, why) for src, why in out.get("notes") or []]
+    for r in out.get("results") or []:
+        where = r.get("key", "?")
+        if r.get("compile"):
+            add(ERROR, "R-EXEC", where,
+                f"body does not compile ({r['compile']}) — every render body shares one script in "
+                f"the page, so this one takes all the others down with it")
+            continue
+        bad = []
+        for run in r.get("runs") or []:
+            if run.get("error"):
+                bad.append(f"{run['label']} threw {run['error']}")
+            elif run.get("type") != "string":
+                bad.append(f"{run['label']} returned {run.get('type')}, not a string")
+            elif run.get("empty"):
+                bad.append(f"{run['label']} returned an empty string")
+        if not bad:
+            continue
+        hint = ""
+        body = raw.get(where, "")
+        if "{} returned an empty string" in bad:
+            hint = (" — a body that renders nothing to give helpers a scope belongs in "
+                    "registry.runtime[] (runtime/*.js), not in a component")
+        if any("returned undefined" in b for b in bad) and not body.lstrip().startswith("function ") \
+                and strip_comments(body).lstrip().startswith("function "):
+            hint = (" — the file opens with a comment, then declares `function …`: render.py wraps it "
+                    "as a function BODY, so the named function is declared and never called. "
+                    "Write the body as bare statements")
+        add(ERROR, "R-EXEC", where, "; ".join(bad) + hint)
+    return findings, notes
 
 
 def _resolve_specs(add, reg, base_dir):
@@ -689,6 +1235,9 @@ def sync_elements(reg, path, base_dir):
       * idempotent — a second run is a byte-for-byte no-op.
     Measured on a real project: 66 composed-but-undeclared, 0 declared-but-not-composed, so
     append-only clears the screen half of R-COMPOSE-MATCH completely.
+
+    A read-modify-write of registry.json: the CALLER holds `slice.registry_lock` and loaded `reg`
+    inside it (main does), and the write here is atomic.
     """
     added, stale = [], []
     for s in reg.get("screens") or []:
@@ -705,8 +1254,7 @@ def sync_elements(reg, path, base_dir):
         for oid in sorted(declared - composed):
             stale.append((s.get("id"), oid))
     if added:
-        with open(path, "w", encoding="utf-8") as f:
-            f.write(json.dumps(reg, indent=2, ensure_ascii=False) + "\n")
+        pbslice._write(path, reg)       # atomic; the caller holds the registry lock (see main)
     return added, stale
 
 
@@ -792,7 +1340,7 @@ def report(reg, path, base_dir, findings):
     d_kb = 0
     if os.path.isfile(dec):
         d_kb = os.path.getsize(dec) / 1024
-        sibs = len(glob.glob(os.path.join(base_dir or ".", "memory", "decisions-*.md")))
+        sibs = len(glob.glob(os.path.join(glob.escape(base_dir or "."), "memory", "decisions-*.md")))
         rotated = f"  (+{sibs} rotated sibling{'s' if sibs != 1 else ''})" if sibs else ""
         print(f"  decisions log       {d_kb:8.0f} KB{flag(d_kb > th['decisions_kb'])}{rotated}")
 
@@ -860,11 +1408,15 @@ def _tok_walk(node, trail, out):
 
 def main():
     args = sys.argv[1:]
+    if "--help" in args or "-h" in args:
+        print(__doc__.strip())
+        sys.exit(0)
     strict = "--strict" in args
     figma = "--figma" in args
     do_report = "--report" in args
     do_sync = "--sync-elements" in args
-    args = [a for a in args if a not in ("--strict", "--figma", "--report", "--sync-elements")]
+    do_exec = "--exec" in args
+    args = [a for a in args if a not in ("--strict", "--figma", "--report", "--sync-elements", "--exec")]
 
     # --figma: cross-check the registry against figma-transfer.json (nested-global reuse).
     if figma:
@@ -877,16 +1429,25 @@ def main():
         return
 
     if len(args) != 1:
-        sys.exit("usage: lint_registry.py [--strict] [--report] [--sync-elements] <registry.json>"
-                 "  |  lint_registry.py --figma <registry.json> <figma-transfer.json>")
+        sys.exit("usage: lint_registry.py [--strict] [--exec] [--report] [--sync-elements] <registry.json>"
+                 "  |  lint_registry.py --figma <registry.json> <figma-transfer.json>"
+                 "  |  lint_registry.py --help")
     path = args[0]
-    reg = _load_json(path)
     base_dir = os.path.dirname(os.path.abspath(path))
 
     # --sync-elements: an append-only registry write, then stop. Never combined with a report
-    # run, so the numbers a report prints always describe the file as it is on disk.
+    # run, so the numbers a report prints always describe the file as it is on disk. The registry
+    # is loaded INSIDE the lock — a copy read before it could be seconds old and the write would
+    # undo whatever another writer saved in between — and a held lock is refused, not ignored.
     if do_sync:
-        added, stale = sync_elements(reg, path, base_dir)
+        if not os.path.isfile(path):
+            _load_json(path)            # exits 2 with the R-IO line; no lock file is created for nothing
+        try:
+            with pbslice.registry_lock(path, "lint_registry --sync-elements"):
+                added, stale = sync_elements(_load_json(path), path, base_dir)
+        except pbslice.RegistryLocked as e:
+            print(f"ERROR [R-LOCK] {path}: {e}", file=sys.stderr)
+            sys.exit(2)
         for sid, oid in added:
             print(f"  + screens[{sid!r}].elements[]: {oid}")
         for sid, oid in stale:
@@ -896,7 +1457,15 @@ def main():
               f"{len(stale)} declared-but-not-composed, 0 removed — {path}")
         sys.exit(0)
 
+    reg = _load_json(path)
     findings = check(reg, strict=strict, base_dir=base_dir)
+
+    # --exec: run every body in node (R-EXEC). No node → one line that says nothing ran.
+    if do_exec:
+        ran, notes = check_exec(reg, base_dir)
+        findings += ran
+        for n in notes:
+            print(n)
 
     # --report: ranks and never gates (D-22). Always exit 0, whatever the findings say.
     if do_report:

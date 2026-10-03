@@ -1,6 +1,7 @@
 ---
 name: ref-blueprint
-description: Screen-level design thinking for Product Builder. Use BEFORE building or restructuring a screen — loaded by /pb:clarify and useful in /pb:build — to define the screen's Job To Be Done (JTBD), justify every component against that job, and enforce a balanced visual hierarchy. This is the "why" layer for a screen; think-layout is the "how" layer. Not for component-level construction (use design-component-build) or cross-screen navigation (use craft-connect-flow).
+description: Screen-level design thinking for Product Builder. Use BEFORE building or restructuring a screen — carried by the pb-builder agent on /pb:build and cited from think-layout §1 and think-direction §2 — to define the screen's Job To Be Done (JTBD) from the ia.jobs[] that /pb:clarify approved, justify every component against that job, and enforce a balanced visual hierarchy. This is the "why" layer for a screen; think-layout is the "how" layer. Not for defining the jobs themselves (that is /pb:clarify §1b), component-level construction (use design-component-build) or cross-screen navigation (use craft-connect-flow).
+user-invocable: false
 ---
 
 # ref-blueprint

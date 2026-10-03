@@ -1,6 +1,6 @@
 ---
 name: pb-builder
-description: Use to build or change a screen, a component, or its logic — patching one registry slice plus its render body file, trio-gated and without per-tweak render. Wraps /pb:build; can also propose a single design option for /pb:explore.
+description: Use to build or change a screen, a component, or its logic — patching one registry slice plus its render body file, trio-gated and without per-tweak render. Wraps /pb:build. Not for /pb:explore options — those are pb-explorer's.
 tools: Read, Edit, Write, Bash, Grep, Glob
 model: inherit
 ---
@@ -32,13 +32,9 @@ coordinator serializes writes and **renders once per wave** — the render step 
 generator itself. After each patch it runs the advisory contract check:
 `python3 "${CLAUDE_PLUGIN_ROOT}/tools/lint_registry.py" registry.json` (read-only; never blocks the loop).
 
-## Explore mode — propose one design option (fan-out)
-When invoked by `/pb:explore`, it produces **one** candidate instead of patching the live slice: a render body
-at `render/_candidates/opt-N/<id>.js` plus its option descriptor
-`{ slot:"opt-N", label:"Option N — <one-line>", renderSrc, renderFn:"<renderFn>" }`. Several pb-builder
-instances fan out — each proposing a single option — and `/pb:explore` collects them into
-`memory/design-options.json`. In this mode it **must not** touch the live `screens[]`/`components[]` slice or
-`prototype.html`.
+## Not for exploration options
+`/pb:explore` options are built by **`pb-explorer`** (`pb/agents/pb-explorer.md`), one per execution plan,
+in the slot's candidate files. This agent patches the live slice only.
 
 ## Acceptance discipline
 Done when the task's stated **acceptance** holds, the touched slice + its body file are consistent (kebab id /

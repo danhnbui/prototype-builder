@@ -2,6 +2,356 @@
 
 All notable changes to Product Builder. Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [2.1.0] — 2026-10-03
+
+*A minor: everything is additive and no command is removed. Four problems from real projects (an HR
+fund app, a map-polygon editor, a back-office tool). Information Architecture never appeared unless asked for. `/pb:explore`
+could end as three loose HTML files on another port. Internal skills showed up as slash commands. The
+Logic tab rendered every rule as paragraphs. Two further rounds then reworked the tool's own chrome
+(schema 13): see the first section. Where a later round reversed an earlier line below, that line says so.*
+
+### `/pb:explore` always ends with a link you can open
+
+*Three rounds in a row ended with an editor link to a hand-built `compare.html`. To get something they
+could open in a browser, the user had to ask twice.*
+
+- **`explore.py link <id> [--open]`** prints the compare-and-rate page's URL,
+  `http://127.0.0.1:<port>/explore/<id>`, after checking that the page and every option frame load. It
+  finds the project's `/pb:preview` server, or starts one in the background if none is running.
+  `--open` also opens the page in the browser. `/pb:explore` (A3, A4, B4, G-DESIGN) and `/pb:clarify`'s
+  IA round now end every stop that shows options with that URL, and never with a file path.
+- **The preview server can be found.** On start it writes `.preview/server.json` (url, port, pid,
+  registry) next to the registry and removes it on exit, including on SIGTERM. `GET /__pb_health`
+  (loopback only) names the registry it serves, so `link` never points you at another project's server
+  that took the port.
+- **Page rounds: `explore.py init <id> --pages`.** This is for a subject that is not a registry body,
+  such as the tool's own chrome or a standalone mockup. That subject is why those rounds were
+  hand-built. Each option is a page under `memory/explore/<id>/<slot>/`, served at
+  `/explore/<id>/<path>`. Options are compared on the same page, laid out at the chosen device's
+  width and scaled to fit, and are rated, checked (`check --shots` included) and gated like any other
+  round. `promote` records the pick and archives the round; nothing goes live.
+
+### Chrome rounds 2 and 3 — the Inspector, dark mode, responsive layouts and a hardening pass
+
+*The tool is no longer light only, the Sandbox is an inspector, the design-system site is a component
+workbench, and a component's anatomy and spec are measured rather than typed. **Schema 13**: run
+`/pb:update-version` (dry-run first) on an existing project.*
+
+**Round 2 — the Inspector chrome**
+- **Light, dark, or follow the system.** The tool's colours are `light-dark()` pairs. Choose System, Light
+  or Dark in Project settings; the choice is yours alone, kept in your browser. The tab strip, Sandbox,
+  design-system site and compare page follow it. **The prototype and the component demos never change**:
+  a dark tool does not turn a project's own colours dark. *(Reverses "light only" and "the design-system
+  site loses dark mode", both below.)*
+- **The project button and Project settings.** The project name left the tab row for a button at the left
+  of the bar (initials only on a narrow window, so the tabs stay reachable). **Project settings** edits the
+  project name, the **design-system name (required)**, the **Figma file (optional)** and the theme. On
+  `/pb:preview` Save writes `registry.json` through the new `POST /api/meta` (this machine and this page
+  only); opened from a file, the dialog is read-only and hands out a plain sentence to paste into Claude Code.
+- **The Sandbox is an inspector.** An hourglass in the bar (or **S**) opens a panel on the right; **Esc**
+  closes it unless you pinned it, and a pinned panel docks and pushes the prototype aside. **Conditions**
+  (device, chrome, Compare, Structure tree, role) · **Run** · **Explore**, with **Reset session** in the
+  footer. A disabled Explore says why and names the command. **Run** plays an authored scenario in the page
+  while the prototype moves, ticking each step pass, fail or blocked.
+- **Phone and tablet frames fit.** The whole frame shows, with a 32px margin (24px on a short window), and
+  never touches the bar, at 1440×900, 834×1112 and 430×932. It is recomputed on resize and when the
+  inspector is pinned.
+- **⌘K search** across rules, jobs, components, screens, test cases, content terms and commands.
+- **Scan rows and filters.** Logic, IA jobs and Test Cases are one-line rows (id · title · status · kind)
+  under a search and filter bar with an "N of M" count.
+- **One state layer.** Hover, keyboard focus, pressed and disabled behave the same on all three surfaces.
+  Icons are 16–20px with a name on hover and for screen readers, and no card, row or nav item has a left
+  accent border.
+- **The design-system site, reworked.** The tree is **Components** and **Foundations** — no "Building
+  blocks" wrapper — and lists molecules and organisms; atoms show only as parts inside the component that
+  uses them, except a card-shaped atom, listed as a **Card**. Every component carries a **Local** or
+  **Library** badge. A component page has tabs, and **Push to Figma** offers **Copy JSON** or **Copy
+  prompt** (a ready prompt for Claude Code that creates or updates just that component).
+- **A component's spec is measured, not typed (schema 13).** The spec sidecar takes the shape the Specs
+  plugin uses — anatomy, layout, per-part padding / margin / item spacing / radius / colours, and whether a
+  part is optional. `tools/spec_measure.py` reads them from the live render when `/pb:build` builds or
+  changes a component, names a value by its token when one matches, and marks a card-shaped component. It
+  needs Playwright and says so in one line when it is missing. `/pb:update-version --apply` migrates
+  existing sidecars (migration `0011`), keeping what it cannot convert under `legacy`.
+
+**Responsive layouts** *(built in a separate session and committed alongside)*
+- `/pb:init` asks once whether the UI adapts to each device (`meta.responsive`; `/pb:build` asks an older
+  project once). Size classes: **compact** under 600px, **medium** 600–1023px, **expanded** from 1024px.
+- Every place a project renders is a `pb-screen` container, so a component answers the frame it is in, not
+  the browser window. A component that changes across sizes carries a sheet (`styleSrc`) written with
+  `@container pb-screen (…)`, never `@media`; `product.css` adds `r-*` utilities for swaps that need no sheet.
+- `lint_registry.py` adds `R-STYLE-MEDIA`, `R-STYLE-SCOPE`, `R-STYLESRC`, `R-RESPONSIVE`, and applies
+  `R-HEX` / `R-PX` inside sheets.
+
+**Round 3 — the polish pass** *(from running the new chrome on a real 90-component project)*
+- **Run is grouped and collapsible.** Scenarios sit under their story with pass / fail / not-run tallies and
+  a Collapse all. A scenario written as prose (or a string `test`) is listed but not runnable — it says to
+  run `/pb:test`. Test Cases now read both scenario shapes, so a project whose scenarios carry a string
+  `test`, `steps` and `lastResult.result` shows its real labels and results instead of 204 × "Not run yet".
+- **Logic rows open several at once** and open straight to content: no repeated header, a lone Values or
+  History section already open, visual blocks always visible. Row and card share one status rule ("to
+  resolve" counts assumptions). The filter's **Clear** sits right after the last chip.
+- **Information Architecture is vertical** — the map above the jobs, with one filter bar (search · Role ·
+  Priority · Screens · Not handled) that filters the jobs and dims the map together.
+- **Project Summary is readable.** Prose supports a few marks — `**bold**`, `*em*`, `==highlight==`,
+  `{+improvement+}`, `{-problem-}`, bullets and numbered lists — and bolds numbers on its own; there is a
+  lead paragraph, numbered principles, and a table of contents only when there are three or more headings.
+  `/pb:clarify` and `pb-clarifier` now write the marks (never changing wording; one highlight per field)
+  and add `swatches` / `steps` / `cases` / `examples` blocks to a rule whose prose describes them, from facts
+  already in the registry.
+- **Flow and Data diagrams follow the theme**, as do both kinds of toast; the product's toast uses the
+  project's own tokens and no longer overlaps the tool's.
+- **The component page is a workbench.** The head is the name, badge, level and Push — the long description
+  moved to a closed *Design notes* at the end. Overview has a variant picker, a device picker (the demo
+  answers the chosen device), **Layers** (**Anatomy**, and **Spec** with **Margin**, **Padding** and **Gap**
+  each in its own colour, labelled on hover, focus or tap, with a **Labels** toggle for all), a code view
+  (**HTML | CSS**), *Edit props* (closed), tokens used and where it is used. **Variants & spec** shows one
+  live card per variant with its own spec table; **Anatomy** is a parts table with copyable token chips and
+  the tokens of any child component. Every listed component has a live demo.
+- **Shared building blocks** for the shells: one disclosure, one filter bar, one toast, canvas tokens for
+  diagrams, rich text and a page head.
+
+**Hardening** *(the round-2 review and the round-3 gate)*
+- **Every registry writer takes `registry.json.lock` and writes atomically** — `slice.py`, the preview's
+  settings save, `spec_measure`, the migration runner, `logic_extract`, `lint_registry --sync-elements`,
+  `resolve_frame`, `clone_ds`, `/pb:test`'s result save and `/pb:explore`'s IA promote — so two of them
+  cannot lose each other's edit. A held lock is refused with a message naming the holder. The lock file is
+  git-ignored.
+- **`/pb:update-version`** snapshots the spec sidecars with the registry and restores them on failure or
+  `--rollback`; **`--rollback` first saves what is on disk to `.pb-backups/pre-rollback.<ts>/`**; the
+  latest backup is the newest by modification time; a held lock stops it with exit 1.
+- **`POST /api/meta`** answers a bad request with a message and a 400 (never a traceback), refuses invisible
+  characters, and treats a non-Figma link the project already has as a warning, not a blocker. The explore
+  scores POST is now loopback and same-origin only too.
+- **`spec_measure`** has one exit code per cause (1–7, in `/pb:build` §3a), never overwrites a sidecar that is
+  not valid JSON, refuses `--write` below schema 13, measures margin, and measures a responsive component
+  with its own sheet.
+- **A job id, rule id, entity or property name with a quote in it can no longer run script.** Inline
+  handlers read `data-*` attributes instead of interpolating into a JS string (`tests/handler_escape.py`).
+- **A script that repaints the prototype while you are on another tab** no longer overwrites that tab.
+- **Gate results.** Round 2: `pb-tester` 27/30, the reviewer's Medium items fixed in round 3. Round 3:
+  `pb-tester` 29/30 (a 430px horizontal scroll in a variant picker, fixed) and the reviewer's M1 and L1–L5
+  fixed; the suite is 48/48.
+
+### Added
+- **R resets the Sandbox session.** Not while typing in a field, not with Cmd/Ctrl (reload), not on the other
+  tabs, not on key-repeat. The menu row shows its key.
+- **`tests/chrome_foundation.py`** — a stdlib guard that the tool/product boundary keeps its shape (mutation-tested
+  against the original bug).
+- **A new rule card in UX Design → Logic**, chosen with `/pb:explore` on the real rules of a
+  map-polygon editor and an HR fund app. Top to bottom:
+  - **Title and status.** The title states the rule. One pill: `✓ settled`, `N to resolve` or
+    `superseded`.
+  - **To-do rows.** Each problem is a row saying what is wrong, what to do and which command does
+    it. Red means the rule is incomplete or contradicts itself: a matrix gap, a missing state, a
+    lineage loop. Amber means something is unanswered: an open question, an unconfirmed assumption,
+    an invariant nothing checks, a state nothing sets.
+  - **The rule, always open.** A lifecycle draws as state nodes with their conditions, arrows,
+    overlay bands and "returns to" rows (vertical on a phone). Then the matrix, the invariants
+    (each `checked` or `not checked`), and every structural block.
+  - **Values tab.** Swatches, anatomy, examples and parameters.
+  - **History tab.** A timeline whose latest entry is the decision (question, options with the
+    chosen one marked, why, affects), then amendments, supersessions and sources. An open question
+    leads the tab.
+
+  It replaces the SVG state machine, the folded "Decided" line and the "History & sources" drawer.
+  A superseded rule folds to its header.
+- **Rule blocks.** `ia.rules[].blocks[]` holds a rule's structure as typed blocks, on any kind and in
+  any order:
+  - `cases` (condition → outcome, with tones)
+  - `scope` (acts on / leaves untouched)
+  - `placement` (surface → holds / never)
+  - `matrix`, `validation` (refusals, messages, codes), `formula` (terms + worked example)
+  - `steps`, `params` (thresholds with units), `effects` (writes + other screens), `note`
+  - `swatches` (a colour per state, drawn as the real pill), `anatomy` (an identifier in parts),
+    `examples` (input → what it renders as)
+
+  Each block draws as a component in UX Design → Logic and exports as a table in `rules.md`. The
+  shapes come from reading every rule across the three projects. `/pb:clarify` §2b and `think-logic`
+  §5 give an example of each. `logic_check.py` adds **L-BLOCK** (a block the renderer can't draw,
+  ERROR) and **L-PROSE** (a long unstructured rule, information only).
+- **`/pb:explore` runs on a tool and a compare page.** `pb/tools/explore.py` provides `init`,
+  `slot`, `check [--shots]`, `gate`, `promote`, `reject` and `list`:
+  - **Manifest.** Each exploration is `memory/explore/<id>.json`.
+  - **Overlays.** An overlay may change several bodies.
+  - **Rendering.** Options render in memory against the real registry (`render.load_bodies(...,
+    overrides=)`), with no temporary copy.
+  - **Gate.** Scoring is a gate.
+  - **Promote.** `promote` refuses a mixed pick, and refuses a live body that changed since `init`.
+- **`/explore/<id>` on the `/pb:preview` server (same port).**
+  - The compare page (`pb/template/explore-compare.html`) shows options side by side or one at a
+    time, on the project's devices.
+  - Its rating panel saves through `POST /__pb_explore/<id>/scores`.
+  - `/explore/<id>/<slot>` is one option, live-reloading.
+  - The Sandbox → Explore row (previously a disabled stub) lists the open options.
+- **`think-direction`, a skill `/pb:explore` loads before it diverges (A1, B4).** It reads the
+  project's memory and DS, asks no questionnaire, and writes `memory/explore/<id>.brief.md`:
+  - the job, taste position, hard constraints, real content and responsive answer every option shares
+  - which of the seven axes the project's rules lock, and the free ones assigned to slots
+  - the states table with collision priority, and the `data-*` verbs, handlers and test hooks every
+    candidate keeps, so the pick is a drop-in
+  - the rubric criteria the brief says matter, and after the verdict the rules learned for `/pb:clarify`
+
+  It distils the design kit's direction explorer; a locked DS beats every default in it. The evidence
+  is two real projects' explore rounds and design feedback.
+- **`explore.py --ia`, the engine under `/pb:clarify`'s IA round.** `init <ia-id> --ia --options N`
+  opens a round with no overlays and no host, and the seven-criterion IA rubric (job coverage · P1
+  jobs within 2 taps · hub load · label clarity · no orphan screens · role fit · findability probe).
+  - **Structures.** The coordinator writes one `memory/explore/<ia-id>/<slot>.ia.json` per slot:
+    label, bet, scheme, five IA axes, the hub and its items, screens with depth / parent / jobs /
+    purpose, layer purposes, and the jobs it leaves `unhandled`.
+  - **`check`** writes nothing. It fails a structure that does not parse, a job served by no screen
+    and not listed unhandled, a hub item or parent that does not exist, a depth that does not step
+    by one down the parent chain, and any pair of groupings fewer than 3 of 5 IA axes apart.
+  - **The compare page** gains an `ia` mode: the approved jobs on the left as *when / I want to / so
+    I can* with role and priority, one tree per option (hub items → child screens → overlays, each
+    with the jobs it serves), and every unhandled or unserved job flagged red on both.
+  - **`promote`** backs up `registry.json`, then writes only `ia.jobs[].screens[]` (appended,
+    deduped), `ia.layers[]`, `meta.navHub` (when the structure names a hub component) and
+    `ia.populated`. It never touches `screens[]` / `components[]`. The picked round's folder lands at
+    the stable `memory/explore/_closed/<ia-id>/`, where `/pb:plan` §2 reads it. Tests in
+    `tests/explore_ia.py`.
+- **Shell deep link.** `?screen=<id>&device=<id>&shell=<mode>&embed=1`.
+- **`meta.navHub`** names the component or components holding top-level navigation, for example a
+  sidebar and a bottom tab bar. The site map's layer 0 is read from it.
+- **`/pb:plan --ia [<job-id>] [--into <screen-id>]`**, and an `ia` slice that `/pb:orchestrate` routes
+  to `pb-clarifier`.
+- **`/pb:report`, a retrospective for the pb maintainer.** The two feedback reports from real projects
+  were assembled by reading 3,000- and 10,000-line decisions logs by eye.
+  `pb/tools/report.py` (stdlib) counts that evidence instead and writes it as one facts file with a
+  fixed section order, each fact with `file:line` evidence:
+  - project shape, with every `memory/` file no command owns
+  - the decisions log: back-and-forth vocabulary, recurring topics, empty `Alternatives:`, undated
+    entries, size against the rotation threshold
+  - retired or unknown command names and undocumented flags named in `memory/`
+  - explore rounds and their unscored cells, the `pre-*` backup cadence
+  - render timings against DESIGN.md's budgets, `--strict` lint counts, stale test verdicts
+  - candidate headers and comment-dated layers left in bodies, and the project's own workarounds
+  - with `--sessions`, the Claude Code transcripts, as counts and sequences only: never message text
+
+  The command then appends `## Reading` and ranked, tagged proposals for the next release. It is
+  read-only on the project and writes only `memory/reports/pb-report-<date>.md`. `--since` windows
+  the dated facts. `tests/report_tool.py` runs it on a folder named `proj [x]` and hashes the
+  project tree before and after.
+- **The build side checks what a component declares, and looks at what it built.**
+  `lint_registry.py` adds **R-PROP-DECLARED** (a body reads a `props.X` that `properties[]` does
+  not declare; pass-through wiring like `dataNav` or `className` is exempt) and **R-PROP-USED** (a
+  declared option the body never renders). Under `--strict` both are ERRORs, R-PROP-USED only for
+  `state`; otherwise both warn. Opt-in **`--exec`** (**R-EXEC**) runs every body in node, with `{}`
+  and once per `state` option, and fails a throw, a non-string or `''`. With no node it
+  prints one line saying nothing ran. `think-layout` now runs job → a component per region → density
+  budget → arrange → look at both widths. `design-component-build` gains a states × variants
+  checklist and a collision priority. Measured: the two rules flag 17 components and 2 properties on
+  one real project, 59 and 4 on another. The golden fixture had both defects (text-input read an undeclared `label` and `type`;
+  login-card's `loading` state rendered nothing) and is fixed. Tests in `tests/lint_props.py`.
+
+### Changed
+- **The tool no longer wears the project's colours.** `applyRegistryTokens()` wrote the registry's
+  `--brand` onto `:root`, so an orange project got an orange tab strip, and three shells carried three
+  unrelated token vocabularies (`--brand`/`--neutral-*`, `--ds-*`, `--bg`/`--panel`) with near-miss values
+  between them. Now: the tool speaks in `--pb-*` (new `pb/template/chrome.css`, injected into all three
+  shells like `runtime.js`), and the registry's tokens are scoped to the subtree that renders the project
+  (`.pb-product`). The ~1,400 usages in `prototype.html` were not renamed — `:root` and `.pb-product` give
+  the same names different values. `pb-*` is reserved; the tool can opt in to a project value with
+  `--prj-<name>` (the browser mock's favicon and avatar). Guarded by `tests/chrome_foundation.py`.
+- **A new look for the tool**, chosen with `/pb:explore` from three candidates: light *(round 2 made it follow
+  the system theme)*, monochrome, hairlines
+  instead of cards, one type family. The bar is underlined text tabs with the project's name; the Design
+  system link and Sandbox share one shape. Navigation is a ladder where each level is a different shape —
+  underlined tab → washed segment → outlined toggle → pill filter → row — so a click's effect is legible
+  before the click. Every class, id and `data-*` hook the tests pin was kept.
+- **The design-system site is a docs layout**, not one long scroll: a navigation tree on the left
+  (*Building blocks* → *Components* by atomic level / *Foundations*, with a filter — round 2 dropped the
+  *Building blocks* wrapper), one page per component
+  and per token kind, each a link (`#/c/<id>`, `#/f/<kind>`). It wears the same bar as the prototype, with the
+  crossing in the mirrored slot. *(Round 2 reversed this: dark mode is back on both, and the demo stages stay light, so
+  a flipping chrome never touches a specimen.)*
+- **`e2e_smoke` no longer asserts that `--brand` reaches `:root`.** That assertion was the bug written down as
+  a requirement. It now asserts the real invariant: the registry's tokens reach the product, do not reach the
+  tool, the tool can opt in via `--prj-*`, and a registry cannot overwrite `--pb-*`.
+- **Removed the device captions** ("Mobile 429 × 926") above compare frames. Each frame keeps an accessible name.
+- **IA comes out of the default pipeline.**
+  - `/pb:clarify` writes `ia.jobs[]` (§1b), as `CLAUDE.md` always said it did.
+  - `/pb:plan` §2 runs on every plan: it maps jobs to screens, names the hub, and writes
+    `ia.layers[]` purposes.
+  - `/pb:init` §1b is optional.
+- **Jobs and the IA both live in `/pb:clarify`, behind two gates.** This replaces the `/pb:plan` §2
+  IA pass above, where one grouping was authored by reflex. One real project regrouped the same jobs three times
+  in five days (five tabs → three → four).
+  - §1b's jobs end in **G-JTBD**.
+  - §1c has the coordinator author N groupings of the approved jobs (`--ia-options N`, default 3).
+    Every pair differs on at least 3 of the 5 IA axes (scheme · hub shape · depth · layer 0 ·
+    secondary).
+  - The user scores them on the compare page (`explore.py --ia`, `/explore/<ia-id>`) and confirms
+    one at **G-IA**. Only `promote` writes `ia.jobs[].screens[]`, `ia.layers[]` and `meta.navHub`.
+  - `/pb:plan` §2 now turns the chosen IA into tasks. It stops and names `/pb:clarify` when none was
+    chosen, and no longer derives jobs from `spec.md`. `--ia <job-id> --into <screen-id>` places
+    one late job.
+  - `--skip-ia` keeps the chosen IA as it is. §1 no longer loads `ref-blueprint`, which is
+    screen-level and unused for insights.
+  - The new internal skill `ref-ia` (the 18th) carries the IA vocabulary, the grouping schemes, the
+    constraints that lock an axis, and the seven-criterion rubric with a findability probe that
+    replaces tree testing.
+- **The site map reads any nav hub.** Hub items can have any key order and either quote style, and
+  `key`/`screen`/`to` are all accepted. Nav-atom props (`pbUse('nav-item', {screen: 'x'})`) count as
+  edges, so a project that follows R-COMPOSE gets a map.
+- **A blank map says why** (no hub / the hub lists no screens / no edges) instead of rendering
+  nothing. The IA buttons point at real commands (`/pb:clarify`, `/pb:plan --ia`).
+- **Logic cards.**
+  - The summary is a one-line lead.
+  - The decision folds away when blocks exist.
+  - History and sources (supersession, amendments, origin, citations, retired invariants) sit in one
+    fold. `stillOpen` stays visible as an *open* chip.
+- **Invariants** render on any rule kind and accept `enforcedIn` beside `enforcedBy`. Missing
+  enforcement is flagged once per rule, not once per row.
+- **Skills are internal.** All 17 set `user-invocable: false`, so `/pb:think-clarify` and the rest no
+  longer appear beside the 12 commands. The tab `?` dialogs list commands only.
+- **`tests/skill_refs_lint.py`** checks:
+  - that every skill is hidden
+  - that every skill name used in commands, agents and skills ships, and no retired name is used
+  - that every `/pb:<cmd> --<flag>` a shell names is one the command documents
+
+### Fixed
+- **Atoms sorted last on the design-system site.** `LEVEL_ORDER[level] || 9` treats `atom` (0) as falsy.
+- **The design-system theme bridge ran before any token was applied**, so it only ever read the static defaults
+  and never coupled the stage to the project, as its comment claimed. It now runs after, and reads the product scope.
+- **Folder names with brackets** (`[HR] Project`). Every glob built from a project path is escaped:
+  `serve.py`, `render.py`, `logic_extract.py`, `logic_check.py`, `lint_registry.py`,
+  `resolve_frame.py`, `agents_install.py`. Before this, the preview stopped reloading on body edits,
+  the site map was blank, and logic checks passed over zero files.
+- **Stale names found by the widened lint:**
+  - the shell's tab dialogs advertised six skills that don't exist
+  - `pb-reviewer` cited a `check-drift` skill
+  - `pb-design-system` and `agent-dispatch` named a retired command
+  - two IA buttons offered a `--job` flag no command has
+- **`rules.md`** exported rules as title plus id only. It now carries the summary, states,
+  invariants, blocks, decision and open questions. Its jobs and layers tables read the real fields
+  (`when`/`want`/`so`, `name`/`purpose`).
+- **A rule with a top-level `status: "superseded"`** now dims. An `affects` array no longer prints
+  as `a,b`.
+- **The preview server's JSON depth limit no longer depends on the Python version.** Python 3.11's
+  parser raises `RecursionError` on deeply nested input; 3.14's parses it. `serve.py` now counts the
+  nesting itself (`JSON_MAX_DEPTH`, 64) before parsing a settings save or a score sheet, so every
+  version refuses it with the same 400. The count is a single linear pass, so a hostile body cannot make
+  it slow.
+- **Hardening from CodeQL.** The preview server's page-round files and `explore.py`'s manifest read
+  check the real path stays inside the exploration folder; an exploration id can no longer end in a
+  newline; `pbMachine` escapes a backslash in a machine name as well as a quote.
+- **Tests ran against a folder outside the repo.** `ia_view`, `ui_primitives`, `chrome_states` and
+  `chrome_foundation` used a sibling demo project when one existed, so they passed on the author's
+  machine and failed in CI. They now build their fixtures from `fixtures/golden`. `spec_measure`'s
+  "nothing written" check no longer trips over the `__pycache__` that Python 3.11+ writes beside its
+  import shim, and no browser test waits on the web-font or mermaid CDN any more.
+- **CI skipped most browser tests.** The e2e job ran a hard-coded five. `ci.yml` now names the
+  browser-only tests and the ones with a browser half once, and e2e runs them all; a skip there is a
+  failure.
+
+### Housekeeping
+
+- **MIT licence** (`LICENSE`).
+- Internal feedback write-ups were removed, and real project names were replaced by neutral
+  examples in skills, comments, tests and this changelog.
+
 ## [2.0.1] — 2026-10-02
 
 *A patch: CI only — nothing in `pb/` changed for users.*

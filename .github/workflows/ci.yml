@@ -19,6 +19,16 @@ concurrency:
   group: ci-${{ github.workflow }}-${{ github.head_ref || github.ref }}
   cancel-in-progress: true
 
+# The browser tests, named once for both jobs.
+env:
+  # Browser-only: each exits 2 (a clean skip) without Playwright. unit defers them; e2e runs them.
+  BROWSER_ONLY: >-
+    e2e_smoke test_inspect test_sandbox verbs_browser sandbox_shell
+    chrome_states handler_escape ia_view responsive spec_measure ui_primitives
+  # A stdlib half that passes in unit with the browser half skipped; e2e runs them again, whole.
+  BROWSER_HALF: >-
+    chrome_foundation logic_blocks r5_ds_site tc_shapes tradeoff_rules
+
 jobs:
   unit:
     name: unit (python, stdlib-only)
@@ -35,16 +45,12 @@ jobs:
       - name: Regression suite (stdlib)
         run: |
           set -u
-          # The browser-driven five run in the e2e job, with Playwright present.
-          BROWSER="e2e_smoke test_inspect test_sandbox verbs_browser sandbox_shell"
+          # BROWSER_ONLY runs in the e2e job, with Playwright present.
+          want=$(echo $BROWSER_ONLY | wc -w)
           pass=0; fail=0; skipped=0; failed=""
           for f in tests/*.py; do
             base=$(basename "$f" .py)
-            skip=0
-            for b in $BROWSER; do
-              if [ "$base" = "$b" ]; then skip=1; fi
-            done
-            if [ "$skip" -eq 1 ]; then skipped=$((skipped+1)); continue; fi
+            case " $BROWSER_ONLY " in *" $base "*) skipped=$((skipped+1)); continue ;; esac
             if python3 "$f" > /tmp/out.txt 2>&1; then
               pass=$((pass+1)); echo "PASS  $base"
             else
@@ -53,7 +59,7 @@ jobs:
             fi
           done
           echo "--- $pass pass, $fail fail, $skipped deferred to the e2e job ---"
-          test "$skipped" -eq 5 || { echo "::error::expected 5 browser tests, saw $skipped"; exit 1; }
+          test "$skipped" -eq "$want" || { echo "::error::expected $want browser tests, saw $skipped"; exit 1; }
           test "$fail" -eq 0 || { echo "::error::red:$failed"; exit 1; }
 
       - name: Registry contract is clean on the golden
@@ -80,21 +86,25 @@ jobs:
           pip install "playwright==${PLAYWRIGHT_VERSION}"
           python3 -m playwright install --with-deps chromium
 
-      # These five exit 2 as a "clean skip" when Playwright is missing. Here it is
+      # BROWSER_ONLY exit 2 as a "clean skip" when Playwright is missing. Here it is
       # installed, so a skip means the harness broke — treat it as failure, or the
       # suite reports green while asserting nothing about the shell in a browser.
+      # BROWSER_HALF run again here so their browser halves are checked too.
       - name: Browser suite (a skip is a failure here)
         run: |
           set -u
           fail=0
-          for f in tests/e2e_smoke.py tests/test_inspect.py tests/test_sandbox.py \
-                   tests/verbs_browser.py tests/sandbox_shell.py; do
-            python3 "$f" > /tmp/out.txt 2>&1; rc=$?
+          for base in $BROWSER_ONLY $BROWSER_HALF; do
+            f="tests/$base.py"
+            test -f "$f" || { fail=$((fail+1)); echo "::error::$f is listed but does not exist"; continue; }
+            if python3 "$f" > /tmp/out.txt 2>&1; then rc=0; else rc=$?; fi
             case $rc in
-              0) echo "PASS  $(basename "$f")" ;;
-              2) fail=$((fail+1)); echo "::error::$(basename "$f") SKIPPED but Playwright is installed" ;;
+              0) if grep -qiE "skipped|^SKIP" /tmp/out.txt && case " $BROWSER_HALF " in *" $base "*) true ;; *) false ;; esac; then
+                   fail=$((fail+1)); echo "::group::FAIL  $base  (its browser half skipped)"; cat /tmp/out.txt; echo "::endgroup::"
+                 else echo "PASS  $base"; fi ;;
+              2) fail=$((fail+1)); echo "::error::$base SKIPPED but Playwright is installed" ;;
               *) fail=$((fail+1))
-                 echo "::group::FAIL  $(basename "$f")  (exit $rc)"; cat /tmp/out.txt; echo "::endgroup::" ;;
+                 echo "::group::FAIL  $base  (exit $rc)"; cat /tmp/out.txt; echo "::endgroup::" ;;
             esac
           done
           test "$fail" -eq 0 || exit 1

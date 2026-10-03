@@ -41,6 +41,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import tokens as _tokens  # noqa: E402  (the DTCG token resolver)
+import spec_parts as _parts  # noqa: E402  (anatomy parts from either sidecar shape)
 
 
 def _norm(s):
@@ -203,11 +204,9 @@ def component_frame(comp, ctx, name=None):
     frame = {"type": "FRAME", "name": name or comp.get("name") or comp.get("id"),
              "layout": {"mode": "VERTICAL", "primaryAxisSizingMode": "AUTO", "counterAxisSizingMode": "AUTO"},
              "sizingH": "HUG", "sizingV": "HUG", "children": []}
-    an = comp.get("anatomy")
-    parts = (an.get("parts") if isinstance(an, dict) else None) or []
-    for p in parts:
-        if not isinstance(p, dict):
-            continue
+    # Either shape: legacy anatomy.parts[] (orgId) or the schema-13 measured anatomy, whose
+    # `instance` parts name their component as `instanceOf`, in layout order.
+    for p in _parts.parts(comp):
         org = p.get("orgId")
         if not org:
             continue
@@ -310,6 +309,24 @@ def _write_gaps(gaps, path):
     open(path, "w", encoding="utf-8").write("\n".join(lines) + "\n")
 
 
+def _inline_specs(reg, base_dir):
+    """Re-inline each component's spec sidecar (`specSrc`, schema 10+) — the anatomy component_frame
+    reads lives there, not in registry.json. render.load_specs does this for the DS site; the CLI
+    did not, so on any externalized project it lowered every local component as an empty FRAME.
+    A missing or unreadable sidecar is reported and skipped (the lowering is best-effort)."""
+    for c in reg.get("components") or []:
+        if not isinstance(c, dict) or not c.get("specSrc"):
+            continue
+        try:
+            with open(os.path.join(base_dir, c["specSrc"]), encoding="utf-8") as f:
+                side = json.load(f)
+        except (OSError, json.JSONDecodeError) as e:
+            print("registry_to_figma: specSrc for %r not read (%s)" % (c.get("id"), e), file=sys.stderr)
+            continue
+        if isinstance(side, dict):
+            c.update(side)
+
+
 def main(argv=None):
     p = argparse.ArgumentParser(prog="registry_to_figma.py")
     p.add_argument("registry", nargs="?", default="registry.json")
@@ -330,6 +347,7 @@ def main(argv=None):
 
     try:
         reg = _load(args.registry)
+        _inline_specs(reg, os.path.dirname(os.path.abspath(args.registry)))
         catalog = _load(args.catalog) if args.catalog else None
         tokens_map = (_load(args.tokens) or {}).get("tokens") if args.tokens else None
         transfer = _load(args.transfer) if args.transfer else None

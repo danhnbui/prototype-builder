@@ -28,6 +28,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import tokens as _tokens  # noqa: E402  (sibling module; the DTCG token resolver)
+import render as _render  # noqa: E402  (sibling module; product.css lives with the renderer)
 
 _FN_RE = re.compile(r"function\s+([A-Za-z_$][\w$]*)\s*\(")
 # token display-kind → tailwind theme bucket (DTCG $type=dimension is bucketed by display-kind)
@@ -149,15 +150,31 @@ def _slug(s):
 
 
 def _app(screen_pascal, component_pascals):
+    # The root is the `pb-screen` container product.css's queries answer — in a real app it spans
+    # the viewport, so a project's @container rules behave exactly like breakpoints.
     if screen_pascal:
         return (f"import Screen from './screens/{screen_pascal}.jsx';\n"
-                "import './tokens.css';\n\nexport default function App() {\n"
-                f"  return <Screen />;\n}}\n")
+                "import './tokens.css';\nimport './product.css';\n\nexport default function App() {\n"
+                "  return <div className=\"pb-product proto-screen\" style={{ minHeight: '100vh' }}><Screen /></div>;\n}\n")
     imports = "".join(f"import {p} from './components/{p}.jsx';\n" for p in component_pascals)
     gallery = "".join(f"      <section><h3>{p}</h3><{p} /></section>\n" for p in component_pascals)
-    return (imports + "import './tokens.css';\n\nexport default function App() {\n"
-            "  return (\n    <main style={{ padding: 24, display: 'grid', gap: 24 }}>\n"
+    return (imports + "import './tokens.css';\nimport './product.css';\n\nexport default function App() {\n"
+            "  return (\n    <main className=\"pb-product proto-screen\" style={{ padding: 24, display: 'grid', gap: 24 }}>\n"
             f"{gallery}    </main>\n  );\n}}\n")
+
+
+def _product_css(base, items):
+    """product.css (the size-class utilities) + every styleSrc sheet — the same stylesheet the
+    prototype renders, so the scaffold is as responsive as the prototype was."""
+    sheets = [_render.load_product_css()]
+    for item in items:
+        src = item.get("styleSrc")
+        if src:
+            try:
+                sheets.append(open(os.path.join(base, src), encoding="utf-8").read())
+            except OSError:
+                print(f"  · skip styleSrc {src!r}: not found", file=sys.stderr)
+    return "\n".join(x for x in sheets if x) + "\n"
 
 
 def emit(registry_path, out_dir, screen=None, component=None):
@@ -181,6 +198,7 @@ def emit(registry_path, out_dir, screen=None, component=None):
     _mkdir("src")
     # tokens.css + tailwind
     for rel, content in (("src/tokens.css", _tokens_css(tokens)),
+                         ("src/product.css", _product_css(base, comps + screens)),
                          ("tailwind.config.js", _tailwind_config(tokens))):
         p = os.path.join(out_dir, rel)
         os.makedirs(os.path.dirname(p), exist_ok=True)

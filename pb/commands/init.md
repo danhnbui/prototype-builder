@@ -92,12 +92,13 @@ It reads back as *When …, I want to …, so I can …*. Show the user that wor
 — a job written as a feature name ("export to Excel") produces a useless answer, and the outcome
 clause is what the tab composes into each layer's purpose.
 
-**Then one sentence per layer.** After the screens exist, ask what each navigation layer is *for*
-(e.g. layer 0 "pick a scope of responsibility", layer 1 "decide about one unit or one person").
-Layer membership, the parent/child edges and the overlays are **derived** from the sidebar and the
-render bodies — never ask for those, and never store them.
+**Optional here.** `/pb:clarify` §1b writes the jobs in the default pipeline and refines any seeded
+here, so skip this step when the user wants to move on — nothing downstream depends on init doing it.
 
-Leave `screens: []` on every job here. `/pb:plan` maps jobs to screens once the screens exist.
+Leave `screens: []` on every job, and do not ask for layers: `/pb:plan` §2 maps jobs to screens, names
+the nav hub (`meta.navHub`) and asks what each layer is *for* once the screens exist. Layer membership,
+the parent/child edges and the overlays are **derived** from the hub and the render bodies — never ask
+for those, and never store them.
 
 ## 2 · Set the locks (confirm with the user)
 - **Stack Lock** — language + framework (e.g. TypeScript + React).
@@ -122,7 +123,7 @@ skip, leave `meta.dsSource: null` and set `meta.platform` from the DS Lock answe
 
 ## 3 · Seed the registry
 Copy `${CLAUDE_PLUGIN_ROOT}/template/registry.template.json` → `registry.json`; set `meta.name`.
-The template already carries `meta.schemaVersion: 12` (= `CURRENT_SCHEMA` from
+The template already carries `meta.schemaVersion: 13` (= `CURRENT_SCHEMA` from
 `pb/migrations/manifest.py`) and a pre-seeded `danger` token (the validation runtime needs it).
 Leave `components` / `screens` empty — `/pb:build` fills them and creates their
 `render/{components,screens}/<id>.js` body files.
@@ -143,19 +144,36 @@ target?"* Use the answer to seed:
   the PRD's primary form factor: mobile-first apps → `'mobile'`; dashboards/desktop web → `'laptop'`;
   big-screen/data-dense → `'monitor'`; when unclear, default `'laptop'`.
 - **`meta.devices`** — the fixed sizes this project supports (any subset of the four:
-  `monitor 1920×1080 · laptop 1280×832 · tablet 834×1112 · mobile 390×844`). Sizes **not** listed are
+  `monitor 1920×1080 · laptop 1280×832 · tablet 834×1112 · mobile 429×926`). Sizes **not** listed are
   disabled in the Prototype switcher. Default all four. *(Legacy `'desktop'` is still honored — the
   shell expands it to `monitor` + `laptop`.)*
+- **`meta.responsive`** — **ask it as its own question, right after the devices answer, every time**
+  (file intake included; never infer it from the PRD): *"Should the UI adapt to each of these devices —
+  its own layout on <the listed sizes> — or keep one layout for <meta.device>?"* Name the actual sizes.
+  Group the devices by size class first — **compact** (mobile) · **medium** (tablet) · **expanded**
+  (laptop, monitor):
+  - **Two or more classes → ask.** **Yes** → `meta.responsive: true`: from the first `/pb:build` on,
+    every screen and component is designed for every listed size, not designed once and stretched
+    (`CLAUDE.md` → *Responsive across devices*). **No** → `meta.responsive: false` **and** trim
+    `meta.devices` to `[meta.device]`, so the other sizes are disabled in the switcher instead of
+    showing a layout nobody designed for them.
+  - **One class** (e.g. laptop + monitor, or mobile alone) → don't ask; set `meta.responsive: false`
+    and keep `meta.devices` as given — there is nothing to adapt between.
+
+  Record the answer as a Principle in `memory/constitution.md` (*"Responsive: designed for mobile ·
+  laptop"* or *"Single layout: laptop"*) and one line in `memory/decisions.md`.
 
 Seed **`meta.designSystem`** from the Design System Lock (step 2): `name` = the DS name; `codeLibrary` =
 its source when that's a repo URL or local path (**required** — a DS must have a code home); `designLink` =
 a Figma/doc URL if one was given (else `null`); `linked: true` once both name and codeLibrary are set.
 This records the project's design system (name + design/code links) for `/pb:pull-ds` and the
-design-system reference.
+design-system reference. `name` is required; `designLink` is the project's Figma file — optional, and the Project settings dialog
+(`/pb:preview`) accepts only a `figma.com/file/…` or `figma.com/design/…` link there (a different link already in
+the registry is kept, with a warning). The same dialog edits `name` and `designLink` later.
 
 Also set **`meta.platform`** from the DS Lock (step 2) — `web` / `ios` / `android` / `desktop`
 (default `web`). Leave **`meta.dsSource: null`** unless the DS was cloned in 2b (then `/pb:pull-ds`
-already set it). Both fields are seeded in the template at `meta.schemaVersion 12`.
+already set it). Both fields are seeded in the template at `meta.schemaVersion 13`.
 
 ## 4 · Seed memory + design system
 - `memory/decisions.md` from `${CLAUDE_PLUGIN_ROOT}/template/decisions.template.md`.
@@ -168,13 +186,13 @@ Write into `registry.json`: `meta.overview.objectives` = the PRD objective; `met
 `after_*` hooks used to do — it now lives here. **Do not render yet.**
 
 ## 5b · Install the pb agents (optional — enables `/pb:orchestrate`)
-After scaffolding, offer to install the 8 `pb-*` agents into this project's `.claude/agents/` so
-`/pb:orchestrate` can dispatch tasks to them:
+After scaffolding, offer to install the 9 `pb-*` agents into this project's `.claude/agents/` so
+`/pb:orchestrate` (and `/pb:explore`) can dispatch tasks to them:
 ```
 python3 "${CLAUDE_PLUGIN_ROOT}/tools/agents_install.py" --project-dir .
 ```
 It copies the roster (`pb-clarifier` · `pb-planner` · `pb-builder` · `pb-design-system` · `pb-flow` ·
-`pb-data` · `pb-tester` · `pb-reviewer`) into `.claude/agents/`, idempotently (safe to re-run). Skip it for
+`pb-data` · `pb-tester` · `pb-reviewer` · `pb-explorer`) into `.claude/agents/`, idempotently (safe to re-run). Skip it for
 a plain single-slice `/pb:build` workflow — it's only needed for the agent-wave orchestration path. Mention
 to the user that they can run it later if they decide to use `/pb:orchestrate`.
 

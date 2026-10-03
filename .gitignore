@@ -15,9 +15,15 @@ dist/
 # Local Claude Code settings (machine-specific)
 .claude/settings.local.json
 .claude/launch.json
+# The agent roster as tools/agents_install.py installs it (pb/agents/ is the source), and agent worktrees
+.claude/agents/
+.claude/worktrees/
 
 # Temporary read-only reference clone of a real project (review only — NEVER commit; erased when the remediation ends)
 /.reference/
+
+# The registry's advisory write lock (tools/slice.py registry_lock) — a runtime file next to any registry.json
+registry.json.lock
 
 # Local preview scratch (not a plugin deliverable)
 /registry.json
@@ -26,3 +32,6 @@ dist/
 /render/
 /design-system/
 /.pb-backups/
+
+# The /pb:preview server record (serve.py writes .preview/server.json; explore.py link reads it)
+.preview/

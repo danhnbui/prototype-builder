@@ -1,6 +1,7 @@
 ---
 name: agent-dispatch
-description: Route Product Builder tasks to the right pb-* agent and run them in dependency waves — map each task's skill/slice to one of the 8 agents, dispatch a wave concurrently, apply returned patches serially, render once per wave, then gate on pb-tester + pb-reviewer. Use when executing a plan — loaded by /pb:orchestrate. Not for building a single slice by hand (use /pb:build) or decomposing the plan (use agent-orchestrate-tasks).
+description: Route Product Builder tasks to the right pb-* agent and run them in dependency waves — map each task's skill/slice to one of the 8 routable agents (the 9th, pb-explorer, is /pb:explore's alone), dispatch a wave concurrently, apply returned patches serially, render once per wave, then gate on pb-tester + pb-reviewer. Use when executing a plan — loaded by /pb:orchestrate. Not for building a single slice by hand (use /pb:build) or decomposing the plan (use agent-orchestrate-tasks).
+user-invocable: false
 ---
 
 # agent-dispatch
@@ -9,9 +10,13 @@ Execute a `memory/tasks.md` plan by handing each task to the agent that fits it 
 **waves**. The discipline is what keeps a parallel build cheap and correct: dispatch a wave concurrently,
 serialize the writes, render once, gate, then move on.
 
-## The 8 agents
+## The 9 agents
 `pb-clarifier` · `pb-planner` · `pb-builder` · `pb-design-system` · `pb-flow` · `pb-data` ·
-`pb-tester` · `pb-reviewer`.
+`pb-tester` · `pb-reviewer` — the eight a task routes to (below) — and one this skill never dispatches:
+
+| agent | dispatched by | never |
+|---|---|---|
+| `pb-explorer` | `/pb:explore` only (A1d / B4d) — one per execution plan, on sonnet at xhigh effort | by `/pb:orchestrate`: no `slice` routes to it, and `orchestrate.py` rejects it as a task's `agent:` |
 
 ## skill / slice → agent (route each task)
 Route primarily by the task's **`slice:`**, using **`skill:`** as the tiebreaker:
@@ -19,11 +24,12 @@ Route primarily by the task's **`slice:`**, using **`skill:`** as the tiebreaker
 | slice | agent | (skills that land here) |
 |---|---|---|
 | `screen` | **pb-builder** | `ref-blueprint`, `think-layout`, `think-logic`, `craft-connect-flow` |
-| `component` | **pb-design-system** if it's a reuse / variant / naming-contract decision (`build-check-design-system`, `figma-use`); otherwise **pb-builder** (`design-component-build`, `think-layout`) |
+| `component` | **pb-design-system** if it's a reuse / variant / naming-contract decision (`/pb:build` §3a, `figma-use`); otherwise **pb-builder** (`design-component-build`, `think-layout`) |
 | `logic` | **pb-builder** | `think-logic`, `craft-connect-flow` |
 | `tokens` | **pb-design-system** | `think-layout` (token schema, no raw hex/px) |
 | `flow` | **pb-flow** | `craft-connect-flow` (drives `/pb:plan --flow`) |
 | `erd` | **pb-data** | (drives `/pb:plan --data`) |
+| `ia` | **pb-clarifier** | `ref-prd`, `think-clarify` — jobs, their screens, layer purposes, `meta.navHub` (`/pb:plan --ia`) |
 | `meta` | **pb-clarifier** for Project-Summary copy / insights, and the rules behind contested UI decisions (`ref-prd`, `think-clarify`, `think-critique-prd`); **pb-planner** for plan / task upkeep (`agent-orchestrate-tasks`) |
 
 `pb-tester` and `pb-reviewer` are **not** slice owners — they run the per-wave acceptance gate (below).

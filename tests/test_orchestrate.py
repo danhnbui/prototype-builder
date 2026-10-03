@@ -64,6 +64,7 @@ CYCLE = """## T1 login
 
 UNKNOWN = "## T1 x\n- agent: pb-nope\n- deps: none\n- slice: screen\n- acceptance: y\n"
 LEGACY = "## T1 old task\n- skill: think-layout\n- acceptance: it renders\n"
+IA_TASK = "## T1 map jobs\n- agent: pb-clarifier\n- deps: none\n- slice: ia\n- acceptance: every job has a screen\n"
 
 
 def main():
@@ -99,6 +100,11 @@ def main():
     out = p.stdout + p.stderr
     check(p.returncode != 2, f"legacy tasks.md not treated as a hard error (got {p.returncode})")
     check("O-LEGACY" in out, "legacy tasks.md flagged O-LEGACY (skill->agent inference)")
+
+    # 5. the `ia` slice (jobs / layers / navHub) is a real slice — /pb:plan plans IA tasks
+    p = run(IA_TASK)
+    out = p.stdout + p.stderr
+    check(p.returncode == 0 and "O-SLICE" not in out, f"slice: ia is accepted (got {p.returncode}; {out.strip()[:120]})")
 
     print()
     if _failures:
