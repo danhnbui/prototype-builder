@@ -1,6 +1,7 @@
 ---
 name: ref-design-compare
-description: The contract for generating genuinely different design alternatives and scoring them against a rubric instead of asking "which do you like?". Use whenever N alternatives are produced for a human to choose between — loaded by /pb:explore Mode A (A1/A2/A4) and Mode B (B4). Covers the seven divergence axes and their threshold, the generic-tell ban list, the render-and-screenshot gate, the 10-criterion score sheet, and the mapping from a low score to the thing to change. Not for picking a component (that is the DS-first check in /pb:build §3a).
+description: The contract for generating genuinely different design alternatives and scoring them against a rubric instead of asking "which do you like?". Use whenever N alternatives are produced for a human to choose between — loaded by /pb:explore Mode A (A1/A2/A4) and Mode B (B4), after think-direction supplies the brief and the free axes. Covers the seven divergence axes and their threshold, the generic-tell ban list, the render-and-screenshot gate, the 10-criterion score sheet, and the mapping from a low score to the thing to change. Not for picking a component (that is the DS-first check in /pb:build §3a).
+user-invocable: false
 ---
 
 # ref-design-compare
@@ -10,7 +11,9 @@ the choice is fake. **Two:** they are presented as "which do you prefer?", so th
 and nothing downstream can act on it. This contract closes both.
 
 Provenance: distilled from the design kit's `direction-variation-checklist.md`, `taste-checklist.md`
-and `specs/compare-rate-widget-spec.md`, whose rules came out of a real graded round.
+and `specs/compare-rate-widget-spec.md`, whose rules came out of a real graded round. In pb the widget
+is real: `pb/template/explore-compare.html`, served by `/pb:preview` at `/explore/<id>`, with
+`pb/tools/explore.py` as the gate.
 
 ## 1 · The divergence contract (before generating)
 
@@ -61,7 +64,9 @@ a bare `1fr` grid track sizes to its content's min-content width, not the contai
 `minmax(0, 1fr)` wherever a single-track grid holds text. That exact bug pushed rows ~52px past a
 phone's edge and clipped a status pill off-screen, and reading the CSS did not catch it.
 
-Presenting something you have not rendered yourself is the most common way this goes wrong.
+Presenting something you have not rendered yourself is the most common way this goes wrong. In pb:
+`explore.py check <id> --shots` renders every option and writes a desktop and a phone screenshot per
+option — open each image. Exit 3 (no Playwright) means the gate is **blocked**, not passed.
 
 ## 4 · The score sheet (presenting)
 
@@ -88,8 +93,11 @@ criteria nobody asked about.
 **Escalate** to a dozen hand-picked rows from the design kit's deep taste checklist when the stakes
 are high or the alternatives score close — pick the rows relevant to this brief, never all of them.
 
-Collect the result as a markdown table, criteria × alternatives, notes column, ending in an
-**Average** row. Unscored cells are `–`.
+Collect the result **on the compare page** (`/explore/<id>`), never as a table typed into chat: it
+holds the criteria × alternatives grid, a note per criterion and the **Average** row, and saves into
+`memory/explore/<id>.json`. "Copy as markdown" gives the table for a write-up; unscored cells are `–`.
+**Scoring is a gate** — `explore.py gate <id>` exits 0 only when every cell is scored, and no verdict
+is stated (and nothing promoted) before it does.
 
 ## 5 · Turning grades into changes
 

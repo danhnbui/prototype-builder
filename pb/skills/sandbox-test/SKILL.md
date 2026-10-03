@@ -1,6 +1,7 @@
 ---
 name: sandbox-test
 description: Drive the Product Builder Prototype sandbox to verify authored scenario tests — encode the test{} step/expect vocabulary, resolve targets against the live #proto-frame, run per-role and security passes, and write each scenario's lastResult. Use when running /pb:test so a scenario becomes a real, observed pass/fail. Not for authoring the scenarios (that is /pb:plan --flow's QA pass) or building screens (use /pb:build).
+user-invocable: false
 ---
 
 # sandbox-test

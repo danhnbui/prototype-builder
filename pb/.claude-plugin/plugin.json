@@ -1,6 +1,6 @@
 {
   "name": "pb",
-  "description": "Product Builder v2.0.1 — registry-backed prototype builder that projects one registry.json into two deterministic sites (a 4-tab prototype + a live design-system site), with a cheap build loop, a small memory layer, a design-system-agnostic core, a three-mode hand-off, an agent-powered testing sandbox, and a multi-agent orchestrator. Provides /pb:init, /pb:specify, /pb:clarify, /pb:plan, /pb:orchestrate, /pb:build, /pb:pull-ds, /pb:preview, /pb:test, /pb:explore, /pb:handoff, /pb:update-version.",
+  "description": "Product Builder v2.0.1 — registry-backed prototype builder that projects one registry.json into two deterministic sites (a 4-tab prototype + a live design-system site), with a cheap build loop, a small memory layer, a design-system-agnostic core, a three-mode hand-off, an agent-powered testing sandbox, and a multi-agent orchestrator. Provides /pb:init, /pb:specify, /pb:clarify, /pb:plan, /pb:orchestrate, /pb:build, /pb:pull-ds, /pb:preview, /pb:test, /pb:explore, /pb:handoff, /pb:update-version, /pb:report.",
   "version": "2.0.1",
   "author": {
     "name": "Danh (danhbnp)"

@@ -1,5 +1,5 @@
 ---
-description: Design the structure — the implementation plan, the per-tab task breakdown, and the first authoring of the flow and erd slices (wireflow + five-lens QA checklist; entity table + ERD with 5 guardrails). Routine changes need none of this: /pb:build reconciles flow and erd automatically on every trio write. Run this for first population and for restructuring.
+description: Design the structure — the implementation plan and the per-tab task breakdown, consuming the information architecture /pb:clarify chose at its G-IA gate (one task per planned screen and for the hub; --ia places one late job), and the first authoring of the flow and erd slices (wireflow + five-lens QA checklist; entity table + ERD with 5 guardrails). Routine changes need none of this: /pb:build reconciles flow and erd automatically on every trio write. Run this for first population and for restructuring.
 ---
 
 # /pb:plan
@@ -17,7 +17,8 @@ how the product flows and what it holds.
 ## Flags
 | Flag | Effect |
 |---|---|
-| *(none)* | Plan + tasks, then author `flow` and `erd` if either is unpopulated |
+| *(none)* | Plan + tasks, consuming the IA `/pb:clarify` chose (§2) — it stops and names `/pb:clarify` when none was chosen — then author `flow` and `erd` if either is unpopulated |
+| `--ia [<job-id>] [--into <screen-id>]` | Only §2b, placing a late job in the chosen IA. With `--into`: fold that job into an existing or planned screen. With a job id alone: ask where it goes, or plan one screen under the hub as it is. Bare: the same for every job no screen serves. Never regroups — that is `/pb:clarify` §1c |
 | `--flow` | Only author / restructure the `flow` slice |
 | `--data` | Only author / restructure the `erd` slice |
 | `--mock` | With the erd pass: also generate `erd.mock[]` data-set variants (§5c) |
@@ -35,18 +36,48 @@ Invoke `ref-prd` (structured context), `think-layout` (structure), `think-logic`
 `memory/spec.md` + `memory/constitution.md`. Produce `memory/plan.md`: the approach per user story,
 honoring the Stack + DS locks.
 
-## 2 · Map jobs to screens
-If `registry.ia.jobs[]` is populated (seeded by `/pb:init`), fill each job's `screens[]` with the screen
-ids that serve it. A job may be served by several screens, and a screen may serve several jobs — neither
-is a problem.
+## 2 · Consume the IA
+`/pb:clarify` §1c chooses the information architecture: N groupings of the approved jobs, scored on
+the compare page, one promoted at **▛ G-IA ▟**. This pass reads that choice and turns it into work. It
+never authors, regroups or re-derives it. `ref-ia` §6 says what `promote` wrote and what stays derived.
 
-Two outcomes are worth saying out loud in the plan rather than leaving for someone to notice:
-- **A job no screen serves** is scope the plan has not covered. List it, and either plan a screen for it
-  or fold it into one explicitly.
-- **A screen no job points at** is a screen nobody has justified. Ask whether it is needed.
+1. **Is there a chosen IA?** (The default path, `--replan` and `--ia` need one; `--flow` / `--data`
+   alone do not.) If `ia.jobs[]` is empty, `ia.populated` is false, or no grouping was promoted
+   (`ia.layers[]` is empty) → **stop** before writing anything and say: *No approved IA — run
+   `/pb:clarify` (the jobs at G-JTBD, then the grouping at G-IA), then re-run `/pb:plan`.* Never derive
+   jobs from `memory/spec.md` and never draft a grouping here: a structure nobody scored is the
+   failure §1c exists to prevent.
+2. **Read it.** `ia.jobs[].screens[]` (existing and planned screen ids per job), `ia.layers[]` (one
+   purpose per depth) and `meta.navHub` (the hub). The promoted slot's `.ia.json`, archived beside its
+   manifest under `memory/explore/_closed/`, gives each planned screen's `name`, `depth`, `parent` and
+   `purpose`, and the hub's `items[]`.
+3. **The IA's tasks.** One task per **planned screen that has no `screens[]` entry yet** — slice
+   `screen`, agent `pb-builder`; its acceptance names the jobs it serves, its parent and the layer
+   purpose it answers to. When `meta.navHub` names an id with no body yet, one task builds the hub
+   (slice `component`): its acceptance is the slot's `hub.items[]`, each a `{label, screen}` nav-item
+   literal the site map reads, and every planned screen's task depends on it. An existing screen the
+   IA moved (a new parent or depth) gets a `screen` task to re-wire its navigation; one it left in
+   place gets none.
+4. **Say the gaps out loud** in the plan rather than leaving them for someone to notice:
+   - **A job the IA left unhandled** is scope this plan does not cover. List it, with
+     `/pb:plan --ia <job-id>` as the way to place it later.
+   - **A registry screen no job points at** is a screen nobody has justified. Ask whether it is needed.
+5. **Link both directions.** Give each `flow.stories[]` entry a `jobs[]` list of the ids it exercises.
+   Leave the story's prose `jtbd` untouched — a narrative and a standing need are not the same thing.
 
-Link both directions: give each `flow.stories[]` entry a `jobs[]` list of the ids it exercises. Leave the
-story's prose `jtbd` untouched — a narrative and a standing need are not the same thing.
+### 2b · A late job — `--ia [<job-id>] [--into <screen-id>]`
+A job approved after the IA was chosen, or one it left unhandled, is **placed, never regrouped**:
+- `--ia <job-id> --into <screen-id>` → add `<screen-id>` to that job's `screens[]`. The screen must be
+  in `screens[]` or already planned in another job's `screens[]`.
+- `--ia <job-id>` → ask which screen it folds into. When none fits, plan **one** new screen under an
+  existing parent, at a depth `ia.layers[]` already names, and add its `screen` task.
+- `--ia` alone → the same for every job no screen serves, one at a time. A job G-IA left out on
+  purpose is confirmed with the user before it is placed.
+- A job that needs a new hub item or a new layer, or that moves another job, is a regrouping →
+  **stop** and name `/pb:clarify` §1c.
+
+It writes that job's `screens[]` (slice `ia`) and nothing else in the IA: never `ia.layers[]`, never
+`meta.navHub`. Record the placement in `memory/plan.md`.
 
 ## 3 · Task breakdown (grouped by tab)
 Invoke `agent-orchestrate-tasks`. Produce `memory/tasks.md` — tasks grouped by the 4 prototype tabs
@@ -57,7 +88,12 @@ Invoke `agent-orchestrate-tasks`. Produce `memory/tasks.md` — tasks grouped by
 - **agent** — which of the 8 `pb-*` agents runs it, routed by `slice`.
 - **deps** — comma-separated task ids that must finish first, or `none`.
 - **slice** — the one registry slice it touches: `screen` · `component` · `logic` · `tokens` · `flow` ·
-  `erd` · `meta`.
+  `erd` · `ia` · `meta`.
+
+§2's tasks land here: a `screen` task per planned screen, a `component` task for a hub not yet built.
+What the IA left open is not invented as work: a job to place later is an `ia` task (agent
+`pb-clarifier`, running `/pb:plan --ia <job-id>`), and a missing layer purpose or a regrouping goes
+back to `/pb:clarify` §1c.
 
 These five fields are what `/pb:orchestrate` reads to dispatch each task in dependency waves. Plan a
 `flow` or `erd` task **only** for work the reconcile will not do: first population, a re-authored QA
@@ -192,11 +228,14 @@ realistic and type-appropriate. The always-present "Schema" chip shows the field
 ---
 
 ## Result
-`memory/plan.md` + `memory/tasks.md`, and whichever of `flow` / `erd` this run authored. Then
+`memory/plan.md` + `memory/tasks.md` (with the IA's screen and hub tasks), each story's `jobs[]`, a late
+job's `screens[]` under `--ia`, and whichever of `flow` / `erd` this run authored. Then
 `/pb:build --render` to see it. Next: `/pb:build` (one slice at a time) or `/pb:orchestrate` (the whole
 plan in agent waves).
 
 ## NEVER
+- NEVER author, regroup or re-derive the IA — no jobs drafted from `memory/spec.md`, no `ia.layers[]`,
+  no `meta.navHub`. With no chosen IA, stop and name `/pb:clarify`; `--ia` places one job, nothing more.
 - NEVER violate a flow rule (a defect, not a style choice); NEVER omit the checklist — it is what makes
   the tab testable.
 - NEVER use emojis / HTML / Title Case / ALL CAPS in node labels; NEVER mix flow directions.

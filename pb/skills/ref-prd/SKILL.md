@@ -1,6 +1,7 @@
 ---
 name: ref-prd
-description: Parse a product requirements doc (a file the user points at, or a short Q&A) into structured project context for Product Builder. Use at the start of a prototype — loaded by /pb:init and /pb:specify — to turn a PRD or feature brief into a clean objective, personas, key screens, and success criteria the rest of the /pb:* commands consume. Not for critiquing the PRD (use think-critique-prd) or deciding what to ask (use think-clarify).
+description: Parse a product requirements doc (a file the user points at, or a short Q&A) into structured project context for Product Builder. Use at the start of a prototype — loaded by /pb:init and /pb:plan — to turn a PRD or feature brief into a clean objective, personas, key screens, and success criteria the rest of the /pb:* commands consume. Not for critiquing the PRD (use think-critique-prd) or deciding what to ask (use think-clarify).
+user-invocable: false
 ---
 
 # ref-prd

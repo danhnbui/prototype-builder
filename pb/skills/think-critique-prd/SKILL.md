@@ -1,6 +1,7 @@
 ---
 name: think-critique-prd
 description: Push back on a PRD or feature brief before building — surface unclear goals, missing personas, assumption gaps, unrealistic scope, and missing edge cases. Use when reviewing requirements in Product Builder — loaded by /pb:init and /pb:specify — so the prototype is built on solid intent, not silent assumptions. Not for parsing the PRD into context (use ref-prd) or deciding what to ask the user (use think-clarify).
+user-invocable: false
 ---
 
 # think-critique-prd
