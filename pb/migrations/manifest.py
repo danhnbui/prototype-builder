@@ -5,7 +5,9 @@ CURRENT_SCHEMA is the single source of truth for the registry contract
 (8 = DTCG tokens, 9 = required atomic level / component-first,
 10 = anatomy/spec/usage/uiLogic externalized to spec/ sidecars via specSrc,
 11 = the logic contract via logicSrc + the `ia` slice + registry.runtime[],
-12 = meta.tradeoffs[] collapsed into ia.rules[] as decision-carrying rules).
+12 = meta.tradeoffs[] collapsed into ia.rules[] as decision-carrying rules,
+13 = component spec sidecars in the Specs-plugin shape — anatomy/layout/elements/shape,
+measured by tools/spec_measure.py).
 It is intentionally decoupled from the plugin's SemVer in plugin.json:
   - Plugin SemVer bumps on any release (features, fixes, docs, refactors).
   - CURRENT_SCHEMA bumps ONLY when the registry/template contract changes
@@ -34,7 +36,7 @@ Phase 3–4 non-goals (see docs/version-updates.md):
 import importlib.util
 import os
 
-CURRENT_SCHEMA = 12
+CURRENT_SCHEMA = 13
 
 # Ordered registry: (FROM, TO, filename_stem).
 # Add a new tuple here when authoring a new migration.
@@ -49,6 +51,7 @@ _REGISTRY = [
     (9, 10, "0008_externalize_spec"),
     (10, 11, "0009_logic_contract"),
     (11, 12, "0010_tradeoff_rules"),
+    (12, 13, "0011_specs_shape"),
 ]
 
 

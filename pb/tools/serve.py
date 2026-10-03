@@ -23,17 +23,31 @@ with the traceback instead of crashing the server; fix + save and it reloads cle
 
 Stdlib only — no pip install, matching render.py and the project's no-heavy-deps stance.
 
+Routes (one server, one port): /  the prototype · /design-system  the component workbench ·
+/explore/<target>  a /pb:explore compare-and-rate page · /explore/<target>/<slot>  one option,
+rendered in memory with its candidate bodies swapped in (a page round: /explore/<target>/<path> is
+the file memory/explore/<target>/<path>) · POST /__pb_explore/<target>/scores · GET /__pb_health
+which registry this server shows — what `explore.py link` checks, beside the .preview/server.json
+record this server writes next to the registry on start and removes on exit ·
+POST /api/meta  the Project settings dialog's save (localhost + same-origin only; see Handler). Written
+under slice.py's registry lock and replace-atomically; every bad request is a 400 with a message, a
+busy registry a 503, a response may carry `warnings`.
+
 Usage:
   python3 serve.py [registry.json] [--port N] [--host H] [--shell PATH]
                    [--write [--out PATH]] [--no-open]
 """
-import argparse, glob, json, mimetypes, os, socket, sys, threading, time, traceback, webbrowser
+import argparse, glob, importlib, json, mimetypes, os, re, signal, socket, sys, threading, time, traceback, unicodedata, urllib.parse, webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from html import escape as _esc
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))  # import sibling render.py
 import render
+import explore  # /pb:explore's manifests — served at /explore/<target> on this same port
+# slice.py is the registry's one write path for a targeted patch. Imported by name through
+# importlib because `import slice` would shadow the builtin of the same name in this module.
+pbslice = importlib.import_module("slice")
 
 
 def log(msg):
@@ -62,6 +76,153 @@ def inject_reload(html):
     return html if i == -1 else html[:i] + LIVE_RELOAD + html[i:]
 
 
+def inject_explore(html, payload):
+    """`window.PB_EXPLORE` for the shell's Sandbox → Explore row, set before the shell's own
+    script runs. Served HTML only — an exploration is scratch and never reaches prototype.html."""
+    tag = "<script>window.PB_EXPLORE=%s;</script>" % json.dumps(
+        payload, ensure_ascii=False, separators=(",", ":")).replace("</", "<\\/")
+    i = html.find("<head")
+    j = html.find(">", i) if i != -1 else -1
+    return html if j == -1 else html[:j + 1] + tag + html[j + 1:]
+
+
+# What the page needs to know about the server it came from. Its presence is how the Project
+# settings dialog tells "served by /pb:preview, so Save can write" from a shared file (file://)
+# or a plain static server, where the same dialog is read-only. Served HTML only.
+PREVIEW_API = {"meta": "/api/meta"}
+
+
+def inject_preview_api(html):
+    tag = "<script>window.PB_PREVIEW=%s;</script>" % json.dumps(PREVIEW_API, separators=(",", ":"))
+    i = html.find("<head")
+    j = html.find(">", i) if i != -1 else -1
+    return html if j == -1 else html[:j + 1] + tag + html[j + 1:]
+
+
+# POST /api/meta — the three project fields the Project settings dialog edits, and nothing else.
+META_MAX_BYTES = 64 * 1024
+META_BODY_TIMEOUT = 3.0       # seconds the body of a settings save may take to arrive
+SCORES_MAX_BYTES = 1024 * 1024  # POST /__pb_explore/<id>/scores: a sheet of scores + notes is larger than a settings save
+JSON_MAX_DEPTH = 64            # a settings save nests 2 deep and a score sheet 4; past this it is not a payload
+_JSON_STRING = re.compile(r'"(?:[^"\\]|\\.)*"')
+FIGMA_FILE_RE = re.compile(r"^https://(www\.)?figma\.com/(file|design)/\S+$")
+LOOPBACK_ADDRS = ("127.0.0.1", "::1", "::ffff:127.0.0.1")
+LOOPBACK_HOSTS = ("127.0.0.1", "localhost", "[::1]")
+# A value that is a name or a link carries no control (Cc), format/invisible (Cf) or lone-surrogate
+# (Cs) characters: they are how a line-break, a bidi override or a zero-width space gets into a
+# registry field, a command line the read-only dialog prints, or a Figma library name — and a lone
+# surrogate cannot even be written as UTF-8.
+META_BAD_CATEGORIES = ("Cc", "Cf", "Cs")
+META_LINK_WARNING = ("designSystem.designLink: not a figma.com/file/… or figma.com/design/… link — "
+                     "kept as it was; hand-off and the Figma push will not use it")
+
+
+def _json_too_deep(text, limit=JSON_MAX_DEPTH):
+    """True when JSON text nests past `limit`, counted before parsing so the answer does not depend on
+    the Python version: 3.11's parser raises RecursionError on deep input, 3.14's parses it."""
+    depth = 0
+    for ch in re.findall(r"[\[\]{}]", _JSON_STRING.sub("", text)):
+        if ch in "[{":
+            depth += 1
+            if depth > limit:
+                return True
+        else:
+            depth -= 1
+    return False
+
+
+class MetaError(ValueError):
+    def __init__(self, msg, status=400):
+        super().__init__(msg)
+        self.status = status
+
+
+def _bad_char(value, categories=META_BAD_CATEGORIES):
+    """The first character of `value` in one of the Unicode `categories` (default Cc/Cf/Cs), as
+    'U+200B', or None."""
+    for ch in value:
+        if unicodedata.category(ch) in categories:
+            return "U+%04X" % ord(ch)
+    return None
+
+
+def validate_meta_payload(payload, existing_link=None, warnings=None):
+    """The dialog's three fields → a meta patch. Raises MetaError with the message the dialog
+    shows beside the field; nothing outside these three keys is accepted or written.
+
+    `existing_link` is the designLink already in the registry. A link that is not a Figma file
+    link is an error when it is NEW — but one the project already carries, sent back unchanged
+    (the dialog always sends all three fields), is kept with a warning appended to `warnings`:
+    refusing it would make the project's name and design-system name impossible to edit. That
+    exemption comes BEFORE the character check: an existing link that carries a control or invisible
+    character must not block saving the names either — it is kept as it was, with the warning. A
+    link that is CHANGED (or any Figma link) is still refused for such a character. A lone surrogate
+    is refused in every case: the registry cannot be written as UTF-8 with one in it."""
+    if not isinstance(payload, dict):
+        raise MetaError("payload must be a JSON object")
+    extra = sorted(set(payload) - {"name", "designSystem"})
+    if extra:
+        raise MetaError("unexpected field(s): %s" % ", ".join(extra))
+    name = payload.get("name")
+    if not isinstance(name, str) or not name.strip():
+        raise MetaError("name: required")
+    ds = payload.get("designSystem")
+    if not isinstance(ds, dict):
+        raise MetaError("designSystem: must be an object with name and designLink")
+    extra = sorted(set(ds) - {"name", "designLink"})
+    if extra:
+        raise MetaError("designSystem: unexpected field(s): %s" % ", ".join(extra))
+    ds_name = ds.get("name")
+    if not isinstance(ds_name, str) or not ds_name.strip():
+        raise MetaError("designSystem.name: Required — hand-off and Figma push need it")
+    link = ds.get("designLink", "")
+    if link is None:
+        link = ""
+    if not isinstance(link, str):
+        raise MetaError("designSystem.designLink: must be a string")
+    name, ds_name, link = name.strip(), ds_name.strip(), link.strip()
+    # An unchanged non-Figma link is the one value this check lets through as it is.
+    kept_link = bool(link) and not FIGMA_FILE_RE.match(link) and isinstance(existing_link, str) \
+        and link == existing_link.strip()
+    for field, value in (("name", name), ("designSystem.name", ds_name), ("designSystem.designLink", link)):
+        bad = _bad_char(value, ("Cs",) if kept_link and field == "designSystem.designLink" else META_BAD_CATEGORIES)
+        if bad:
+            raise MetaError("%s: must not contain control, invisible or invalid characters (%s)" % (field, bad))
+    if link and not FIGMA_FILE_RE.match(link):
+        if kept_link:
+            if warnings is not None:
+                warnings.append(META_LINK_WARNING)
+        else:
+            raise MetaError("designSystem.designLink: must be a figma.com/file/… or figma.com/design/… link")
+    if len(name) > 200 or len(ds_name) > 200 or len(link) > 2000:
+        raise MetaError("a value is too long")
+    return {"name": name, "designSystem": {"name": ds_name, "designLink": link}}
+
+
+def save_meta(reg_path, payload, timeout=None):
+    """lock → load → validate against what the registry holds now → merge → atomic write. Returns
+    (the fields the dialog shows, warnings). The merge is slice.py's own (deep: every other key
+    under meta and meta.designSystem is kept); an emptied Figma link removes the key rather than
+    leaving an empty string a tool would read as a link. Raises MetaError (400), RegistryLocked,
+    or OSError/ValueError/SystemExit for an unreadable or unwritable registry."""
+    with pbslice.registry_lock(reg_path, "preview settings save", timeout=timeout):
+        reg = pbslice._load(reg_path)
+        meta = reg.setdefault("meta", {})
+        current = meta.get("designSystem") if isinstance(meta.get("designSystem"), dict) else {}
+        existing = current.get("designLink") if isinstance(current.get("designLink"), str) else None
+        warnings = []
+        patch = validate_meta_payload(payload, existing_link=existing, warnings=warnings)
+        if not isinstance(meta.get("designSystem"), dict):
+            meta.pop("designSystem", None)
+        pbslice._deep_merge(meta, patch)
+        if not meta["designSystem"].get("designLink"):
+            meta["designSystem"].pop("designLink", None)
+        pbslice._write(reg_path, reg)
+    ds = meta["designSystem"]
+    return ({"name": meta.get("name", ""),
+             "designSystem": {"name": ds.get("name", ""), "designLink": ds.get("designLink", "")}}, warnings)
+
+
 def error_page(detail, reg_path):
     """A dark, self-reloading error page shown when the current registry won't render."""
     return (
@@ -84,9 +245,12 @@ def error_page(detail, reg_path):
 class State:
     """Shared between the watcher thread and the request handler threads."""
 
-    def __init__(self, reg_path, shell_path, out_path, write, ds_shell_path=None, runtime_path=None):
+    def __init__(self, reg_path, shell_path, out_path, write, ds_shell_path=None, runtime_path=None,
+                 explore_shell_path=None):
         self.reg_path = reg_path
         self.shell_path = shell_path
+        self.explore_shell_path = explore_shell_path  # the /explore/<target> compare page template
+        self._slot_cache = {}                          # (target, slot) -> (version, html, err)
         self.ds_shell_path = ds_shell_path      # the design-system.html template (2nd site)
         self.runtime_path = runtime_path        # shared runtime.js injected into the DS site
         self.out_path = out_path
@@ -109,15 +273,17 @@ class State:
 
     @property
     def body_files(self):
-        """The v1.4 render-body files (render/**/*.js next to the registry), if any."""
+        """The v1.4 render-body files (render/**/*.js next to the registry) and their optional
+        stylesheets (render/**/*.css, via styleSrc), if any."""
         root = os.path.join(self.base_dir, "render")
-        return sorted(glob.glob(os.path.join(root, "**", "*.js"), recursive=True))
+        return sorted(glob.glob(os.path.join(glob.escape(root), "**", "*.js"), recursive=True)
+                      + glob.glob(os.path.join(glob.escape(root), "**", "*.css"), recursive=True))
 
     @property
     def runtime_files(self):
         """The schema-11 project modules (runtime/**/*.js) — edited like any other source."""
         root = os.path.join(self.base_dir, "runtime")
-        return sorted(glob.glob(os.path.join(root, "**", "*.js"), recursive=True))
+        return sorted(glob.glob(os.path.join(glob.escape(root), "**", "*.js"), recursive=True))
 
     @property
     def watched(self):
@@ -215,6 +381,74 @@ def render_ds_current(state):
     return html, err
 
 
+def render_slot(state, man, slot):
+    """One exploration option rendered in memory with its overlay → (html, err). Cached per
+    (target, slot) and invalidated by the same version counter the watcher bumps — a candidate
+    body lives under render/, so saving it reloads its frame like any other body."""
+    key = (man["target"], slot)
+    with state._cache_lock:
+        hit = state._slot_cache.get(key)
+        if hit and hit[0] == state.version:
+            return hit[1], hit[2]
+    html, err = None, None
+    try:
+        if man.get("mode") in ("goal", "ia"):
+            raise explore.ExploreError("a %s exploration has no bodies to render — see /explore/%s"
+                                       % (man.get("mode"), man["target"]))
+        html = explore.render_option(state.reg_path, state.shell_path, man, slot, state.runtime_path)
+    except explore.ExploreError as e:
+        err = str(e)
+    except FileNotFoundError as e:
+        err = "File not found: %s" % e
+    except render.RenderError as e:
+        err = "Render error in %s: %s" % (slot, e)
+    except Exception:
+        err = traceback.format_exc()
+    with state._cache_lock:
+        state._slot_cache[key] = (state.version, html, err)
+    return html, err
+
+
+def explore_compare(state, man):
+    """The compare-and-rate page: the template with this exploration's manifest inlined."""
+    try:
+        with open(state.explore_shell_path or "", encoding="utf-8") as f:
+            shell = f.read()
+    except OSError:
+        return error_page("compare template not found: %s" % state.explore_shell_path, state.reg_path)
+    try:
+        with open(state.reg_path, encoding="utf-8") as f:
+            reg = json.load(f)
+    except (OSError, ValueError):
+        reg = {}
+    meta = reg.get("meta") or {}
+    data = dict(man, projectName=meta.get("name") or "", devices=meta.get("devices") or [],
+                averages=explore.averages(man), missing=explore.missing_scores(man))
+    if man.get("mode") == "ia":   # each slot's parsed structure + the approved jobs it groups
+        data.update(explore.ia_page(state.base_dir, reg, man))
+    inlined = json.dumps(data, ensure_ascii=False, separators=(",", ":")).replace("</", "<\\/")
+    return render.inject_chrome(shell).replace("/*__PB_EXPLORE_SESSION__*/null", inlined, 1)
+
+
+def explore_index(state, note=""):
+    rows = "".join(
+        '<li><a href="/explore/%s">%s</a> <span>%s · %d options</span></li>' % (
+            _esc(s["target"]), _esc(s["target"]), _esc(s["mode"]), len(s["slots"]))
+        for s in explore.sessions(state.base_dir)) or "<li>No open explorations. Start one with <code>/pb:explore &lt;id&gt;</code>.</li>"
+    return ("<!DOCTYPE html><html lang=\"en\"><head><meta charset=\"utf-8\">"
+            "<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">"
+            "<title>Explorations</title><style>"
+            ":root{--bg:#f7f7f8;--fg:#1d1f23;--dim:#6b7280;--line:#e3e5e8;--accent:#2563eb}"
+            "@media (prefers-color-scheme:dark){:root{--bg:#16181b;--fg:#e8eaed;--dim:#9aa1ab;--line:#2b2f35;--accent:#7aa2ff}}"
+            "body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.6 system-ui,sans-serif}"
+            ".wrap{max-width:720px;margin:8vh auto;padding:0 16px}h1{font-size:20px}"
+            "ul{list-style:none;padding:0}li{padding:10px 0;border-bottom:1px solid var(--line)}"
+            "a{color:var(--accent);font-weight:600;text-decoration:none}span{color:var(--dim);margin-left:8px}"
+            "p{color:var(--dim)}</style></head><body><div class=\"wrap\">"
+            "<h1>Explorations</h1>%s<ul>%s</ul><p><a href=\"/\">← The live prototype</a></p></div></body></html>"
+            % ("<p>%s</p>" % _esc(note) if note else "", rows))
+
+
 def _mtime(path):
     try:
         return os.path.getmtime(path)
@@ -254,11 +488,16 @@ class Handler(BaseHTTPRequestHandler):
         except (BrokenPipeError, ConnectionResetError, OSError):
             return False
 
-    def _send(self, body, ctype="text/html; charset=utf-8", status=200):
+    def _send(self, body, ctype="text/html; charset=utf-8", status=200, close=False):
         self.send_response(status)
         self.send_header("Content-Type", ctype.replace("\r", "").replace("\n", ""))
         self.send_header("Content-Length", str(len(body)))
         self.send_header("Cache-Control", "no-store")
+        if close:
+            # A request body we did not read is still in the socket; on a kept-alive connection
+            # its bytes would be parsed as the next request. Say so and hang up.
+            self.send_header("Connection", "close")
+            self.close_connection = True
         self.end_headers()
         self._write(body)
 
@@ -266,25 +505,208 @@ class Handler(BaseHTTPRequestHandler):
         path = self.path.split("?", 1)[0]
         if path == "/__pb_events":
             return self.serve_events()
+        if path == "/__pb_health":   # names a local path, so this machine only (--host may bind wider)
+            if self.client_address[0] not in LOOPBACK_ADDRS:
+                return self._send(b"404 not found", ctype="text/plain", status=404)
+            return self._json({"ok": True, "app": "pb-preview", "registry": self.state.reg_path,
+                               "pid": os.getpid(), "version": render.plugin_version()})
         if path in ("/", "/index.html"):
             return self.serve_preview()
         if path in ("/design-system", "/design-system/", "/design-system.html"):
             return self.serve_ds()
+        if path == "/explore" or path.startswith("/explore/"):
+            return self.serve_explore([p for p in path.split("/")[2:] if p])
         if path == "/favicon.ico":
             return self._send(b"", ctype="image/x-icon", status=204)
         return self.serve_static(path)
 
     def serve_preview(self):
         html, err = render_current(self.state)
+        if err is None:
+            html = inject_explore(html, {"sessions": explore.sessions(self.state.base_dir), "current": None})
+            html = inject_preview_api(html)
         body = (error_page(err, self.state.reg_path) if err is not None
                 else inject_reload(html)).encode("utf-8")
         self._send(body)
+
+    # ── /pb:explore — one compare page per exploration, on this server (never another port) ──
+    def serve_explore(self, parts):
+        st = self.state
+        if not parts:
+            return self._send(explore_index(st).encode("utf-8"))
+        target = parts[0]
+        try:
+            man = explore.load_manifest(st.base_dir, target)
+        except explore.ExploreError as e:
+            return self._send(explore_index(st, str(e)).encode("utf-8"), status=404)
+        if len(parts) == 1:
+            return self._send(explore_compare(st, man).encode("utf-8"))
+        if man.get("mode") == "pages":
+            return self.serve_explore_page(man, parts[1:])
+        slot = parts[1]
+        html, err = render_slot(st, man, slot)
+        if err is not None:
+            return self._send(error_page(err, st.reg_path).encode("utf-8"),
+                              status=404 if err.startswith("no slot") else 200)
+        html = inject_explore(html, {"sessions": explore.sessions(st.base_dir),
+                                     "current": {"target": target, "slot": slot}})
+        self._send(inject_reload(html).encode("utf-8"))
+
+    def serve_explore_page(self, man, rest):
+        """A page round's files, as they are on disk under memory/explore/<target>/ — so an option
+        page's relative links (its own css, ../shared/…) resolve on this same port. A bare slot
+        (/explore/<target>/<slot>, what Sandbox → Explore opens) redirects to that slot's page."""
+        target = man["target"]
+        opt = next((o for o in man.get("options", []) if o.get("slot") == rest[0]), None) if len(rest) == 1 else None
+        if opt and opt.get("page") and opt["page"].strip("/") != rest[0]:
+            self.send_response(302)
+            self.send_header("Location", "/explore/%s/%s" % (target, opt["page"].lstrip("/")))
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+            return
+        root = (Path(self.state.base_dir) / explore.EXPLORE_DIR / target).resolve()
+        try:
+            # relative_to() raises ValueError on traversal; resolve() expands symlinks first
+            candidate = (root / "/".join(urllib.parse.unquote(p) for p in rest)).resolve()
+            candidate.relative_to(root)
+        except ValueError:
+            return self._send(b"403 forbidden", ctype="text/plain", status=403)
+        if candidate.is_dir():
+            candidate = candidate / "index.html"
+        try:
+            data = candidate.read_bytes()
+        except OSError:
+            return self._send(b"404 not found", ctype="text/plain", status=404)
+        self._send(data, ctype=mimetypes.guess_type(str(candidate))[0] or "application/octet-stream")
+
+    def do_POST(self):
+        path = self.path.split("?", 1)[0]
+        if path == "/api/meta":
+            return self.post_meta()
+        parts = [p for p in path.split("/") if p]
+        if len(parts) != 3 or parts[0] != "__pb_explore" or parts[2] != "scores":
+            return self._send(b"404 not found", ctype="text/plain", status=404, close=True)
+        return self.post_scores(parts[1])
+
+    def post_scores(self, target):
+        """POST /__pb_explore/<id>/scores — the compare page's save. It writes the exploration's
+        manifest, so it is held to the same three doors as POST /api/meta (a loopback peer, a loopback
+        Host, this page's own Origin) and reads its body the same way: a Content-Length that is not a
+        plain number, a body over the limit or that stops arriving, JSON nested until the parser gives
+        up — each a 400 with a message, never a traceback and never a thread held open."""
+        self._body_read = False
+        try:
+            why = self._local_same_origin()
+            if why:
+                return self._json({"ok": False, "error": why}, status=403, close=True)
+            payload = self._meta_body(SCORES_MAX_BYTES)
+            if not isinstance(payload, dict):
+                raise explore.ExploreError("payload must be a JSON object", explore.EXIT_USAGE)
+            with self.state._cache_lock:   # one writer at a time; the manifest write is atomic
+                man = explore.load_manifest(self.state.base_dir, target)
+                man = explore.apply_scores(man, payload)
+                explore.save_manifest(self.state.base_dir, man)
+            out = {"ok": True, "missing": explore.missing_scores(man), "averages": explore.averages(man)}
+            self._json(out)
+        except (explore.ExploreError, ValueError) as e:      # MetaError is a ValueError
+            self._json({"ok": False, "error": str(e)},
+                       status=getattr(e, "status", 400), close=not self._body_read)
+        except OSError as e:
+            self._json({"ok": False, "error": "could not write the scores (%s)" % e},
+                       status=500, close=not self._body_read)
+
+    def _json(self, obj, status=200, close=False):
+        self._send(json.dumps(obj, ensure_ascii=False).encode("utf-8"),
+                   ctype="application/json; charset=utf-8", status=status, close=close)
+
+    def _local_same_origin(self):
+        """A write to registry.json is only for the person at this machine, from this page.
+        Three checks, each closing a different door: the peer is loopback (another machine on
+        the LAN, when --host binds wider); the Host header names a loopback host (DNS rebinding,
+        where an attacker's name resolves to 127.0.0.1); and the Origin is this server itself
+        (any other page open in the same browser — a cross-site POST carries its own Origin)."""
+        if self.client_address[0] not in LOOPBACK_ADDRS:
+            return "only accepted from this machine"
+        host = (self.headers.get("Host") or "").strip().lower()
+        hostname = host.rsplit(":", 1)[0] if not host.startswith("[") else host.split("]")[0] + "]"
+        if hostname not in LOOPBACK_HOSTS:
+            return "only accepted on a loopback host"
+        origin = (self.headers.get("Origin") or "").strip().lower()
+        if origin != "http://" + host:
+            return "only accepted from this preview's own page"
+        return None
+
+    def _meta_body(self, max_bytes=META_MAX_BYTES):
+        """The request body of a settings or scores POST, read and parsed — or a MetaError with the message
+        the dialog shows. Every way a client can get this wrong ends here as a 400: a Content-Length
+        that is not a plain number, missing, or over the limit; a body that is not UTF-8 or not
+        JSON; JSON nested past JSON_MAX_DEPTH, or a number too long for the parser."""
+        raw = (self.headers.get("Content-Length") or "").strip()
+        if not re.fullmatch(r"[0-9]{1,12}", raw):
+            raise MetaError("Content-Length must be a plain number of bytes" if raw else "payload missing")
+        n = int(raw)
+        if n <= 0:
+            raise MetaError("payload missing")
+        if n > max_bytes:
+            raise MetaError("payload too large (limit %d KB)" % (max_bytes // 1024))
+        # A client that promises n bytes and sends fewer must not hold this thread forever.
+        self.connection.settimeout(META_BODY_TIMEOUT)
+        try:
+            data = self.rfile.read(n)
+        except OSError:                       # socket.timeout is one
+            data = b""
+        finally:
+            self.connection.settimeout(None)
+        if len(data) < n:
+            raise MetaError("payload incomplete: Content-Length said %d bytes, %d arrived" % (n, len(data)))
+        self._body_read = True
+        try:
+            text = data.decode("utf-8")
+        except UnicodeDecodeError:
+            raise MetaError("payload is not valid JSON")
+        if _json_too_deep(text):
+            raise MetaError("payload is nested too deeply")
+        try:
+            return json.loads(text)
+        except json.JSONDecodeError:
+            raise MetaError("payload is not valid JSON")
+        except RecursionError:                # the depth check above should make this unreachable
+            raise MetaError("payload is nested too deeply")
+        except ValueError:
+            raise MetaError("payload is not valid JSON (a number is too long)")
+
+    def post_meta(self):
+        """POST /api/meta — {name, designSystem:{name, designLink}} → registry.meta, written
+        through slice.py under the registry lock; returns the saved fields (and `warnings`, a list,
+        when something was kept that a person should know about). The watcher sees the new mtime
+        and live-reloads every open page, so the dialog's own re-render and the reload agree.
+        Whatever goes wrong is a JSON error with a message and a status — never a traceback."""
+        self._body_read = False
+        try:
+            why = self._local_same_origin()
+            if why:
+                return self._json({"ok": False, "error": why}, status=403, close=True)
+            payload = self._meta_body()
+            meta, warnings = save_meta(self.state.reg_path, payload)
+        except MetaError as e:
+            return self._json({"ok": False, "error": str(e)}, status=e.status, close=not self._body_read)
+        except pbslice.LockFileUnsafe as e:       # not "try again": something is sitting where the lock goes
+            return self._json({"ok": False, "error": str(e)}, status=500, close=not self._body_read)
+        except pbslice.RegistryLocked as e:
+            return self._json({"ok": False, "error": str(e)}, status=503, close=not self._body_read)
+        except (OSError, ValueError, SystemExit) as e:
+            return self._json({"ok": False, "error": "could not write registry.json (%s)" % e},
+                              status=500, close=not self._body_read)
+        out = {"ok": True, "meta": meta}
+        if warnings:
+            out["warnings"] = warnings
+        self._json(out)   # the watcher sees the new mtime and reloads pages
 
     def serve_ds(self):
         """The design-system site (component workbench) — the second projection of the registry."""
         html, err = render_ds_current(self.state)
         body = (error_page(err, self.state.reg_path) if err is not None
-                else inject_reload(html)).encode("utf-8")
+                else inject_reload(inject_preview_api(html))).encode("utf-8")
         self._send(body)
 
     def serve_events(self):
@@ -360,6 +782,29 @@ def make_server(host, port, explicit):
     sys.exit("pb-serve: no free port near %d (%s)." % (port, last))
 
 
+def write_server_record(path, rec):
+    """.preview/server.json — where `explore.py link` finds this server. Best effort: a read-only
+    project still serves; link then starts one of its own."""
+    try:
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        tmp = path + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(rec, f, indent=2)
+        os.replace(tmp, path)
+    except OSError as e:
+        log("  ⚠ could not write %s (%s) — explore.py link will not find this server" % (path, e))
+
+
+def drop_server_record(path):
+    """Remove the record on exit — only if it is still ours (another server may have started since)."""
+    try:
+        with open(path, encoding="utf-8") as f:
+            if json.load(f).get("pid") == os.getpid():
+                os.remove(path)
+    except (OSError, ValueError, AttributeError):
+        pass
+
+
 def startup_summary(reg_path):
     try:
         with open(reg_path, encoding="utf-8") as f:
@@ -377,6 +822,7 @@ def main():
     default_shell = os.path.normpath(os.path.join(here, "..", "template", "prototype.html"))
     default_ds_shell = os.path.normpath(os.path.join(here, "..", "template", "design-system.html"))
     default_runtime = os.path.normpath(os.path.join(here, "..", "template", "runtime.js"))
+    default_explore_shell = os.path.normpath(os.path.join(here, "..", "template", "explore-compare.html"))
 
     ap = argparse.ArgumentParser(
         prog="pb-serve",
@@ -420,7 +866,8 @@ def main():
 
     ds_shell_path = os.path.abspath(args.ds_shell) if (args.ds_shell and os.path.isfile(args.ds_shell)) else None
     runtime_path = os.path.abspath(args.runtime) if (args.runtime and os.path.isfile(args.runtime)) else None
-    state = State(reg_path, shell_path, out_path, args.write, ds_shell_path, runtime_path)
+    state = State(reg_path, shell_path, out_path, args.write, ds_shell_path, runtime_path,
+                  default_explore_shell if os.path.isfile(default_explore_shell) else None)
     Handler.state = state
 
     explicit_port = ("--port" in sys.argv) or any(a.startswith("--port=") for a in sys.argv)
@@ -443,7 +890,8 @@ def main():
     log("  prototype %s" % url)
     if ds_shell_path and runtime_path:
         log("  design    %sdesign-system  ·  the component workbench" % url)
-    log("  watching  registry.json, shells, render.py, render/**/*.js, runtime/**/*.js — saving any reloads the browser")
+    log("  explore   %sexplore  ·  /pb:explore options side by side, rated in the page" % url)
+    log("  watching  registry.json, shells, render.py, render/**/*.{js,css}, runtime/**/*.js — saving any reloads the browser")
     log("  to disk   %s" % ("ON → %s" % rel(out_path) if args.write
                             else "off (in-memory preview; --write to update prototype.html)"))
 
@@ -456,11 +904,17 @@ def main():
     if not args.no_open:
         threading.Thread(target=lambda: (time.sleep(0.4), webbrowser.open(url)), daemon=True).start()
 
+    record = os.path.join(state.base_dir, explore.SERVER_FILE)
+    write_server_record(record, {"url": url, "host": args.host, "port": port, "pid": os.getpid(),
+                                 "registry": reg_path, "startedAt": explore._now()})
+    # A plain kill (SIGTERM) unwinds like Ctrl-C, so the record goes with the server.
+    signal.signal(signal.SIGTERM, lambda *_: sys.exit(0))
     try:
         httpd.serve_forever()
     except KeyboardInterrupt:
         pass
     finally:
+        drop_server_record(record)
         state.stop.set()
         state.bump()  # wake SSE streams so they exit promptly
         httpd.shutdown()

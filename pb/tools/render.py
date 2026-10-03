@@ -32,7 +32,7 @@ class RenderError(Exception):
     """
 
 
-def load_bodies(reg, base_dir):
+def load_bodies(reg, base_dir, overrides=None):
     """Resolve `renderSrc` file references into in-memory `render` strings.
 
     v1.4 (schema 4) moves render bodies out of the registry into real `.js` files
@@ -43,13 +43,21 @@ def load_bodies(reg, base_dir):
 
     A `renderSrc` pointing at a missing file raises RenderError (NS6 — never silently
     an empty function). Returns a NEW dict; the input is not mutated.
+
+    `overrides` ({renderSrc: other path, both relative to base_dir}) reads a body from somewhere
+    else WITHOUT touching the registry: `/pb:explore` renders each candidate this way, against the
+    real registry and the real base_dir. It used to render a temporary registry copy instead, and
+    because every relative path resolves against the registry's own folder, a copy written anywhere
+    else failed on its first renderSrc — and the model fell back to writing the HTML by hand.
     """
     reg = copy.deepcopy(reg)
+    swap = {os.path.normpath(k): v for k, v in (overrides or {}).items()}
     for kind in ("components", "screens"):
         for item in reg.get(kind, []):
             src = item.get("renderSrc")
             if not src:
                 continue
+            src = swap.get(os.path.normpath(src), src)
             path = os.path.normpath(os.path.join(base_dir, src))
             try:
                 with open(path, encoding="utf-8") as f:
@@ -57,6 +65,21 @@ def load_bodies(reg, base_dir):
             except FileNotFoundError:
                 raise RenderError(
                     "renderSrc not found for %s %r: %s" % (kind[:-1], item.get("id"), src))
+        # The optional stylesheet beside a body (render/styles/<id>.css) — where a component or
+        # screen says how it changes across device sizes. Inline style="" cannot hold a container
+        # query, so without this a body had no way to be responsive at all.
+        for item in reg.get(kind, []):
+            src = item.get("styleSrc")
+            if not src:
+                continue
+            src = swap.get(os.path.normpath(src), src)
+            path = os.path.normpath(os.path.join(base_dir, src))
+            try:
+                with open(path, encoding="utf-8") as f:
+                    item["style"] = f.read()
+            except FileNotFoundError:
+                raise RenderError(
+                    "styleSrc not found for %s %r: %s" % (kind[:-1], item.get("id"), src))
     return reg
 
 
@@ -166,7 +189,7 @@ def _logic_key(base_dir):
     try:
         parts = []
         paths = [os.path.join(base_dir, "registry.json")] + sorted(
-            glob.glob(os.path.join(base_dir, "render", "**", "*.js"), recursive=True))
+            glob.glob(os.path.join(glob.escape(base_dir), "render", "**", "*.js"), recursive=True))
         paths.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), "logic_extract.py"))
         for path in paths:
             st = os.stat(path)
@@ -307,6 +330,40 @@ def _render_fn_bodies(reg):
     return bodies, missing
 
 
+def load_product_css():
+    """pb/template/product.css minus its file header — the project's responsive base (size-class
+    utilities, the `pb-screen` containers). Missing file → "" so a stripped-down install renders."""
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "template", "product.css")
+    try:
+        text = open(path, encoding="utf-8").read()
+    except OSError:
+        return ""
+    if text.lstrip().startswith("/*"):
+        end = text.find("*/")
+        if end >= 0:
+            text = text[end + 2:]
+    return text.strip("\n")
+
+
+def _product_css_js(reg):
+    """One <style id="pb-product-css">: product.css, then every `styleSrc` sheet (components
+    before screens, so a screen can override a component it places). Emitted as a script that
+    writes the sheet, because it rides the render-body slot both shells already have — no new
+    marker, and the preview server and /pb:explore overlays get it for free. Kept OUT of
+    _render_fn_bodies: lint's --exec gate runs those bodies in node, where there is no document."""
+    sheets = [load_product_css()]
+    for kind in ("components", "screens"):
+        for item in reg.get(kind, []):
+            if item.get("style"):
+                sheets.append("/* %s %s */\n%s" % (kind[:-1], item.get("id"), item["style"]))
+    css = "\n".join(s for s in sheets if s)
+    if not css:
+        return ""
+    return ("\n    (function(){var s=document.getElementById('pb-product-css');"
+            "if(!s){s=document.createElement('style');s.id='pb-product-css';document.head.appendChild(s);}"
+            "s.textContent=%s;})();\n" % json.dumps(css, ensure_ascii=False).replace("</", "<\\/"))
+
+
 _RUNTIME_DEPS_MARK = "<!--__PB_RUNTIME_DEPS__-->"
 
 
@@ -364,11 +421,12 @@ def html_escape_attr(value):
 
 
 def _strip_render(reg):
-    """A deep copy of reg with the bulky `render` strings removed (they're emitted separately)."""
+    """A deep copy of reg with the bulky `render` / `style` strings removed (emitted separately)."""
     reg_inline = copy.deepcopy(reg)
     for kind in ("components", "screens"):
         for item in reg_inline.get(kind, []):
             item.pop("render", None)
+            item.pop("style", None)
     return reg_inline
 
 
@@ -416,6 +474,35 @@ def shared_runtime(text):
     return "\n".join(lines[i:]).rstrip("\n")
 
 
+# The tool's own foundation (pb/template/chrome.css), injected into every shell at this marker —
+# the same one-copy-on-disk mechanism runtime.js uses. A shell without the marker is an older one
+# that carries its own styles: leave it alone (fail open, never block a render).
+_CHROME_MARK = "/*__PB_CHROME__*/"
+
+
+def load_chrome_css():
+    """chrome.css minus its file header (the header addresses whoever edits chrome.css, and
+    shipping it inside every rendered artifact says nothing to the reader of that file).
+    Missing file → "" so a stripped-down install still renders."""
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "template", "chrome.css")
+    try:
+        text = open(path, encoding="utf-8").read()
+    except OSError:
+        return ""
+    if text.lstrip().startswith("/*"):
+        end = text.find("*/")
+        if end >= 0:
+            text = text[end + 2:]
+    return text.strip("\n")
+
+
+def inject_chrome(shell):
+    """Fill a shell's /*__PB_CHROME__*/ marker with the tool foundation. Pure; no marker → no-op."""
+    if _CHROME_MARK not in shell:
+        return shell
+    return shell.replace(_CHROME_MARK, load_chrome_css(), 1)
+
+
 def build_html(reg, shell, version="unknown", logic=None, runtime_js="",
                project_js="", project_deps=()):
     """Render a registry dict + shell HTML string into the populated prototype HTML.
@@ -433,7 +520,7 @@ def build_html(reg, shell, version="unknown", logic=None, runtime_js="",
     #    project's declared runtime modules ahead of them — a module a body calls at load time
     #    must already be defined, and this single insertion point is what guarantees the order.
     bodies, missing = _render_fn_bodies(reg)
-    bodies = (project_js or "") + bodies
+    bodies = _product_css_js(reg) + (project_js or "") + bodies
 
     # 2) inline the registry (without the bulky render strings) into PB_REGISTRY
     reg_inline = _strip_render(reg)
@@ -453,6 +540,7 @@ def build_html(reg, shell, version="unknown", logic=None, runtime_js="",
     # without the marker is an older one that still carries its own copy: leave it alone.
     if runtime_js and "/*__PB_RUNTIME__*/" in shell:
         shell = shell.replace("/*__PB_RUNTIME__*/", shared_runtime(runtime_js), 1)
+    shell = inject_chrome(shell)
 
     anchor = "    const PB_DATA = adaptRegistryToPBData(PB_REGISTRY);"
     if anchor not in shell:
@@ -559,7 +647,7 @@ def _find_catalog(base_dir, reg):
     import glob as _glob
     name = (reg.get("meta") or {}).get("designSystem", {}).get("name")
     cands = ([os.path.join(base_dir, "design-system", name, "ds-catalog.json")] if name else []) \
-        + _glob.glob(os.path.join(base_dir, "design-system", "*", "ds-catalog.json"))
+        + _glob.glob(os.path.join(_glob.escape(base_dir), "design-system", "*", "ds-catalog.json"))
     for p in cands:
         if os.path.isfile(p):
             try:
@@ -567,6 +655,57 @@ def _find_catalog(base_dir, reg):
             except (OSError, json.JSONDecodeError):
                 pass
     return None
+
+
+_PBUSE_RE = re.compile(r"""pbUse\(\s*['"]([^'"]+)['"]""")
+# A render body's leading comment, in the convention the bodies use: `/* <id> — <purpose>. props: …`
+_PURPOSE_RE = re.compile(r"^\s*/\*+\s*([\w.-]+)\s+[\u2014\u2013]\s+(.+?)(?:\.\s|\.?\s*props:|\.?\s*\*/|\.?\n)")
+
+
+def _ds_annotations(reg):
+    """What the design-system site shows that the registry does not state outright, derived from
+    the render bodies (which the inlined registry drops): for each component, the screens that
+    render it — directly or through a parent that pbUse()s it — in registry order, and its
+    one-line purpose from the body's leading comment when the component has no `description`.
+    Pure and deterministic: id → {"usedIn": [...], "bodyPurpose": str?}."""
+    comps = [c for c in reg.get("components", []) or [] if isinstance(c, dict) and c.get("id")]
+    kids = {c["id"]: set(_PBUSE_RE.findall(c.get("render") or "")) for c in comps}
+
+    def closure(start):
+        seen, todo = set(), list(start)
+        while todo:
+            cid = todo.pop()
+            if cid in seen:
+                continue
+            seen.add(cid)
+            todo.extend(kids.get(cid, ()))
+        return seen
+
+    out = {c["id"]: {"usedIn": []} for c in comps}
+    for s in reg.get("screens", []) or []:
+        if not isinstance(s, dict) or not s.get("id"):
+            continue
+        for cid in sorted(closure(_PBUSE_RE.findall(s.get("render") or ""))):
+            if cid in out:
+                out[cid]["usedIn"].append(s["id"])
+    for c in comps:
+        m = _PURPOSE_RE.match(c.get("render") or "")
+        if m and m.group(1) == c["id"]:
+            text = m.group(2).strip()
+            out[c["id"]]["bodyPurpose"] = text[:1].upper() + text[1:] + ("" if text.endswith(".") else ".")
+    return out
+
+
+def _ds_styles(reg):
+    """component id → the text of its `styleSrc` sheet, for the design-system site's Code view.
+    `_strip_render` drops `style` from the inlined registry (it is emitted once, as the shared
+    <style id="pb-product-css">), so the CSS pane gets its own small map. Pure and deterministic:
+    registry order, only components that have a sheet."""
+    out = {}
+    for c in reg.get("components", []) or []:
+        if isinstance(c, dict) and c.get("id") and isinstance(c.get("style"), str) and c["style"].strip():
+            out[c["id"]] = c["style"]
+    return out
 
 
 def build_ds_html(reg, ds_shell, runtime_js, nodes_by_id, version="unknown",
@@ -580,9 +719,16 @@ def build_ds_html(reg, ds_shell, runtime_js, nodes_by_id, version="unknown",
     body calls a project module at render time cannot demo without it, and a demo that throws is
     the failure mode this site exists to catch."""
     bodies, missing = _render_fn_bodies(reg)
-    bodies = (project_js or "") + bodies
-    inlined = json.dumps(_strip_render(reg), ensure_ascii=False, separators=(",", ":")).replace("</", "<\\/")
+    bodies = _product_css_js(reg) + (project_js or "") + bodies
+    styles = _ds_styles(reg)
+    inline_reg = _strip_render(reg)
+    notes = _ds_annotations(reg)
+    for c in inline_reg.get("components", []) or []:
+        for k, v in notes.get(c.get("id") if isinstance(c, dict) else None, {}).items():
+            c.setdefault(k, v)
+    inlined = json.dumps(inline_reg, ensure_ascii=False, separators=(",", ":")).replace("</", "<\\/")
     nodes = json.dumps(nodes_by_id, ensure_ascii=False, separators=(",", ":")).replace("</", "<\\/")
+    css_map = json.dumps(styles, ensure_ascii=False, separators=(",", ":")).replace("</", "<\\/")
     for marker in ("/*__PB_REGISTRY_START__*/", "/*__PB_NODES_START__*/", "/*__PB_RUNTIME__*/", "/*__PB_RENDER_FNS__*/"):
         if marker not in ds_shell:
             raise RenderError("design-system shell is missing the %s marker" % marker)
@@ -592,7 +738,13 @@ def build_ds_html(reg, ds_shell, runtime_js, nodes_by_id, version="unknown",
     html = re.sub(r"/\*__PB_NODES_START__\*/.*?/\*__PB_NODES_END__\*/",
                   lambda m: "/*__PB_NODES_START__*/" + nodes + "/*__PB_NODES_END__*/",
                   html, count=1, flags=re.S)
+    # The Code view's CSS pane. Optional marker: a shell older than the workbench has none, and its
+    # page simply has no CSS to show (fail open, as inject_chrome does).
+    html = re.sub(r"/\*__PB_STYLES_START__\*/.*?/\*__PB_STYLES_END__\*/",
+                  lambda m: "/*__PB_STYLES_START__*/" + css_map + "/*__PB_STYLES_END__*/",
+                  html, count=1, flags=re.S)
     html = html.replace("/*__PB_RUNTIME__*/", shared_runtime(runtime_js), 1)
+    html = inject_chrome(html)
     html = html.replace("/*__PB_RENDER_FNS__*/", bodies, 1)
     if project_deps:
         html = html.replace(_RUNTIME_DEPS_MARK, "\n".join(project_deps), 1)

@@ -36,6 +36,7 @@ Usage:
 Exit: 0 ok / in-sync · 2 usage or IO error · 3 drift detected (--drift only)
 """
 import argparse
+import importlib
 import json
 import os
 import sys
@@ -43,6 +44,7 @@ from datetime import datetime, timezone
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import tokens as _tokens  # noqa: E402  (sibling module; the DTCG token resolver)
+pbslice = importlib.import_module("slice")  # the registry write path: lock + atomic write (`import slice` shadows the builtin)
 
 # display-kind grouping order for the DS reference (DTCG $type=dimension is split by name)
 _KINDS_ORDER = ["color", "font", "fontWeight", "fontSize", "space", "size", "radius",
@@ -166,55 +168,60 @@ def _render_reference_md(name, tokens, components):
 
 
 def clone(export, registry_path, name=None, overwrite_tokens=False):
-    reg = _load(registry_path)
-    name = name or export.get("name") or reg.get("meta", {}).get("designSystem", {}).get("name") or "design-system"
-    source = export.get("source") or {"type": "common", "ref": name}
-    platform = export.get("platform", "web")
-    ex_tokens = _normalize_tokens(export.get("tokens", {}))
-    ex_components = export.get("components", [])
+    # A read-modify-write of registry.json: the registry is read INSIDE the lock (a copy loaded before
+    # it could be stale by the time the write lands) and written atomically. A held lock is refused
+    # (RegistryLocked — main reports it) rather than overwritten.
+    if not os.path.isfile(registry_path):
+        _load(registry_path)                  # raises FileNotFoundError; no lock file is made for nothing
+    with pbslice.registry_lock(registry_path, "clone_ds"):
+        reg = _load(registry_path)
+        name = name or export.get("name") or reg.get("meta", {}).get("designSystem", {}).get("name") or "design-system"
+        source = export.get("source") or {"type": "common", "ref": name}
+        platform = export.get("platform", "web")
+        ex_tokens = _normalize_tokens(export.get("tokens", {}))
+        ex_components = export.get("components", [])
 
-    # 1 · merge tokens, leaf-wise (additive by default) — a nested export merges one token at
-    #     a time into the matching group, so overlapping trees compose instead of colliding.
-    reg.setdefault("tokens", {})
-    buckets = {"added": [], "updated": [], "skipped": []}
-    for tpath, tval in _leaf_map(ex_tokens).items():
-        buckets[_set_leaf(reg["tokens"], tpath, tval, overwrite_tokens)].append(tpath)
-    added, updated, skipped = buckets["added"], buckets["updated"], buckets["skipped"]
-    total = len(_leaf_map(_normalize_tokens(reg["tokens"])))
+        # 1 · merge tokens, leaf-wise (additive by default) — a nested export merges one token at
+        #     a time into the matching group, so overlapping trees compose instead of colliding.
+        reg.setdefault("tokens", {})
+        buckets = {"added": [], "updated": [], "skipped": []}
+        for tpath, tval in _leaf_map(ex_tokens).items():
+            buckets[_set_leaf(reg["tokens"], tpath, tval, overwrite_tokens)].append(tpath)
+        added, updated, skipped = buckets["added"], buckets["updated"], buckets["skipped"]
+        total = len(_leaf_map(_normalize_tokens(reg["tokens"])))
 
-    # 2 · meta provenance
-    meta = reg.setdefault("meta", {})
-    ds = meta.setdefault("designSystem", {"name": "", "designLink": None, "codeLibrary": None, "linked": False})
-    ds["name"] = name
-    if source.get("type") == "figma":
-        ds["designLink"] = source.get("ref")
-    elif source.get("type") == "code-library":
-        ds["codeLibrary"] = source.get("ref")
-    ds["linked"] = bool(ds.get("name") and (ds.get("codeLibrary") or ds.get("designLink")))
-    meta["platform"] = platform
-    clonedAt = _now()
-    meta["dsSource"] = {"type": source.get("type"), "ref": source.get("ref"), "clonedAt": clonedAt}
+        # 2 · meta provenance
+        meta = reg.setdefault("meta", {})
+        ds = meta.setdefault("designSystem", {"name": "", "designLink": None, "codeLibrary": None, "linked": False})
+        ds["name"] = name
+        if source.get("type") == "figma":
+            ds["designLink"] = source.get("ref")
+        elif source.get("type") == "code-library":
+            ds["codeLibrary"] = source.get("ref")
+        ds["linked"] = bool(ds.get("name") and (ds.get("codeLibrary") or ds.get("designLink")))
+        meta["platform"] = platform
+        clonedAt = _now()
+        meta["dsSource"] = {"type": source.get("type"), "ref": source.get("ref"), "clonedAt": clonedAt}
 
-    # 3 + 4 · write DS reference + provenance snapshot
-    dsdir = _ds_dir(registry_path, name)
-    os.makedirs(dsdir, exist_ok=True)
-    with open(os.path.join(dsdir, f"{name}.md"), "w", encoding="utf-8") as f:
-        f.write(_render_reference_md(name, ex_tokens, ex_components))
-    snapshot = {"name": name, "platform": platform, "source": source, "clonedAt": clonedAt,
-                "tokens": ex_tokens, "components": ex_components}
-    with open(os.path.join(dsdir, ".source.json"), "w", encoding="utf-8") as f:
-        json.dump(snapshot, f, indent=2, sort_keys=True)
+        # 3 + 4 · write DS reference + provenance snapshot
+        dsdir = _ds_dir(registry_path, name)
+        os.makedirs(dsdir, exist_ok=True)
+        with open(os.path.join(dsdir, f"{name}.md"), "w", encoding="utf-8") as f:
+            f.write(_render_reference_md(name, ex_tokens, ex_components))
+        snapshot = {"name": name, "platform": platform, "source": source, "clonedAt": clonedAt,
+                    "tokens": ex_tokens, "components": ex_components}
+        with open(os.path.join(dsdir, ".source.json"), "w", encoding="utf-8") as f:
+            json.dump(snapshot, f, indent=2, sort_keys=True)
 
-    # The DS Bridge "Scan DS" catalog (portable publish keys + variables), if the export carries
-    # it — the source of truth registry_to_figma.py reads for INSTANCE keys + variable refs (WS3).
-    catalog = export.get("catalog")
-    wrote_catalog = isinstance(catalog, dict)
-    if wrote_catalog:
-        with open(os.path.join(dsdir, "ds-catalog.json"), "w", encoding="utf-8") as f:
-            json.dump(catalog, f, indent=2, ensure_ascii=False)
+        # The DS Bridge "Scan DS" catalog (portable publish keys + variables), if the export carries
+        # it — the source of truth registry_to_figma.py reads for INSTANCE keys + variable refs (WS3).
+        catalog = export.get("catalog")
+        wrote_catalog = isinstance(catalog, dict)
+        if wrote_catalog:
+            with open(os.path.join(dsdir, "ds-catalog.json"), "w", encoding="utf-8") as f:
+                json.dump(catalog, f, indent=2, ensure_ascii=False)
 
-    with open(registry_path, "w", encoding="utf-8") as f:
-        json.dump(reg, f, indent=2)
+        pbslice._write(registry_path, reg)
 
     print(f"✓ cloned DS '{name}' ({platform}) from {source.get('type')}:{source.get('ref')}")
     print(f"  tokens: +{len(added)} added, {len(updated)} updated, {len(skipped)} unchanged "
@@ -286,6 +293,9 @@ def main(argv=None):
         if args.src:
             return clone(_load(args.src), registry, args.name, args.overwrite_tokens)
         return drift(_load(args.drift_src), registry, args.name)
+    except pbslice.RegistryLocked as e:
+        print(f"clone_ds: {e}", file=sys.stderr)
+        return 2
     except (OSError, json.JSONDecodeError) as e:
         print(f"clone_ds: {e}", file=sys.stderr)
         return 2

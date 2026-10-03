@@ -100,12 +100,19 @@ Usage:  logic_extract.py <project-dir> [--shell <prototype.html>] [--out <file>]
 Exit:   0 always (this is a graph dump, not a gate — pb/tools/logic_check.py gates).
 """
 import collections
+import contextlib
 import glob
 import hashlib
+import importlib
 import json
 import os
 import re
 import sys
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+# importlib because `import slice` would shadow the builtin of the same name in this module
+# (serve.py does the same). slice.py is the registry's write path: the lock + the atomic write.
+pbslice = importlib.import_module("slice")
 
 # ───────────────────────── shared literals: string/comment scanning ──────────────
 
@@ -451,6 +458,12 @@ _NAV_TARGET_RES = (re.compile(r"data-nav=\\?[\"']([\w-]+)"),
                    re.compile(r"data-go=\\?[\"']([\w-]+)"),
                    re.compile(r"setProtoScreen\(\s*['\"]([\w-]+)"))
 _OVERLAY_RE = re.compile(r'drawer|modal|dialog|popover|sheet')
+# R-COMPOSE forbids a page from writing raw `data-nav`, so a compliant page names its target as
+# a PROP of the nav atom it composes — `pbUse('nav-item', {screen: 'home'})`. Those literals are
+# edges too. Only values that are real screen ids count (checked by the caller).
+_NAV_PROP_RE = re.compile(r"\b(?:screen|to|target|nav|go)\s*:\s*['\"]([\w-]+)['\"]")
+_HUB_KEYS = ('key', 'screen', 'to', 'target', 'nav', 'id')
+_OBJ_FIELD = re.compile(r"([A-Za-z_]\w*)\s*:\s*(['\"])((?:(?!\2).)*)\2")
 
 
 # ───────────────────────── registry / owner index ─────────────────────────────────
@@ -545,7 +558,8 @@ def extract(project_dir, shell_path=None):
     registry = _load_registry(project_dir)
     owner_index = build_owner_index(registry)
 
-    body_paths = sorted(glob.glob(os.path.join(project_dir, 'render', '*', '*.js')))
+    # glob.escape: a project folder named `[HR] Project` is a character class to glob, and matched nothing.
+    body_paths = sorted(glob.glob(os.path.join(glob.escape(project_dir), 'render', '*', '*.js')))
     # registry.runtime[] modules share the render bodies' script scope (render.py inlines them
     # first), so they are producers and definers here exactly like a render body. They are NOT
     # registry items, so they never reach items[] or a logic/ sidecar — see runtime_module_paths.
@@ -898,45 +912,78 @@ def _find_undefined(calls_index, defs_by_name, shell_defs, nested_names):
     return undefined
 
 
+def _hub_rels(registry, texts):
+    """The render bodies that hold the product's top-level navigation.
+
+    `meta.navHub` names them — one component id or a list (a desktop sidebar AND a mobile bottom
+    bar is common). Without it, fall back to a body named sidebar.js, which is the only hub the
+    extractor used to know: a project whose hub was `ff-bottom-nav` got no site map at all.
+    """
+    by_id = {}
+    for kind in ('components', 'screens'):
+        for it in registry.get(kind) or []:
+            if isinstance(it, dict) and it.get('id') and it.get('renderSrc'):
+                by_id[it['id']] = os.path.normpath(it['renderSrc'])
+    declared = (registry.get('meta') or {}).get('navHub')
+    declared = [declared] if isinstance(declared, str) else list(declared or [])
+    rels = [by_id[h] for h in declared if h in by_id and by_id[h] in texts]
+    if rels:
+        return rels, 'meta.navHub', [h for h in declared if h not in by_id or by_id[h] not in texts]
+    side = next((r for r in texts if r.replace('\\', '/').endswith('/sidebar.js')
+                 or r.replace('\\', '/') == 'render/components/sidebar.js'), None)
+    return ([side] if side else []), ('sidebar.js' if side else None), declared
+
+
+def _parse_hub(text, screen_ids):
+    """Nav items in a hub body: every flat object literal carrying a `label` and a target key
+    (`key`, `screen`, `to`, … — any order, either quote). Items inside a `children: [...]` array
+    are grouped under the label that precedes it."""
+    child_spans = []
+    for m in re.finditer(r"children:\s*\[", text):
+        depth, i = 1, m.end()
+        while i < len(text) and depth:
+            depth += {'[': 1, ']': -1}.get(text[i], 0)
+            i += 1
+        labels = re.findall(r"label:\s*['\"]([^'\"]*)['\"]", text[max(0, m.start() - 400):m.start()])
+        child_spans.append((m.start(), i, labels[-1] if labels else 'group'))
+
+    def span_of(pos):
+        return next((c for c in child_spans if c[0] <= pos < c[1]), None)
+
+    groups, group_order, top_items = {}, [], []
+    for m in re.finditer(r"\{[^{}]*\}", text):
+        fields = {k: v for k, _q, v in _OBJ_FIELD.findall(m.group(0))}
+        if 'label' not in fields:
+            continue
+        keys = [fields[k] for k in _HUB_KEYS if k in fields]
+        key = next((k for k in keys if k in screen_ids), keys[0] if keys else None)
+        if not key or not re.fullmatch(r'[\w-]+', key):
+            continue
+        entry = {'key': key, 'label': fields['label'].replace('\\n', ' '),
+                 'roles': (fields.get('roles') or '').split()}
+        span = span_of(m.start())
+        if span:
+            if span not in groups:
+                groups[span] = {'key': 'group:' + re.sub(r'\W+', '-', span[2].lower()),
+                                'label': span[2], 'roles': [], 'children': []}
+                group_order.append(span)
+            groups[span]['children'].append(entry)
+            groups[span]['roles'] = sorted(set(groups[span]['roles']) | set(entry['roles']))
+        else:
+            top_items.append((m.start(), entry))
+    merged = [(span[0], groups[span]) for span in group_order] + top_items
+    return [entry for _, entry in sorted(merged, key=lambda x: x[0])]
+
+
 def _build_nav(registry, texts, items):
     screen_ids = {s['id'] for s in registry.get('screens') or [] if isinstance(s, dict)}
-    sidebar_rel = next((r for r in texts if r.replace('\\', '/').endswith('/sidebar.js')
-                        or r.replace('\\', '/') == 'render/components/sidebar.js'), None)
-    hubs = []
-    if sidebar_rel:
-        text = texts[sidebar_rel]
-        item_rx = re.compile(r"\{\s*key:\s*'([\w-]+)'\s*,\s*label:\s*'([^']*)'[^{}]*?"
-                             r"(?:roles:\s*'([^']*)')?[^{}]*?\}")
-        child_spans = []
-        for m in re.finditer(r"children:\s*\[", text):
-            depth, i = 1, m.end()
-            while i < len(text) and depth:
-                depth += {'[': 1, ']': -1}.get(text[i], 0)
-                i += 1
-            labels = re.findall(r"label:\s*'([^']*)'", text[max(0, m.start() - 400):m.start()])
-            child_spans.append((m.start(), i, labels[-1] if labels else 'group'))
-
-        def span_of(pos):
-            return next((c for c in child_spans if c[0] <= pos < c[1]), None)
-
-        groups = {}
-        group_order = []
-        top_items = []
-        for m in item_rx.finditer(text):
-            key, label, roles = m.group(1), m.group(2), (m.group(3) or '').split()
-            entry = {'key': key, 'label': label, 'roles': roles}
-            span = span_of(m.start())
-            if span:
-                if span not in groups:
-                    groups[span] = {'key': 'group:' + re.sub(r'\W+', '-', span[2].lower()),
-                                    'label': span[2], 'roles': [], 'children': []}
-                    group_order.append(span)
-                groups[span]['children'].append(entry)
-                groups[span]['roles'] = sorted(set(groups[span]['roles']) | set(roles))
-            else:
-                top_items.append((m.start(), entry))
-        merged = [(span[0], groups[span]) for span in group_order] + top_items
-        hubs = [entry for _, entry in sorted(merged, key=lambda x: x[0])]
+    hub_rels, hub_source, hub_missing = _hub_rels(registry, texts)
+    hubs, seen_keys = [], set()
+    for rel in hub_rels:
+        for entry in _parse_hub(texts[rel], screen_ids):
+            if entry['key'] not in seen_keys:   # a sidebar and a bottom bar list the same tabs
+                seen_keys.add(entry['key'])
+                hubs.append(entry)
 
     composed_by = {it['id']: it['composedBy'] for it in items}
 
@@ -959,6 +1006,8 @@ def _build_nav(registry, texts, items):
         targets = set()
         for rx in _NAV_TARGET_RES:
             targets |= set(rx.findall(text))
+        if rel not in hub_rels:   # the hub's own items are layer 0, not edges between its tabs
+            targets |= set(_NAV_PROP_RE.findall(text))
         for target in targets & screen_ids:
             for src in screens_owning(owner_id):
                 if src != target:
@@ -992,6 +1041,22 @@ def _build_nav(registry, texts, items):
         for child in children.get(key, []):
             frontier.append((child, d + 1))
 
+    # The tree the site map and the Structure panel draw keeps only edges that go DEEPER. A back
+    # link ("‹ Programmes" on a detail screen) or a sideways one is still a real edge — it stays
+    # in `edges` — but as a tree edge it hung a top-level tab underneath its own child. Depth was
+    # computed from every edge above, so filtering here changes no screen's layer.
+    def _forward(a, b):
+        return a not in depth or b not in depth or depth[b] > depth[a]
+    children = {a: [b for b in kids if _forward(a, b)] for a, kids in children.items()}
+    children = {a: kids for a, kids in children.items() if kids}
+    for b in list(parent):
+        if not _forward(parent[b], b):
+            up = sorted(a for a, kids in children.items() if b in kids)
+            if up:
+                parent[b] = up[0]
+            else:
+                del parent[b]
+
     overlays = {}
     for s in registry.get('screens') or []:
         if not isinstance(s, dict) or not s.get('renderSrc'):
@@ -1001,8 +1066,21 @@ def _build_nav(registry, texts, items):
         overlays[s['id']] = sorted(c for c in composed if _OVERLAY_RE.search(c)
                                    and c not in ('drawer-footer', 'drawer-header'))
 
+    # Why the map would be blank, so the shell can say so instead of drawing nothing.
+    if depth:
+        reason = None
+    elif not hub_rels:
+        reason = 'no-hub'
+    elif not level0:
+        reason = 'hub-has-no-screens'
+    else:
+        reason = 'no-edges'
     return {
         'hubs': hubs,
+        'hubSource': hub_source,
+        'hubFiles': sorted(hub_rels),
+        'hubMissing': sorted(hub_missing),
+        'reason': reason,
         'edges': [list(e) for e in sorted(edges)],
         'parent': dict(sorted(parent.items())),
         'children': dict(sorted(children.items())),
@@ -1094,6 +1172,29 @@ def write_contracts(project_dir, graph, registry=None, dry_run=False):
         with open(reg_path, encoding='utf-8') as f:
             registry = json.load(f)
     derived = contracts(graph)
+    # Pointing the registry is a read-modify-write of registry.json, run from /pb:build while a
+    # preview server, a `slice.py set` or a version update may be writing it. So when this run will
+    # point anything, the whole refresh — sidecars and registry — happens under the registry lock: a
+    # held lock is refused up front (pbslice.RegistryLocked) with nothing written, not half-way. The
+    # pointers are then decided again against what the file holds once the lock is ours — the copy
+    # above may be seconds old — and written atomically. A run that points nothing takes no lock.
+    pointed = _point_registry(registry, derived)    # against the copy in hand: does this need the lock?
+    lock = (pbslice.registry_lock(reg_path, 'logic_extract --contracts')
+            if pointed and not dry_run else contextlib.nullcontext())
+    with lock:
+        written, unchanged = _write_sidecars(project_dir, derived, dry_run)
+        if pointed and not dry_run:
+            with open(reg_path, encoding='utf-8') as f:
+                fresh = json.load(f)
+            pointed = _point_registry(fresh, derived)
+            if pointed:
+                pbslice._write(reg_path, fresh)
+    return written, pointed, unchanged
+
+
+def _write_sidecars(project_dir, derived, dry_run):
+    """Merge each derived contract into its sidecar file (atomically — the preview watches these).
+    Returns (the relative paths written or that would be, the number left alone)."""
     written, unchanged = [], 0
     for rel, half in sorted(derived.items()):
         path = os.path.normpath(os.path.join(project_dir, rel))
@@ -1118,11 +1219,13 @@ def write_contracts(project_dir, graph, registry=None, dry_run=False):
         written.append(rel)
         if not dry_run:
             os.makedirs(os.path.dirname(path), exist_ok=True)
-            with open(path, 'w', encoding='utf-8') as f:
-                f.write(text)
+            pbslice.atomic_write_text(path, text)
+    return written, unchanged
 
-    # Point the registry at any contract it does not yet reference. Append-only, like
-    # lint_registry.sync_elements: a pointer is added, never changed and never removed.
+
+def _point_registry(registry, derived):
+    """Set `logicSrc` on every component/screen of `registry` that has a derived contract and no
+    pointer yet; returns the ids it set. Mutates `registry`."""
     pointed = []
     for kind, key in (('component', 'components'), ('screen', 'screens')):
         for entry in registry.get(key) or []:
@@ -1132,11 +1235,7 @@ def write_contracts(project_dir, graph, registry=None, dry_run=False):
             if rel in derived and not entry.get('logicSrc'):
                 entry['logicSrc'] = rel
                 pointed.append(entry['id'])
-    if pointed and not dry_run:
-        with open(reg_path, 'w', encoding='utf-8') as f:
-            json.dump(registry, f, indent=2, ensure_ascii=False)
-            f.write('\n')
-    return written, pointed, unchanged
+    return pointed
 
 
 # ───────────────────────── CLI ─────────────────────────────────────────────────
@@ -1161,7 +1260,11 @@ def main():
                  '       logic_extract.py <project-dir> --contracts [--dry-run]')
     graph = extract(args[0], shell_path=shell_path)
     if write_mode:
-        written, pointed, unchanged = write_contracts(args[0], graph, dry_run=dry_run)
+        try:
+            written, pointed, unchanged = write_contracts(args[0], graph, dry_run=dry_run)
+        except pbslice.RegistryLocked as e:
+            print('logic_extract: %s' % e, file=sys.stderr)
+            return 1
         verb = 'would refresh' if dry_run else 'refreshed'
         print('logic_extract: %s %d contract(s), %d unchanged, %d newly pointed at by the registry'
               % (verb, len(written), unchanged, len(pointed)))

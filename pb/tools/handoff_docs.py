@@ -177,6 +177,163 @@ def build_logic_md(reg, graph):
     return "\n".join(out).rstrip() + "\n"
 
 
+def _cell(v):
+    if isinstance(v, (dict, list)):
+        return _esc(json.dumps(v, ensure_ascii=False))
+    return _esc(v)
+
+
+def _table(head, rows):
+    out = ["", "| " + " | ".join(_esc(h) for h in head) + " |", "|" + "---|" * len(head)]
+    out += ["| " + " | ".join(r) + " |" for r in rows]
+    return out + [""]
+
+
+def _invariants_md(items):
+    rows = []
+    for i in items or []:
+        if not isinstance(i, dict):
+            continue
+        must = _esc(i.get("must"))
+        if i.get("code"):
+            must += " `%s`" % _esc(i["code"])
+        if i.get("message"):
+            must += " — “%s”" % _esc(i["message"])
+        by = _code(i["enforcedBy"] + "()") if i.get("enforcedBy") else (_code(i["enforcedIn"]) if i.get("enforcedIn") else "**nothing**")
+        rows.append([must, by, _cell(i.get("when") or "")])
+    return _table(["Must hold", "Enforced by", "When"], rows) if rows else []
+
+
+def _matrix_md(b):
+    cols = b.get("cols") or []
+    cells = b.get("cells") or {}
+    mark = lambda v: "✓" if v is True else ("—" if v is False or v is None else _esc(v))  # noqa: E731
+    return _table([b.get("rowLabel") or "role"] + cols,
+                  [[_esc(r)] + [mark((cells.get(r) or {}).get(c)) for c in cols] for r in b.get("rows") or []])
+
+
+def _block_md(b):
+    """One `blocks[]` entry (v2.1.0) as markdown — the same shapes the Logic tab draws."""
+    t = b.get("type")
+    out = ["**%s**" % _esc(b["title"])] if b.get("title") else []
+    if t == "cases":
+        inputs = b.get("inputs") if any(isinstance(r.get("when"), dict) for r in b.get("rows") or [] if isinstance(r, dict)) else None
+        head = ["#"] + (list(inputs) if inputs else [b.get("whenLabel") or "When"]) + [b.get("thenLabel") or "Then"]
+        rows = []
+        for n, r in enumerate([r for r in b.get("rows") or [] if isinstance(r, dict)], 1):
+            when = [_cell((r.get("when") or {}).get(i, "·")) for i in inputs] if inputs else [_cell(r.get("when"))]
+            rows.append([str(n)] + when + [_cell(r.get("then")) + (" (%s)" % _esc(r["tone"]) if r.get("tone") else "")])
+        if b.get("else") is not None:
+            e = b["else"]
+            rows.append([""] + ["*otherwise*"] + [""] * ((len(inputs) - 1) if inputs else 0)
+                        + [_cell(e.get("then") if isinstance(e, dict) else e)])
+        out += _table(head, rows)
+    elif t == "scope":
+        out += ["- **%s:** %s" % (_esc(b.get("actsLabel") or "Acts on"), _join(b.get("acts"), fmt=_esc, sep="; ")),
+                "- **%s:** %s" % (_esc(b.get("untouchedLabel") or "Leaves untouched"), _join(b.get("untouched"), fmt=_esc, sep="; ")), ""]
+    elif t == "placement":
+        out += _table([b.get("surfaceLabel") or "Surface", "Holds", "Never"],
+                      [[_esc(x.get("surface")), _join(x.get("holds"), fmt=_esc, sep="; "), _join(x.get("never"), fmt=_esc, sep="; ")]
+                       for x in b.get("surfaces") or [] if isinstance(x, dict)])
+    elif t == "matrix":
+        out += _matrix_md(b)
+    elif t == "validation":
+        out += _invariants_md(b.get("items"))
+    elif t == "formula":
+        out += ["", "```", str(b.get("expr") or ""), "```"]
+        out += ["- `%s` — %s" % (_esc(x.get("name")), _esc(x.get("means"))) for x in b.get("terms") or [] if isinstance(x, dict)]
+        ex = b.get("example") or {}
+        if ex:
+            ins = ", ".join("%s = %s" % (k, v) for k, v in (ex.get("inputs") or {}).items())
+            out.append("- *Example:* %s → **%s**" % (_esc(ins), _esc(ex.get("result"))))
+        out.append("")
+    elif t == "steps":
+        for n, x in enumerate(b.get("items") or [], 1):
+            out.append("%d. %s" % (n, _esc(x) if not isinstance(x, dict) else
+                                   "**%s**%s" % (_esc(x.get("label")), (" — " + _esc(x["detail"])) if x.get("detail") else "")))
+        out.append("")
+    elif t == "params":
+        out += _table(["Parameter", "Value", "Note"],
+                      [[_esc(x.get("name")), "%s%s" % (_esc(x.get("value")), (" " + _esc(x["unit"])) if x.get("unit") else ""), _esc(x.get("note") or "")]
+                       for x in b.get("items") or [] if isinstance(x, dict)])
+    elif t == "effects":
+        if b.get("writes"):
+            out.append("- **Writes:** %s" % _join(["store." + str(w).replace("store.", "") for w in b["writes"]]))
+        out += ["- **Also changes** %s — %s" % (_esc(x.get("screen") or x.get("on")), _esc(x.get("shows") or x.get("what")))
+                for x in b.get("ripple") or [] if isinstance(x, dict)]
+        out.append("")
+    elif t == "swatches":
+        out += _table(["State", "Means", "Token", "Value"],
+                      [[_esc(x.get("label")), _esc(x.get("meaning") or ""), "`%s`" % _esc(x["token"]) if x.get("token") else "",
+                        "`%s`" % _esc(x["value"]) if x.get("value") else ""]
+                       for x in b.get("items") or [] if isinstance(x, dict)])
+    elif t == "anatomy":
+        if b.get("sample"):
+            out += ["`%s`" % _esc(b["sample"]), ""]
+        out += _table(["#", "Part", "Name", "Rule"],
+                      [[str(i + 1), "`%s`" % _esc(x.get("text")), _esc(x.get("name") or ""),
+                        _esc(x.get("rule") or "") + ((" — " + _esc(x["note"])) if x.get("note") else "")]
+                       for i, x in enumerate(x for x in b.get("parts") or [] if isinstance(x, dict))])
+    elif t == "examples":
+        out += _table(["Input", "Renders as", "Note"],
+                      [[_esc(x.get("input") or ""), "`%s`" % _esc(x.get("output")), _esc(x.get("note") or "")]
+                       for x in b.get("items") or [] if isinstance(x, dict)])
+    else:
+        out += [_esc(b.get("text") or json.dumps(b, ensure_ascii=False)), ""]
+    return out
+
+
+def _rule_md(r):
+    """A rule as the Logic tab shows it: the lead, its structure, then how it was decided."""
+    out = [_h(3, _esc(r.get("title") or r.get("id") or "rule"))]
+    d = r.get("decision") if isinstance(r.get("decision"), dict) else {}
+    meta = ["`%s`" % _esc(r["id"])] if r.get("id") else []
+    if r.get("kind"):
+        meta.append(_esc(r["kind"]))
+    if d.get("status") == "superseded" or r.get("status") == "superseded":
+        meta.append("**superseded**%s" % ((" " + _esc(d.get("supersededOn") or r.get("supersededOn"))) if (d.get("supersededOn") or r.get("supersededOn")) else ""))
+    if meta:
+        out += [" · ".join(meta), ""]
+    if r.get("summary"):
+        out += [_esc(r["summary"]), ""]
+    for label, key in (("When", "when"), ("Then", "then"), ("Because", "why"),
+                       ("Shown in", "displayedIn")):
+        v = r.get(key)
+        if v:
+            out.append("- **%s** — %s" % (label, _join(v, fmt=_code) if isinstance(v, list) else _esc(v)))
+    states = r.get("states") or []
+    if states and isinstance(states[0], dict):
+        out += _table(["State", "Condition"], [[_esc(st.get("label") or st.get("key")), _esc(st.get("condition") or "")] for st in states])
+        if r.get("transitions"):
+            out.append("- **Transitions** — %s" % "; ".join("%s → %s" % (a, b) for a, b in
+                                                            (t for t in r["transitions"] if isinstance(t, list) and len(t) == 2)))
+    elif states:
+        out.append("- **States** — %s" % _join(states, fmt=_code))
+    if r.get("kind") == "matrix":
+        out += _matrix_md(r)
+    out += _invariants_md(r.get("invariants"))
+    for b in r.get("blocks") or []:
+        if isinstance(b, dict):
+            out += _block_md(b)
+    if d.get("chose") or d.get("why"):
+        lost = [o for o in (d.get("options") or []) if o != d.get("chose")] if isinstance(d.get("options"), list) else []
+        if d.get("question"):
+            out.append("- **Question** — %s" % _esc(d["question"]))
+        if d.get("chose"):
+            out.append("- **Decided** — %s%s" % (_esc(d["chose"]), (" (over %s)" % "; ".join(_esc(o) for o in lost)) if lost else ""))
+        if d.get("why"):
+            out.append("- **Why** — %s" % _esc(d["why"]))
+    open_ = d.get("stillOpen") if d.get("stillOpen") is not None else r.get("stillOpen")
+    for q in (open_ if isinstance(open_, list) else ([open_] if open_ else [])):
+        out.append("- **Still open** — %s" % _cell(q))
+    for label, key in (("Superseded by", "supersededBy"), ("Supersedes", "supersedes")):
+        v = d.get(key) or r.get(key)
+        if v:
+            out.append("- **%s** — %s" % (label, _join(v, fmt=_code) if isinstance(v, list) else _code(v)))
+    out.append("")
+    return out
+
+
 def build_rules_md(reg, graph, has_constitution=False):
     """What the product declares about itself — authored, never derived."""
     name = (reg.get("meta") or {}).get("name") or "(unnamed project)"
@@ -196,17 +353,7 @@ def build_rules_md(reg, graph, has_constitution=False):
             if not isinstance(r, dict):
                 out.append("- %s" % _esc(r))
                 continue
-            out.append(_h(3, _esc(r.get("title") or r.get("id") or "rule")))
-            if r.get("id"):
-                out.append("`%s`" % _esc(r["id"]))
-                out.append("")
-            for label, key in (("When", "when"), ("Then", "then"), ("Because", "why"),
-                               ("Shown in", "displayedIn"), ("States", "states")):
-                v = r.get(key)
-                if not v:
-                    continue
-                out.append("- **%s** — %s" % (label, _join(v, fmt=_code) if isinstance(v, list) else _esc(v)))
-            out.append("")
+            out += _rule_md(r)
     else:
         out.append(_h(2, "Declared rules"))
         out.append("None declared. Rules live in `registry.json` → `ia.rules[]`; author them with "
@@ -216,20 +363,23 @@ def build_rules_md(reg, graph, has_constitution=False):
     jobs = ia.get("jobs") if isinstance(ia, dict) else None
     if jobs:
         out.append(_h(2, "Jobs (%d)" % len(jobs)))
-        out += ["", "| Job | Surface |", "|---|---|"]
+        out += ["", "| Job | Roles | Surface |", "|---|---|---|"]
         for j in jobs:
             if isinstance(j, dict):
-                out.append("| %s | %s |" % (_esc(j.get("title") or j.get("id")), _join(j.get("screens"))))
+                text = ("When %s, I want to %s, so I can %s" % (j.get("when") or "…", j.get("want") or "…", j.get("so") or "…")
+                        if j.get("want") else (j.get("title") or j.get("id")))
+                out.append("| %s | %s | %s |" % (_esc(text), _join(j.get("roles"), fmt=_esc), _join(j.get("screens"))))
             else:
                 out.append("| %s | — |" % _esc(j))
 
     layers = ia.get("layers") if isinstance(ia, dict) else None
     if layers:
         out.append(_h(2, "Layers (%d)" % len(layers)))
-        out += ["", "| Layer | Kind |", "|---|---|"]
+        out += ["", "| Layer | Name | Purpose |", "|---|---|---|"]
         for lyr in layers:
             if isinstance(lyr, dict):
-                out.append("| %s | %s |" % (_esc(lyr.get("id") or lyr.get("title")), _code(lyr.get("kind"))))
+                out.append("| %s | %s | %s |" % (_esc(lyr.get("depth", lyr.get("id"))), _esc(lyr.get("name") or lyr.get("title") or ""),
+                                                 _esc(lyr.get("purpose") or lyr.get("kind") or "")))
             else:
                 out.append("| %s | — |" % _esc(lyr))
 

@@ -4,7 +4,7 @@ pb-orchestrate — turn a per-tab task breakdown into an ordered execution plan 
 
 Reads memory/tasks.md (authored by /pb:plan). Each task carries the fields /pb:plan now
 writes: `acceptance:`, `skill:`, and the newer `agent:` (one of the 8 pb-* agents), `deps:`
-(comma-separated task ids, or "none"), and `slice:` (screen|component|logic|tokens|flow|erd|meta).
+(comma-separated task ids, or "none"), and `slice:` (screen|component|logic|tokens|flow|erd|ia|meta).
 
 It topologically sorts the tasks into WAVES — a wave is every task whose dependencies are
 already satisfied by earlier waves, so independent tasks share a wave and can run in parallel.
@@ -35,7 +35,7 @@ AGENT_ROSTER = {
     "pb-flow", "pb-data", "pb-tester", "pb-reviewer",
 }
 # The registry slices a task may touch.
-SLICE_ENUM = {"screen", "component", "logic", "tokens", "flow", "erd", "meta"}
+SLICE_ENUM = {"screen", "component", "logic", "tokens", "flow", "erd", "ia", "meta"}
 
 # Best-effort skill → agent inference for a legacy tasks.md that predates `agent:`.
 SKILL_TO_AGENT = {

@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 """
-pb-agents-install — install the 8 pb-* subagents into a project's .claude/agents/.
+pb-agents-install — install the 9 pb-* subagents into a project's .claude/agents/.
+
+The roster: pb-clarifier · pb-planner · pb-builder · pb-design-system · pb-flow · pb-data ·
+pb-tester · pb-reviewer — the eight /pb:orchestrate routes tasks to — plus pb-explorer, which only
+/pb:explore dispatches (one per execution plan, on sonnet at xhigh effort).
 
 Copies every `pb-*.md` shipped in this plugin's `pb/agents/` into
 `<project-dir>/.claude/agents/`, creating the directory tree as needed. The upsert is
@@ -55,7 +59,7 @@ def main():
     project_dir = os.path.realpath(args.project_dir)
     dest_dir = os.path.join(project_dir, ".claude", "agents")
 
-    sources = sorted(glob.glob(os.path.join(src_dir, "pb-*.md")))
+    sources = sorted(glob.glob(os.path.join(glob.escape(src_dir), "pb-*.md")))
     if not sources:
         # Nothing to install (e.g. a stripped build). Not an error — succeed quietly.
         print(f"pb-agents-install: no pb-*.md agents found at {src_dir} — nothing to install.")
