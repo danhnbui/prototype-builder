@@ -576,8 +576,9 @@ class Handler(BaseHTTPRequestHandler):
             return
         root = os.path.realpath(os.path.join(self.state.base_dir, explore.EXPLORE_DIR, target))
         # realpath expands symlinks and `..` first, so anything that resolves outside the round is refused
-        candidate = os.path.realpath(os.path.join(root, "/".join(urllib.parse.unquote(p) for p in rest)))
-        if candidate != root and not candidate.startswith(root + os.sep):
+        rel = "/".join(urllib.parse.unquote(p) for p in rest).strip("/") or "index.html"
+        candidate = os.path.realpath(os.path.join(root, rel))
+        if not candidate.startswith(root + os.sep):
             return self._send(b"403 forbidden", ctype="text/plain", status=403)
         if os.path.isdir(candidate):
             candidate = os.path.join(candidate, "index.html")
