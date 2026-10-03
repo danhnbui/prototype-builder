@@ -1,0 +1,681 @@
+/* ==========================================================================
+   chrome.css — the TOOL's own foundation. One file, injected into all three
+   shells (prototype.html, design-system.html, explore-compare.html) at their
+   PB_CHROME marker by render.py / serve.py, exactly as runtime.js is.
+
+   Why it exists. The shells used to paint themselves with the PROJECT's tokens:
+   `applyRegistryTokens()` wrote the registry's `--brand` onto :root, so a project
+   whose brand is orange got an orange tab strip, and the tool looked like a
+   different application per project. Three shells also grew three unrelated token
+   vocabularies (`--brand`/`--neutral-*`, `--ds-*`, `--bg`/`--panel`), so even with
+   one project they disagreed — a near-miss accent, two radii, three typefaces.
+
+   The rule, now structural:
+     --pb-*      the TOOL's tokens. Defined here, never read from the registry,
+                 and `applyRegistryTokens()` refuses to overwrite them.
+     .pb-product the PROJECT's subtree. The registry's tokens are scoped to it, so
+                 the product is the only thing a project's colours can reach.
+   A project can be any colour and the tool does not change.
+
+   Raw colours and lengths live ONLY in the :root block below.
+   ========================================================================== */
+:root {
+  /* Two themes, one definition each. Every colour below is a light-dark() pair, so the OS picks
+     (System) unless the viewer chose: the shell's <head> bootstrap sets <html data-theme="light|dark">
+     from localStorage "pb-theme" before first paint, and window.pbSetTheme() changes it.
+     light-dark() resolves against the color-scheme of the element that USES the colour, which is
+     what keeps the product out of it: .pb-product, the device frames and the specimen stages say
+     `color-scheme: light`, so a --pb-* read anywhere inside them resolves to its light half. */
+  color-scheme: light dark;   /* no data-theme = follow the OS */
+
+  /* colour — low contrast, one ink. The tool is monochrome on purpose: the only saturated
+     pixels on any page are the product's (and, sparingly, a status). Every ink clears 4.5:1 on
+     page, surface and raised in both themes (ink-3: 5.41 light / 5.29 dark at the worst pair). */
+  --pb-page:    light-dark(#fbfbfc, #0e0f11);
+  --pb-surface: light-dark(#ffffff, #17181b);
+  --pb-raised:  light-dark(#ffffff, #1f2024);
+  --pb-stage:   light-dark(#f0f2f5, #0a0b0c);
+  --pb-wash:    light-dark(#eceef2, #24262b);
+  --pb-press:   light-dark(#e0e3e8, #2d3036);
+  --pb-hair:    light-dark(#e4e6ea, #2a2c30);
+  --pb-hair-2:  light-dark(#c9cdd4, #3c3f46);
+  --pb-ink:     light-dark(#23262d, #ededef);
+  --pb-ink-2:   light-dark(#4a505b, #a9acb4);
+  --pb-ink-3:   light-dark(#626874, #8f939c);
+  --pb-on-ink:  light-dark(#fbfbfc, #0e0f11);
+  --pb-scrim:   light-dark(rgb(35 38 45 / .30), rgb(0 0 0 / .60));
+  /* light-dark() takes colours only, so a shadow is its geometry around a themed colour */
+  --pb-shadow-c: light-dark(rgb(35 38 45 / .14), rgb(0 0 0 / .55));
+  --pb-shadow:    0 .625rem 1.875rem var(--pb-shadow-c);
+  --pb-shadow-sm: 0 .0625rem .1875rem var(--pb-shadow-c);
+  /* status — used sparingly, and only where it means something */
+  --pb-pass:    light-dark(#177443, #4cc38a);
+  --pb-pass-bg: light-dark(#e8f5ee, #12261c);
+  --pb-fail:    light-dark(#c42b2b, #ff7b72);
+  --pb-fail-bg: light-dark(#fdecec, #2c1618);
+  --pb-warn:    light-dark(#8a5b00, #e0b04a);
+  --pb-warn-bg: light-dark(#fbf3df, #2a2212);
+  --pb-info:    light-dark(#175cd3, #7cacf8);
+  --pb-info-bg: light-dark(#eef4fd, #14223a);
+
+  /* canvas — the paper and the ink of every diagram the tool draws (the wireflow, the ERD).
+     Light values are the pre-round-3 palette, except the two that failed AA and were darkened: the
+     screen blue (#2196f3 → #1976d2, its stroke #1565c0 → #0d47a1) and the yes-green (#16a34a → #15803d).
+     The dark half keeps each shape's HUE and re-grounds it: a deep tint of the hue, a bright stroke,
+     light text (every text/fill pair clears 4.5:1; every stroke clears 3:1 on the paper).
+     JS painters read the resolved values through pbCanvasPalette() (runtime.js) and repaint on
+     the window event `pb:themechange`. Shape names are the legend's: start (start/end), process
+     (the purple parallelogram; the pre-round-3 palette called it `input`), decision, screen (was
+     `action`), external (was `sub`: subprocess / external / data). */
+  --pb-canvas-bg:   light-dark(#fbfbfc, #0e0f11);
+  --pb-canvas-grid: light-dark(#e4e6ea, #2a2c30);
+  --pb-node-start-fill:      light-dark(#1c1f22, #ededef);
+  --pb-node-start-stroke:    light-dark(#1c1f22, #ededef);
+  --pb-node-start-text:      light-dark(#ffffff, #17181b);
+  --pb-node-process-fill:    light-dark(#7c3aed, #4c2a9e);
+  --pb-node-process-stroke:  light-dark(#6d28d9, #a78bfa);
+  --pb-node-process-text:    light-dark(#ffffff, #f1ecff);
+  --pb-node-decision-fill:   light-dark(#f6c000, #7a5a00);
+  --pb-node-decision-stroke: light-dark(#d99e00, #e0b04a);
+  --pb-node-decision-text:   light-dark(#1f2937, #fff4d1);
+  --pb-node-screen-fill:     light-dark(#1976d2, #0f4f8f);
+  --pb-node-screen-stroke:   light-dark(#0d47a1, #6cb4f5);
+  --pb-node-screen-text:     light-dark(#ffffff, #e8f3ff);
+  --pb-node-external-fill:   light-dark(#e5e7eb, #2d3036);
+  --pb-node-external-stroke: light-dark(#9ca3af, #8f939c);
+  --pb-node-external-text:   light-dark(#1f2937, #ededef);
+  --pb-edge-def:   light-dark(#1f2937, #b4b8c0);
+  --pb-edge-yes:   light-dark(#15803d, #4cc38a);
+  --pb-edge-no:    light-dark(#dc2626, #ff7b72);
+  --pb-edge-label: light-dark(#1f2937, #d4d7dd);
+  --pb-erd-fill:      light-dark(#ffffff, #17181b);
+  --pb-erd-row-alt:   light-dark(#f6f7f9, #1d1e22);
+  --pb-erd-stroke:    light-dark(#9aa0aa, #5b606a);
+  --pb-erd-head:      light-dark(#eceef2, #24262b);
+  --pb-erd-head-text: light-dark(#23262d, #ededef);
+  --pb-erd-text:      light-dark(#23262d, #ededef);
+  --pb-erd-line:      light-dark(#626874, #a9acb4);
+
+  /* spec layers — what the measurement overlay (pbSpecMount, runtime.js) draws over a live component:
+     margin orange (dashed), padding green, gap violet (hatched). The overlay sits on the product's light
+     island, so it resolves to the light half there in either theme (>= 4.5:1 on white); the Layers
+     control's swatches show the half that suits the tool's own theme. The pattern, not the hue alone,
+     says which band is which. */
+  --pb-spec-margin:  light-dark(#c2410c, #fb923c);
+  --pb-spec-padding: light-dark(#15803d, #4ade80);
+  --pb-spec-gap:     light-dark(#6d28d9, #a78bfa);
+
+  /* Fixed: the things drawn AROUND the product never follow the theme. A device is a physical
+     object and its screen is the product's own light surface. */
+  --pb-island:     #f3f4f6;
+  --pb-island-ink: #1f2330;
+  --pb-bezel:      #17181b;
+  --pb-bezel-edge: #3a3d43;
+  --pb-mask:    #000;   /* an alpha mask, never painted: not a colour of the tool */
+
+  /* type — one family for the tool. The PROJECT's font is its own and lives in .pb-product. */
+  --pb-font: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --pb-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --pb-t-sm: .75rem;
+  --pb-t-md: .875rem;
+  --pb-t-lg: 1.125rem;
+  --pb-t-xl: 1.5rem;       /* page-head scale: a section title … */
+  --pb-t-2xl: 1.875rem;    /* … and a page title (.pb-head-t) */
+  --pb-lh-tight: 1.2;      /* titles */
+  --pb-lh: 1.5;            /* running text */
+  --pb-w-reg: 400;
+  --pb-w-bold: 600;
+  --pb-track: .06em;
+
+  /* space + line */
+  --pb-s1: .25rem;
+  --pb-s2: .5rem;
+  --pb-s3: .75rem;
+  --pb-s4: 1rem;
+  --pb-s5: 1.5rem;
+  --pb-s6: 2.5rem;
+  --pb-s7: 3.5rem;
+  --pb-hair-w: 1px;
+  --pb-rule-w: 2px;
+  --pb-r:      .25rem;
+  --pb-r-md:   .375rem;
+  --pb-r-lg:   .5rem;
+  --pb-r-pill: 62rem;
+  --pb-dot:    .5625rem;
+
+  /* icons — a tool glyph is never under 16px; an icon-only control draws a 20px glyph in a 32px
+     target (28px inside a dense row); every stroke is 1.75 */
+  --pb-ico-sm:   16px;
+  --pb-ico:      20px;
+  --pb-hit:      32px;
+  --pb-hit-sm:   28px;
+  --pb-stroke:   1.75;
+
+  /* motion — one duration for every state change; reduced motion zeroes it */
+  --pb-t:      120ms;
+
+  /* layout — the bar is 44px because six layout offsets in prototype.html subtract it */
+  --pb-bar-h:  44px;
+  --pb-gutter: 1.5rem;
+
+  /* round-3 additions (F1): the half step under --pb-s1, and the hues a role is drawn in — the IA
+     role dots (prototype.html pbRoleDot). Declared roles take 1…8 in order, then it wraps. Each is a
+     mid-tone, so it reads on the page in both themes: 45% lightness light, 68% dark. */
+  --pb-s0: .125rem;
+  --pb-role-1: light-dark(#2268c3, #6ca5ef);
+  --pb-role-2: light-dark(#1c9c60, #59cf98);
+  --pb-role-3: light-dark(#c16515, #f0994c);
+  --pb-role-4: light-dark(#9831c4, #cc86ea);
+  --pb-role-5: light-dark(#d0255e, #f0759e);
+  --pb-role-6: light-dark(#11859c, #42bed7);
+  --pb-role-7: light-dark(#ae9309, #eacd3e);
+  --pb-role-8: light-dark(#438e29, #7cc464);
+}
+:root[data-theme="light"] { color-scheme: light; }
+:root[data-theme="dark"]  { color-scheme: dark; }
+
+/* ---------- The bar: shared by the prototype shell and the design-system site ---------- */
+.pb-bar {
+  position: sticky; top: 0; z-index: 1100;
+  height: var(--pb-bar-h);
+  display: flex; align-items: stretch; gap: var(--pb-s5);
+  padding: 0 var(--pb-gutter);
+  background: var(--pb-page);
+  border-bottom: var(--pb-hair-w) solid var(--pb-hair);
+  font-family: var(--pb-font);
+}
+.pb-id {
+  display: flex; align-items: center; gap: var(--pb-s2);
+  font-size: var(--pb-t-md); font-weight: var(--pb-w-bold); color: var(--pb-ink);
+  white-space: nowrap; max-width: 18rem; overflow: hidden; text-overflow: ellipsis;
+}
+.pb-id b { font-family: var(--pb-mono); font-size: var(--pb-t-sm); color: var(--pb-ink-3); font-weight: var(--pb-w-bold); }
+.pb-tabs { display: flex; align-items: stretch; gap: var(--pb-s5); min-width: 0; }
+
+/* L1 — an underlined text tab. "Go somewhere else." */
+.pb-tab {
+  display: flex; flex-direction: column; justify-content: center;
+  height: 100%; padding: 0; margin: 0 0 calc(var(--pb-hair-w) * -1);
+  background: none; border: 0; border-bottom: var(--pb-rule-w) solid transparent; border-radius: 0;
+  font: var(--pb-w-reg) var(--pb-t-md)/1 var(--pb-font); color: var(--pb-ink-2);
+  cursor: pointer; white-space: nowrap; text-decoration: none;
+}
+/* The bold twin reserves the width of the active state, so selecting a tab never shifts its neighbours. */
+.pb-tab::after {
+  content: attr(data-t); height: 0; overflow: hidden; visibility: hidden;
+  font-weight: var(--pb-w-bold); display: block;
+}
+.pb-tab:hover { color: var(--pb-ink); }
+.pb-tab.active, .pb-tab[aria-selected="true"] {
+  color: var(--pb-ink); font-weight: var(--pb-w-bold); border-bottom-color: var(--pb-ink);
+}
+
+/* The right-hand end of the bar: plain text controls. The Design-system crossing sits in this
+   slot on BOTH sites, pointing the other way — it is another site, not another tab. They share
+   one shape (same height, padding, colour); only the glyph differs. */
+.pb-bar-end { margin-left: auto; display: flex; align-items: center; gap: var(--pb-s2); }
+.pb-bar-item {
+  display: inline-flex; align-items: center; gap: var(--pb-s2);
+  height: var(--pb-hit); padding: 0 var(--pb-s2);
+  background: none; border: 0; border-radius: var(--pb-r-md);
+  font: var(--pb-w-reg) var(--pb-t-md)/1 var(--pb-font); color: var(--pb-ink-2);
+  cursor: pointer; text-decoration: none; white-space: nowrap;
+}
+.pb-bar-item:hover { color: var(--pb-ink); }
+/* open: the panel it controls is showing. A wash says so; hovering it again presses it. */
+.pb-bar-item[aria-expanded="true"] { color: var(--pb-ink); background: var(--pb-wash); }
+.pb-bar-item[aria-expanded="true"]:hover { background: var(--pb-press); }
+.pb-bar-item svg { flex: none; width: var(--pb-ico-sm); height: var(--pb-ico-sm); stroke-width: var(--pb-stroke); }
+.pb-bar-item .pb-ico--lg { width: var(--pb-ico); height: var(--pb-ico); }
+.pb-bar-item .pb-kbd { margin-left: var(--pb-s1); }
+.pb-bar-item .pb-dim { color: var(--pb-ink-3); }
+.pb-bar-item + .pb-bar-item { position: relative; }
+/* A hairline between the two, drawn as a pseudo-element so both items keep identical borders. */
+.pb-bar-item + .pb-bar-item::before {
+  content: ""; position: absolute; left: 0; top: 30%; bottom: 30%;
+  border-left: var(--pb-hair-w) solid var(--pb-hair);
+}
+
+/* ---------- Small primitives shared by every shell ---------- */
+/* A label that never changes width when it turns bold: the hidden bold twin reserves the room,
+   so selecting a segment never nudges its neighbours. */
+.pb-lb { display: inline-flex; flex-direction: column; vertical-align: middle; }
+.pb-lb::after {
+  content: attr(data-t); height: 0; overflow: hidden; visibility: hidden;
+  font-weight: var(--pb-w-bold); display: block;
+}
+.pb-kbd {
+  font-family: var(--pb-mono); font-size: var(--pb-t-sm); line-height: 1.3;
+  color: var(--pb-ink-3); border: var(--pb-hair-w) solid var(--pb-hair);
+  border-radius: var(--pb-r); padding: 0 var(--pb-s1);
+}
+/* A flag is a filled dot: "something in here needs you". The reason is always stated beside it. */
+.pb-flag {
+  display: inline-block; flex: none;
+  width: var(--pb-dot); height: var(--pb-dot); border-radius: 50%; background: var(--pb-ink);
+}
+
+/* ---------- One state layer, for every shell ----------
+   Hover, focus, pressed and disabled used to be decided per component, so half the controls had
+   no hover, a few had no visible focus at all, and the ones that did disagreed. This is the one
+   rule set. It is written in :where(), so it has NO specificity: a component that states its own
+   hover or pressed look still wins, and this is the floor under every control that does not.
+   Never inside the product — the product's states are the product's (and the device mock's
+   buttons are Chrome's). */
+:where(button, a[href], summary, select, label[for], [role="tab"], [role="menuitem"],
+       [role="menuitemradio"], [role="option"], [role="button"], [role="switch"], [role="treeitem"],
+       [data-pb-row]):where(:not(.pb-product, .pb-product *, .proto-frame *)) {
+  cursor: pointer;
+  transition: background-color var(--pb-t), color var(--pb-t), border-color var(--pb-t),
+              box-shadow var(--pb-t), opacity var(--pb-t);
+}
+/* hover: an ink shift, the quietest change that still answers "is this live?" */
+:where(button, a[href], summary, [role="tab"], [role="menuitem"], [role="menuitemradio"],
+       [role="option"], [role="button"], [role="treeitem"], [data-pb-row]):where(:hover:not(:disabled, [aria-disabled="true"], .is-disabled)):where(:not(.pb-product, .pb-product *, .proto-frame *)) { color: var(--pb-ink); }
+/* pressed: a press wash on anything button-shaped (not on links and underline tabs, where a
+   block of grey would read as a selection) */
+:where(button, summary, [role="menuitem"], [role="menuitemradio"], [role="option"], [role="button"],
+       [role="treeitem"], [data-pb-row]):where(:active:not(:disabled, [aria-disabled="true"], .is-disabled, .pb-tab)):where(:not(.pb-product, .pb-product *, .proto-frame *)) { background-color: var(--pb-press); }
+/* focus: a 2px ink ring, 2px off the control. This one carries specificity on purpose — a
+   component's `background` must never be able to hide where the keyboard is. */
+:is(button, a[href], summary, select, input, textarea, [role="tab"], [role="menuitem"],
+    [role="menuitemradio"], [role="option"], [role="button"], [role="switch"], [role="treeitem"],
+    [tabindex]):focus-visible:where(:not(.pb-product *)) {
+  outline: var(--pb-rule-w) solid var(--pb-ink);
+  outline-offset: var(--pb-rule-w);
+}
+/* disabled: 40%, not-allowed — and still hoverable, so its title can say why */
+:where(button:disabled, [aria-disabled="true"], button.is-disabled, select:disabled):where(:not(.pb-product *, .proto-frame *)) { opacity: .4; cursor: not-allowed; }
+/* pressed, again, for the quiet controls the shells draw: each states its own resting background,
+   which outranks the zero-specificity floor above, so the press has to be said with weight. Filled
+   (ink) buttons are not here — a press wash would hide their text; their hover is their state. */
+:is(.pb-bar-item, .meta-subtab, .lg-view, .proto-device-btn, .proto-shell-btn, .proto-menu-item,
+    .proto-role-item, .pb-tree-page, .logic-row, .uid-row, .tc-card, .fp-item, .pb-ib, .pb-cmd-chip,
+    .flow-zoom-btn, .pb-info-btn, .copy-popover-close, .pb-dialog-close, .proto-struct-close, .ds-item,
+    .seg button, .btn:not(.primary), .score button, .ia-node-go):active:not(:disabled, .is-disabled, [aria-disabled="true"]) { background-color: var(--pb-press); }
+@media (prefers-reduced-motion: reduce) {
+  :root { --pb-t: 0ms; }
+  /* the shells still carry a few literal durations; none of the tool's should move */
+  :where(body *):where(:not(.pb-product, .pb-product *)),
+  :where(body *):where(:not(.pb-product, .pb-product *))::before,
+  :where(body *):where(:not(.pb-product, .pb-product *))::after {
+    transition-duration: 0ms !important; animation-duration: 0ms !important;
+  }
+}
+
+/* ---------- Icons ----------
+   A tool glyph is 16px or more. An icon-only control is a 20px glyph in a 32px target (28px in a
+   dense row), and it always carries a title and an aria-label. Product icons are the product's. */
+.pb-ib {
+  display: inline-grid; place-items: center; flex: none;
+  width: var(--pb-hit); height: var(--pb-hit); padding: 0;
+  background: none; border: 0; border-radius: var(--pb-r); color: var(--pb-ink-2);
+}
+.pb-ib--sm { width: var(--pb-hit-sm); height: var(--pb-hit-sm); }
+.pb-ib svg { width: var(--pb-ico); height: var(--pb-ico); stroke-width: var(--pb-stroke); }
+.pb-ib:hover:not(:disabled) { background: var(--pb-wash); color: var(--pb-ink); }
+/* A small control whose box cannot grow without moving its neighbours gets its target from an
+   invisible ::after instead — the hit area reaches 28px, the layout does not move. */
+.pb-hit-pad { position: relative; }
+.pb-hit-pad::after {
+  content: ""; position: absolute; left: 50%; top: 50%;
+  width: max(100%, var(--pb-hit-sm)); height: max(100%, var(--pb-hit-sm));
+  transform: translate(-50%, -50%);
+}
+/* every stroked tool glyph draws at one weight, whatever stroke-width it was pasted with */
+svg[stroke="currentColor"]:where(:not(.pb-product *, .proto-frame *)) { stroke-width: var(--pb-stroke); }
+
+/* ---------- Shared tool chrome (wave 2): one copy, mounted by both sites through runtime.js ----------
+   The project button and its menu, the Project settings dialog, the theme toggle, the tool toast
+   and the ⌘K palette. Raw lengths are rem here: px lives only in the :root block above. */
+.pb-ico { width: var(--pb-ico-sm); height: var(--pb-ico-sm); flex: none; stroke-width: var(--pb-stroke); }
+.pb-ico--lg { width: var(--pb-ico); height: var(--pb-ico); }
+.pb-ib .pb-ico { width: var(--pb-ico); height: var(--pb-ico); }
+
+/* the project button: an initials square, the short name, a chevron */
+.pb-pj-wrap { position: relative; display: flex; align-items: center; flex: none; }
+.pb-pj {
+  display: inline-flex; align-items: center; gap: var(--pb-s2); height: var(--pb-hit);
+  padding: 0 var(--pb-s2) 0 var(--pb-s1); margin-left: calc(var(--pb-s1) * -1);
+  background: none; border: 0; border-radius: var(--pb-r-md);
+  font: var(--pb-w-bold) var(--pb-t-md)/1 var(--pb-font); color: var(--pb-ink); white-space: nowrap;
+}
+.pb-pj:hover, .pb-pj[aria-expanded="true"] { background: var(--pb-wash); }
+.pb-pj[aria-expanded="true"]:hover { background: var(--pb-press); }
+.pb-pj-sq {
+  display: inline-flex; align-items: center; justify-content: center; flex: none;
+  width: 1.5rem; height: 1.5rem; border-radius: var(--pb-r-lg);
+  background: var(--pb-ink); color: var(--pb-on-ink); font-size: var(--pb-t-sm); letter-spacing: .02em;
+}
+.pb-pj-nm { max-width: 11rem; overflow: hidden; text-overflow: ellipsis; }
+.pb-pj-car { color: var(--pb-ink-3); }
+
+/* a menu: a raised card of rows under its button */
+.pb-menu {
+  position: absolute; top: calc(100% + var(--pb-s1)); left: 0; z-index: 1200;
+  min-width: 16rem; max-width: calc(100vw - 2rem); padding: var(--pb-s1);
+  background: var(--pb-raised); border: var(--pb-hair-w) solid var(--pb-hair); border-radius: var(--pb-r-lg);
+  box-shadow: var(--pb-shadow); font: var(--pb-w-reg) var(--pb-t-md)/1.4 var(--pb-font); color: var(--pb-ink);
+}
+.pb-menu[hidden] { display: none; }
+.pb-menu-it {
+  display: flex; align-items: center; gap: var(--pb-s2); width: 100%; min-height: var(--pb-hit);
+  padding: 0 var(--pb-s2); background: none; border: 0; border-radius: var(--pb-r-md);
+  font: inherit; color: var(--pb-ink); text-align: left;
+}
+.pb-menu-it:hover { background: var(--pb-wash); }
+.pb-menu-it .pb-ico { color: var(--pb-ink-2); }
+.pb-menu-row { display: grid; gap: var(--pb-s1); padding: var(--pb-s2); }
+.pb-menu-lbl { color: var(--pb-ink-3); font-size: var(--pb-t-sm); }
+.pb-menu-sep { height: var(--pb-hair-w); background: var(--pb-hair); margin: var(--pb-s1) calc(var(--pb-s1) * -1); }
+.pb-menu-ver { display: block; padding: var(--pb-s1) var(--pb-s2) var(--pb-s2); color: var(--pb-ink-3); font: var(--pb-t-sm)/1.3 var(--pb-mono); }
+
+/* a segmented toggle (theme): a wash track, the chosen segment lifted onto the surface */
+.pb-seg { display: flex; gap: .125rem; padding: .125rem; border-radius: var(--pb-r-md); background: var(--pb-wash); }
+.pb-seg-btn {
+  flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: var(--pb-s1);
+  height: var(--pb-hit-sm); padding: 0 var(--pb-s2); border: 0; border-radius: var(--pb-r);
+  background: none; font: var(--pb-w-reg) var(--pb-t-sm)/1 var(--pb-font); color: var(--pb-ink-2); white-space: nowrap;
+}
+.pb-seg-btn:hover { background: var(--pb-press); color: var(--pb-ink); }
+.pb-seg-btn[aria-checked="true"] {
+  background: var(--pb-surface); color: var(--pb-ink); font-weight: var(--pb-w-bold);
+  box-shadow: 0 0 0 var(--pb-hair-w) var(--pb-hair-2);
+}
+/* the chosen segment answers a hover too (the generic hover above loses to the chosen state on specificity) */
+.pb-seg-btn[aria-checked="true"]:hover { background: var(--pb-surface); box-shadow: 0 0 0 var(--pb-hair-w) var(--pb-ink-3); }
+
+/* buttons, a command chip */
+.pb-btn {
+  display: inline-flex; align-items: center; gap: var(--pb-s2); height: var(--pb-hit); padding: 0 var(--pb-s3);
+  border: var(--pb-hair-w) solid var(--pb-hair-2); border-radius: var(--pb-r-md); background: var(--pb-surface);
+  font: var(--pb-w-reg) var(--pb-t-md)/1 var(--pb-font); color: var(--pb-ink); white-space: nowrap;
+}
+.pb-btn:hover:not(:disabled) { background: var(--pb-wash); }
+.pb-btn--solid { background: var(--pb-ink); border-color: var(--pb-ink); color: var(--pb-on-ink); font-weight: var(--pb-w-bold); }
+.pb-btn--solid:hover:not(:disabled) { background: var(--pb-ink); opacity: .88; }
+.pb-btn--sm { height: var(--pb-hit-sm); padding: 0 var(--pb-s2); font-size: var(--pb-t-sm); }
+.pb-btn--ghost { border-color: transparent; background: none; color: var(--pb-ink-2); }
+.pb-btn--ghost:hover:not(:disabled) { color: var(--pb-ink); }
+.pb-cmd {
+  display: inline-flex; align-items: center; gap: var(--pb-s1); max-width: 100%; padding-left: var(--pb-s3);
+  border: var(--pb-hair-w) solid var(--pb-hair); border-radius: var(--pb-r-md); background: var(--pb-surface);
+}
+.pb-cmd code { font: var(--pb-t-sm)/1.4 var(--pb-mono); color: var(--pb-ink); overflow-wrap: anywhere; }
+
+/* the dialog (a native <dialog>: focus is trapped, Esc closes, the backdrop is the scrim) */
+dialog.pb-dlg {
+  width: min(30rem, calc(100vw - 2rem)); max-height: calc(100vh - 4rem); padding: 0;
+  border: var(--pb-hair-w) solid var(--pb-hair); border-radius: var(--pb-r-lg);
+  background: var(--pb-raised); color: var(--pb-ink); box-shadow: var(--pb-shadow);
+  font: var(--pb-w-reg) var(--pb-t-md)/1.45 var(--pb-font);
+}
+dialog.pb-dlg::backdrop { background: var(--pb-scrim); }
+.pb-dlg-h {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--pb-s2);
+  padding: var(--pb-s2) var(--pb-s2) var(--pb-s2) var(--pb-s4); border-bottom: var(--pb-hair-w) solid var(--pb-hair);
+}
+.pb-dlg-h h2 { margin: 0; font-size: var(--pb-t-md); font-weight: var(--pb-w-bold); }
+.pb-dlg-b { display: grid; gap: var(--pb-s4); padding: var(--pb-s4); margin: 0; overflow: auto; }
+.pb-dlg-f {
+  display: flex; justify-content: flex-end; gap: var(--pb-s2);
+  padding: var(--pb-s3) var(--pb-s4); border-top: var(--pb-hair-w) solid var(--pb-hair);
+}
+.pb-dlg-ro { display: grid; gap: var(--pb-s2); padding: var(--pb-s3); border-radius: var(--pb-r-md); background: var(--pb-wash); }
+.pb-dlg-ro p { margin: 0; color: var(--pb-ink-2); font-size: var(--pb-t-sm); }
+.pb-dlg code { font-family: var(--pb-mono); font-size: .92em; }
+.pb-fld { display: grid; gap: var(--pb-s1); }
+.pb-fld label, .pb-fld-l { font-weight: var(--pb-w-bold); }
+.pb-fld-note { margin-left: var(--pb-s2); color: var(--pb-ink-3); font-weight: var(--pb-w-reg); font-size: var(--pb-t-sm); }
+.pb-fld input {
+  width: 100%; height: var(--pb-hit); padding: 0 var(--pb-s2); box-sizing: border-box;
+  border: var(--pb-hair-w) solid var(--pb-ink-3); border-radius: var(--pb-r-md);
+  background: var(--pb-surface); color: var(--pb-ink); font: inherit;
+}
+.pb-fld input[readonly] { border-color: var(--pb-hair-2); background: var(--pb-wash); color: var(--pb-ink-2); }
+.pb-fld input[aria-invalid="true"] { border-color: var(--pb-fail); box-shadow: 0 0 0 var(--pb-hair-w) var(--pb-fail); }
+.pb-fld-m { min-height: 1.1rem; color: var(--pb-ink-3); font-size: var(--pb-t-sm); }
+.pb-fld-m.is-err, .pb-fld-m.is-warn { display: flex; align-items: center; gap: var(--pb-s1); color: var(--pb-fail); }
+.pb-fld-m.is-warn { color: var(--pb-warn); }
+.pb-fld-err { margin: 0; color: var(--pb-fail); font-size: var(--pb-t-sm); }
+
+/* the tool toast — bottom RIGHT, ink on the page's colour. The product's own toast (.proto-toast, the
+   prototype shell) is bottom-centre of the stage, so the two never share a corner. Below the width
+   where their boxes could meet, and only while a product toast is on screen, the tool's stacks above it.
+   tone: default is ink; pass / fail are the tool's status colours on their own ground. */
+.pb-toast {
+  position: fixed; right: var(--pb-gutter); bottom: var(--pb-s5); z-index: 3000; transform: translateY(.75rem);
+  max-width: min(22rem, calc(100vw - var(--pb-gutter) * 2)); padding: var(--pb-s2) var(--pb-s4); border-radius: var(--pb-r-lg);
+  background: var(--pb-ink); color: var(--pb-on-ink); box-shadow: var(--pb-shadow);
+  font: var(--pb-w-reg) var(--pb-t-md)/1.4 var(--pb-font);
+  opacity: 0; pointer-events: none; transition: opacity var(--pb-t), transform var(--pb-t);
+}
+.pb-toast.is-on { opacity: 1; transform: translateY(0); }
+.pb-toast--pass { background: var(--pb-pass-bg); color: var(--pb-pass); box-shadow: 0 0 0 var(--pb-hair-w) var(--pb-pass), var(--pb-shadow); }
+.pb-toast--fail { background: var(--pb-fail-bg); color: var(--pb-fail); box-shadow: 0 0 0 var(--pb-hair-w) var(--pb-fail), var(--pb-shadow); }
+.pb-toast small { display: block; margin-top: .125rem; font-size: var(--pb-t-sm); opacity: .8; overflow-wrap: anywhere; }
+@media (max-width: 76em) { body:has(.proto-toast-wrap > .proto-toast) .pb-toast { bottom: calc(var(--pb-s5) + 4rem); } }
+
+/* ⌘K */
+.pb-cmdk-scrim { position: fixed; inset: 0; z-index: 2000; background: var(--pb-scrim); }
+.pb-cmdk {
+  position: fixed; z-index: 2100; left: 50%; top: 12vh; transform: translateX(-50%);
+  width: min(37.5rem, calc(100vw - 1.5rem)); max-height: min(35rem, 76vh);
+  display: flex; flex-direction: column; overflow: hidden;
+  background: var(--pb-raised); color: var(--pb-ink); border: var(--pb-hair-w) solid var(--pb-hair);
+  border-radius: var(--pb-r-lg); box-shadow: var(--pb-shadow); font: var(--pb-w-reg) var(--pb-t-md)/1.4 var(--pb-font);
+}
+.pb-cmdk-in { display: flex; align-items: center; gap: var(--pb-s3); flex: none; height: 3rem; padding: 0 var(--pb-s4); border-bottom: var(--pb-hair-w) solid var(--pb-hair); color: var(--pb-ink-3); }
+.pb-cmdk-in input { flex: 1; min-width: 0; height: 100%; border: 0; outline: 0; background: none; color: var(--pb-ink); font: var(--pb-w-reg) .9375rem/1 var(--pb-font); }
+.pb-cmdk-in input::placeholder { color: var(--pb-ink-3); }
+.pb-cmdk-in input:focus-visible { outline: none; }   /* the palette is the focused thing; a ring inside it is noise */
+.pb-cmdk-list { flex: 1; min-height: 0; overflow-y: auto; padding: var(--pb-s1) var(--pb-s2) var(--pb-s2); }
+.pb-cmdk-g { padding: var(--pb-s3) var(--pb-s2) var(--pb-s1); color: var(--pb-ink-3); font-size: var(--pb-t-sm); font-weight: var(--pb-w-bold); letter-spacing: var(--pb-track); text-transform: uppercase; }
+.pb-cmdk-g span { font-weight: var(--pb-w-reg); letter-spacing: 0; text-transform: none; }
+.pb-cmdk-it { display: flex; align-items: center; gap: var(--pb-s3); min-height: 2.25rem; padding: var(--pb-s1) var(--pb-s2); border-radius: var(--pb-r); cursor: pointer; }
+.pb-cmdk-it .pb-ico { color: var(--pb-ink-3); }
+.pb-cmdk-t { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pb-cmdk-s { flex: none; max-width: 40%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--pb-ink-3); font-size: var(--pb-t-sm); }
+.pb-cmdk-s.is-mono { font-family: var(--pb-mono); }
+.pb-cmdk-it[aria-selected="true"] { background: var(--pb-wash); }
+.pb-cmdk-it[aria-selected="true"] .pb-cmdk-t { font-weight: var(--pb-w-bold); }
+.pb-cmdk-it mark { background: none; color: inherit; font-weight: var(--pb-w-bold); text-decoration: underline; text-underline-offset: .125rem; }
+.pb-cmdk-none { padding: var(--pb-s6) var(--pb-s4); text-align: center; color: var(--pb-ink-2); }
+.pb-cmdk-f { display: flex; align-items: center; gap: var(--pb-s4); flex: none; padding: var(--pb-s2) var(--pb-s4); border-top: var(--pb-hair-w) solid var(--pb-hair); color: var(--pb-ink-3); font-size: var(--pb-t-sm); }
+.pb-cmdk-f span { display: inline-flex; align-items: center; gap: var(--pb-s1); }
+.pb-cmdk-f-r { margin-left: auto; }
+
+/* Narrow bars: the project button keeps its square + chevron; a bar item that has a glyph keeps
+   only the glyph (its aria-label and title still name it). */
+@media (max-width: 899px) { .pb-bar-item .pb-bar-lb, .pb-bar-item .pb-kbd { display: none; } }
+@media (max-width: 599px) { .pb-pj-nm { display: none; } .pb-cmdk-f-r { display: none; } }
+
+/* ---------- Shared primitives (round 3 · wave A) ----------
+   One implementation each, in runtime.js, that every page of both shells composes: a disclosure
+   (pbDiscHTML), the filter bar (pbFilterBar), rich text (pbRichText) and the page head (pbHeadHTML).
+   Raw lengths are rem or tokens: px lives only in the :root block. */
+
+/* Disclosure: a trigger that opens a body. Multi-open — nothing here closes a sibling. The chevron is
+   a 20px tool glyph (--pb-ico) turned a quarter on open; the turn is one --pb-t, which reduced motion zeroes. */
+.pb-disc[hidden], .pb-disc-b[hidden] { display: none; }
+.pb-disc-t {
+  display: flex; align-items: center; gap: var(--pb-s2); width: 100%; min-height: var(--pb-hit);
+  padding: 0 var(--pb-s2) 0 var(--pb-s1); margin: 0; background: none; border: 0; border-radius: var(--pb-r-md);
+  color: var(--pb-ink); font: var(--pb-w-reg) var(--pb-t-md)/var(--pb-lh) var(--pb-font); text-align: left;
+}
+.pb-disc-t:hover { background: var(--pb-wash); }
+.pb-disc-t:active { background: var(--pb-press); }
+.pb-disc-ch { flex: none; width: var(--pb-ico); height: var(--pb-ico); color: var(--pb-ink-3); stroke-width: var(--pb-stroke); transition: transform var(--pb-t); }
+.pb-disc.is-open > .pb-disc-t > .pb-disc-ch { transform: rotate(90deg); }
+.pb-disc-s { flex: 1; min-width: 0; }
+.pb-disc-b { padding: var(--pb-s2) var(--pb-s2) var(--pb-s3) calc(var(--pb-ico) + var(--pb-s1) + var(--pb-s2)); }
+/* row: a line in a list — hairline under it, the open one washed */
+.pb-disc--row { border-bottom: var(--pb-hair-w) solid var(--pb-hair); }
+.pb-disc--row > .pb-disc-t { border-radius: 0; }
+.pb-disc--row > .pb-disc-t:focus-visible { outline-offset: calc(var(--pb-rule-w) * -1); }
+.pb-disc--row.is-open > .pb-disc-t { background: var(--pb-wash); }
+.pb-disc--row.is-open > .pb-disc-t:hover { background: var(--pb-press); }
+/* section: a heading inside a page or a card — bold, no wash, the body aligned under its text */
+.pb-disc--section > .pb-disc-t { min-height: var(--pb-hit-sm); font-weight: var(--pb-w-bold); }
+.pb-disc--section > .pb-disc-b { padding-top: var(--pb-s1); }
+
+/* Filter bar: search · chips · quick toggles · Clear · (spacer) · "N of M" · slot.
+   Clear sits right after the last chip and exists only while something is filtered. */
+.pb-fbar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--pb-s2); padding: var(--pb-s1) 0 var(--pb-s3); }
+.pb-fbar [hidden] { display: none; }
+.pb-fbar-q { display: flex; align-items: center; gap: var(--pb-s2); width: 15rem; max-width: 100%; height: var(--pb-hit); padding: 0 var(--pb-s2);
+  border: var(--pb-hair-w) solid var(--pb-hair-2); border-radius: var(--pb-r-md); background: var(--pb-surface); color: var(--pb-ink-3); }
+.pb-fbar-q:focus-within { outline: var(--pb-rule-w) solid var(--pb-ink); outline-offset: var(--pb-rule-w); }
+.pb-fbar-q input { flex: 1; min-width: 0; height: 100%; padding: 0; border: 0; outline: 0; background: none; color: var(--pb-ink); font: var(--pb-t-md)/1 var(--pb-font); }
+.pb-fbar-q input::placeholder { color: var(--pb-ink-3); }
+.pb-fbar-q input:focus-visible { outline: none; }   /* the field's box carries the ring (:focus-within) */
+.pb-fbar-q input::-webkit-search-cancel-button { display: none; }
+.pb-fbar.is-off .pb-fbar-q { opacity: .4; cursor: not-allowed; }
+.pb-fbar-wrap { position: relative; display: inline-flex; }
+.pb-chip { display: inline-flex; align-items: center; gap: var(--pb-s1); height: var(--pb-hit); padding: 0 var(--pb-s2) 0 var(--pb-s3);
+  border: var(--pb-hair-w) solid var(--pb-hair-2); border-radius: var(--pb-r-pill); background: var(--pb-surface); color: var(--pb-ink-2);
+  font: var(--pb-w-reg) var(--pb-t-md)/1 var(--pb-font); white-space: nowrap; }
+.pb-chip:hover:not([aria-disabled="true"]) { color: var(--pb-ink); background: var(--pb-wash); }
+.pb-chip:active:not([aria-disabled="true"]) { background: var(--pb-press); }
+.pb-chip.is-on { background: var(--pb-wash); color: var(--pb-ink); font-weight: var(--pb-w-bold); border-color: var(--pb-ink-3); }
+.pb-chip.is-on:hover { background: var(--pb-press); }
+/* a quick toggle: a chip with no menu, pressed or not, optionally carrying a count */
+.pb-chip--q { padding: 0 var(--pb-s3); }
+.pb-chip .n { color: var(--pb-ink-3); font-variant-numeric: tabular-nums; font-weight: var(--pb-w-reg); }
+.pb-pop { position: absolute; top: calc(100% + var(--pb-s1)); left: 0; z-index: 60; min-width: 13rem; max-height: 18rem; overflow: auto; padding: var(--pb-s1);
+  background: var(--pb-raised); border: var(--pb-hair-w) solid var(--pb-hair); border-radius: var(--pb-r-lg); box-shadow: var(--pb-shadow); }
+.pb-pop[hidden] { display: none; }
+.pb-pop-opt { display: flex; align-items: center; gap: var(--pb-s2); min-height: var(--pb-hit); padding: 0 var(--pb-s2); border-radius: var(--pb-r-md); cursor: pointer; color: var(--pb-ink); font-size: var(--pb-t-md); }
+.pb-pop-opt:hover { background: var(--pb-wash); }
+.pb-pop-opt input { width: var(--pb-ico-sm); height: var(--pb-ico-sm); margin: 0; accent-color: var(--pb-ink); cursor: pointer; }
+.pb-pop-opt span:first-of-type { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pb-pop-opt .n { margin-left: auto; color: var(--pb-ink-3); font-variant-numeric: tabular-nums; }
+.pb-fbar-grow { flex: 1; }
+.pb-fbar-cnt { color: var(--pb-ink-2); font-variant-numeric: tabular-nums; white-space: nowrap; font-size: var(--pb-t-md); }
+.pb-fbar-why { flex-basis: 100%; color: var(--pb-ink-3); font-size: var(--pb-t-sm); }
+.pb-fbar-none { padding: var(--pb-s5) var(--pb-s3); color: var(--pb-ink-2); max-width: 36rem; }
+.pb-fbar-none[hidden] { display: none; }
+.pb-fbar-none .pb-btn { margin-top: var(--pb-s2); }
+@media (max-width: 719px) {
+  .pb-fbar-q { width: 100%; }
+  .pb-fbar-grow { display: none; }
+}
+
+/* Rich text (pbRichText): the one place prose from a registry is given structure. Marks are classes,
+   so a page decides nothing about colour. */
+.pb-rt { white-space: normal; line-height: var(--pb-lh); overflow-wrap: anywhere; }
+.pb-rt > * { margin: 0; }
+.pb-rt > * + * { margin-top: var(--pb-s3); }
+.pb-rt ul, .pb-rt ol { padding-left: var(--pb-s5); }
+.pb-rt li + li { margin-top: var(--pb-s1); }
+.pb-rt li::marker { color: var(--pb-ink-3); }
+.pb-rt code { padding: 0 var(--pb-s1); border-radius: var(--pb-r); background: var(--pb-wash); font: .92em var(--pb-mono); }
+.pb-rt strong { font-weight: var(--pb-w-bold); }
+.pb-hl { padding: 0 .125rem; border-radius: var(--pb-r); background: var(--pb-warn-bg); color: inherit; }
+.pb-pos { color: var(--pb-pass); }
+.pb-neg { color: var(--pb-fail); }
+.pb-num { font-weight: var(--pb-w-bold); font-variant-numeric: tabular-nums; }
+
+/* Page head (pbHeadHTML): the title block of a page and of the design-system component page.
+   Title (2xl, bold, tight), a meta row of badges, a mono id; actions on the right on a wide page and
+   full width below 600px. s2 between title and meta, s5 below the head, the side gutter is
+   --pb-gutter (1rem below 48em, so 16px on a phone) — a head inside a column that already has its
+   own gutter says --flush. */
+.pb-head {
+  display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between;
+  gap: var(--pb-s3) var(--pb-s4); padding: 0 var(--pb-gutter); margin: 0 0 var(--pb-s5);
+}
+.pb-head--flush { padding-left: 0; padding-right: 0; }
+.pb-head-main { display: grid; gap: var(--pb-s2); flex: 1 1 20rem; min-width: 0; }
+.pb-head-t { margin: 0; font-size: var(--pb-t-2xl); font-weight: var(--pb-w-bold); line-height: var(--pb-lh-tight); color: var(--pb-ink); overflow-wrap: anywhere; }
+.pb-head-meta { display: flex; flex-wrap: wrap; align-items: center; gap: var(--pb-s2); }
+.pb-head-sub { color: var(--pb-ink-3); font: var(--pb-t-sm)/1.4 var(--pb-mono); overflow-wrap: anywhere; }
+.pb-head-act { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: var(--pb-s2); flex: none; }
+@media (max-width: 599px) {
+  .pb-head-act { flex: 1 1 100%; justify-content: stretch; }
+  .pb-head-act > * { flex: 1 1 auto; justify-content: center; }
+}
+
+/* ---------- The product boundary ----------
+   Everything a project renders sits inside .pb-product. The registry's tokens are scoped to it
+   (applyRegistryTokens() writes a `.pb-product{…}` rule), and the project's FONT and base text
+   colour are restored here, because the page body now speaks in the tool's. */
+.pb-product {
+  color-scheme: light;   /* the product has exactly one theme: its own. See the :root note. */
+  font-family: var(--font-body);
+  color: var(--text-active-primary);
+  line-height: var(--line-height-copy, 1.5);
+  -webkit-font-smoothing: antialiased;
+}
+
+@media (max-width: 48em) {
+  :root { --pb-gutter: 1rem; }
+  .pb-bar { gap: var(--pb-s3); }
+  .pb-id { max-width: 8rem; }
+  .pb-tabs { gap: var(--pb-s3); overflow-x: auto; scrollbar-width: none; }
+  .pb-tabs::-webkit-scrollbar { display: none; }
+  /* the clipped edge fades so a sideways-scrolling strip reads as "more this way" (pbTabsFit) */
+  .pb-tabs.is-clip-r { -webkit-mask-image: linear-gradient(to right, var(--pb-mask) calc(100% - 2rem), transparent); mask-image: linear-gradient(to right, var(--pb-mask) calc(100% - 2rem), transparent); }
+  .pb-tabs.is-clip-l { -webkit-mask-image: linear-gradient(to left, var(--pb-mask) calc(100% - 2rem), transparent); mask-image: linear-gradient(to left, var(--pb-mask) calc(100% - 2rem), transparent); }
+  .pb-tabs.is-clip-l.is-clip-r { -webkit-mask-image: linear-gradient(to right, transparent, var(--pb-mask) 2rem, var(--pb-mask) calc(100% - 2rem), transparent); mask-image: linear-gradient(to right, transparent, var(--pb-mask) 2rem, var(--pb-mask) calc(100% - 2rem), transparent); }
+  .pb-tab { flex: none; }
+}
+
+/* ---------- Spec layers (round 3 · wave B5) ----------
+   The Layers control, and the overlay the spec engine (pbSpecMount, runtime.js) draws over a live
+   component: ANATOMY (an outline and a numbered marker per part) and SPEC (margin · padding · gap bands,
+   each its own --pb-spec-* colour). The overlay is the TOOL drawn on the product's light island, so it
+   says color-scheme light itself: a --pb-* ink inside it is the same pixels in either theme. The engine
+   sets every box inline from the live DOM; what a band LOOKS like is here — margin dashed, padding solid,
+   gap hatched, so colour is never the only cue. Lengths are rem or tokens. */
+.pb-layers { display: inline-flex; flex-wrap: wrap; align-items: center; gap: var(--pb-s2); min-width: 0; }
+.pb-layers-l { color: var(--pb-ink-3); font-size: var(--pb-t-sm); font-weight: var(--pb-w-bold); letter-spacing: var(--pb-track); text-transform: uppercase; }
+.pb-layers-sub { display: inline-flex; flex-wrap: wrap; align-items: center; gap: var(--pb-s2); }
+.pb-layers-sub[hidden] { display: none; }
+.pb-layers-sub::before { content: ""; align-self: center; width: var(--pb-hair-w); height: 1.25rem; background: var(--pb-hair-2); }
+.pb-layer--margin { --sw: var(--pb-spec-margin); }
+.pb-layer--padding { --sw: var(--pb-spec-padding); }
+.pb-layer--gap { --sw: var(--pb-spec-gap); }
+.pb-layer-sw { flex: none; box-sizing: border-box; width: .75rem; height: .75rem; border-radius: var(--pb-r);
+  border: var(--pb-hair-w) solid var(--sw); background: color-mix(in srgb, var(--sw) 55%, transparent); }
+.pb-layer--margin .pb-layer-sw { border-style: dashed; background: none; }
+.pb-layer--gap .pb-layer-sw { background: repeating-linear-gradient(135deg, var(--sw) 0 .125rem, transparent .125rem .25rem); }
+.pb-layers-sub::before { display: none; }
+@media (min-width: 40em) { .pb-layers-sub::before { display: block; } }
+.pb-spec-bar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--pb-s2); margin: 0 0 var(--pb-s2); }
+
+.pb-spec-host { position: relative; }
+.pb-spec-ovl { position: absolute; inset: 0; z-index: 3; pointer-events: none; color-scheme: light; font-family: var(--pb-font); }
+.pb-spec-ovl > * { position: absolute; box-sizing: border-box; }
+.pb-sp-rc { border: var(--pb-rule-w) dashed var(--pb-ink); border-radius: var(--pb-r); }
+.pb-sp-ld { z-index: 1; background: var(--pb-ink); }
+.pb-sp-mk { z-index: 3; width: 1.375rem; height: 1.375rem; margin: -.6875rem 0 0 -.6875rem; border-radius: 50%;
+  background: var(--pb-ink); color: var(--pb-on-ink); font: var(--pb-w-bold) var(--pb-t-sm)/1.375rem var(--pb-font); text-align: center; }
+.pb-sp-band { --bc: var(--pb-ink); background: color-mix(in srgb, var(--bc) 16%, transparent);
+  outline: var(--pb-hair-w) solid color-mix(in srgb, var(--bc) 70%, transparent); outline-offset: calc(var(--pb-hair-w) * -1); }
+.pb-sp-band[data-kind^="margin"] { --bc: var(--pb-spec-margin); outline-style: dashed; }
+.pb-sp-band[data-kind^="padding"] { --bc: var(--pb-spec-padding); }
+.pb-sp-band[data-kind="gap"] { --bc: var(--pb-spec-gap);
+  background: repeating-linear-gradient(135deg, color-mix(in srgb, var(--bc) 34%, transparent) 0 .25rem, color-mix(in srgb, var(--bc) 8%, transparent) .25rem .5rem); }
+.pb-sp-lab { --bc: var(--pb-ink); z-index: 2; transform: translate(-50%, -50%); padding: .0625rem var(--pb-s1);
+  border: var(--pb-hair-w) solid var(--bc); border-radius: var(--pb-r); background: var(--pb-surface); color: var(--pb-ink);
+  font: var(--pb-w-bold) .6875rem/1.1 var(--pb-mono); white-space: nowrap; }
+.pb-sp-lab[data-kind="margin"] { --bc: var(--pb-spec-margin); }
+.pb-sp-lab[data-kind="padding"] { --bc: var(--pb-spec-padding); }
+.pb-sp-lab[data-kind="gap"] { --bc: var(--pb-spec-gap); }
+.pb-sp-lab.is-v { transform: translate(-50%, -50%) rotate(-90deg); }
+.pb-sp-lab.is-r { transform: translate(0, -50%); }
+.pb-sp-lab.is-l { transform: translate(-100%, -50%); }
+.pb-sp-lab.is-u { transform: translate(-50%, -100%); }
+.pb-sp-lab.is-d { transform: translate(-50%, 0); }
+/* The bands are always on; a LABEL (and its leader) is drawn for every band, so each is placed clear of the
+   others, but shows only for the part being read — hovered, focused or tapped, or its legend row (.is-hot) —
+   or for all of them while the Labels toggle is on (.is-labels). A band the reader is not on steps back. */
+.pb-sp-lab, .pb-sp-ll { opacity: 0; visibility: hidden; transition: opacity var(--pb-t), visibility var(--pb-t); }
+.pb-spec-ovl.is-labels :is(.pb-sp-lab, .pb-sp-ll), .pb-spec-ovl :is(.pb-sp-lab, .pb-sp-ll).is-hot { opacity: 1; visibility: visible; }
+.pb-sp-lab.is-hot { z-index: 4; }
+.pb-sp-band { transition: opacity var(--pb-t); }
+.pb-spec-ovl.has-hot:not(.is-labels) .pb-sp-band:not(.is-hot) { opacity: .35; }
+.pb-sp-band.is-hot { outline-width: var(--pb-rule-w); }
+.pb-sp-rc.is-hot { border-style: solid; }
+.pb-sp-mk.is-hot { box-shadow: 0 0 0 var(--pb-rule-w) var(--pb-on-ink), 0 0 0 calc(var(--pb-rule-w) * 3) var(--pb-ink); }

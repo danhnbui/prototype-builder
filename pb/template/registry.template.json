@@ -1,8 +1,8 @@
 {
-  "_about": "Product Builder registry — the single source of truth the build loop edits. prototype.html renders from this file (a thin adapter maps it onto the in-memory PB_DATA shape the render machinery reads). DATA ONLY — render bodies live as real .js files (render/components/<id>.js, render/screens/<id>.js) referenced by each entry's renderSrc; render.py compiles them at /pb:build --render. Schema is documented in prototype-builder.md.",
+  "_about": "Product Builder registry — the single source of truth the build loop edits. prototype.html renders from this file (a thin adapter maps it onto the in-memory PB_DATA shape the render machinery reads). DATA ONLY — render bodies live as real .js files (render/components/<id>.js, render/screens/<id>.js) referenced by each entry's renderSrc, with an optional stylesheet (render/styles/<id>.css) referenced by styleSrc; render.py compiles them at /pb:build --render. Schema is documented in prototype-builder.md.",
   "meta": {
     "name": "",
-    "schemaVersion": 12,
+    "schemaVersion": 13,
     "entry": "prd",
     "shell": "browser",
     "device": "laptop",
@@ -12,6 +12,7 @@
       "tablet",
       "mobile"
     ],
+    "responsive": null,
     "roles": [],
     "defaultRole": null,
     "platform": "web",
@@ -62,6 +63,8 @@
   },
   "ia": {
     "populated": false,
+    "jobs": [],
+    "layers": [],
     "rules": []
   },
   "erd": {
