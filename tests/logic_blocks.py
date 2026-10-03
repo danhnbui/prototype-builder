@@ -157,6 +157,8 @@ def main():
             with sync_playwright() as pw:
                 browser = pw.chromium.launch()
                 page = browser.new_page(viewport={"width": 1280, "height": 900})
+                # offline: the web font and the mermaid CDN are not under test, and a slow network must not fail it
+                page.route("**/*", lambda r: r.continue_() if r.request.url.startswith(("file:", "data:", "blob:")) else r.abort())
                 errors = []
                 page.on("pageerror", lambda e: errors.append(str(e)))
                 page.goto("file://" + out)

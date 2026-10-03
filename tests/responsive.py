@@ -164,11 +164,16 @@ def main():
             print("SKIP (browser half): playwright not installed")
             return 2 if not _fail else 1
 
+        def offline(pg):
+            """The web font and the mermaid CDN are not under test; a slow network must not fail it."""
+            pg.route("**/*", lambda r: r.continue_() if r.request.url.startswith(("file:", "data:", "blob:")) else r.abort())
+            return pg
+
         print("2 · the frame decides, not the window (1440px window)")
         with sync_playwright() as p:
             b = p.chromium.launch()
             for dev, want, shown in (("mobile", "compact", "c"), ("laptop", "expanded", "x")):
-                pg = b.new_page(viewport={"width": 1440, "height": 900})
+                pg = offline(b.new_page(viewport={"width": 1440, "height": 900}))
                 pg.goto("file://" + proto + f"?screen=login&device={dev}")
                 pg.wait_for_selector(".s-login")
                 got = pg.evaluate("getComputedStyle(document.querySelector('.s-login')).getPropertyValue('--probe-size').trim()")
@@ -178,7 +183,7 @@ def main():
                 pg.close()
 
             print("6 · the tool at 390px")
-            pg = b.new_page(viewport={"width": 390, "height": 844})
+            pg = offline(b.new_page(viewport={"width": 390, "height": 844}))
             pg.goto("file://" + ds)
             pg.wait_for_selector("#ds-nav-toggle")
             sw = pg.evaluate("document.documentElement.scrollWidth")
@@ -191,13 +196,13 @@ def main():
             pg.wait_for_timeout(100)
             check(not pg.is_visible("#ds-nav"), "picking a page folds it away")
             pg.close()
-            pg = b.new_page(viewport={"width": 1280, "height": 832})
+            pg = offline(b.new_page(viewport={"width": 1280, "height": 832}))
             pg.goto("file://" + ds)
             pg.wait_for_selector("#ds-nav")
             check(pg.is_visible("#ds-nav") and not pg.is_visible("#ds-nav-toggle"), "wide: the tree is a sidebar, no toggle")
             pg.close()
 
-            pg = b.new_page(viewport={"width": 390, "height": 844})
+            pg = offline(b.new_page(viewport={"width": 390, "height": 844}))
             pg.goto("file://" + proto)
             pg.wait_for_selector("#meta-nav .pb-tabs")
             st = pg.evaluate("""(()=>{const t=document.querySelector('#meta-nav .pb-tabs');
