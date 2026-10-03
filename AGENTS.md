@@ -107,15 +107,15 @@ gate-skip says. Do not make a two-line change bureaucratic.
 **Hosted by `/pb:explore "<goal>"`** (Mode B — `pb/commands/explore.md`, stages B1–B8); the
 canonical summary is CLAUDE.md § *Goal fidelity + the gated discovery pipeline*. Stages run **in
 order**. Sub-agents work in parallel **within** a stage, never across stages, and the team is the
-existing 8-role roster (rule 5) — no ad-hoc agent types.
+existing 9-role roster (rule 5) — no ad-hoc agent types.
 
 | # | Stage | Command · agent | Produces |
 |---|---|---|---|
-| 1 | **Clarify JTBD** | `/pb:clarify` · `pb-clarifier` | `ia.jobs[]` — three fields each (`when` / `want` / `so`), `roles[]`, `priority`; `ia.layers[]` purposes |
+| 1 | **Clarify JTBD** | `/pb:clarify` · `pb-clarifier` | `ia.jobs[]` — three fields each (`when` / `want` / `so`), `roles[]`, `priority` (`ia.layers[]` purposes and `meta.navHub` follow in stage 5, once screens exist) |
 | 2 | **G-JTBD** | — **human gate** — | approval, edits, or rejection |
 | 3 | **Discover** | read-only · `pb-clarifier` | findings over the current registry slices, `memory/`, the DS reference + `.source.json`. **No patch** |
-| 4 | **Diverge** | N × `pb-builder` via the Task tool (`explore.md` B4) | parallel *approaches* — which screens, what is reused, what is new — compared against the `## Goal` text; one recommended. Form-divergence on a target that already exists is `/pb:explore <id>` (Mode A) instead |
-| 5 | **Design** | `/pb:plan` · `pb-planner` | per-task `acceptance · skill · agent · deps · slice` |
+| 4 | **Diverge** | coordinator → **G-DIRECTION** → N × `pb-explorer` via the Task tool, one per execution plan (`explore.md` B4) | parallel *approaches* — which screens, what is reused, what is new — compared against the `## Goal` text; one recommended. Form-divergence on a target that already exists is `/pb:explore <id>` (Mode A) instead |
+| 5 | **Design** | `/pb:plan` · `pb-planner` | per-task `acceptance · skill · agent · deps · slice`; the IA pass — jobs → screens, `ia.layers[]` purposes, `meta.navHub` |
 | 6 | **G-DESIGN** | — **human gate** — | approval, edits, or rejection |
 | 7 | **Build + test** | `/pb:orchestrate` → `/pb:test` · `pb-tester` → `pb-reviewer` | dependency waves, each gated on tester + reviewer; a red gate stops the loop |
 | 8 | **Update the documents** | coordinator | `ia.rules` (logic rules) · `memory/prd.md` · `memory/spec.md` · `logic/**` contracts · an entry in `memory/decisions.md` · `DESIGN.md` when an invariant moved |

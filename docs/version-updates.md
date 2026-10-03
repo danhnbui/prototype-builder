@@ -13,7 +13,7 @@ the plugin's SemVer in `pb/.claude-plugin/plugin.json`:
 | `meta.schemaVersion` | The registry or template **contract** changes — a new required field, a shape change, a renamed key |
 | Plugin SemVer | Any release: features, fixes, docs, refactors |
 
-**Current schema: 12** — defined as `CURRENT_SCHEMA` in `pb/migrations/manifest.py`.
+**Current schema: 13** — defined as `CURRENT_SCHEMA` in `pb/migrations/manifest.py`.
 An unstamped registry (no `meta.schemaVersion`) is treated as schema 2 (the v1.2 contract).
 
 ## When to bump CURRENT_SCHEMA
@@ -69,6 +69,7 @@ that don't alter what `registry.json` must contain.
 | **Deep copy** | Both `up()` and `down()` operate on `copy.deepcopy(reg)` — never mutate the input. |
 | **Stamp `schemaVersion`** | `up()` sets `meta.schemaVersion = TO`; `down()` sets it back to `FROM`. |
 | **Memory rule** | `memory_notes()` is advisory only — surfaced to the user, never auto-written to `memory/`. |
+| **Sidecars** | A step may rewrite `spec/components/*.json` / `spec/screens/*.json` (via `base_dir`); the runner snapshots both before the chain and restores them on failure and `--rollback`. Any other file a step writes is not snapshotted — keep that write reversible in `down()`. |
 | **Stdlib-only** | No new dependencies. Match the style of `render.py` and `serve.py`. |
 | **No principle edits** | Version updates NEVER auto-edit `memory/constitution.md`, the Stack Lock, or the DS Lock. |
 
@@ -95,18 +96,33 @@ The runner (`pb/migrations/migrate_runner.py`) follows this sequence on `--apply
 
 1. Read `meta.schemaVersion` (absent → 2).
 2. If already at `CURRENT_SCHEMA`: print `✓ Already on schema N.` and stop.
-3. Back up `registry.json` → `.pb-backups/registry.<from>.<ISO-ts>.json`.
-4. Run the version-update chain **in memory** (no writes yet).
-5. Validate: call `render.py`'s `build_html` on the result — if it raises, abort (nothing written).
-6. Write `registry.json` once.
-7. Re-render `prototype.html`.
-8. Print a summary; surface any `memory_notes()` as an advisory block.
+3. Take the registry lock (`registry.json.lock`). A second writer waits a few seconds, then the runner
+   prints one line naming the holder and **exits 1** — nothing is touched.
+4. Back up `registry.json` → `.pb-backups/registry.<from>.<ISO-ts>.json`, and `spec/components` +
+   `spec/screens` → `.pb-backups/spec.<from>.<ISO-ts>/`.
+5. Run the version-update chain (it may write sidecars — `0011` does; a step that needs none is in memory only).
+6. Validate: call `render.py`'s `build_html` on the result — if it raises, abort (registry untouched).
+7. Write `registry.json` once (temp file + `os.replace`).
+8. Re-render `prototype.html`.
+9. Print a summary; surface any `memory_notes()` as an advisory block.
 
-On failure **before** step 6: nothing written; backup preserved.
-On failure **after** step 6: restore from backup; then report.
+On failure **before** step 7: `registry.json` untouched; the sidecars the chain rewrote are put back from
+their snapshot (files a step created are removed); backup preserved.
+On failure **after** step 7: restore `registry.json` **and** the sidecars from backup; then report.
 
-On `--rollback`: find the latest `.pb-backups/` entry (ISO timestamps → newest first),
-restore it, re-render, confirm. **Backups are never deleted.**
+On `--rollback`: take the lock, then find the latest `registry.*.json` in `.pb-backups/` — the **newest by
+modification time**, not by name (a same-second `-2` suffix breaks name order) — and:
+
+1. **Snapshot what is on disk now** — `registry.json` and `spec/` — to `.pb-backups/pre-rollback.<ts>/`
+   (a rollback restores the state from before the update, so edits made since would otherwise be
+   overwritten). If the copy fails, nothing is restored.
+2. Restore the backup, and its `spec.<from>.<ts>/` snapshot, if it has one.
+3. Re-render and confirm.
+
+**Backups are never deleted** — a rollback adds one, so a rollback is itself undoable.
+
+Dry-run takes no lock and writes nothing. Other files a step writes (render bodies, logic contracts)
+are not snapshotted; the registry and the spec sidecars are.
 
 ## The advisory memory rule
 

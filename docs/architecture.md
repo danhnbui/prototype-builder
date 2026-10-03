@@ -9,7 +9,7 @@ two derived sites (a 4-tab prototype + the design-system site), and the command 
 
 Product Builder is a standalone **Claude Code plugin** (`pb@product-builder`). **No SpecKit** —
 no `extension.yml`, no `preset.yml`, no `after_*` hooks. State lives in `registry.json`;
-behavior lives in 12 native `/pb:*` commands; the view is a deterministically rendered
+behavior lives in 13 native `/pb:*` commands; the view is a deterministically rendered
 `prototype.html`. The core is **design-system-agnostic** — no hardcoded design system, icon
 CDN, or token outside per-project config.
 
@@ -24,11 +24,11 @@ prototype-builder/
 ├─ pb/                          # the plugin
 │  ├─ .claude-plugin/
 │  │  └─ plugin.json            # name "pb", version 2.0.0 — the shell version stamp reads THIS file
-│  ├─ commands/                 # the 12 /pb:* command bodies (*.md)
-│  ├─ agents/                   # the 8 pb-* subagents, installed by tools/agents_install.py
-│  ├─ skills/                   # the 16 capability skills the commands invoke
+│  ├─ commands/                 # the 13 /pb:* command bodies (*.md)
+│  ├─ agents/                   # the 9 pb-* subagents, installed by tools/agents_install.py
+│  ├─ skills/                   # the 18 capability skills the commands invoke
 │  ├─ migrations/               # manifest.py (CURRENT_SCHEMA) + the 000N_* version updates
-│  ├─ tools/                    # 20 stdlib tools; render.py + serve.py are the load-bearing two
+│  ├─ tools/                    # 21 stdlib tools; render.py + serve.py are the load-bearing two
 │  │  ├─ render.py              # deterministic registry.json → prototype.html / design-system.html
 │  │  └─ serve.py               # the one preview server: `/` and `/design-system`
 │  └─ template/                 # seeds copied into each project at /pb:init
@@ -101,7 +101,8 @@ machinery, which is **unchanged**:
   the crown-jewel render functions already read — so `renderPrototype`, the wireflow, and the ERD
   renderer never had to change. *(The design-system site is the second projection — it renders
   components directly from `registry.json` via the shared `runtime.js`, not through this adapter.)*
-- **`applyRegistryTokens(reg)`** injects `tokens{}` onto `:root` as CSS variables at boot.
+- **`applyRegistryTokens(reg)`** scopes `tokens{}` to the product subtree (`.pb-product`) as CSS variables at boot —
+  never to `:root`, which belongs to the tool (`--pb-*`, `pb/template/chrome.css`). `pb-*` names are reserved.
 
 Because the render is deterministic and batched, it runs **only** on `/pb:build --render` and
 automatically at `/pb:handoff` (any mode) — **never** per tweak, and **never** by the
@@ -166,14 +167,15 @@ Each project picks its design system at `/pb:init` (the DS Lock) and describes i
 
 ## The command surface
 
-12 `/pb:*` commands — 24 merged down to 12 in v2.0.0, with the old names deleted rather than
-aliased (see [upgrade-to-2.0.md](upgrade-to-2.0.md)). Each body lives in `pb/commands/`.
+13 `/pb:*` commands — 24 merged down to 12 in v2.0.0, with the old names deleted rather than
+aliased (see [upgrade-to-2.0.md](upgrade-to-2.0.md)), and `report` added in v2.1. Each body lives
+in `pb/commands/`.
 
 | Group | Commands |
 |---|---|
 | On-ramp | `init` · `pull-ds` · `specify` · `clarify` · `plan` (`--flow` / `--data` author the slices) |
 | Build loop | `build` (DS-first check + flow/erd sync folded in) · `preview` · `orchestrate` · `explore` |
-| Audit | `test` (`--drift` is the read-only audit; no flag checks everything) |
+| Audit | `test` (`--drift` is the read-only audit; no flag checks everything) · `report` (a read-only retrospective of the project's history for the pb maintainer, v2.1) |
 | Exit | `handoff` — mode 1 everything · mode 2 engineering (`--tier=host` / `scaffold`) · mode 3 Figma |
 | Schema | `update-version` (dry-run / `--apply` / `--rollback` / `--to <N>`) |
 

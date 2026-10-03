@@ -17,7 +17,21 @@ carries a `renderSrc` pointing at a real `.js` body file (`render/components/<id
 generates the render functions at `/pb:build --render`. Edit the `.js` files directly — they are
 lintable and diffable. (A legacy inline `render` string still renders for backward compatibility;
 `renderSrc` wins when both are present, and `lint_registry.py` warns to remove the inline copy.) Design
-tokens are applied onto `:root` at boot via `applyRegistryTokens`.
+tokens are applied to the **product subtree** (`.pb-product`) at boot via `applyRegistryTokens` — never onto `:root`,
+which holds the tool's own `--pb-*` vocabulary (`pb/template/chrome.css`).
+
+**Responsive styles (`styleSrc`).** An inline `style=""` cannot hold a breakpoint, so a component or
+screen that changes across device sizes carries an optional `styleSrc` → `render/styles/<id>.css`.
+`render.py` emits `pb/template/product.css` (the size-class utilities) and then every sheet, components
+before screens, into one `<style id="pb-product-css">` in both sites and in the React scaffold. A sheet
+styles its own root class — `.c-<id>` for a component, `.s-<id>` for a screen — and uses
+**`@container pb-screen (min-width: …)`, never `@media`**: the device frames are `<div>`s in one
+document, so `@media` answers the browser window, not the frame. Size classes: **compact** < 600px
+(mobile) · **medium** 600–1023px (tablet) · **expanded** ≥ 1024px (laptop, monitor). Utilities:
+`r-compact` · `r-medium-up` · `r-expanded-up` · `r-below-expanded` (show only in that range) and
+`r-cols` (1 → 2 → 3 columns). Anything that changes across sizes lives in the sheet, not inline —
+an inline declaration beats the container rule. Lint: `R-STYLESRC` · `R-STYLE-MEDIA` · `R-STYLE-SCOPE`
+· `R-HEX`/`R-PX` · `R-RESPONSIVE` (see `meta.responsive`).
 
 ### Top-level shape
 
@@ -26,8 +40,9 @@ tokens are applied onto `:root` at boot via `applyRegistryTokens`.
 | `meta.name` | string | — | project name |
 | `meta.shell` | `'browser'\|'app'` | Prototype | default preview chrome — `browser` (tab strip + back/reload/URL bar) or `app` (plain titlebar on desktop; a contrast-aware device status bar on tablet/mobile). Viewer can toggle live; set at `/pb:init`. Defaults to `'browser'` |
 | `meta.device` | `'monitor'\|'laptop'\|'tablet'\|'mobile'` | Prototype | default device for the preview frame; set at `/pb:init`. Falls back to `'laptop'`. Legacy `'desktop'` → `'laptop'` |
-| `meta.devices` | `('monitor'\|'laptop'\|'tablet'\|'mobile')[]` | Prototype | the fixed sizes this project supports (`monitor 1920×1080 · laptop 1280×832 · tablet 834×1112 · mobile 390×844`) — unsupported sizes are disabled in the switcher. Optional; defaults to all four. Legacy `'desktop'` expands to `monitor`+`laptop` |
-| `meta.designSystem` | `{ name, designLink, codeLibrary, linked }` | design-system site | the linked design system — `designLink` (Figma/doc URL), `codeLibrary` (folder path or repo URL). Seeded from the DS Lock at `/pb:init`. Optional/tolerated-absent → the DS bar shows an "add one" affordance |
+| `meta.devices` | `('monitor'\|'laptop'\|'tablet'\|'mobile')[]` | Prototype | the fixed sizes this project supports (`monitor 1920×1080 · laptop 1280×832 · tablet 834×1112 · mobile 429×926`) — unsupported sizes are disabled in the switcher. Optional; defaults to all four. Legacy `'desktop'` expands to `monitor`+`laptop` |
+| `meta.responsive` | `true\|false\|null` | Prototype · build · lint | whether the UI **adapts** across the `meta.devices` size classes — asked at `/pb:init` right after the device question. `true`: every screen answers at every listed size (container queries via `styleSrc` or the `r-*` utilities; `R-RESPONSIVE` warns per screen that nothing adapts). `false`: one layout — `meta.devices` is trimmed to `meta.device`. `null` (an older project): `/pb:build` asks once before its next screen/component write; lint stays silent on it. Additive, no schema bump |
+| `meta.designSystem` | `{ name, designLink, codeLibrary, linked }` | design-system site | the linked design system — `name`, `designLink` (the project's Figma file), `codeLibrary` (folder path or repo URL). Seeded from the DS Lock at `/pb:init`. **Editable in the Project settings dialog**, saved through `POST /api/meta` on `/pb:preview` (read-only over `file://`): **`name` is required**; `designLink` is optional and, when set, must be a `figma.com/file/…` or `figma.com/design/…` link — except that a non-Figma link the project already carries is **kept with a warning** rather than blocking a save of the names. Hand-off, the Figma push and the drift check read it. Absent → Project settings shows it empty |
 | `meta.platform` | `'web'\|'ios'\|'android'\|'desktop'` | — | the DS/target platform; set at `/pb:init`. Defaults to `'web'`. Schema 5 (v1.6) |
 | `meta.dsSource` | `{ type, ref, clonedAt } \| null` | — | provenance of the cloned DS: `type ∈ figma\|code-library\|mcp\|common`, `ref` the literal URL/path/name, `clonedAt` ISO stamp. `null` until `/pb:pull-ds` clones. The full token/component snapshot lives in `design-system/<name>/.source.json`; `/pb:test --drift` §5 diffs the live source against it. Schema 5 (v1.6) |
 | `meta.outputTier` | `'host'\|'scaffold'\|'hardened'` | — | which export tier `/pb:handoff` targets. `host` = the runnable single-file prototype; `scaffold` = deterministic React+Tailwind (`render_react.py`); `hardened` = idiomatic/DS-integrated (deferred). Defaults to `host`. Schema 6 (v1.7) |
@@ -36,13 +51,16 @@ tokens are applied onto `:root` at boot via `applyRegistryTokens`.
 | `meta.overview` | `{ objectives, principles[] }` | Project Summary | from spec + constitution |
 | `meta.userInsights` | `{ quantitative, researchSummary, executiveSummary }` | Project Summary | from `/pb:clarify` |
 | `meta.others` | string \| null | — | **Retired (D-33).** Raw HTML, no schema, no writer, no check — the dump for terminology and business rules that had no home; those now have `content` and `ia.rules[]`. The sub-tab is gone; the field is kept in the registry per `AGENTS.md` §3 and removal waits for a major |
-| `tokens{}` | a **W3C DTCG** document — `{ "<name>": { $value, $type } }` (flat or nested groups + `{alias}` refs) | all (CSS vars) | `pb/tools/tokens.py` (+ the shell's `pbResolveTokens`) resolves it → CSS custom properties on `:root`; `$type ∈ color\|dimension\|fontFamily\|fontWeight\|number\|duration\|shadow\|…` (space/size/radius/fontSize all → `dimension`) |
+| `tokens{}` | a **W3C DTCG** document — `{ "<name>": { $value, $type } }` (flat or nested groups + `{alias}` refs) | all (CSS vars) | `pb/tools/tokens.py` (+ the shell's `pbResolveTokens`) resolves it → CSS custom properties scoped to `.pb-product` (and published as `--prj-<name>` on `:root` for a deliberate opt-in); `$type ∈ color\|dimension\|fontFamily\|fontWeight\|number\|duration\|shadow\|…` (space/size/radius/fontSize all → `dimension`) |
 | `components[]` | organism objects | design-system site | the component library — shape below |
 | `screens[]` | screen objects | Prototype | shape below |
 | `staleness{}` | per-tab `{ lastSyncedPromptCount, currentPromptCount }` | — | **Deprecated** (D-19): nothing writes it, and the shell stopped reading it in v2.0.0 (D-29). Kept in the registry per `AGENTS.md` §3; removal waits for a major release |
 | `flow{}` | `{ populated, mermaid, stories[], html? }` | UX Design | structured — shape below; `html` is legacy fallback only |
 | `erd{}` | `{ populated, table[], mermaid, warnings[], html? }` | Data | structured — shape below; `html` is legacy fallback only |
-| `ia.rules[]` | `{ id, title, kind, summary, decision?, implemented[], implementedBy[], readers[], displayedIn[], decidedIn, stateField?, states[].derived? }` + per-kind fields | UX Design → Logic | the declared business rules. **`decision{ question, options[], chose, why, status?, supersededOn?, affects? }`** is the record of how the rule got settled, on the rule itself (D-33) — `options[]` carries what LOST, the one thing a rule cannot say for itself, and `status: 'superseded'` dims the card in place. It renders for every kind; the retired `meta.tradeoffs[]` is migration 0010. **`stateField`** names the property that holds the state and opts the rule into the reachability check (D-31): a state neither assigned anywhere nor marked `derived: true` renders dashed, as one nothing can reach. Omit it and no claim is made. **Four kinds**, each with its own renderer: `decision` (title + summary + the decision block — a rule you have settled but not yet expressed as one of the three below; upgrading it later keeps the block) · `state-machine` (`states[]` + `transitions[][]` + `overlays[]` — an overlay is a condition that rides *on top of* whichever state you are in, drawn as a band spanning the states it covers) · `matrix` (`rows[]` × `cols[]`) · `constraint` (`invariants[]` = `{ must, enforcedBy, when, message? }` — for a rule that is neither a machine nor a table, e.g. "every weight pool totals 100%"; an invariant with no `enforcedBy` renders as a **warning**, because a stated rule nothing enforces is the finding). An unknown `kind` degrades to title + summary. `implementedBy[]` / `readers[]` / `enforcedBy` are function names resolved against the derived handler graph, so a rename in the code shows up as a dead link |
+| `ia.jobs[]` | `{ id, roles[], priority, when, want, so, screens[], source? }` | UX Design → Information Architecture | what each role needs done, read back as *When …, I want to …, so I can …*. Written by `/pb:clarify` §1b and approved at G-JTBD (seeded optionally at `/pb:init`); `screens[]` filled by `/pb:clarify` §1c (G-IA promote, `explore.py promote`); `/pb:plan --ia <job> --into <screen>` for a late job. A job with no screen is flagged unhandled |
+| `ia.layers[]` | `{ depth: number \| 'overlay', name, purpose }` | UX Design → Information Architecture | one sentence of purpose per navigation layer, written by `/pb:clarify` §1c (G-IA promote) from the chosen grouping. Membership, edges and overlays are **derived**, never stored |
+| `meta.navHub` | string \| string[] | Information Architecture site map | the component id(s) holding the top-level navigation — a sidebar, a bottom tab bar, or both (v2.1.0, additive). The site map's layer 0 is read from its nav items (any object literal with a `label` and a `key`/`screen`/`to`); absent, a body named `sidebar.js` is used, and with neither the map renders an empty state saying why. Set by `/pb:clarify` §1c (G-IA promote, when the chosen grouping names its hub component) |
+| `ia.rules[]` | `{ id, title, kind, summary, decision?, implemented[], implementedBy[], readers[], displayedIn[], decidedIn, stateField?, states[].derived? }` + per-kind fields | UX Design → Logic | the declared business rules. **`decision{ question, options[], chose, why, status?, supersededOn?, affects? }`** is the record of how the rule got settled, on the rule itself (D-33) — `options[]` carries what LOST, the one thing a rule cannot say for itself, and `status: 'superseded'` dims the card in place. It renders for every kind; the retired `meta.tradeoffs[]` is migration 0010. **`stateField`** names the property that holds the state and opts the rule into the reachability check (D-31): a state neither assigned anywhere nor marked `derived: true` renders dashed, as one nothing can reach. Omit it and no claim is made. **Four kinds**, each with its own renderer: `decision` (title + summary + the decision block — a rule you have settled but not yet expressed as one of the three below; upgrading it later keeps the block) · `state-machine` (`states[]` + `transitions[][]` + `overlays[]` — an overlay is a condition that rides *on top of* whichever state you are in, drawn as a band spanning the states it covers) · `matrix` (`rows[]` × `cols[]`) · `constraint` (`invariants[]` = `{ must, enforcedBy, when, message? }` — for a rule that is neither a machine nor a table, e.g. "every weight pool totals 100%"; an invariant with no `enforcedBy` renders as a **warning**, because a stated rule nothing enforces is the finding). An unknown `kind` degrades to title + summary. **`blocks[]` (v2.1.0, additive, any kind)** — an ordered list of typed blocks that carry the rule's structure instead of prose, one renderer each: `cases` (`rows[{when, then, tone?}]`, `inputs?[]`, `else?`) · `scope` (`acts[]`, `untouched[]`) · `placement` (`surfaces[{surface, holds[], never?[]}]`) · `matrix` (`rowLabel, rows[], cols[], cells`) · `validation` (`items[{must, enforcedBy?\|enforcedIn?, when?, message?, code?}]`) · `formula` (`expr`, `terms[{name, means}]`, `example?`) · `steps` (`items[{label, detail?}]`) · `params` (`items[{name, value, unit?, note?}]`) · `effects` (`writes[]`, `ripple[{screen, shows}]`) · `note` (`text`). `logic_check.py` L-BLOCK checks each against the renderer. `summary` is a one-line lead; the decision folds away when blocks exist, and lineage fields (`supersedes`, `supersededBy`, `amended*`, `was`, `derivedFrom`, `origin`, `citeNote`, `retired[]`, …) render in one *History & sources* fold — `stillOpen` stays visible as an *open* chip. `invariants[]` render on any kind and accept `enforcedIn` (a location) beside `enforcedBy` (a handler). `implementedBy[]` / `readers[]` / `enforcedBy` are function names resolved against the derived handler graph, so a rename in the code shows up as a dead link |
 | `content{}` | `{ populated, terms[], strings[] }` | UX Design → Content | optional. `terms[]` = `{ id, term, en?, definition, aka[], avoid[], rule? }` — the glossary, where `avoid[]` is what the word is deliberately never called and `rule` points at an `ia.rules[].id`. `strings[]` = `{ key, text, kind, note? }` — the wording deck, `kind ∈ action\|status\|label\|title\|empty\|toast\|error` (an unknown kind keeps its own group rather than being dropped). **Both halves hand-authored**; no tool derives either, so the tab's only check is authored-vs-authored — a wording or a declared rule's state label that uses a banned word |
 
 ### `components[]` (one per reusable component)
@@ -51,20 +69,23 @@ Ported **verbatim** from the v0.4.0 `PB_DATA.handoff.organisms` shape:
 
 ```
 { id (kebab, unique), name, renderFn ("renderCmp{PascalCase}"), renderSrc ("render/components/<id>.js"),
+  styleSrc? ("render/styles/<id>.css" — responsive rules, root class .c-<id>),
   meta, scope ("global"|"local"),
   level ("atom"|"molecule"|"organism"), codeLayout ("stacked"|"side-by-side"),
-  properties[], code{ lang, snippet }, anatomy (string | { renderProps, parts[] }), spec (string | { legend, renderProps, marginX, stack[] }),
-  uiLogic[], usage{ demoProps, topics[], placement } }
+  properties[], code{ lang, snippet }, specSrc ("spec/components/<id>.json" — anatomy, layout, elements, shape,
+  measured, anatomyNote?, specNote?, legacy?), uiLogic[], usage{ example, demoProps, topics[], placement } }
 ```
 
-- **`scope`** — `'global' | 'local'`. Drives the design-system site's **Global | Local** grouping. A component reads as
-  global when `scope === 'global'` **or** a `dsMatch` exists; otherwise local.
+- **`scope`** — `'global' | 'local'`. Drives the design-system site's **Local / Library** badge (every component carries
+  exactly one). A component reads as a library component when `scope === 'global'` **or** a `dsMatch` exists; otherwise
+  it is local.
 - **`level`** — `'atom' | 'molecule' | 'organism' | 'template'` — the atomic-design layer. **Required**
-  (schema 9; `lint_registry.py` R-LEVEL). Screens are implicitly `page`. The design-system site's Global/Local lists
-  group components by level. **Component-first / atomic law (enforced, ERROR under `--strict`):** ONLY
+  (schema 9; `lint_registry.py` R-LEVEL). Screens are implicitly `page`. The design-system site lists molecules,
+  organisms and templates (an atom only as a part inside its parent — unless it is card-shaped, `shape: "card"`, and
+  then it is listed as a **Card**). **Component-first / atomic law (enforced, ERROR under `--strict`):** ONLY
   `level:atom` render bodies may emit raw HTML primitives; every molecule/organism/template/screen body is
   **pure composition** — layout containers + `pbUse('<child-id>', props)` calls to lower-level components
-  (R-COMPOSE), whose set matches the declared `elements[]`/`anatomy.parts[]` orgIds (R-COMPOSE-MATCH), each
+  (R-COMPOSE), whose set matches the declared screen `elements[]` orgIds and a component's `instance` parts (`anatomy` `instanceOf`; R-COMPOSE-MATCH), each
   composing strictly lower levels (R-LEVEL-ORDER). This is what lowers 1:1 to a Figma INSTANCE tree. A
   component that maps to a single DS component (`dsMatch`) is an `atom` even if visually composite.
 - **`state` property convention** — if `properties[]` contains a property with `id: 'state'` (each option
@@ -72,10 +93,31 @@ Ported **verbatim** from the v0.4.0 `PB_DATA.handoff.organisms` shape:
   demo shows **one live, interactive instance of the currently-selected variant** (changing any dropdown,
   including `state`, re-renders it). **Interactive components MUST declare it** (e.g. `default / error /
   disabled`, `default / loading / disabled`).
-- **`anatomy` / `spec`** — either a **prose string** (rendered as a description beside a live preview) or a
-  **structured object** (`anatomy.parts[]` / `spec.stack[]`) that drives the numbered redline annotations. The
-  spec metadata carries whichever form is present (hand-off / bridge); author the structured object when you want measured
-  redlines, the string when a plain description suffices.
+- **The spec sidecar** (`spec/components/<id>.json`, via `specSrc`; **schema 13** — `CURRENT_SCHEMA` in
+  `pb/migrations/manifest.py`). Anatomy and spec are **measured, not typed**, in the Specs plugin's shape
+  (specsplugin.com/schema): `tools/spec_measure.py` renders the component with its demo props
+  (`properties[].default`, then `usage.example`) and writes, beside the hand-authored keys (`usage`, `uiLogic`, `code`):
+  ```
+  anatomy:  { <part>: { type: text|glyph|vector|container|slot|instance, instanceOf? } }   // instanceOf = a registry id
+  layout:   [ { "root": [ <part> | { <part>: [ … ] } ] } ]                                 // the part tree, in DOM order
+  elements: { <part>: { parent, anchor?, visibleWhen?{ prop, is: "set"|"true" },
+                        styles?{ padding{top,right,bottom,left, token | tokens{side}},
+                                 margin{top,right,bottom,left — px, or "auto" for a side set to auto; token | tokens{side}},
+                                 itemSpacing{value | "auto", direction, via: gap|margin|gap+margin|layout|none|space-*, token?, min?},
+                                 cornerRadius{value, token?}, backgroundColor{value, token?}, textColor{value | "inherit", token?} } } }
+  shape:    "card"            // a painted root (an opaque fill, a radius > 0 and padding > 0) that is not a native
+                              // control element (<button>/<a>/<input>/<select>/<textarea>; a role=button div still
+                              // counts) and has ≥ 2 non-root parts; absent otherwise
+  measured: { at, by: "spec_measure.py", props }
+  ```
+  Parts come from `data-part="<name>"` in the render body (the root is `data-part="root"`); a `pbUse` child is an
+  `instance` part named after its id (`-1…-n` when repeated). **A part is optional iff it carries `visibleWhen`** —
+  derived by re-rendering with each prop unset, never typed. A `token` is filled only when the measured value equals
+  a registry token's resolved value; otherwise the raw value stands alone. **Margin is recorded like padding** — four
+  sides, a side set to `auto` kept as the keyword (never as the pixels it resolved to), and `token` (all four equal
+  and a token) or per-side `tokens`. `/pb:build` §3a re-measures a component
+  when it is built or changed; never hand-edit the five measured keys. Schema-12 prose `anatomy`/`spec` strings
+  live on as `anatomyNote`/`specNote`, and a structured `anatomy.parts[]`/`spec.stack[]` as `legacy` (migration `0011`).
 
 Figma fields are recorded by `/pb:handoff` in `figma-transfer.json` (bridge mode: the
 portable `dsKey` + `propertyMapping`; the `--mcp` legacy path also writes `figmaId`/`figmaComponentSetId`
@@ -84,7 +126,8 @@ back onto the registry). `dsMatch` may be authored to hint the DS component matc
 ### `screens[]` (one per screen)
 
 ```
-{ id (kebab), name, renderFn, renderSrc ("render/screens/<id>.js"), layout{ type, gap, maxWidth, padding },
+{ id (kebab), name, renderFn, renderSrc ("render/screens/<id>.js"), styleSrc? ("render/styles/<id>.css", root class .s-<id>),
+  layout{ type, gap, maxWidth, padding },
   elements[ { id, label, orgId, tokens[], sizing, state, uiLogic, bounds? } ], logicNotes[], figmaFrameId? }
 ```
 
@@ -197,36 +240,74 @@ and **data-set variant chips** on the table. Per-entity tables share fixed colum
 
 ## The 4 tabs (prototype shell) + the design-system site
 
-- **Prototype** — the live **interactive** app driven by the `data-*` runtime (above). Header-line tools (a
-  **Browser | App** chrome toggle + an icon-only device switcher over 4 fixed sizes — monitor 1920×1080 /
-  laptop 1280×832 / tablet 834×1112 / mobile 390×844, gated by `meta.devices`, default from `meta.device`)
-  render the selected screen in a device frame that scales to fit. Browser chrome adds a tab strip +
-  back/reload/URL bar; app chrome a titlebar (desktop) or a status bar (tablet/mobile). No screen-switcher.
+- **Prototype** — the live **interactive** app driven by the `data-*` runtime (above). Every control lives in the
+  **Sandbox inspector** — a right-hand panel opened by the bar's hourglass or `S` (Esc closes it unless pinned; the pin
+  docks it and pushes the stage). **Conditions**: a **Browser | App | None** chrome toggle, an icon-only device
+  switcher over 4 fixed sizes (monitor 1920×1080 / laptop 1280×832 / tablet 834×1112 / mobile 429×926, gated by
+  `meta.devices`, default from `meta.device`), Compare, the Structure tree and the role. **Run**: the runnable `test{}`
+  scenarios grouped by story, run in the page. **Explore**: the open `/pb:explore` round. **Reset session** in the
+  footer. Phone and tablet frames scale to fit whole (32px inset, 24px under 900px tall). Browser chrome adds a tab
+  strip + back/reload/URL bar; app chrome a titlebar (desktop) or a status bar (tablet/mobile). No screen-switcher.
+- **The bar** — the project button (name → **Project settings**: project name, design-system name (required), Figma
+  file (optional), theme System / Light / Dark) and **⌘K** global search. Settings are saved by `POST /api/meta` on
+  `/pb:preview`; over `file://` they are read-only.
 - **Project Summary** — split: Overview / User Insights (the shared `meta-subtab` sub-tabs — and nothing else, D-33) in a scrolling
   left column, with a **scroll-spy table of contents** on the right that tracks the headings in view and
-  navigates on click. One viewport, internal scroll.
+  navigates on click — shown only when the content has ≥ 3 headings. One viewport, internal scroll. Prose is **rich
+  text** (below): the objective is a lead paragraph, principles a numbered list.
 - **UX Design** — five segments: **Logic** (declared rules + the derived ripple) · **Information Architecture**
-  (job list over the derived site map) · **User Flow** (the wireflow from `flow.mermaid`, filling one viewport,
+  (the derived site map over the job list, one filter bar above both) · **User Flow** (the wireflow from `flow.mermaid`, filling one viewport,
   with the user stories beside it — hovering a story highlights the path it satisfies) · **Test Cases** ·
   **Content** (the `content` glossary + wording deck, above).
 - **Data** — single-column **Diagram | Table** toggle over `erd` (above): relationship-legend popover on the
   diagram, data-set variant chips on the aligned tables.
 
 **Design-system site** (`design-system.html`, served at `/design-system` — a second projection of the same
-registry, not a tab): every component auto-collected, grouped by `scope` → atomic `level`. Each
-**interactive** component (auto-detected — a `state` property OR body `data-*`/`onclick`/control tags) gets a
-**live, clickable demo**; **all** get a **variant grid** (the cartesian product of enum `properties`) + a
-**Push to Figma** bridge node-JSON snippet (paste into the plugin's *Code → Figma* tab). Token foundations
-render as swatches. Same `renderCmp*` functions the prototype uses (shared `pb/template/runtime.js`) — never
-duplicated.
+registry, not a tab): every component is auto-collected and **every listed component gets a live, clickable demo**
+(the same `renderCmp*` functions the prototype uses, from the shared `pb/template/runtime.js` — never duplicated).
+Token foundations render as swatches, one page per kind. It is a docs site: a tree whose roots are **Components** and
+**Foundations** (plain labels — no counts, nothing to expand — and a filter), listing molecules, organisms and
+templates plus card-shaped atoms (**Card**), each row with its level and a **Local / Library** badge; atoms appear
+only as parts inside a parent. One page at a time by hash (`#/c/<id>`, `#/f/<kind>`). A component page is a
+`pbHeadHTML` head (no description) over **Overview** — a workbench: variant and device pickers, **Layers** (Anatomy ·
+Spec with Margin / Padding / Gap colours and hover/focus/tap labels), a Code view (HTML | CSS), *Edit props* (closed),
+*Tokens used*, *Used in*, *Source* and the closed *Design notes* — and the tabs **Variants & spec** (per-variant
+spec) and **Anatomy** (parts table, copyable token chips, instance tokens). **Push to Figma** is **Copy JSON** (the
+bridge node JSON for the plugin's *Code → Figma* tab) or **Copy prompt**
+(`/pb:handoff --mode=3 --scope=components --component <id>` plus the project's Figma file). Themed like the
+prototype (System / Light / Dark); the demo stages stay light.
+
+## Rich text
+
+Prose a person reads on a page — the Project Summary (`meta.overview.objectives`, principle bodies,
+`meta.userInsights.*`), an IA job's `gap` note, a component's design notes (`purpose`) — is rendered by
+`pbRichText(str)` in `runtime.js` (both shells). It **escapes first**, then reads a small set of marks, so an author
+(or `/pb:clarify`) can give a long text a hierarchy without markup of their own:
+
+| Mark | Renders as |
+|---|---|
+| `**bold**` | strong |
+| `*em*` or `_em_` | emphasis |
+| `==the one thing to remember==` | a highlight (`.pb-hl`) |
+| `{+an improvement+}` | positive, in the pass colour (`.pb-pos`) |
+| `{-a problem or risk-}` | negative, in the fail colour (`.pb-neg`) |
+| `` `code` `` | code, and opaque to every other mark |
+| a line starting `·` `•` `▪` `- ` `– ` or `* ` | a bullet list |
+| a line starting `1.` or `1)` | a numbered list (a different start number is kept) |
+| a blank line / a single newline | a paragraph / a line break |
+| a number with `%`, a currency or a unit, or a grouped number (`11,042`) | **bold**, automatically (`.pb-num`; `numbers:false` turns it off) |
+
+An unbalanced mark stays literal; `{inline:true}` returns the marks only, with no blocks. The colours are the tool's
+`--pb-pass` / `--pb-fail` tokens, so they follow the theme. The marks are authored, never inferred: the
+writer agents add them under the limits in `pb/commands/clarify.md`.
 
 ## Render-function inventory
 
 _(Phase 3)_ — the **prototype** shell: `render`, `renderMetaNav`, `renderMetaPanel`, `renderPrototype`,
 `renderMetaSummary` (+ `pbRenderOverview/UserInsights`), `renderMetaFlow`/`renderFlowPopulated`,
-`renderMetaERD`/`renderERDPopulated`. (The former UI Design `renderHandoff*` cluster is retired with the tab.)
-The **design-system** site (`design-system.html`) has its own workbench builder (`buildDS` → the interactive
-demo + variant-grid enumerator + push dialog). Both sites share `pb/template/runtime.js` and the per-component
+`renderMetaERD`/`renderERDPopulated`. (The former UI Design `renderHandoff*` cluster is retired with the tab.) `renderPrototype()` repaints only when the Prototype tab is the open one; called while another tab is open (a render body's script `onerror`, a timer, a store subscriber) it just marks the prototype dirty, and the next switch back repaints it — it never overwrites the page the reader is on.
+The **design-system** site (`design-system.html`) has its own workbench builder (`buildDS` → the Overview
+workbench (`showOverview`), the Variants & spec and Anatomy tabs, and the push dialog (`openPush`); `buildNav` + `route` for the tree and the per-page hash routing). Both sites share `pb/template/runtime.js` and the per-component
 `renderCmp*` / per-screen `renderScreen*` bodies, generated from the registry by `render.py` (`--ds` for the DS site).
 
 ## Sync rules
