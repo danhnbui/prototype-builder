@@ -157,8 +157,8 @@ with tempfile.TemporaryDirectory() as d:
             st1["scenarios"][2]["test"]["expect"] = [{"screen": "changed"}]           # a scenario's test edited
             del st1["scenarios"][3]                                                    # a scenario removed
             st1["scenarios"].append(scen("appended meanwhile"))
-            ino = os.stat(path).st_ino
             pbslice._write(path, mid)
+            ino = os.stat(path).st_ino   # after it: ext4 hands a freed inode straight back out
         worker.join(30)
     finally:
         os.environ.pop("PB_LOCK_TIMEOUT", None)
