@@ -6,7 +6,8 @@ Boots pb/tools/serve.py on the golden fixture and drives a real Chromium via
 Playwright, asserting the behaviours the CPTO audit verified by hand:
 
   1. all 4 doc tabs render (Prototype · Project Summary · UX Design · Data — components live on the DS site)
-  2. a registry design token reaches :root (Principle 1, runtime side)
+  2. a registry design token reaches the PRODUCT and stops there — the tool's own chrome is not
+     repainted by the project (Principle 1, runtime side; the product boundary)
   3. an empty submit shows >= 2 inline errors with the danger-token border
   4. a valid submit navigates to the next screen
   5. a view-only (/pb:handoff --people) artifact hides EVERY authoring CTA, on all 4 tabs
@@ -182,17 +183,34 @@ def run():
                 page.click(".meta-ds-link")
             ds_page = popup.value
             ds_page.wait_for_load_state("domcontentloaded")
-            check(ds_page.url.endswith("/design-system"),
+            # the DS canonicalises its URL to the page it lands on (#/c/<id>), so compare the PATH
+            check(ds_page.url.split("#")[0].endswith("/design-system"),
                   f"clicking it really opens the second site in a second tab ({ds_page.url})")
             check(len(page.context.pages) == 2, "and the prototype tab is still open behind it")
             ds_page.close()
             check(page.locator(".meta-tab").count() == 4,
                   "still exactly 4 .meta-tab — the DS link is a second SITE, not a fifth tab")
 
-            # 2. registry token reaches :root
-            brand = page.evaluate(
-                "getComputedStyle(document.documentElement).getPropertyValue('--brand').trim()")
-            check(brand == "#4f46e5", f"registry token applied to :root (--brand={brand!r})")
+            # 2. registry token reaches the PRODUCT, and only the product.
+            # This used to assert that `--brand` lands on :root — which is the bug, written down as a
+            # requirement: it is how a project's orange became the tool's own tab strip. The intent
+            # behind it was "the registry's tokens genuinely reach the page"; the contract is now
+            # that they reach what the project renders and stop there.
+            CSSVAR = "(sel) => { const el = document.querySelector(sel); return el ? getComputedStyle(el).getPropertyValue('--brand').trim() : null; }"
+            brand_product = page.evaluate(CSSVAR, "#proto-frame")
+            check(brand_product == "#4f46e5",
+                  f"registry token reaches the product (#proto-frame --brand={brand_product!r})")
+            brand_root = page.evaluate(CSSVAR, "html")
+            brand_nav = page.evaluate(CSSVAR, "#meta-nav")
+            check("#4f46e5" not in (brand_root, brand_nav) and brand_root and brand_nav,
+                  f"...and does NOT reach the tool (:root --brand={brand_root!r}, #meta-nav --brand={brand_nav!r})")
+            published = page.evaluate(
+                "getComputedStyle(document.documentElement).getPropertyValue('--prj-brand').trim()")
+            check(published == "#4f46e5",
+                  f"the tool can still opt in on purpose via --prj-brand ({published!r})")
+            page.evaluate("applyRegistryTokens({tokens:{'pb-ink':{$value:'#ff0000'}}})")
+            pb_ink = page.evaluate("getComputedStyle(document.documentElement).getPropertyValue('--pb-ink').trim()")
+            check(pb_ink != "#ff0000", f"a registry cannot overwrite the tool's own --pb-* tokens ({pb_ink!r})")
 
             # 3. empty submit -> >=2 errors with the danger border
             page.click('.meta-tab >> nth=0')  # Prototype tab (default, but be explicit)
@@ -367,6 +385,20 @@ def run():
                     visible = page.locator(f"{cta_sel} >> visible=true").count()
                     label = page.locator(".meta-tab").nth(i).inner_text().strip()
                     check(visible == 0, f"no authoring CTA visible on '{label}' tab ({visible})")
+                # …but the viewer still drives the prototype: only AUTHORING controls hide. The role
+                # switcher and Reset live in the Sandbox now, so its trigger must be there on the
+                # Prototype tab, and opening it must show both.
+                page.click(".meta-tab >> nth=0")
+                page.wait_for_timeout(150)
+                check(page.locator(".meta-sandbox >> visible=true").count() == 1,
+                      "view-only: the Sandbox trigger is still on the Prototype tab")
+                page.click(".meta-sandbox")
+                page.wait_for_timeout(200)
+                check(page.locator('.proto-sandbox-menu select[aria-label="Preview as role"] >> visible=true').count() == 1,
+                      "view-only: the role switcher is still there for a viewer")
+                check(page.locator(".proto-sandbox-menu .proto-menu-item:has-text('Reset session') >> visible=true").count() == 1,
+                      "view-only: and so is Reset session")
+                page.keyboard.press("Escape")
                 check(not errors, f"zero console errors on view-only ({errors})")
                 page.close()
 

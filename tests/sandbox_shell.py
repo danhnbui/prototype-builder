@@ -272,8 +272,13 @@ def run():
                   f"so on screen the phone is still {1280/429:.2f}× narrower ({ra/rb:.2f})")
             sw, cw = page.eval_on_selector("#proto-stage", "e => [e.scrollWidth, e.clientWidth]")
             check(sw <= cw + 1, f"the pair is scaled to fit, not scrolled to ({sw} in {cw})")
-            check(len(page.locator(".proto-frame-cap").all_inner_texts()) == 2,
-                  "each frame says which device it is")
+            # No visible caption (it was sub-info the preview does not need), but each frame still
+            # has an accessible NAME, so which one is which is not lost to a screen reader.
+            check(page.locator(".proto-frame-cap").count() == 0,
+                  "no caption is drawn above the frames")
+            names = page.eval_on_selector_all(".proto-frame", "els => els.map(e => e.getAttribute('aria-label'))")
+            check(len(names) == 2 and all(n and "×" in n for n in names),
+                  f"each frame is still named for assistive tech ({names})")
             # The stage narrows by 304px when the structure panel slides in. A single frame rides
             # that out in CSS; the pair's scale is JS, so it has to be recomputed or it runs under
             # the panel — which it did, until a ResizeObserver watched the stage.
@@ -311,12 +316,36 @@ def run():
             check(len(scen) == 2 and all(s["text"] and s["text"] != "scenario" for s in scen),
                   f"every scenario carries its description ({[s['text'][:34] for s in scen]})")
             menu()
+            # The scenarios are a list now — one line each, run in place — rather than a picker; the
+            # contract it carries is unchanged: it is called Scenario testing, every entry reads as
+            # the test case does, and picking one stages the screen it starts on. Since round 3 the list
+            # is grouped by story (each group a disclosure, each scenario a disclosure inside it), so an
+            # entry is a `.pb-run-sc` anywhere under the list rather than a direct child of it.
             labels = [t.strip().lower() for t in page.locator(".proto-sandbox-menu .sbx-row-lbl").all_inner_texts()]
-            check("scenario testing" in labels and not any("terminal" in t for t in labels),
-                  f"the row is Scenario testing ({labels})")
-            opts = page.locator(".proto-sandbox-menu select[aria-label='Scenario testing'] option").all_inner_texts()
-            check(any("Valid credentials land on the dashboard." in o for o in opts),
-                  f"and the options read as the test cases do ({opts[1:]})")
+            lst = page.locator(".proto-sandbox-menu [aria-label='Scenario testing']")
+            check(lst.count() == 1 and not any("terminal" in t for t in labels),
+                  f"the list is Scenario testing ({labels})")
+            items = page.locator(".proto-sandbox-menu [aria-label='Scenario testing'] .pb-run-sc")
+            texts = items.all_inner_texts()
+            check(any("Valid credentials land on the dashboard." in o for o in texts),
+                  f"and its entries read as the test cases do ({texts})")
+            runs = page.locator(".proto-sandbox-menu [aria-label='Scenario testing'] .pb-run-sc button[aria-label^='Run']").count()
+            check(len(texts) == len(scen) and runs == len(scen),
+                  f"one entry per runnable scenario, each with its own ▶ ({len(texts)} entries, {runs} run buttons)")
+            want = [s["start"] for s in scen if "Valid credentials land on the dashboard." in s["text"]][0]
+            check(bool(want), f"(the fixture's scenario names a start screen: {want!r})")
+            run_t = page.locator(".proto-sandbox-menu .pb-run-disc > .pb-disc-t")
+            check(run_t.get_attribute("aria-expanded") == "false",
+                  "Run starts collapsed (owner's ruling: always collapse it), its count still on the header")
+            run_t.click()
+            page.wait_for_timeout(200)
+            page.evaluate("setProtoScreen(PB_DATA.handoff.screens.find(s => s.id !== %r).id)" % want)
+            page.wait_for_timeout(200)
+            page.locator(".proto-sandbox-menu [aria-label='Scenario testing'] .pb-run-sc",
+                         has_text="Valid credentials land on the dashboard.").locator(".pb-disc-t").click()
+            page.wait_for_timeout(300)
+            check(page.evaluate("state.protoScreenId") == want,
+                  f"picking an entry still jumps to the screen it starts on ({want})")
 
             print("7 · Reset session is the last thing in the box")
             rows = page.eval_on_selector_all(
@@ -333,6 +362,50 @@ def run():
             sh = page.eval_on_selector(".proto-sandbox-menu .proto-shell-btn.active", A)
             dv = page.eval_on_selector(".proto-sandbox-menu .proto-toolbar .proto-device-btn.active", A)
             check(sh == dv, f"Chrome and Device look the same when selected\n        chrome={sh}\n        device={dv}")
+
+            print("8b · R resets the session — and can never cost anyone anything")
+            page.evaluate("document.querySelectorAll('.copy-popover,.copy-popover-backdrop').forEach(e => e.remove())")
+            first = page.evaluate("PB_DATA.handoff.screens[0].id")
+            other = page.evaluate("(PB_DATA.handoff.screens[1] || {}).id || null")
+            check(bool(other), "the fixture has a second screen to leave the first for")
+            if other:
+                def blur():
+                    page.evaluate("document.activeElement && document.activeElement.blur && document.activeElement.blur()")
+                page.evaluate("setProtoScreen(%r)" % other); page.wait_for_timeout(200); blur()
+                page.keyboard.press("r"); page.wait_for_timeout(250)
+                check(page.evaluate("state.protoScreenId") == first, "R returns the preview to the first screen")
+                check("Session reset" in page.inner_text("body"), "and says so")
+
+                page.evaluate("setProtoScreen(%r)" % other); page.wait_for_timeout(200); blur()
+                page.evaluate("document.dispatchEvent(new KeyboardEvent('keydown', {key:'r', metaKey:true, bubbles:true}))")
+                page.wait_for_timeout(150)
+                check(page.evaluate("state.protoScreenId") == other, "Cmd+R is left to the browser (it is reload)")
+
+                page.evaluate("setProtoScreen(%r)" % first); page.wait_for_timeout(200)
+                page.fill("#proto-frame .field__input >> nth=0", "")
+                page.click("#proto-frame .field__input >> nth=0")
+                page.keyboard.type("r"); page.wait_for_timeout(150)
+                check(page.input_value("#proto-frame .field__input >> nth=0") == "r",
+                      "typing an r in a form field is typing, not a reset")
+
+                page.evaluate("setMetaView('summary')"); page.wait_for_timeout(250); blur()
+                page.keyboard.press("r"); page.wait_for_timeout(150)
+                check(page.evaluate("state.metaView") == "summary", "R does nothing on the other tabs (reset repaints the prototype)")
+                # renderPrototype() is called by things that never ask which tab is open (a render body's script
+                # onerror, a timer): on another tab it must mark the prototype stale, not paint over that tab.
+                before = page.evaluate("document.getElementById('app').innerHTML")
+                page.evaluate("renderPrototype()"); page.wait_for_timeout(120)
+                check(page.evaluate("document.getElementById('app').innerHTML") == before
+                      and page.evaluate("!!document.getElementById('summary-scroll') && !document.getElementById('proto-frame')"),
+                      "renderPrototype() on the Project Summary tab leaves that tab's page alone")
+                check(page.evaluate("state.protoDirty") is True, "…and marks the prototype stale")
+                page.evaluate("setMetaView('prototype')"); page.wait_for_timeout(250)
+                check(page.evaluate("!!document.getElementById('proto-frame') && state.protoDirty") is False,
+                      "…and coming back to the Prototype tab repaints it and clears the mark")
+                menu()
+                check(page.locator(".proto-sandbox-menu .pb-kbd").all_inner_texts() == ["R"],
+                      "the menu row shows its key")
+                page.evaluate("document.querySelectorAll('.copy-popover,.copy-popover-backdrop').forEach(e => e.remove())")
 
             check(not errors, f"zero console errors throughout ({errors})")
             page.close()

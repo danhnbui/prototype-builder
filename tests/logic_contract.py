@@ -195,6 +195,41 @@ check(reg3["screens"][0].get("logicSrc") == "logic/screens/home.json",
 r2 = subprocess.run([sys.executable, EXTRACT, d3, "--contracts"], capture_output=True, text=True)
 check("refreshed 0 contract(s)" in r2.stdout, "a second run rewrites nothing — idempotent")
 
+print("4b · --contracts writes registry.json under the registry lock, from the registry as it is once it has the lock (L3)")
+import importlib  # noqa: E402
+import time  # noqa: E402
+pbslice = importlib.import_module("slice")        # `import slice` would shadow the builtin
+d4 = tempfile.mkdtemp()
+fixture(d4)                                        # no logicSrc anywhere: --contracts will point all three
+reg4 = os.path.join(d4, "registry.json")
+with pbslice.registry_lock(reg4, "a test holding the lock"):
+    held = snapshot(d4)
+    r = subprocess.run([sys.executable, EXTRACT, d4, "--contracts"], capture_output=True, text=True,
+                       env=dict(os.environ, PB_LOCK_TIMEOUT="0.4"))
+    check(r.returncode == 1 and "being written" in r.stderr and "a test holding the lock" in r.stderr
+          and "Traceback" not in r.stderr, "a held registry lock refuses --contracts, naming the holder (%r)" % r.stderr.strip()[:90])
+    check(snapshot(d4) == held, "…and NOTHING was written — no sidecar, no registry change (the refusal comes before the first write)")
+p4 = subprocess.Popen([sys.executable, EXTRACT, d4, "--contracts"], stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                      text=True, env=dict(os.environ, PB_LOCK_TIMEOUT="30"))
+with pbslice.registry_lock(reg4, "a test holding the lock again"):
+    time.sleep(1.5)
+    waiting = p4.poll() is None
+    with open(reg4, encoding="utf-8") as f:
+        mid = json.load(f)
+    mid["meta"]["editedWhileLocked"] = "yes"
+    pbslice._write(reg4, mid)
+out4, err4 = p4.communicate(timeout=60)
+check(waiting, "a writer that finds the lock held WAITS for it (an unlocked one would already have finished)")
+with open(reg4, encoding="utf-8") as f:
+    done4 = json.load(f)
+check(p4.returncode == 0 and done4["meta"].get("editedWhileLocked") == "yes",
+      "…and when it gets the lock it reads the registry afresh: the edit saved meanwhile is NOT overwritten (%s)" % err4.strip()[:80])
+check(all(i.get("logicSrc") for i in done4["components"] + done4["screens"]),
+      "…while its own change (the logicSrc pointers) is there too")
+check([f for f in os.listdir(d4) if f.endswith(".tmp") or f.startswith(".registry.json.")] == [],
+      "the registry write is atomic: no temp file is left in the project directory")
+shutil.rmtree(d4, ignore_errors=True)
+
 print("5 · render — runtime modules, declared deps, and the authored half only")
 os.makedirs(os.path.join(d3, "runtime"), exist_ok=True)
 with open(os.path.join(d3, "runtime/store.js"), "w", encoding="utf-8") as f:

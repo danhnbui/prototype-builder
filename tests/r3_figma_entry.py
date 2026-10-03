@@ -12,13 +12,16 @@ r3_figma_entry.py — the R3 "Figma-frame entry" acceptance, fixture-driven (no 
 Usage:  python3 tests/r3_figma_entry.py
 Exit:   0 = clean · 1 = a regression
 """
+import importlib
 import importlib.util
 import json
 import os
 import shutil
+import stat
 import subprocess
 import sys
 import tempfile
+import time
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 RESOLVE = os.path.join(ROOT, "pb", "tools", "resolve_frame.py")
@@ -73,6 +76,51 @@ with tempfile.TemporaryDirectory() as d:
     gaps = open(gaps_path).read() if os.path.isfile(gaps_path) else ""
     check("Promo Banner" in gaps and "Live Chat Bubble" in gaps, "both unmapped layers logged to gaps.md")
     check(gaps.count("\n- ") == 2, "exactly the 2 unmapped layers are logged (none extra, none missing)")
+
+print("2b · resolve_frame is a locked, atomic read-modify-write (L3)")
+sys.path.insert(0, os.path.join(ROOT, "pb", "tools"))
+pbslice = importlib.import_module("slice")        # `import slice` would shadow the builtin
+with tempfile.TemporaryDirectory() as d:
+    reg = os.path.join(d, "registry.json")
+    data = json.load(open(TEMPLATE))
+    data["meta"]["name"] = "Dự án Ví — 日本語"
+    data["components"] = [{"id": "button"}, {"id": "text-input"}]
+    json.dump(data, open(reg, "w", encoding="utf-8"), indent=2, ensure_ascii=False)
+    os.chmod(reg, 0o640)
+    frame = os.path.join(d, "frame.json")
+    shutil.copy(FRAME, frame)
+    cmd = [sys.executable, RESOLVE, "--from", frame, "--registry", reg]
+    with pbslice.registry_lock(reg, "a test holding the lock"):
+        held = open(reg, "rb").read()
+        r = subprocess.run(cmd, capture_output=True, text=True, env=dict(os.environ, PB_LOCK_TIMEOUT="0.4"))
+        check(r.returncode == 2 and "being written" in r.stderr and "a test holding the lock" in r.stderr
+              and "Traceback" not in r.stderr, "a held registry lock refuses resolve_frame, naming the holder (exit %d)" % r.returncode)
+        check(open(reg, "rb").read() == held and not os.path.exists(os.path.join(d, "gaps.md")),
+              "…registry.json is byte-identical and no gaps.md was written")
+    waiter = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+                              env=dict(os.environ, PB_LOCK_TIMEOUT="30"))
+    with pbslice.registry_lock(reg, "a test holding the lock again"):
+        time.sleep(1.5)
+        waiting = waiter.poll() is None
+        mid = json.load(open(reg, encoding="utf-8"))
+        mid["meta"]["editedWhileLocked"] = "yes"
+        pbslice._write(reg, mid)
+        ino = os.stat(reg).st_ino
+    out, err = waiter.communicate(timeout=60)
+    after = json.load(open(reg, encoding="utf-8"))
+    check(waiting, "a writer that finds the lock held WAITS for it (an unlocked one would already have finished)")
+    check(waiter.returncode == 0 and after["meta"].get("editedWhileLocked") == "yes",
+          "…then reads the registry afresh: the edit saved meanwhile is not overwritten (%s)" % err.strip()[:80])
+    check(after["meta"].get("entry") == "figma" and [s["id"] for s in after["screens"]] == ["checkout"],
+          "…and its own change (the screen, meta.entry) is there too")
+    check(os.stat(reg).st_ino != ino and stat.S_IMODE(os.stat(reg).st_mode) == 0o640
+          and [f for f in os.listdir(d) if f.endswith(".tmp")] == [],
+          "the write replaced the file (a new inode), kept its mode, and left no temp file")
+    raw = open(reg, "rb").read().decode("utf-8")
+    check("Dự án Ví — 日本語" in raw and "\\u" not in raw and raw.endswith("}\n"),
+          "it writes the registry's own format: non-ASCII kept as typed (not \\uXXXX-escaped), one trailing newline")
+    check(os.path.isfile(os.path.join(d, "gaps.md")) and open(os.path.join(d, "gaps.md"), encoding="utf-8").read().count("\n- ") == 2,
+          "gaps.md is still written")
 
 print("3 · migration 0005 + schema")
 man = _load("manifest")

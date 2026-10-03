@@ -3,7 +3,7 @@
 test_agents_install.py — unit tests for pb/tools/agents_install.py.
 
 Pure Python: installs the pb-*.md agent roster into a temp project's .claude/agents/, asserts
-all 8 land, that a pre-existing NON-pb file is never touched (own-only discipline), and that a
+all 9 land (pb-explorer pinned to sonnet at xhigh effort), that a pre-existing NON-pb file is never touched (own-only discipline), and that a
 second run is idempotent.
 
 Usage:  python3 tests/test_agents_install.py
@@ -30,7 +30,11 @@ def check(cond, msg):
 
 def main():
     print("agents_install.py:")
-    check(SRC_COUNT == 8, f"source roster has 8 pb-*.md (found {SRC_COUNT})")
+    check(SRC_COUNT == 9, f"source roster has 9 pb-*.md (found {SRC_COUNT})")
+    explorer = os.path.join(ROOT, "pb", "agents", "pb-explorer.md")
+    head = open(explorer, encoding="utf-8").read().split("\n---", 1)[0] + "\n" if os.path.isfile(explorer) else ""
+    check("\nmodel: sonnet\n" in head and "\neffort: xhigh\n" in head,
+          "pb-explorer ships pinned: model: sonnet, effort: xhigh (the pin lives in the definition)")
 
     with tempfile.TemporaryDirectory() as d:
         agents_dir = os.path.join(d, ".claude", "agents")
@@ -44,6 +48,7 @@ def main():
         check(p1.returncode == 0, f"first run exits 0 (got {p1.returncode}; {p1.stderr.strip()[:120]})")
         installed = glob.glob(os.path.join(agents_dir, "pb-*.md"))
         check(len(installed) == SRC_COUNT, f"all {SRC_COUNT} pb-*.md installed (found {len(installed)})")
+        check(os.path.isfile(os.path.join(agents_dir, "pb-explorer.md")), "pb-explorer.md is installed with the roster")
         check(os.path.exists(foreign) and open(foreign).read() == "keep me\n",
               "pre-existing non-pb file left untouched (own-only discipline)")
 
