@@ -2,7 +2,7 @@
 
 All notable changes to Product Builder. Format follows [Keep a Changelog](https://keepachangelog.com/).
 
-## [Unreleased]
+## [2.1.0] — 2026-10-03
 
 *A minor: everything is additive and no command is removed. Four problems from real projects (an HR
 fund app, a map-polygon editor, a back-office tool). Information Architecture never appeared unless asked for. `/pb:explore`
@@ -337,7 +337,7 @@ workbench, and a component's anatomy and spec are measured rather than typed. **
   `chrome_foundation` used a sibling demo project when one existed, so they passed on the author's
   machine and failed in CI. They now build their fixtures from `fixtures/golden`. `spec_measure`'s
   "nothing written" check no longer trips over the `__pycache__` that Python 3.11+ writes beside its
-  import shim.
+  import shim, and no browser test waits on the web-font or mermaid CDN any more.
 - **CI skipped most browser tests.** The e2e job ran a hard-coded five. `ci.yml` now names the
   browser-only tests and the ones with a browser half once, and e2e runs them all; a skip there is a
   failure.
