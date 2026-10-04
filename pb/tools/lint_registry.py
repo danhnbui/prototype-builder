@@ -1207,9 +1207,14 @@ def check(reg, strict=False, base_dir=None):
                 add(compose_sev, "R-COMPOSE-MATCH", where,
                     f"declared component(s) {sorted(missing)} are not composed (pbUse) in the render body")
             if extra:
+                # A measured anatomy is not typed, so its fix is to re-measure; a child passed into
+                # another component's slot is only measured when that slot's container is marked.
+                hint = ("" if kind == "screen" or _parts.label(item) == "anatomy.parts[]" else
+                        " — re-measure (spec_measure.py); a child passed into another component's slot is"
+                        " measured once that component marks the slot's container data-part-type=\"slot\"")
                 add(WARN, "R-COMPOSE-MATCH", where,
                     f"body composes {sorted(extra)} not declared in "
-                    f"{'elements[]' if kind == 'screen' else _parts.label(item)}")
+                    f"{'elements[]' if kind == 'screen' else _parts.label(item)}{hint}")
             if rank is not None:
                 for oid in sorted(composed):
                     child = comp_by_id.get(oid)

@@ -1499,16 +1499,27 @@
         if (el && el !== root && !el.hasAttribute('data-part')) el.setAttribute('data-part', name);
       });
       var parts = [];
-      (function walk(el, parent) {
+      function walk(el, parent) {
         var isRoot = el === root, cmp = el.getAttribute('data-cmp'), named = el.getAttribute('data-part'), me = parent;
         if (isRoot || named || cmp) {
           var inst = !!cmp && !isRoot;
           parts.push({ base: isRoot ? 'root' : (inst ? cmp : named), parent: parent, el: el });
           me = parts.length - 1;
-          if (inst) return;
+          if (inst) { slots(el, me); return; }   // an instance's insides are its own — but its slots hold ours
         }
         Array.prototype.forEach.call(el.children, function (ch) { walk(ch, me); });
-      })(root, null);
+      }
+      /* spec_measure.py's rule: a slot region of an instance (data-part-type="slot", [data-slot], <slot>),
+         not one inside a deeper instance, holds what the measured body passed in; its children are parts */
+      function slots(el, owner) {
+        Array.prototype.forEach.call(el.children, function (ch) {
+          if (ch.hasAttribute('data-cmp')) return;
+          if (ch.getAttribute('data-part-type') === 'slot' || ch.hasAttribute('data-slot') || ch.tagName.toLowerCase() === 'slot')
+            Array.prototype.forEach.call(ch.children, function (k) { walk(k, owner); });
+          else slots(ch, owner);
+        });
+      }
+      walk(root, null);
       var count = {}, seen = {}, out = {};
       parts.forEach(function (p) { count[p.base] = (count[p.base] || 0) + 1; });
       parts.forEach(function (p) {

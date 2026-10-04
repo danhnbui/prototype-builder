@@ -119,7 +119,12 @@ Ported **verbatim** from the v0.4.0 `PB_DATA.handoff.organisms` shape:
   measured: { at, by: "spec_measure.py", props }
   ```
   Parts come from `data-part="<name>"` in the render body (the root is `data-part="root"`); a `pbUse` child is an
-  `instance` part named after its id (`-1…-n` when repeated). **A part is optional iff it carries `visibleWhen`** —
+  `instance` part named after its id (`-1…-n` when repeated). An instance's insides are its own spec, except its
+  **slots**: the children of a slot region it renders (`data-part-type="slot"`, `[data-slot]`, `<slot>`; not one inside
+  a deeper instance) are what the measured body passed in, so they are the body's own parts, nested under that
+  instance — `pbUse('widget-shell', {content: pbUse('heading')})` measures `heading` as a part of the caller, which
+  is what keeps lint R-COMPOSE-MATCH clean for a slotted composition. `pbSlot()` emits no element, so the component
+  marks the container it renders the slot into. **A part is optional iff it carries `visibleWhen`** —
   derived by re-rendering with each prop unset, never typed. A `token` is filled only when the measured value equals
   a registry token's resolved value; otherwise the raw value stands alone. **Margin is recorded like padding** — four
   sides, a side set to `auto` kept as the keyword (never as the pixels it resolved to), and `token` (all four equal

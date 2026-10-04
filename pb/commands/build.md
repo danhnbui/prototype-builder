@@ -156,7 +156,9 @@ is an OTP input.
   rather than inlining a value. (`lint_registry.py` flags raw hex/px and non-DTCG `$type`; `--strict`
   makes them errors.)
 - **parts** — every meaningful element in an atom's body carries `data-part="<name>"` (kebab; the root is
-  `data-part="root"`); a `pbUse` child needs none — it is measured as an `instance` part of its id. This is
+  `data-part="root"`); a `pbUse` child needs none — it is measured as an `instance` part of its id. A slot
+  container (where the body renders `pbSlot(…)`) is marked `data-part-type="slot"`, so what a parent passes
+  into it is measured as the parent's part (otherwise R-COMPOSE-MATCH warns on the parent). This is
   what `spec_measure.py` reads (below) and what the design-system site's Anatomy and Spec draw on.
 
 **Measure the spec — when a component is built or changed** (not on reuse, not on a token or copy tweak,

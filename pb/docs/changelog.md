@@ -129,6 +129,27 @@ common rules at call time. The preview says in words what Claude is doing, and e
   - **Method.** The `ref-research` skill is rewritten around the full path, with a section for each of the four
     new methods. `security_scan` skips recordings and recorded sha256 digests.
 
+### Fixed
+
+- **A component that passes other components into a child's slot can pass `lint --strict`.**
+  `spec_measure.py` recorded a `pbUse` child as an `instance` part and stopped there, so a heading
+  passed into `text-link`'s `content` slot, or a widget's content passed into `widget-shell`'s body,
+  never reached the parent's measured anatomy. The parent's body composes them, so R-COMPOSE-MATCH
+  warned "body composes […] not declared in anatomy (instanceOf)". Anatomy is measured, not typed, so
+  nothing could clear the warning, `--strict` exited 1, and `/pb:orchestrate`'s fail-closed final gate
+  could not close for any project that uses slots. The measurer now walks an instance's **slot regions**
+  (`data-part-type="slot"`, `[data-slot]` or `<slot>` that the instance renders itself, not one inside a
+  deeper instance). Their children are the caller's parts, nested under the instance part in `layout`
+  and `elements`, instances and plain parts alike. Everything else inside an instance is still its own
+  spec. Re-measure the affected components (`spec_measure.py --component <id> --write`). Their sidecars
+  gain the slotted parts.
+- **The Inspector names parts the same way.** `runtime.js`'s live walk (`pbSpecLive`) follows the same
+  slot rule, so a measured slotted part finds its element on the design-system site.
+- `pbSlot()` still emits no element of its own. Wrapping slot content would change every existing
+  layout. A component marks the container it renders the slot into instead, and `/pb:build` and the
+  `design-component-build` skill now say so. The R-COMPOSE-MATCH "composed, not declared" warning on a
+  measured anatomy now says to re-measure and to mark the slot container.
+
 ### Upgrading
 
 The schema is now 14. `/pb:update-version --apply` moves a non-empty `meta.others` into `memory/others.md`, only when no

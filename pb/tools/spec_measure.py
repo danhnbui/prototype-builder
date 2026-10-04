@@ -12,6 +12,12 @@ sidecar's `usage.example`). It then reads, per part:
   - the parts: `data-part="<name>"` in the body (the root is `data-part="root"` or the body's first
     element); a child composed through `pbUse('<id>')` is an `instance` part of that id; a migrated
     sidecar's `elements.<part>.anchor` selector still finds a part in a body that has no markers.
+    An instance's insides are its own spec, with one exception: its SLOTS. A slot region the
+    instance renders (`data-part-type="slot"`, `[data-slot]` or `<slot>` — not one inside a deeper
+    instance) holds what THIS body passed in, e.g. `pbUse('shell', {content: pbUse('heading')})`,
+    so its children are this component's parts, nested under the instance part. That is what keeps
+    the measured anatomy equal to the body's pbUse set (lint R-COMPOSE-MATCH). pbSlot() emits no
+    element, so a body marks the container it renders the slot into.
   - computed padding and margin (a side set to `auto` is recorded as "auto", not as the pixels it
     resolved to), item spacing (flex/grid `gap` or the margins that create it, and which), corner
     radius, background colour, and text colour on text/glyph parts. A value is mapped to a registry
@@ -142,6 +148,12 @@ _MEASURE_JS = r"""
     if (type === 'text' || type === 'glyph') s.color = cs.color;
     return s;
   }
+  // A slot region: where a component renders content its parent passed in (pbSlot emits no element
+  // of its own, so the container that holds it carries the mark).
+  function isSlot(el) {
+    return el.getAttribute('data-part-type') === 'slot' || el.hasAttribute('data-slot')
+      || el.tagName.toLowerCase() === 'slot';
+  }
   function typeOf(el, isRoot, isInstance) {
     var t = el.getAttribute('data-part-type');
     if (t && TYPES.indexOf(t) >= 0) return t;
@@ -150,7 +162,7 @@ _MEASURE_JS = r"""
     if (isRoot) return (!el.children.length && (el.textContent || '').trim()) ? 'text' : 'container';
     var tag = el.tagName.toLowerCase();
     if (tag === 'svg' || tag === 'img' || tag === 'canvas') return 'vector';
-    if (tag === 'slot' || el.hasAttribute('data-slot')) return 'slot';
+    if (isSlot(el)) return 'slot';
     if (el.querySelector('[data-part],[data-cmp]')) return 'container';
     var text = (el.textContent || '').trim();
     if (text) return (text.length <= 2 && !/[\p{L}\p{N}]/u.test(text)) ? 'glyph' : 'text';
@@ -175,7 +187,7 @@ _MEASURE_JS = r"""
       if (el && el !== root && !el.hasAttribute('data-part')) el.setAttribute('data-part', name);
     });
     var parts = [];
-    (function walk(el, parent) {
+    function walk(el, parent) {
       var isRoot = el === root, cmp = el.getAttribute('data-cmp');
       var named = el.getAttribute('data-part');
       var me = parent;
@@ -186,10 +198,23 @@ _MEASURE_JS = r"""
         if (type === 'instance') p.instanceOf = cmp;
         parts.push(p);
         me = parts.length - 1;
-        if (type === 'instance') return;            // an instance's insides belong to its own spec
+        // An instance's insides belong to its own spec — except its slots, which hold what THIS body
+        // passed in (pbUse('shell', {content: pbUse('heading')})): those are this component's parts.
+        if (type === 'instance') { slots(el, me); return; }
       }
       Array.prototype.forEach.call(el.children, function (c) { walk(c, me); });
-    })(root, null);
+    }
+    // The slot regions of the instance `el` (data-part-type="slot", [data-slot] or <slot>) that are
+    // its own — not inside a deeper instance it composes itself, whose slots carry ITS content. Each
+    // slot's children are walked as this component's parts, under the instance part `owner`.
+    function slots(el, owner) {
+      Array.prototype.forEach.call(el.children, function (c) {
+        if (c.hasAttribute('data-cmp')) return;
+        if (isSlot(c)) Array.prototype.forEach.call(c.children, function (k) { walk(k, owner); });
+        else slots(c, owner);
+      });
+    }
+    walk(root, null);
     // Names: a name used once stays; a repeated one becomes name-1 … name-n, in document order.
     var count = {}, seen = {};
     parts.forEach(function (p) { count[p.base] = (count[p.base] || 0) + 1; });
