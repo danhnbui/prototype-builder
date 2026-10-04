@@ -12,8 +12,8 @@ function/purpose and picks the cheapest path — **reuse → extend with a varia
 enforces the naming contract so the registry stays clean and deduped.
 
 ## Skills + commands it wraps
-- **Skills:** `build-check-design-system` (the reuse/variant/local decision + naming contract),
-  `design-component-build` (author a new local component when nothing fits), `figma-use` (only when a write
+- **Skills:** the DS-first check in `/pb:build` §3a (the reuse/variant/local decision + naming
+  contract), `design-component-build` (author a new local component when nothing fits), `figma-use` (only when a write
   to a Figma canvas is in play — fail-closed rituals, token/variable binding).
 - **Command:** `/pb:build` (sub-command of `/pb:build`).
 

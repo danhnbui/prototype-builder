@@ -63,14 +63,18 @@ fn = re.search(r"function pbTestScenarios\(\)\s*\{.*?\n    \}", SHELL, re.S)
 check(fn is not None, "pbTestScenarios is present")
 if fn:
     body = fn.group(0)
-    check("sc.test.roles" in body, "it reads the scenario's own roles[]")
+    # Round 3 reads it through a local (`const test = … sc.test …; test.roles`) so prose-shaped
+    # scenarios (`test` is a string) get `{}`; the field is the same one test_run.py reads.
+    check("sc.test.roles" in body or (re.search(r"const test = [^;]*sc\.test", body) and "test.roles" in body),
+          "it reads the scenario's own roles[]")
     check("state.activeRole" in body, "and filters against the active role")
     check("roles && roles.length" in body,
           "an untagged scenario still shows for everyone — nothing authored before this disappears")
 
 print("5 · a [[subprocess]] node is not painted as an input")
-check(re.search(r"pts\.length >= 8\)\s*\{\s*key = 'sub';", SHELL) is not None,
-      "the 10-point polygon branch keys 'sub' before stripping the bracket points")
+# Round 3 renamed the subprocess palette key 'sub' → 'external' (the canvas tokens' name).
+check(re.search(r"pts\.length >= 8\)\s*\{\s*key = '(?:sub|external)';", SHELL) is not None,
+      "the 10-point polygon branch keys the subprocess shape before stripping the bracket points")
 
 print("6 · the hand-rolled gates have pb equivalents")
 LINT = open(os.path.join(ROOT, "pb", "tools", "lint_registry.py"), encoding="utf-8").read()

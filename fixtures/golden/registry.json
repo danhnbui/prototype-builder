@@ -232,6 +232,16 @@
       },
       "properties": [
         {
+          "id": "label",
+          "type": "string",
+          "default": "Email"
+        },
+        {
+          "id": "type",
+          "type": "string",
+          "default": "text"
+        },
+        {
           "id": "placeholder",
           "type": "string",
           "default": "you@example.com"
@@ -480,7 +490,7 @@
         "snippet": "<div class=\"card\">…</div>"
       },
       "uiLogic": [
-        "Shows a spinner in the loading state."
+        "In the loading state the card is marked aria-busy and the subtitle reads “Signing you in…” (muted)."
       ],
       "renderSrc": "render/components/login-card.js"
     }

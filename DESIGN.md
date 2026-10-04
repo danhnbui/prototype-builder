@@ -8,7 +8,7 @@ rather than against taste.
 Read this before changing the render path, the registry contract, the tool surface, or the loop.
 Point changes do not need it.
 
-**Status:** v2.0.0 · schema 12 · last reviewed 2026-09-20
+**Status:** v2.1 (unreleased; the last tag is v2.0.0) · schema 13 · last reviewed 2026-10-03
 **History** lives in [docs/remediation-decisions.md](docs/remediation-decisions.md) (D-1…D-30) and
 per-project `memory/decisions.md`. Those are append-only; this file is edited in place.
 
@@ -60,10 +60,34 @@ hand-edited.
 
 The registry stays small because the bulky parts live in sidecar trees referenced by pointer, not
 inlined: render bodies in `render/**/*.js` (`renderSrc`), hand-off docs in `spec/**/*.json`
-(`specSrc`, schema 10), logic contracts in `logic/**/*.json` (`logicSrc`, schema 11), and the
+(`specSrc`; schema 10 moved them out, schema 13 gave them the Specs-plugin shape, which a tool measures), logic contracts in `logic/**/*.json` (`logicSrc`, schema 11), and the
 project's own modules in `runtime/*.js`. Externalizing `anatomy`/`spec`/`usage`/`uiLogic` alone
 removed roughly half the file on a real project. Small registry → stays resident in context →
 constraint 1 holds.
+
+**The tool is not the product.** Product Builder's own chrome speaks in its own vocabulary (`--pb-*`,
+`pb/template/chrome.css`); a project's tokens are scoped to the subtree that renders the project
+(`.pb-product`). A project can be any colour and the tool does not change, and in any screenshot the
+boundary between the two survives without interaction. This is an invariant, not a style: it used to be
+broken by one line (`applyRegistryTokens` writing onto `:root`), and a test now fails if it moves again.
+
+**The tool has a theme; the product does not.** Round 1 made the chrome light only, on the argument that a
+chrome which flips while its specimens do not makes the specimen look wrong. Round 2 reversed it — people
+work in dark rooms — and kept the argument's answer instead: every `--pb-*` colour is a `light-dark()` pair
+(System, Light or Dark, set on `<html data-theme>`, per viewer), and `.pb-product` — the prototype stage, the
+component demos, variant cells, swatches, device frames — is theme-invariant, so dark chrome never changes
+what the product looks like. The diagrams (flow, ERD) are the tool's, so they follow the theme through
+`pbCanvasPalette()` and the `pb:themechange` event. The boundary above is unchanged, and
+`tests/chrome_foundation.py` now checks both halves: every tool colour resolves in both themes, and the
+product scope reads none of them.
+
+**Specs are measured, not typed.** A component's anatomy and spec were hand-authored and nothing noticed when
+the render body moved on (`required: false` typed by hand, a token copied by hand). Schema 13 stores them in
+the Specs-plugin shape and `tools/spec_measure.py` reads them from the live render when a component is built
+or changed — never per page load, so the preview stays at ~0 tokens and the cost lands where the change is.
+Optional is derived (a part is optional iff it carries `visibleWhen`), a token is named only when the value
+equals one, and a card-shaped root is marked so the design-system site can list it as an organism-level Card.
+The tool needs Playwright and degrades with one line when it is missing (constraint 2).
 
 Durable reasoning lives beside it in `memory/` — `constitution.md` for rules, `decisions.md` for the
 why-log — because the model needs the rules in context, not a hook engine that enforces them
@@ -132,6 +156,14 @@ an invariant with no enforcement is a wish.
   exits 0 and every check carries a false-positive guard. Contract lint under `--strict` is a
   different thing and does gate.
   *Enforced by:* `lint_registry.py` exit codes; the FP corpus in `tests/`.
+- **I-9 · Every write to `registry.json` is locked and atomic.** A writer takes `registry.json.lock`
+  (`slice.registry_lock`, an advisory `flock`, refused with a message naming the holder after a few
+  seconds) around its whole read-modify-write and replaces the file by temp file + `os.replace`. The lock
+  is what the preview's settings save, the build loop's slice writes, `spec_measure`, the migration runner
+  and the explore and test tools share, so two of them cannot lose each other's edit and a reader never
+  sees half a file. A crash drops the lock with its process, so none goes stale.
+  *Enforced by:* `slice.py` (the one implementation); `tests/slice_cli.py`, `tests/serve_meta.py`,
+  `tests/tool_cli.py`, `tests/specs_shape.py`, `tests/spec_measure.py`.
 
 ## Alternatives rejected
 
@@ -149,6 +181,12 @@ hooks with a 5-tab single-file template. Replaced by a plumbing swap, not a rewr
 crown-jewel logic was ported unchanged, and the Tab-2 sync the hooks performed moved directly into
 the `init` / `specify` / `clarify` command bodies. A hook engine was indirection for work a command
 body does in the open.
+
+**Measuring a component's spec on every page load, or hand-typing it.** Measuring on load would put a
+browser-side measurement on the interactive path and make the numbers depend on the viewer's window; typing it
+is what let `required` and the tokens drift from the body that was meant to be their source. The numbers are
+measured once, where the component changes (`/pb:build` §3a), and the design-system site's overlays measure the
+live demo for what they draw, so the stored copy is only for hand-off and the Figma bridge.
 
 **Deleting dead fields.** `staleness` is seeded, read by the shell, and *never written by anything
 in the plugin* — its gap is permanently zero. Deletion still lost to deprecation ([D-19]): it breaks

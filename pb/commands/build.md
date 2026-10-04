@@ -34,6 +34,20 @@ a big registry never loads whole into context:
 `slice.py list <components\|screens\|tokens\|meta>` enumerates ids/keys when you need to locate a
 target first. Do not load the whole registry, and never read `prototype.html` to make an edit.
 
+## 1b · Responsive — ask once, before the first trio write that needs it
+Read `meta.responsive` and `meta.devices`. Group the devices by size class — **compact** (mobile) ·
+**medium** (tablet) · **expanded** (laptop, monitor).
+- **`null` and two or more classes** (an older project, or an init that skipped it) → **stop and ask
+  before any screen or component write**, naming the sizes: *"Should the UI adapt to each of these
+  devices — its own layout on <sizes> — or keep one layout for <meta.device>?"* Record the answer exactly
+  as `/pb:init` §3 does (`true`, or `false` plus trimming `meta.devices` to `[meta.device]`), with a
+  Principle and a `decisions.md` line. Ask **once** — never again once it is recorded.
+- **`true`** → every new or restructured screen/component in this run is built for every listed size
+  (`CLAUDE.md` → *Responsive across devices*). **Yes means build it now**, not later: a screen that
+  only works at `meta.device` is unfinished.
+- **`false`, or one class** → one layout at `meta.device`; nothing more to do.
+- Non-trio tweaks never trigger the question.
+
 ## 2 · Classify: trio or non-trio
 The **trio** = a **screen**, a **component**, or **logic** (states, validation, conditional render).
 - **Non-trio** — pure cosmetic: a token value, a copy reword, a prop default, a size/spacing value
@@ -73,6 +87,13 @@ The **trio** = a **screen**, a **component**, or **logic** (states, validation, 
 3. **DS / component.** For any new or changed component, run **§3a** below — DS-first: reuse →
    variant → local, then the naming contract. Invoke skills as needed: `think-layout` (layout),
    `think-logic` (state/rules), `design-component-build` (a new custom component).
+   For a new or restructured screen or component, `think-layout` §2–§3 (a component chosen per region,
+   the density budget) and §5 (render it and look at both widths) are not optional — a layout handed
+   back without them is unfinished, and §5 with no browser is reported blocked, never passed.
+   With **`meta.responsive: true`**, `think-layout` §4 *Responsive* is part of that: each size class
+   in `meta.devices` gets its own answer (navigation, columns, table → cards, dialog → sheet), written
+   as container queries in the item's `styleSrc` sheet or with the `r-*` utilities, and §5 looks at
+   **every** listed size, not two. A screen that is the phone layout stretched to 1280px fails.
 
 ### 3a · DS-first check (every new or changed component)
 
@@ -91,7 +112,12 @@ is an OTP input.
   variant** (add an option to its `properties`). Do **not** spawn a second component.
 - **Build local.** Nothing fits → create a **local** component (`"scope":"local"`). Invoke
   `design-component-build` for the render body (`render/components/<id>.js`, referenced by `renderSrc`)
-  + anatomy/spec. Every component **MUST** carry a **`level`** (`atom` | `molecule` | `organism` |
+  + anatomy/spec — its §2 states × variants checklist is filled before the entry is written, not after.
+  `lint_registry.py --strict` now carries `R-PROP-DECLARED` (a `props.X` the body reads that
+  `properties[]` does not declare) and `R-PROP-USED` (a declared option the body never renders; for
+  `state`, a fake interactive state), and a new component is run once with `lint_registry.py --exec`,
+  which executes the body in node and fails a throw, a non-string or an empty string.
+  Every component **MUST** carry a **`level`** (`atom` | `molecule` | `organism` |
   `template`) — required since schema 9, enforced by `R-LEVEL`. Tag it by what it composes: a primitive
   (button, input, heading) is an `atom`; a small cluster (field + label + error) is a `molecule`; a
   self-contained section (a sign-in card) is an `organism`.
@@ -101,16 +127,17 @@ is an OTP input.
 
 > **Interactivity → confirm + declare `state`.** When the user asks for state / click / hover / any
 > interaction, **confirm it is interactive** and give it a `state` property (`default / …`) and/or the
-> wiring (`data-action` / `data-nav` / an `onclick=` runtime helper). The design-system site
-> auto-detects interactivity by exactly that — a `state` property OR body `data-*` / `onclick` /
-> control tags — and gives such a component a **live, clickable demo**; others get the variant grid
-> only. A `state`-less interactive component is a defect.
+> wiring (`data-action` / `data-nav` / an `onclick=` runtime helper). **Every listed component gets a
+> live, clickable demo** on the design-system site — interactivity does not decide that. What it
+> decides is whether the demo can be *driven*: the `state` property is what puts each state in the
+> variant picker and the Variants & spec tab, and the wiring is what makes the demo respond. A
+> `state`-less interactive component is a defect: its states can be neither picked nor shown.
 
 > **Component-first / atomic law** (enforced by `R-COMPOSE` / `R-LEVEL-ORDER`, ERROR under `--strict`):
 > ONLY `atom` render bodies may emit raw HTML primitives (`<button>`, `<input>`, `<h1>`, …). Every
 > `molecule` / `organism` / `template` / screen body is **pure composition** — layout containers plus
 > `pbUse('<child-id>', props)` calls to lower levels. The `pbUse` set must match the declared
-> `elements[]` / `anatomy.parts[]` `orgId`s (`R-COMPOSE-MATCH`), and a level composes strictly lower
+> screen `elements[]` `orgId`s and a component's `instance` parts — `anatomy` `instanceOf` (`R-COMPOSE-MATCH`), and a level composes strictly lower
 > levels. NEVER inline UI that bypasses a component (R0). NEVER spawn a second component when a
 > variant suffices (R2). NEVER build a higher level when a lower one composes to the same result (R0.5).
 
@@ -121,8 +148,37 @@ is an OTP input.
   `{ "$value", "$type" }`). No raw hex or px in a render body or `sizing`; if none fits, add a token
   rather than inlining a value. (`lint_registry.py` flags raw hex/px and non-DTCG `$type`; `--strict`
   makes them errors.)
-- **anchors** — every element referenced by `anatomy.parts[]` or `spec.stack[]` carries a stable anchor
-  class (`.field__label`, `.btn`, …) so handoff redlines and Figma matching resolve.
+- **parts** — every meaningful element in an atom's body carries `data-part="<name>"` (kebab; the root is
+  `data-part="root"`); a `pbUse` child needs none — it is measured as an `instance` part of its id. This is
+  what `spec_measure.py` reads (below) and what the design-system site's Anatomy and Spec draw on.
+
+**Measure the spec — when a component is built or changed** (not on reuse, not on a token or copy tweak,
+never per page load). After the body file is written, run:
+```
+python3 "${CLAUDE_PLUGIN_ROOT}/tools/spec_measure.py" --registry registry.json --component <id> --write
+```
+It renders the component with its demo props, reads padding, margin, item spacing, radius and colours per
+`data-part`, maps each value to a token only when it equals one, derives optional parts (`visibleWhen`) by
+re-rendering with each prop unset, and writes `anatomy`/`layout`/`elements`/`shape`/`measured` into
+`spec/components/<id>.json` (adding `specSrc` if absent). Never hand-edit those five keys. The page it
+measures on carries `product.css` and the component's `styleSrc` sheet and its stage is a `pb-screen`
+container, so a responsive component is measured with its own sheet, at the width `--width N` names
+(default by `meta.device`: mobile 375 · tablet 768 · anything else 960 — one size class per run).
+It writes under the registry lock, replaces each sidecar atomically, and never writes over a sidecar that is
+not valid JSON (it reports the file and leaves it as it is).
+
+It exits with one code per cause — read the code, do not guess:
+
+| Exit | Meaning | What to do |
+|---|---|---|
+| 0 | measured (and written, with `--write`) | continue to §4 |
+| 1 | a component could not be measured or written: its body threw or returned nothing on its demo props, the id does not exist, or its sidecar is not valid JSON (stderr names which). The other components were still done | fix that component before §4 |
+| 2 | Playwright is not installed — this code means that and nothing else | say so in one line (`spec not measured — Playwright not installed`) and continue |
+| 3 | Chromium cannot be launched | say so in one line (`spec not measured — Chromium missing; playwright install chromium`) and continue |
+| 4 | `registry.json`, a spec sidecar it names, or a render body could not be read | fix the file stderr names, then run it again |
+| 5 | the measuring page did not load (a `runtime/*.js` module cannot be parsed) | fix the module stderr names, then run it again |
+| 6 | `--write` refused: `registry.json` is below schema 13 | run `/pb:update-version --apply` first (the schema check), then measure |
+| 7 | `--write` refused: another pb process holds `registry.json.lock` | wait a few seconds and run it again; it clears by itself |
 
 **Report the decision** — `reuse <id>` / `variant on <id>` / `new local <id>` — plus any new tokens
 created, then continue to §4.
@@ -132,10 +188,11 @@ Patch the **one** touched slice — `pb/tools/slice.py set <kind> <id>` (patch J
 into just that entry and rewrites the file, so no other slice enters context. Changed keys only:
 - **token** → set `tokens.<name>.$value` (create one tagged `"scope":"local"` if none fits; never a raw hex/px elsewhere).
 - **component** → patch the `components[]` entry (a `properties` default, etc.). To change
-  `anatomy`/`spec`/`usage`/`uiLogic`, **edit the sidecar** `spec/components/<id>.json` (pointed at by
-  `specSrc`, schema 10) — not the registry entry. To change what it renders, **edit its body file**
+  `usage`/`uiLogic`/the notes, **edit the sidecar** `spec/components/<id>.json` (pointed at by
+  `specSrc`, schema 13) — not the registry entry; its `anatomy`/`layout`/`elements`/`shape`/`measured` are
+  measured (§3a), never hand-edited. To change what it renders, **edit its body file**
   `render/components/<id>.js` (pointed at by `renderSrc`). The registry holds no render code (v1.4)
-  and no handoff docs (v schema 10).
+  and no handoff docs (schema 10 moved them to sidecars).
 - **screen** → patch the `screens[]` entry: add/zorder an element, change `layout`, a `label`, a
   `logicNotes` line. Handoff docs → `spec/screens/<id>.json`; render → `render/screens/<id>.js`.
 - **new screen, and `registry.ia.jobs[]` is populated** → check whether any job's `screens[]`
@@ -146,6 +203,11 @@ into just that entry and rewrites the file, so no other slice enters context. Ch
   (`renderCmp{PascalCase}` / `renderScreen{PascalCase}`), and a `renderSrc`
   (`render/components/<id>.js` / `render/screens/<id>.js`); create that `.js` body file with the render
   code. (A legacy inline `render` string still works but is discouraged — `lint_registry.py` warns if both are set.)
+- **responsive rules** → a `styleSrc` sheet, `render/styles/<id>.css`, beside the body: the body puts
+  `c-<id>` (component) or `s-<id>` (screen) on its root element, the sheet styles that class with
+  `@container pb-screen (min-width: …)` — **never `@media`**, which answers the browser window, not the
+  device frame. Anything that changes across sizes goes in the sheet, never inline (an inline
+  declaration beats the container rule). Tokens only. Contract: `prototype-builder.md` → *Responsive styles*.
 
 **Do not touch `prototype.html`. Do not re-render.** State what slice changed and stop (unless `--render`).
 
@@ -172,10 +234,20 @@ attributes in screen/component `render` bodies; the shell's runtime handles them
 Two more rules:
 - **Interactive components MUST declare a `state` property** (`properties[]` entry `id:'state'`, options
   `{label,value}`) — e.g. `default / error / disabled`, `default / loading / disabled`. The design-system
-  site renders one labeled variant per state (and a live clickable demo for interactive ones). A
+  site offers each state in the variant picker and renders one labeled variant per state in Variants & spec. A
   `state`-less interactive component is a defect. Confirm interactivity with the user before you declare it.
-- **`meta.device`** (`'desktop'|'tablet'|'mobile'`) sets the Prototype's default device frame. It's seeded at
-  `/pb:init`; change it here only if the prototype's target form factor changes.
+- **The project's name, design-system name and Figma file** (`meta.name`, `meta.designSystem.name`,
+  `meta.designSystem.designLink`) are edited in the **Project settings** dialog when `/pb:preview` serves
+  the page. Opened read-only (over `file://`, or in a hand-off) the dialog hands out a **plain prompt** to
+  paste here — `Set this project's name to "…"`, `Set this project's design system name to "…"`,
+  `Set this project's Figma file link to "…"` — so treat that sentence as the request. It is a `meta` patch
+  (`slice.py set meta <key>`: `name`, `designSystem.name`, `designSystem.designLink`), not a trio change, so
+  no gate and no render. Apply the dialog's own rules: neither name may be empty, a Figma link must be a
+  `figma.com/file/…` or `figma.com/design/…` link (an empty one removes the key), and no value may carry a
+  control or invisible character. There is no `/pb:build set …` syntax.
+- **`meta.device`** (`'monitor'|'laptop'|'tablet'|'mobile'`) sets the Prototype's default device frame and
+  **`meta.responsive`** whether the UI adapts across `meta.devices`. Both are seeded at `/pb:init`; change
+  them here only if the target form factor changes (and say so in `decisions.md`).
 
 ## 4.5 · Auto-sync the flow + erd slices (trio writes only)
 A trio write changed what the product *is*, so the two slices that describe it move with it — same
@@ -192,6 +264,7 @@ Non-trio tweaks (step 2) **skip this**, exactly as they skip the gate.
 | renamed a screen | rename the node label; update the affected `path` strings | — |
 | changed navigation | add / remove / re-point that one edge | — |
 | added or changed branching logic (validation, a role gate, a conditional) | add or adjust the decision node and its `-- Yes -->` / `-- No -->` branches | — |
+| changed logic an `ia.rules[]` rule describes (its `implementedBy` / `displayedIn` names the touched item) | — | — · and patch that rule's matching `blocks[]` entry (a `cases` row, a `params` value, a `validation` message) so the Logic tab still says what the code does. Never rewrite its `decision{}` — a changed decision is `/pb:clarify` |
 | added a data-bearing field | — | append its `{ entity, field, type, example, notes }` row; a new entity arrives as a **stub** (PK + this field) with a `warnings[]` line |
 | removed a data-bearing field | — | drop that row |
 | anything else — a component body, a prop, a label | — | — |

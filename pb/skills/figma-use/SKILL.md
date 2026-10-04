@@ -1,6 +1,7 @@
 ---
 name: figma-use
-description: Authoring rules for the DS Bridge code→Figma bridge — how to emit / edit valid declarative node JSON that the plugin rebuilds as real, linked component instances. Loaded by /pb:handoff Step 6. The transformer (registry_to_figma.py) emits this deterministically; use this skill when hand-editing the emitted JSON or authoring a piece by hand. Real keys/variants/props only, prefer tokens, instances as references, auto-layout everywhere, flag gaps — never invent. DS-neutral. (A legacy Figma-MCP write path is retained behind --mcp; its rituals are in the appendix.)
+description: Authoring rules for the DS Bridge code→Figma bridge — how to emit / edit valid declarative node JSON that the plugin rebuilds as real, linked component instances. Loaded by /pb:handoff Step 6 (and the pb-design-system agent) — an internal contract, not a command. The transformer (registry_to_figma.py) emits this deterministically; the rules here govern any hand edit /pb:handoff makes to the emitted JSON. Real keys/variants/props only, prefer tokens, instances as references, auto-layout everywhere, flag gaps — never invent. DS-neutral. (A legacy Figma-MCP write path is retained behind --mcp; its rituals are in the appendix.)
+user-invocable: false
 ---
 
 # figma-use — DS Bridge node-JSON authoring

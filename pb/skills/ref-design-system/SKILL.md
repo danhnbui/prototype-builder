@@ -1,6 +1,7 @@
 ---
 name: ref-design-system
-description: Normalize any design-system source — a dedicated DS MCP, a Figma design-system link, a code library, or a common DS — into Product Builder's DS-export shape (tokens + component metadata + provenance). Use when cloning or re-cloning a DS — loaded by /pb:pull-ds and /pb:init's clone step. Produces the export that clone_ds.py materializes. Not for building a single component (use design-component-build) or auditing drift (that is /pb:test --drift + clone_ds.py --drift).
+description: Normalize any design-system source — a dedicated DS MCP, a Figma design-system link, a code library, or a common DS — into Product Builder's DS-export shape (tokens + component metadata + provenance). Use when cloning or re-cloning a DS — loaded by /pb:pull-ds and /pb:test --drift (init reaches it through its pull-ds clone step). Produces the export that clone_ds.py materializes. Not for building a single component (use design-component-build) or auditing drift (that is /pb:test --drift + clone_ds.py --drift).
+user-invocable: false
 ---
 
 # ref-design-system

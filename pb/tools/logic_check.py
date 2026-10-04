@@ -49,6 +49,9 @@ CHECKS
                        `style=` share one tag — see `_leaf_targets`/`check_has_rules`.
   Kind A  L-HAS-R2     a `:has()`-revealed `<tr>` sets a `display` other than
                        `table-row` (flex/block drop it out of the column grid).
+  Shape   L-BLOCK      a rule's `blocks[]` entry has an unknown `type`, or lacks the one
+                       field its renderer draws from (v2.1.0). The shell degrades it to
+                       raw text, so the rule reads as prose again without saying why.
   Kind B  L-ELEMENTS   a screen's `elements[].orgId` names a component the screen's
                        render body never `pbUse()`s.
   Kind B  L-ANATOMY    a component's `anatomy.parts[].orgId` names a component its
@@ -57,6 +60,11 @@ CHECKS
                        able; prefer `position:absolute;opacity:0`) — a NOTE per the
                        brief, never a finding, never counted toward the exit code.
   INFO    L-HAS-R4     `:has()` rule count per file — information, never a gate.
+  INFO    L-TITLE      a rule title phrased as a topic or a question ("What …", "How …", "… ?",
+                       "X — ship it or remove it") rather than the rule itself. Information only.
+  INFO    L-PROSE      a rule with no `blocks[]` whose summary runs past ~280 characters
+                       or whose decision.why runs past ~600 — a pointer to the block
+                       shapes, never a finding and never counted (a length is an opinion).
 
 `--explain <CODE>` prints a code's rationale and its known false-positive modes —
 required for every code above, so `tests/logic_check.py`'s corpus can quote it.
@@ -82,6 +90,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import logic_extract as extract_mod  # noqa: E402  (sibling module; never the reverse)
+import spec_parts as _parts  # noqa: E402  (anatomy parts from either sidecar shape)
 
 ERROR, WARN, INFO = "ERROR", "WARN", "INFO"
 
@@ -171,10 +180,10 @@ elements that DECLARE an orgId are checked; a screen with no elements[], or an
 element with no orgId, produces no finding at all — absence of a declaration is
 never a finding, only a present one that disagrees with the body is.""",
     "L-ANATOMY": """\
-L-ANATOMY — a component's `anatomy.parts[].orgId` names a component id its own
-render body never composes via pbUse(). Kind B, same rule as L-ELEMENTS: only parts
-that declare an orgId are checked, and a component with no anatomy/parts produces
-no finding.""",
+L-ANATOMY — a component's `anatomy.parts[].orgId` (or, in a schema-13 sidecar, an
+`instance` part's `instanceOf`) names a component id its own render body never
+composes via pbUse(). Kind B, same rule as L-ELEMENTS: only parts that declare a
+component are checked, and a component with no anatomy/parts produces no finding.""",
     "L-HAS-R3": """\
 L-HAS-R3 — a group toggle (a class matching *toggle*/*radio*/*check*) is hidden
 with `display:none` rather than `position:absolute;opacity:0`; `display:none`
@@ -183,6 +192,29 @@ keyboard. This is a NOTE per the brief, not a Finding — it never affects the e
 code and is not counted as a warning or error, because it is one plausible reading
 of a class-name pattern, not a derived contradiction or a declared/observed
 mismatch.""",
+    "L-BLOCK": """\
+L-BLOCK — a rule's `blocks[]` entry the Logic tab cannot draw: an unknown `type`, or a
+known type missing the field its renderer reads (cases → rows[], scope → acts[] or
+untouched[], placement → surfaces[], matrix → rows[] + cols[], validation → items[],
+formula → expr, steps → items[], params → items[], effects → writes[] or ripple[],
+note → text). The shell degrades such a block to its raw text rather than dropping it,
+which is exactly how a rule silently goes back to reading as a paragraph — so the
+declaration is checked against the renderer's own contract. Shape, not opinion: ERROR.
+Known false-positive mode: none — the type list IS the renderer's (LGC_BLOCKS in
+pb/template/prototype.html); a new block type lands in both places together.""",
+    "L-TITLE": """\
+L-TITLE — INFORMATION ONLY. A rule title that names a topic or asks a question ("What polygon
+colour means", "How a hub is identified", "Which document wins?", "Merge — ship it or remove
+it") instead of stating the rule ("Polygon colour shows coverage state"). The Logic list is read by
+its titles; a question there makes the reader open the card to learn the answer. The question
+belongs in decision.question. Never a finding: the wording is the author's call.""",
+    "L-PROSE": """\
+L-PROSE — INFORMATION ONLY. A rule with no `blocks[]` whose summary is longer than ~280
+characters or whose decision.why is longer than ~600. On the three projects this was
+measured on, paragraphs that long were almost always one of the block shapes written
+as sentences — a condition → outcome table, a scope list, a formula, a threshold.
+Never a finding and never counted toward the exit code: a long paragraph can be the
+right form, and a length is not a contradiction.""",
     "L-HAS-R4": """\
 L-HAS-R4 — the number of `:has()` rules per file. INFORMATION ONLY. This project
 uses `:has()` deliberately and heavily (dozens of rules per file in places, from
@@ -273,12 +305,84 @@ def check_rule_refs(graph, registry):
         cites += [("implemented[].name", (e or {}).get("name")) for e in (rule.get("implemented") or [])]
         cites += [("invariants[].enforcedBy", (i or {}).get("enforcedBy"))
                   for i in (rule.get("invariants") or [])]
+        cites += [("blocks[validation].items[].enforcedBy", (i or {}).get("enforcedBy"))
+                  for b in (rule.get("blocks") or []) if isinstance(b, dict) and b.get("type") == "validation"
+                  for i in (b.get("items") or [])]
         for field, name in cites:
             if isinstance(name, str) and name and name not in known:
                 out.append(Finding(
                     ERROR, "L-RULEREF", f"rule={rid!r} {field}",
                     f"cites {name!r}, which is defined nowhere in the render bodies — "
                     f"renamed or deleted, and the rule still points at it"))
+    return out
+
+
+# ───────────────────────── Shape: rule blocks (v2.1.0) ───────────────────────────
+# The renderer's own contract — LGC_BLOCKS in pb/template/prototype.html. Each type names the
+# field(s) its renderer draws from; any ONE of a tuple is enough.
+BLOCK_REQUIRES = {
+    "cases": ("rows",), "scope": ("acts", "untouched"), "placement": ("surfaces",),
+    "matrix": ("rows",), "validation": ("items",), "formula": ("expr",), "steps": ("items",),
+    "params": ("items",), "effects": ("writes", "ripple"), "note": ("text",),
+    # Values shown as themselves (v2.1.0): a colour per state, an identifier's parts, input → output.
+    "swatches": ("items",), "anatomy": ("parts",), "examples": ("items",),
+}
+PROSE_SUMMARY, PROSE_WHY = 280, 600
+
+
+def _rules(registry):
+    rules = ((registry.get("ia") or {}).get("rules")) or registry.get("rules") or []
+    return [r for r in rules if isinstance(r, dict)] if isinstance(rules, list) else []
+
+
+def check_blocks(registry):
+    out = []
+    for rule in _rules(registry):
+        rid = rule.get("id")
+        blocks = rule.get("blocks")
+        if blocks is None:
+            continue
+        if not isinstance(blocks, list):
+            out.append(Finding(ERROR, "L-BLOCK", f"rule={rid!r}", "blocks must be a list"))
+            continue
+        for n, b in enumerate(blocks):
+            where = f"rule={rid!r} blocks[{n}]"
+            if not isinstance(b, dict):
+                out.append(Finding(ERROR, "L-BLOCK", where, "a block is an object with a `type`"))
+                continue
+            t = b.get("type")
+            if t not in BLOCK_REQUIRES:
+                out.append(Finding(ERROR, "L-BLOCK", where,
+                                   f"unknown type {t!r} — one of {', '.join(sorted(BLOCK_REQUIRES))}"))
+                continue
+            if not any(b.get(k) for k in BLOCK_REQUIRES[t]):
+                out.append(Finding(ERROR, "L-BLOCK", where,
+                                   f"a {t} block needs {' or '.join(BLOCK_REQUIRES[t])} — it would draw nothing"))
+            if t == "matrix" and b.get("rows") and not b.get("cols"):
+                out.append(Finding(ERROR, "L-BLOCK", where, "a matrix block needs cols[] as well as rows[]"))
+    return out
+
+
+_QUESTION_TITLE = re.compile(r"^(what|how|which|whether|where|when|why|who|should|is|are|does|do|can)\b|\?\s*$|\s[—–-]\s.*\bor\b", re.I)
+
+
+def check_titles(registry):
+    return [Finding(INFO, "L-TITLE", f"rule={r.get('id')!r}",
+                    f"title {r.get('title')!r} reads as a topic or a question — state the rule itself")
+            for r in _rules(registry) if isinstance(r.get("title"), str) and _QUESTION_TITLE.search(r["title"].strip())]
+
+
+def check_prose(registry):
+    out = []
+    for rule in _rules(registry):
+        if rule.get("blocks"):
+            continue
+        summary = rule.get("summary") or ""
+        why = ((rule.get("decision") or {}).get("why")) or ""
+        if len(summary) > PROSE_SUMMARY or len(why) > PROSE_WHY:
+            out.append(Finding(INFO, "L-PROSE", f"rule={rule.get('id')!r}",
+                               f"summary {len(summary)} / why {len(why)} chars with no blocks[] — "
+                               f"if it is a table, a scope, a formula or a threshold, a block draws it"))
     return out
 
 
@@ -315,7 +419,7 @@ def check_has_rules(project_dir):
     findings = []
     per_file = {}
     r3_notes = []
-    for path in sorted(glob.glob(os.path.join(project_dir, "render", "*", "*.js"))):
+    for path in sorted(glob.glob(os.path.join(glob.escape(project_dir), "render", "*", "*.js"))):
         with open(path, encoding="utf-8") as f:
             raw = f.read()
         rel = os.path.relpath(path, project_dir)
@@ -395,6 +499,10 @@ def _load_registry_with_specs(project_dir):
                     sidecar = json.load(f)
                 if isinstance(sidecar, dict) and "anatomy" in sidecar:
                     c["anatomy"] = sidecar["anatomy"]
+                    # schema 13: the part order and the elements travel with the anatomy
+                    for k in ("layout", "elements"):
+                        if k in sidecar:
+                            c[k] = sidecar[k]
             except (OSError, json.JSONDecodeError):
                 pass
     return reg
@@ -434,11 +542,7 @@ def check_anatomy(graph, registry):
         composed = composes_by_id.get(cid)
         if composed is None:
             continue
-        anatomy = comp.get("anatomy")
-        parts = (anatomy.get("parts") if isinstance(anatomy, dict) else None) or []
-        for part in parts:
-            if not isinstance(part, dict):
-                continue
+        for part in _parts.parts(comp):      # legacy parts[] or schema-13 instanceOf
             org = part.get("orgId")
             if not org:
                 continue
@@ -462,6 +566,9 @@ def run(project_dir, shell_path=None):
     findings += check_undefined(graph)
     findings += check_duplicates(graph)
     findings += check_rule_refs(graph, registry)
+    findings += check_blocks(registry)
+    findings += check_prose(registry)
+    findings += check_titles(registry)
     findings += check_has_rules(project_dir)
     findings += check_elements(graph, registry)
     findings += check_anatomy(graph, registry)

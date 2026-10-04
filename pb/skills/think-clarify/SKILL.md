@@ -1,6 +1,7 @@
 ---
 name: think-clarify
-description: Decide what genuinely needs a human answer vs what can proceed on a sensible default. Use when a PRD, brief, or task is ambiguous in Product Builder — loaded by /pb:init — to ask the few high-leverage questions and assume the rest, so building isn't blocked by over-asking or derailed by wrong guesses. Not for critiquing the requirements (use think-critique-prd) or parsing them (use ref-prd).
+description: Decide what genuinely needs a human answer vs what can proceed on a sensible default. Use when a PRD, brief, or task is ambiguous in Product Builder — loaded by /pb:init and /pb:specify — to ask the few high-leverage questions and assume the rest, so building isn't blocked by over-asking or derailed by wrong guesses. Not for critiquing the requirements (use think-critique-prd) or parsing them (use ref-prd).
+user-invocable: false
 ---
 
 # think-clarify

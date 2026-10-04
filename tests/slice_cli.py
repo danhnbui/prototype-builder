@@ -7,18 +7,27 @@ dragging the whole file into context (token lever #1 at scale).
   2. list — enumerates ids (components/screens), leaf paths (tokens), keys (meta).
   3. set  — an empty patch is byte-identical (idempotent, canonical format); a real patch
             merges into only the targeted entry and leaves every other slice untouched.
+  4. writes are atomic and serialised (round 3): `set` replaces the file through a temp file in the
+     same directory (a new inode, mode kept, a symlinked registry replaced at its target, no temp
+     file left, even when it fails), and takes the advisory lock `<registry>.lock` around its whole
+     read-modify-write — N parallel `set`s lose no update, a second writer past the timeout is
+     refused with a message naming the holder and the file is untouched, and a `set` that exits on
+     a bad patch leaves no lock behind.
 
 Fixture-driven off registry.demo.json (no MCP / project needed).
 
 Usage:  python3 tests/slice_cli.py
 Exit:   0 = clean · 1 = a regression
 """
+import importlib.util
 import json
 import os
 import shutil
+import stat
 import subprocess
 import sys
 import tempfile
+import time
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SLICE = os.path.join(ROOT, "pb", "tools", "slice.py")
@@ -177,6 +186,124 @@ with tempfile.TemporaryDirectory() as d:
     check(r.returncode == 0 and now["mermaid"] == "flowchart LR\n  A --> B", "set flow mermaid replaces the leaf")
     check(now["stories"] == before_stories, "set flow mermaid leaves stories[] untouched")
 
+
+    print("set — atomic write: a new inode, the mode kept, no temp file, nothing half-written")
+    spec = importlib.util.spec_from_file_location("pb_slice_under_test", SLICE)
+    sl = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(sl)
+    os.chmod(reg, 0o640)
+    ino = os.stat(reg).st_ino
+    r = run("set", "meta", "name", *R, stdin='"Atomic"')
+    check(r.returncode == 0 and os.stat(reg).st_ino != ino, "set replaced the file (a new inode) rather than rewriting it in place")
+    check(stat.S_IMODE(os.stat(reg).st_mode) == 0o640, "the file's mode survives the replace")
+    check([f for f in os.listdir(d) if f.endswith(".tmp")] == [], "no temp file is left behind")
+    link = os.path.join(d, "via-link.json")
+    os.symlink(reg, link)
+    r = run("set", "meta", "name", "--registry", link, stdin='"Through the link"')
+    check(r.returncode == 0 and os.path.islink(link) and json.load(open(reg))["meta"]["name"] == "Through the link",
+          "a symlinked registry is replaced at its target; the link stays a link")
+    os.unlink(link)
+    before = open(reg, "rb").read()
+    try:
+        sl._write(reg, {"meta": {"name": "a\ud800b"}})            # a lone surrogate cannot be written as UTF-8
+        check(False, "a value that cannot be encoded raises")
+    except UnicodeEncodeError:
+        check(open(reg, "rb").read() == before and [f for f in os.listdir(d) if f.endswith(".tmp")] == [],
+              "a write that fails leaves the registry byte-identical and no temp file")
+
+    print("set — the advisory lock")
+    env = dict(os.environ, PB_LOCK_TIMEOUT="0.5")
+    def run_env(*args, stdin=None):
+        return subprocess.run([sys.executable, SLICE, *args], input=stdin, capture_output=True, text=True, env=env)
+    before = open(reg, "rb").read()
+    with sl.registry_lock(reg, "a test holding the lock"):
+        t0 = time.time()
+        r = run_env("set", "meta", "name", *R, stdin='"Blocked"')
+        waited = time.time() - t0
+        check(r.returncode != 0 and "being written" in r.stderr and "a test holding the lock" in r.stderr,
+              "a second writer is refused, and the message names the holder (%r)" % r.stderr.strip()[:140])
+        check("Traceback" not in r.stderr, "…as a message, not a traceback")
+        check(0.4 < waited < 5, "…after a short wait (%.1fs)" % waited)
+        check(run_env("get", "meta", "name", *R).returncode == 0, "a read is not blocked by the lock")
+    check(open(reg, "rb").read() == before, "the refused set left the file untouched")
+    r = run_env("set", "meta", "name", *R, stdin='"After"')
+    check(r.returncode == 0 and json.load(open(reg))["meta"]["name"] == "After", "once released, the same set goes through")
+    check(os.path.isfile(reg + ".lock") and os.path.getsize(reg + ".lock") == 0,
+          "the lock file stays, empty, as an anchor (a re-run leaves the directory byte-identical)")
+    r = run_env("set", "components", "button", *R, stdin='"oops"')
+    check(r.returncode != 0, "a set that exits on a bad patch…")
+    r = run_env("set", "meta", "name", *R, stdin='"Lock was released"')
+    check(r.returncode == 0, "…does not leave the lock held")
+    r = run_env("set", "meta", "name", "--registry", os.path.join(d, "nope.json"), stdin='"x"')
+    check(r.returncode != 0 and "no registry" in r.stderr and not os.path.exists(os.path.join(d, "nope.json.lock")),
+          "a missing registry is reported before any lock file is made")
+    try:
+        with sl.registry_lock(reg, "outer"):
+            with sl.registry_lock(reg, "inner", timeout=0.2):
+                pass
+        check(False, "a nested lock on the same file waits and is refused (it is not re-entrant)")
+    except sl.RegistryLocked as e:
+        check("outer" in str(e), "a nested lock on the same file is refused too — taking it around only the write would be a bug (%s)" % str(e)[:60])
+
+    print("set — the lock file is never followed or truncated (L2)")
+    os.unlink(reg + ".lock")
+    victim = os.path.join(d, "victim.txt")
+    open(victim, "w").write("do not touch\n")
+    os.symlink(victim, reg + ".lock")
+    before = open(reg, "rb").read()
+    r = run_env("set", "meta", "name", *R, stdin='"Through the lock link"')
+    check(r.returncode != 0 and "not a regular file" in r.stderr and "Traceback" not in r.stderr,
+          "a symlinked registry.json.lock is refused with a message (%r)" % r.stderr.strip()[:110])
+    check(open(victim).read() == "do not touch\n", "…and the file it pointed at was neither written nor truncated")
+    check(open(reg, "rb").read() == before and os.path.islink(reg + ".lock"),
+          "…the registry is untouched and the symlink is left where it was")
+    try:
+        with sl.registry_lock(reg, "through a symlink"):
+            check(False, "registry_lock refuses a symlinked lock file")
+    except sl.LockFileUnsafe as e:
+        check(isinstance(e, sl.RegistryLocked) and "not a regular file" in str(e),
+              "registry_lock raises LockFileUnsafe — a RegistryLocked, so every caller already stops on it")
+    check(open(victim).read() == "do not touch\n", "…also in-process: still untouched")
+    os.unlink(reg + ".lock")
+    ghost = os.path.join(d, "ghost.txt")
+    os.symlink(ghost, reg + ".lock")                              # dangling: O_CREAT would have made the target
+    r = run_env("set", "meta", "name", *R, stdin='"Through a dangling link"')
+    check(r.returncode != 0 and "not a regular file" in r.stderr and not os.path.exists(ghost),
+          "a dangling symlink is refused too, and nothing is created at its target")
+    os.unlink(reg + ".lock")
+    os.mkfifo(reg + ".lock")
+    t0 = time.time()
+    try:
+        r = subprocess.run([sys.executable, SLICE, "set", "meta", "name", *R], input='"Through a fifo"',
+                           capture_output=True, text=True, env=env, timeout=15)
+        check(r.returncode != 0 and "not a regular file" in r.stderr and time.time() - t0 < 10,
+              "a FIFO in its place is refused, not waited on (%.1fs)" % (time.time() - t0))
+    except subprocess.TimeoutExpired:
+        check(False, "a FIFO in the lock's place made the writer hang")
+    os.unlink(reg + ".lock")
+    os.mkdir(reg + ".lock")
+    r = run_env("set", "meta", "name", *R, stdin='"Through a directory"')
+    check(r.returncode != 0 and "not a regular file" in r.stderr and "Traceback" not in r.stderr,
+          "a directory in its place is refused with the same message")
+    os.rmdir(reg + ".lock")
+    check(open(reg, "rb").read() == before, "none of those four touched the registry")
+    r = run_env("set", "meta", "name", *R, stdin='"Lock file is ordinary again"')
+    check(r.returncode == 0 and json.load(open(reg))["meta"]["name"] == "Lock file is ordinary again"
+          and os.path.isfile(reg + ".lock") and not os.path.islink(reg + ".lock") and os.path.getsize(reg + ".lock") == 0,
+          "with an ordinary file (or none) the same set goes through, and re-creates the empty anchor")
+
+    print("set — parallel writers lose no update")
+    N = 10
+    procs = [subprocess.Popen([sys.executable, SLICE, "set", "meta", "par%d" % i, *R], stdin=subprocess.PIPE,
+                              stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, env=dict(os.environ, PB_LOCK_TIMEOUT="20"))
+             for i in range(N)]
+    outs = [(p.communicate('"v%d"' % i), p.returncode) for i, p in enumerate(procs)]
+    meta = json.load(open(reg))["meta"]
+    check(all(rc == 0 for _o, rc in outs), "all %d parallel sets succeed (%r)" % (N, [o[0][1][:60] for o in outs if o[1]]))
+    check(all(meta.get("par%d" % i) == "v%d" % i for i in range(N)),
+          "every one of the %d keys is in the file (without the lock, read-modify-write loses some)" % N)
+    check(json.load(open(reg)) is not None and [f for f in os.listdir(d) if f.endswith(".tmp")] == [],
+          "the file is whole JSON and no temp file is left")
 
 print()
 if fails:

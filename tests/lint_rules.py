@@ -10,6 +10,7 @@ Exit: 0 pass, 1 fail.
 """
 import json
 import os
+import stat
 import subprocess
 import sys
 import tempfile
@@ -182,6 +183,51 @@ with tempfile.TemporaryDirectory() as d:
     after = json.load(open(p, encoding="utf-8"))
     check(len(after["screens"][0]["elements"]) == 1 and "0 removed" in r.stdout,
           "a declared-but-not-composed entry is reported, never deleted")
+
+# ── L3 · --sync-elements is a locked, atomic read-modify-write ────────────────────────
+print("L3 — --sync-elements takes the registry lock, reads inside it, and writes atomically")
+import importlib  # noqa: E402
+import time  # noqa: E402
+pbslice = importlib.import_module("slice")        # `import slice` would shadow the builtin
+with tempfile.TemporaryDirectory() as d:
+    reg = {"meta": {"name": "t"}, "tokens": {},
+           "components": [cmp_("kid", level="atom"), cmp_("other", level="atom")],
+           "screens": [{"id": "s", "name": "S", "level": "page",
+                        "renderFn": "renderScreenS", "renderSrc": "render/screens/s.js", "elements": []}]}
+    sp = os.path.join(d, "render", "screens", "s.js")
+    os.makedirs(os.path.dirname(sp), exist_ok=True)
+    open(sp, "w").write("function renderScreenS(props) {\n  return pbUse('kid', {}) + pbUse('other', {});\n}\n")
+    p = write(d, reg, {"kid": body("kid"), "other": body("other")})
+    os.chmod(p, 0o640)
+    with pbslice.registry_lock(p, "a test holding the lock"):
+        held = open(p, "rb").read()
+        r = subprocess.run([sys.executable, LINT, "--sync-elements", p], capture_output=True, text=True,
+                           env=dict(os.environ, PB_LOCK_TIMEOUT="0.4"))
+        check(r.returncode == 2 and "being written" in r.stderr and "a test holding the lock" in r.stderr
+              and "Traceback" not in r.stderr,
+              "a held registry lock refuses --sync-elements, naming the holder (exit %d)" % r.returncode)
+        check(open(p, "rb").read() == held, "…and registry.json is byte-identical")
+    waiter = subprocess.Popen([sys.executable, LINT, "--sync-elements", p], stdout=subprocess.PIPE,
+                              stderr=subprocess.PIPE, text=True, env=dict(os.environ, PB_LOCK_TIMEOUT="30"))
+    with pbslice.registry_lock(p, "a test holding the lock again"):
+        time.sleep(1.5)
+        waiting = waiter.poll() is None
+        mid = json.load(open(p, encoding="utf-8"))
+        mid["meta"]["editedWhileLocked"] = "yes"
+        pbslice._write(p, mid)
+        ino = os.stat(p).st_ino
+    out, err = waiter.communicate(timeout=60)
+    after = json.load(open(p, encoding="utf-8"))
+    check(waiting, "a writer that finds the lock held WAITS for it (an unlocked one would already have finished)")
+    check(waiter.returncode == 0 and after["meta"].get("editedWhileLocked") == "yes",
+          "…then reads the registry afresh: the edit saved meanwhile is not overwritten (%s)" % err.strip()[:80])
+    check([e["orgId"] for e in after["screens"][0]["elements"]] == ["kid", "other"], "…and its own append is there")
+    check(os.stat(p).st_ino != ino and stat.S_IMODE(os.stat(p).st_mode) == 0o640
+          and [f for f in os.listdir(d) if f.endswith(".tmp")] == [],
+          "the write replaced the file (a new inode), kept its mode, and left no temp file")
+    r = subprocess.run([sys.executable, LINT, "--sync-elements", os.path.join(d, "nope.json")], capture_output=True, text=True)
+    check(r.returncode == 2 and "R-IO" in r.stderr and not os.path.exists(os.path.join(d, "nope.json.lock")),
+          "a missing registry is reported (R-IO) before any lock file is made")
 
 # ── D-22 · --report ranks and never gates ────────────────────────────────────────────
 print("D-22 — --report")

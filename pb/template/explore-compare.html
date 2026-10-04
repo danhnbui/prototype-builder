@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <!-- Theme (before first paint): System unless the viewer chose. pbSetTheme("system"|"light"|"dark"). -->
+  <script>(function () {
+    var d = document.documentElement, K = 'pb-theme';
+    function put(v) { if (v === 'light' || v === 'dark') d.setAttribute('data-theme', v); else d.removeAttribute('data-theme'); }
+    try { put(localStorage.getItem(K)); } catch (e) {}
+    window.pbSetTheme = function (v) {
+      put(v);
+      try { if (v === 'light' || v === 'dark') localStorage.setItem(K, v); else localStorage.removeItem(K); } catch (e) {}
+    };
+  })();</script>
+  <title>Explore compare</title>
+  <!-- /pb:explore's compare-and-rate page (v2.1.0). Served by /pb:preview (serve.py) at
+       /explore/<target> with the exploration manifest (memory/explore/<target>.json) inlined
+       below. Never written to disk and never hand-edited: one template, every exploration.
+       Four modes: target (live frames per device) · goal (approach text) · ia (the approved jobs
+       beside one structure tree per option, from memory/explore/<id>/<slot>.ia.json) · pages (each
+       option's own page from memory/explore/<id>/, laid out at the chosen device's width and scaled
+       to fit its card). -->
+  <style>
+    /*__PB_CHROME__*/
+
+    /* This page's names (--bg, --panel, --fg, --accent …) are aliases of chrome.css's --pb-*. It used
+       to carry a third, near-miss palette — accent #2457d6 against the shells' #1c4ed8, a 10px radius
+       against the 8/16/24 ladder — close enough to read as a mistake rather than a choice, on the page
+       where the tool is most on trial (you are scoring candidates and this is the frame around them).
+       The chrome follows the tool's theme (chrome.css); the candidates never do — each frame is
+       `color-scheme: light`, because a candidate is a rendered product. Status colours are the tool's
+       status tokens: they carry meaning, not brand. */
+    :root {
+      --bg: var(--pb-page); --panel: var(--pb-surface); --fg: var(--pb-ink); --dim: var(--pb-ink-2); --line: var(--pb-hair);
+      --accent: var(--pb-ink); --accent-soft: var(--pb-wash); --chip: var(--pb-wash);
+      --warn: var(--pb-warn); --ok: var(--pb-pass); --bad: var(--pb-fail); --bad-soft: var(--pb-fail-bg);
+      --radius: var(--pb-r-md); --gap: 12px;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; height: 100%; }
+    body { background: var(--bg); color: var(--fg); font: 14px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+    a { color: var(--accent); text-decoration: none; }
+    button, select, input, textarea { font: inherit; color: inherit; }
+
+    .top { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; padding: 10px 16px;
+           background: var(--panel); border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 3; }
+    .top h1 { font-size: 15px; margin: 0; font-weight: 650; }
+    .top .intent { color: var(--dim); flex: 1 1 260px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+    .seg button { border: 0; background: transparent; padding: 5px 10px; cursor: pointer; }
+    .seg button:hover { background: var(--pb-wash); color: var(--fg); }
+    .seg button[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+    .btn { border: 1px solid var(--line); background: var(--panel); border-radius: 8px; padding: 5px 12px; cursor: pointer; }
+    .btn:hover { background: var(--pb-wash); }
+    .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--pb-on-ink); }
+    .btn.primary:hover { background: var(--pb-ink-2); border-color: var(--pb-ink-2); }
+    .top a:hover { text-decoration: underline; }
+    .status { font-size: 12px; color: var(--dim); }
+    .status.ok { color: var(--ok); } .status.warn { color: var(--warn); }
+
+    .layout { display: flex; min-height: calc(100vh - 54px); }
+    .opts { flex: 1 1 auto; min-width: 0; display: grid; gap: var(--gap); padding: var(--gap);
+            grid-template-columns: repeat(var(--n, 3), minmax(0, 1fr)); align-content: start; }
+    .opts.one { grid-template-columns: minmax(0, 1fr); }
+    .opt { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); display: flex; flex-direction: column; min-width: 0; }
+    .opt[hidden] { display: none; }
+    .opt-head { padding: 10px 12px; border-bottom: 1px solid var(--line); }
+    .opt-title { display: flex; align-items: baseline; gap: 8px; }
+    .slot { font: 600 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace; background: var(--chip); padding: 4px 6px; border-radius: 6px; flex: none; }
+    .label { font-weight: 600; min-width: 0; }
+    .avg { margin-left: auto; font-variant-numeric: tabular-nums; color: var(--dim); flex: none; }
+    .bet { color: var(--dim); margin: 4px 0 0; }
+    .axes { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+    .axes span { background: var(--chip); border-radius: 999px; padding: 1px 8px; font-size: 12px; color: var(--dim); }
+    .axes b { color: var(--fg); font-weight: 500; }
+    .frame { position: relative; flex: 1 1 auto; min-height: 420px; height: calc(100vh - 210px); color-scheme: light; }
+    .frame iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; border-radius: 0 0 var(--radius) var(--radius); background: var(--bg); }
+    /* pages mode: the page lays out at the device's true width; fit() scales it down to the card */
+    .frame.fit { overflow: hidden; border-radius: 0 0 var(--radius) var(--radius); }
+    .frame.fit iframe { inset: auto; left: 0; top: 0; border-radius: 0; transform-origin: 0 0; }
+    .opt-foot { display: flex; justify-content: flex-end; padding: 6px 12px; border-top: 1px solid var(--line); font-size: 12px; }
+    .approach { padding: 12px; white-space: pre-wrap; flex: 1 1 auto; }
+
+    /* ia mode — the approved jobs on the left (fixed across options), one tree per option. */
+    .jobs { flex: 0 0 300px; border-right: 1px solid var(--line); background: var(--panel);
+            overflow: auto; max-height: calc(100vh - 54px); position: sticky; top: 54px; padding: 12px 14px 24px; }
+    .jobs[hidden] { display: none; }
+    .jobs h2 { font-size: 14px; margin: 4px 0; }
+    .hint { color: var(--dim); margin: 0 0 12px; font-size: 12px; }
+    .job { padding: 8px 0; border-bottom: 1px solid var(--line); }
+    .job.bad { background: var(--bad-soft); border-radius: 8px; padding: 8px; margin: 4px 0; border-bottom-color: transparent; }
+    .jtbd em { font-style: normal; color: var(--dim); }
+    .chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+    .chip { font: 500 11px/1.7 ui-monospace, SFMono-Regular, Menlo, monospace; background: var(--chip);
+            color: var(--dim); border-radius: 999px; padding: 0 7px; white-space: nowrap; }
+    .chip.ok { color: var(--ok); }
+    .chip.bad { background: var(--bad-soft); color: var(--bad); }
+    .tree { padding: 10px 12px 14px; flex: 1 1 auto; min-width: 0; }
+    .tree-head { font-size: 12px; color: var(--dim); margin: 0 0 8px; }
+    .tree-head b { color: var(--fg); font-weight: 600; }
+    /* the tree's own edges (a hairline per level) — the diagram's structure, not a highlight */
+    .tree ul { list-style: none; margin: 0; padding: 0 0 0 14px; border-left: 1px solid var(--line); }
+    .tree > ul { padding-left: 0; border-left: 0; }
+    .node { margin: 6px 0; }
+    .node-box { border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; background: var(--bg); min-width: 0; }
+    .node.overlay > .node-box { border-style: dashed; }
+    .node-box.bad { border-color: var(--bad); color: var(--bad); }
+    .node-name { font-weight: 600; }
+    .node-tag { font-size: 11px; color: var(--dim); }
+    .node-purpose { font-size: 12px; color: var(--dim); }
+    .layers { margin: 10px 0 0; padding: 0; list-style: none; font-size: 12px; color: var(--dim); }
+    .layers b { color: var(--fg); font-weight: 600; }
+    .ia-flag { margin: 10px 0 0; padding: 6px 10px; border-radius: 8px; background: var(--bad-soft); color: var(--bad); font-size: 12px; }
+
+    .rate { flex: 0 0 min(560px, 46vw); border-left: 1px solid var(--line); background: var(--panel);
+            overflow: auto; max-height: calc(100vh - 54px); position: sticky; top: 54px; padding: 12px 16px 24px; }
+    .rate[hidden] { display: none; }
+    .rate h2 { font-size: 14px; margin: 4px 0 4px; }
+    .rate p.hint { color: var(--dim); margin: 0 0 12px; font-size: 12px; }
+    table { border-collapse: collapse; width: 100%; }
+    th, td { text-align: left; padding: 6px 4px; border-bottom: 1px solid var(--line); vertical-align: top; }
+    th { font-size: 12px; color: var(--dim); font-weight: 600; }
+    td.crit { width: 30%; } td.crit small { display: block; color: var(--dim); font-size: 12px; line-height: 1.35; }
+    td.crit .todo { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--warn); margin-left: 6px; vertical-align: middle; }
+    .score { display: inline-flex; gap: 2px; }
+    .score button { width: 24px; height: 24px; border: 1px solid var(--line); background: transparent; border-radius: 6px; cursor: pointer; font-size: 12px; padding: 0; }
+    .score button:hover { background: var(--pb-wash); }
+    .score button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--pb-on-ink); }
+    td.note { padding-top: 0; }
+    td.note input { width: 100%; border: 1px solid var(--line); background: var(--bg); border-radius: 6px; padding: 3px 6px; font-size: 12px; }
+    tr.crit-row td { border-bottom: 0; }
+    tr.avg-row td { font-weight: 650; font-variant-numeric: tabular-nums; }
+    .verdict { margin-top: 18px; display: grid; gap: 8px; }
+    .verdict label { font-size: 12px; color: var(--dim); display: grid; gap: 4px; }
+    .verdict select, .verdict textarea, .verdict input { border: 1px solid var(--line); background: var(--bg); border-radius: 8px; padding: 6px 8px; width: 100%; }
+    .verdict textarea { min-height: 64px; resize: vertical; }
+
+    @media (max-width: 900px) {
+      .layout { flex-direction: column; }
+      .opts { grid-template-columns: minmax(0, 1fr); }
+      .rate { flex: none; max-height: none; position: static; border-left: 0; border-top: 1px solid var(--line); }
+      .jobs { flex: none; max-height: none; position: static; border-right: 0; border-bottom: 1px solid var(--line); }
+      .top { position: static; }
+      .rate table { font-size: 13px; } .score button { width: 22px; height: 26px; }
+      .frame { height: 70vh; }
+    }
+  </style>
+</head>
+<body>
+  <header class="top">
+    <h1 id="title">Explore</h1>
+    <span class="intent" id="intent"></span>
+    <div class="seg" role="group" aria-label="Layout">
+      <button id="v-side" aria-pressed="true">Side by side</button>
+      <button id="v-one" aria-pressed="false">One at a time</button>
+    </div>
+    <div class="seg" role="group" aria-label="Device" id="devices"></div>
+    <button class="btn" id="b-rate" aria-pressed="true">Rate</button>
+    <button class="btn" id="b-copy">Copy as markdown</button>
+    <span class="status" id="status" aria-live="polite"></span>
+    <a href="/explore">All explorations</a>
+    <a href="/">Live prototype</a>
+  </header>
+  <div class="layout">
+    <aside class="jobs" id="jobs" aria-label="Approved jobs" hidden></aside>
+    <main class="opts" id="opts"></main>
+    <aside class="rate" id="rate" aria-label="Rating"></aside>
+  </div>
+
+  <script>
+    const X = /*__PB_EXPLORE_SESSION__*/null;
+    const $ = s => document.querySelector(s);
+    const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const DEVICES = [['laptop', 'Desktop'], ['mobile', 'Phone'], ['tablet', 'Tablet'], ['monitor', 'Monitor']];
+    const ui = { view: 'side', device: 'laptop', one: 0, rate: true };
+    try { Object.assign(ui, JSON.parse(localStorage.getItem('pb-explore-ui') || '{}')); } catch (e) {}
+    const saveUi = () => { try { localStorage.setItem('pb-explore-ui', JSON.stringify(ui)); } catch (e) {} };
+
+    if (!X) {
+      document.body.innerHTML = '<p style="padding:24px">No exploration data — open this page from the /pb:preview server.</p>';
+      throw new Error('PB explore: no session');
+    }
+    const goal = X.mode === 'goal';
+    const ia = X.mode === 'ia';          // N groupings of the approved jobs — drawn as trees, not frames
+    const pages = X.mode === 'pages';    // each option is its own page under memory/explore/<id>/
+    const WIDTH = { laptop: 1280, mobile: 429, tablet: 834, monitor: 1920 };   // the shell's four sizes
+    const textOnly = goal || ia;         // nothing rendered → no devices, no "open full"
+    const JOBS = X.jobs || [];
+    const ROLE = {};
+    (X.roles || []).forEach(r => { ROLE[r.id] = r.name || r.id; });
+    const opts = X.options || [];
+    const rubric = X.rubric || [];
+    const scores = Object.assign({}, X.scores || {});
+    const notes = Object.assign({}, X.notes || {});
+    const verdict = Object.assign({ pick: null, why: '', taught: {} }, X.verdict || {});
+    verdict.taught = Object.assign({}, verdict.taught || {});
+
+    document.title = 'Explore · ' + X.target;
+    $('#title').textContent = 'Explore · ' + X.target;
+    $('#intent').textContent = [X.intent, X.host && !textOnly ? 'shown on ' + X.host : ''].filter(Boolean).join(' — ');
+
+    // Devices: what the project supports (meta.devices), desktop and phone first.
+    const supported = (X.devices && X.devices.length) ? X.devices : ['laptop', 'mobile'];
+    const devs = DEVICES.filter(([id]) => supported.indexOf(id) !== -1);
+    if (!devs.some(([id]) => id === ui.device)) ui.device = (devs[0] || DEVICES[0])[0];
+    $('#devices').innerHTML = textOnly ? '' : devs.map(([id, l]) => `<button data-dev="${id}" aria-pressed="${id === ui.device}">${l}</button>`).join('');
+    if (textOnly) $('#devices').hidden = true;
+
+    /* ── ia mode ───────────────────────────────────────────────────────────
+       Each option is a structure (memory/explore/<id>/<slot>.ia.json) over the SAME approved
+       jobs. A job is `served` (a screen lists it), `unhandled` (the option leaves it out on
+       purpose — its bet says why) or `unserved` (neither — explore.py check fails on it). Both
+       of the last two are red, on the job list and on the option. */
+    function coverage(o) {
+      const s = o.structure || {};
+      const served = new Set(), out = {};
+      (s.screens || []).forEach(sc => ((sc && sc.jobs) || []).forEach(j => served.add(j)));
+      const unhandled = new Set(s.unhandled || []);
+      JOBS.forEach(j => { out[j.id] = served.has(j.id) ? 'served' : unhandled.has(j.id) ? 'unhandled' : 'unserved'; });
+      return out;
+    }
+    const COVER_WORD = { served: 'served', unhandled: 'left out on purpose', unserved: 'served by no screen' };
+    const COVER_MARK = { served: '✓', unhandled: '–', unserved: '✗' };
+    const jtbd = j => `When <em>${esc(j.when || '…')}</em>, I want to <strong>${esc(j.want || '')}</strong>, so I can <em>${esc(j.so || '…')}</em>`;
+
+    function renderJobs() {
+      const el = $('#jobs');
+      if (!ia) return;
+      el.hidden = false;
+      const covs = opts.map(o => [o.slot, o.structure ? coverage(o) : null]);
+      el.innerHTML = `<h2>Approved jobs <span class="status">${JOBS.length}</span></h2>
+        <p class="hint">The same jobs under every option. Red: an option leaves the job out, or serves it nowhere.</p>`
+        + (JOBS.length ? JOBS.map(j => {
+          const marks = covs.map(([slot, c]) => {
+            const st = c ? c[j.id] : 'unserved';
+            return `<span class="chip ${st === 'served' ? 'ok' : 'bad'}" title="${esc(slot)}: ${esc(COVER_WORD[st])}">${esc(slot)} ${COVER_MARK[st]}</span>`;
+          }).join('');
+          const bad = covs.some(([, c]) => !c || c[j.id] !== 'served');
+          return `<div class="job ${bad ? 'bad' : ''}"><div class="jtbd">${jtbd(j)}</div>
+            <div class="chips"><span class="chip">${esc(j.id)}</span>${j.priority ? `<span class="chip">${esc(j.priority)}</span>` : ''}${(j.roles || []).map(r => `<span class="chip">${esc(ROLE[r] || r)}</span>`).join('')}</div>
+            <div class="chips">${marks}</div></div>`;
+        }).join('') : '<p class="hint">registry.json holds no approved jobs — /pb:clarify captures them before an IA round.</p>');
+    }
+
+    function iaTree(o) {
+      const s = o.structure;
+      if (!s) return `<div class="tree"><p class="ia-flag">${esc(o.structureError || 'No structure written for this slot yet.')}</p></div>`;
+      const screens = (s.screens || []).filter(x => x && x.id);
+      const byId = {}, kids = {}, seen = new Set();
+      screens.forEach(x => { byId[x.id] = x; });
+      screens.forEach(x => { if (x.parent && byId[x.parent]) (kids[x.parent] = kids[x.parent] || []).push(x); });
+      const jobChip = id => {
+        const j = JOBS.find(x => x.id === id);
+        return `<span class="chip ${j ? '' : 'bad'}" title="${esc(j ? 'I want to ' + (j.want || '') : 'not an approved job')}">${esc(id)}</span>`;
+      };
+      const node = (x, tab) => {
+        if (seen.has(x.id)) return '';
+        seen.add(x.id);
+        const ov = x.depth === 'overlay';
+        const ch = (kids[x.id] || []).slice().sort((a, b) => (a.depth === 'overlay') - (b.depth === 'overlay'));
+        const jobs = x.jobs || [];
+        return `<li class="node ${ov ? 'overlay' : ''}"><div class="node-box">
+            <div><span class="node-name">${esc(x.name || x.id)}</span>
+              <span class="node-tag">${ov ? 'overlay' : 'depth ' + esc(x.depth)}${tab && tab !== x.name ? ' · tab “' + esc(tab) + '”' : ''}</span></div>
+            ${x.purpose ? `<div class="node-purpose">${esc(x.purpose)}</div>` : ''}
+            <div class="chips">${jobs.length ? jobs.map(jobChip).join('') : '<span class="chip bad">no job</span>'}</div>
+          </div>${ch.length ? `<ul>${ch.map(c => node(c)).join('')}</ul>` : ''}</li>`;
+      };
+      const hub = s.hub || {};
+      const items = hub.items || [];
+      const roots = items.map(it => byId[it.screen] ? node(byId[it.screen], it.label)
+        : `<li class="node"><div class="node-box bad">“${esc(it.label)}” opens ${esc(it.screen)}, which this option does not define</div></li>`).join('');
+      let rest = screens.filter(x => !seen.has(x.id) && !(x.parent && byId[x.parent])).map(x => node(x)).join('');
+      rest += screens.filter(x => !seen.has(x.id)).map(x => node(x)).join('');
+      const cov = coverage(o);
+      const left = JOBS.filter(j => cov[j.id] === 'unhandled'), none = JOBS.filter(j => cov[j.id] === 'unserved');
+      return `<div class="tree">
+          <p class="tree-head">Hub <b>${esc(hub.shape || '?')}</b> · ${items.length} item${items.length === 1 ? '' : 's'}
+            · ${hub.component ? `component <b>${esc(hub.component)}</b>` : 'no hub component yet'} · scheme <b>${esc(s.scheme || '?')}</b></p>
+          <ul>${roots}</ul>
+          ${rest ? `<p class="tree-head" style="margin-top:12px">Not reached from the hub</p><ul>${rest}</ul>` : ''}
+          ${(s.layers || []).length ? `<ul class="layers">${s.layers.map(l => `<li><b>${esc(l.depth === 'overlay' ? 'Overlay' : 'Layer ' + l.depth)} · ${esc(l.name || '')}</b> — ${esc(l.purpose || '')}</li>`).join('')}</ul>` : ''}
+          ${left.length ? `<p class="ia-flag">Leaves out: ${left.map(j => esc(j.id)).join(', ')}</p>` : ''}
+          ${none.length ? `<p class="ia-flag">Served by no screen: ${none.map(j => esc(j.id)).join(', ')}</p>` : ''}
+        </div>`;
+    }
+
+    function src(o) {
+      if (pages) return `/explore/${encodeURIComponent(X.target)}/${String(o.page || o.slot + '/index.html').replace(/^\/+/, '')}`;
+      const q = new URLSearchParams({ embed: '1', device: ui.device });
+      if (X.host) q.set('screen', X.host);
+      return `/explore/${encodeURIComponent(X.target)}/${encodeURIComponent(o.slot)}?${q}`;
+    }
+    function avgOf(slot) {
+      const v = rubric.map(c => scores[c.id + ':' + slot]).filter(n => Number.isInteger(n));
+      return v.length ? (v.reduce((a, b) => a + b, 0) / v.length) : null;
+    }
+    function axes(o) {
+      return Object.entries(o.axes || {}).map(([k, v]) => `<span>${esc(k)}: <b>${esc(v)}</b></span>`).join('');
+    }
+
+    function renderOptions() {
+      const el = $('#opts');
+      el.style.setProperty('--n', Math.min(opts.length, 4));
+      el.classList.toggle('one', ui.view === 'one');
+      el.innerHTML = opts.map((o, i) => {
+        const a = avgOf(o.slot);
+        const body = ia ? iaTree(o)
+          : goal ? `<div class="approach">${esc(o.approach || '(no approach written)')}</div>`
+          : pages ? `<div class="frame fit" data-w="${WIDTH[ui.device] || 1280}"><iframe title="${esc(o.slot)}" loading="lazy" src="${esc(src(o))}"></iframe></div>`
+          : `<div class="frame"><iframe title="${esc(o.slot)}" loading="lazy" src="${src(o)}"></iframe></div>`;
+        return `<section class="opt" data-i="${i}" ${ui.view === 'one' && i !== ui.one ? 'hidden' : ''}>
+          <div class="opt-head">
+            <div class="opt-title"><span class="slot">${esc(o.slot)}</span>
+              <span class="label">${esc(o.label || 'Untitled option')}</span>
+              <span class="avg" data-avg="${esc(o.slot)}">${a == null ? '–' : a.toFixed(1)}</span></div>
+            ${o.bet ? `<p class="bet">${esc(o.bet)}</p>` : ''}
+            ${axes(o) ? `<div class="axes">${axes(o)}</div>` : ''}
+          </div>
+          ${body}
+          ${textOnly ? '' : `<div class="opt-foot"><a href="${esc(src(o).replace('embed=1&', ''))}" target="_blank" rel="noopener">Open full ↗</a></div>`}
+        </section>`;
+      }).join('');
+      if (ui.view === 'one') {
+        el.insertAdjacentHTML('afterbegin', `<div class="seg" role="tablist" style="justify-self:start">${opts.map((o, i) =>
+          `<button data-one="${i}" aria-pressed="${i === ui.one}">${esc(o.slot)}</button>`).join('')}</div>`);
+      }
+      fit();
+    }
+
+    // pages mode: lay each page out at the device's width and scale it to its card, so a desktop
+    // page in a 300px column reads as a small desktop, not as a squeezed phone layout.
+    function fit() {
+      document.querySelectorAll('.frame.fit').forEach(f => {
+        const w = +f.dataset.w, ifr = f.querySelector('iframe');
+        if (!w || !ifr || !f.clientWidth) return;
+        const k = Math.min(1, f.clientWidth / w);
+        ifr.style.width = w + 'px';
+        ifr.style.height = Math.ceil(f.clientHeight / k) + 'px';
+        ifr.style.left = Math.max(0, (f.clientWidth - w * k) / 2) + 'px';   // a phone in a wide card sits centred
+        ifr.style.transform = `scale(${k})`;
+      });
+    }
+    if (pages && window.ResizeObserver) new ResizeObserver(fit).observe($('#opts'));
+
+    function renderRate() {
+      const el = $('#rate');
+      el.hidden = !ui.rate;
+      $('#b-rate').setAttribute('aria-pressed', String(ui.rate));
+      if (!ui.rate) return;
+      const head = `<tr><th>Criterion</th>${opts.map(o => `<th>${esc(o.slot)}</th>`).join('')}</tr>`;
+      const rows = rubric.map(c => {
+        const empty = opts.some(o => !Number.isInteger(scores[c.id + ':' + o.slot]));
+        return `<tr class="crit-row"><td class="crit">${esc(c.label)}${empty ? '<span class="todo" title="Not every option is scored yet"></span>' : ''}<small>${esc(c.prompt || '')}</small></td>
+          ${opts.map(o => `<td><div class="score">${[1, 2, 3, 4, 5].map(n =>
+            `<button data-k="${esc(c.id + ':' + o.slot)}" data-v="${n}" aria-pressed="${scores[c.id + ':' + o.slot] === n}" aria-label="${esc(c.label)} ${esc(o.slot)} ${n}">${n}</button>`).join('')}</div></td>`).join('')}
+        </tr>
+        <tr><td class="note" colspan="${opts.length + 1}"><input data-note="${esc(c.id)}" placeholder="What the score meant (optional)" value="${esc(notes[c.id] || '')}"></td></tr>`;
+      }).join('');
+      const avgRow = `<tr class="avg-row"><td>Average</td>${opts.map(o => { const a = avgOf(o.slot); return `<td>${a == null ? '–' : a.toFixed(2)}</td>`; }).join('')}</tr>`;
+      const others = opts.filter(o => o.slot !== verdict.pick);
+      el.innerHTML = `
+        <h2>Score each option, 1–5</h2>
+        <p class="hint">Rate every cell — the gate (explore.py gate) passes only when none is empty, and nothing is promoted before it does. Read the pattern, not the total: a row low across every option means the standard is wrong, not the options.</p>
+        <table>${head}${rows}${avgRow}</table>
+        <div class="verdict">
+          <label>Verdict
+            <select id="pick"><option value="">— not decided —</option>${opts.map(o =>
+              `<option value="${esc(o.slot)}" ${verdict.pick === o.slot ? 'selected' : ''}>${esc(o.slot)} · ${esc(o.label || '')}</option>`).join('')}
+              <option value="none" ${verdict.pick === 'none' ? 'selected' : ''}>None of these</option></select></label>
+          <label>Why, from the scores and notes<textarea id="why">${esc(verdict.why || '')}</textarea></label>
+          ${others.map(o => `<label>What ${esc(o.slot)} taught (one sentence)<input data-taught="${esc(o.slot)}" value="${esc(verdict.taught[o.slot] || '')}"></label>`).join('')}
+          <div><button class="btn primary" id="b-save">Save ratings</button></div>
+          <p class="hint">A mixed pick ("1, but with 2's header") is not a verdict: say so in Why, and it becomes its own option, built and rated beside the plain pick before anything goes live.</p>
+        </div>`;
+    }
+
+    function updateStatus(missing, msg, cls) {
+      const left = missing != null ? missing : rubric.length * opts.length - Object.keys(scores).filter(k => Number.isInteger(scores[k])).length;
+      const s = $('#status');
+      s.className = 'status ' + (cls || (left ? 'warn' : 'ok'));
+      s.textContent = msg || (left ? `${left} cell${left > 1 ? 's' : ''} unscored` : 'Every cell scored');
+    }
+
+    let timer = null;
+    function save(now) {
+      clearTimeout(timer);
+      timer = setTimeout(async () => {
+        updateStatus(null, 'Saving…', 'warn');
+        try {
+          const r = await fetch(`/__pb_explore/${encodeURIComponent(X.target)}/scores`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ scores, notes, verdict: { pick: verdict.pick === 'none' ? null : verdict.pick, why: verdict.why, taught: verdict.taught } }),
+          });
+          const j = await r.json();
+          if (!j.ok) return updateStatus(null, 'Not saved — ' + j.error, 'warn');
+          updateStatus(j.missing.length, j.missing.length ? `Saved · ${j.missing.length} cell${j.missing.length > 1 ? 's' : ''} unscored` : 'Saved · every cell scored', j.missing.length ? 'warn' : 'ok');
+        } catch (e) { updateStatus(null, 'Not saved — is /pb:preview still running?', 'warn'); }
+      }, now ? 0 : 500);
+    }
+
+    function markdown() {
+      const L = ['| Criterion | ' + opts.map(o => o.slot).join(' | ') + ' | Notes |', '|---|' + opts.map(() => '---|').join('') + '---|'];
+      rubric.forEach(c => L.push(`| ${c.label} | ${opts.map(o => scores[c.id + ':' + o.slot] || '–').join(' | ')} | ${(notes[c.id] || '').replace(/\|/g, '/')} |`));
+      L.push(`| **Average** | ${opts.map(o => { const a = avgOf(o.slot); return a == null ? '–' : a.toFixed(2); }).join(' | ')} | |`);
+      if (verdict.pick) L.push('', `**Verdict:** ${verdict.pick}${verdict.why ? ' — ' + verdict.why : ''}`);
+      Object.entries(verdict.taught || {}).forEach(([k, v]) => { if (v) L.push(`- ${k} taught: ${v}`); });
+      return L.join('\n');
+    }
+
+    document.addEventListener('click', e => {
+      const t = e.target.closest('button'); if (!t) return;
+      if (t.id === 'v-side' || t.id === 'v-one') {
+        ui.view = t.id === 'v-one' ? 'one' : 'side';
+        $('#v-side').setAttribute('aria-pressed', String(ui.view === 'side'));
+        $('#v-one').setAttribute('aria-pressed', String(ui.view === 'one'));
+        saveUi(); renderOptions();
+      } else if (t.dataset.dev) {
+        ui.device = t.dataset.dev; saveUi();
+        document.querySelectorAll('#devices button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.dev === ui.device)));
+        renderOptions();
+      } else if (t.dataset.one != null) {
+        ui.one = +t.dataset.one; saveUi(); renderOptions();
+      } else if (t.id === 'b-rate') {
+        ui.rate = !ui.rate; saveUi(); renderRate();
+      } else if (t.id === 'b-copy') {
+        navigator.clipboard.writeText(markdown()).then(() => updateStatus(null, 'Copied the score sheet', 'ok'));
+      } else if (t.id === 'b-save') {
+        save(true);
+      } else if (t.dataset.k) {
+        const k = t.dataset.k, v = +t.dataset.v;
+        if (scores[k] === v) delete scores[k]; else scores[k] = v;
+        renderRate(); renderAverages(); save();
+      }
+    });
+    document.addEventListener('input', e => {
+      const t = e.target;
+      if (t.dataset.note) { notes[t.dataset.note] = t.value; save(); }
+      else if (t.dataset.taught) { verdict.taught[t.dataset.taught] = t.value; save(); }
+      else if (t.id === 'why') { verdict.why = t.value; save(); }
+    });
+    document.addEventListener('change', e => {
+      if (e.target.id === 'pick') { verdict.pick = e.target.value || null; renderRate(); save(); }
+    });
+    function renderAverages() {
+      opts.forEach(o => { const el = document.querySelector(`[data-avg="${CSS.escape(o.slot)}"]`); const a = avgOf(o.slot); if (el) el.textContent = a == null ? '–' : a.toFixed(1); });
+    }
+
+    $('#v-side').setAttribute('aria-pressed', String(ui.view === 'side'));
+    $('#v-one').setAttribute('aria-pressed', String(ui.view === 'one'));
+    if (ui.one >= opts.length) ui.one = 0;
+    renderJobs(); renderOptions(); renderRate(); updateStatus((X.missing || []).length);
+  </script>
+</body>
+</html>

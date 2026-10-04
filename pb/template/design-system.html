@@ -7,9 +7,35 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- Theme (before first paint): System unless the viewer chose. pbSetTheme("system"|"light"|"dark"). -->
+<script>(function () {
+  var d = document.documentElement, K = 'pb-theme';
+  function put(v) { if (v === 'light' || v === 'dark') d.setAttribute('data-theme', v); else d.removeAttribute('data-theme'); }
+  try { put(localStorage.getItem(K)); } catch (e) {}
+  window.pbSetTheme = function (v) {
+    put(v);
+    try { if (v === 'light' || v === 'dark') localStorage.setItem(K, v); else localStorage.removeItem(K); } catch (e) {}
+  };
+})();</script>
 <title>Design system</title>
 <style>
+  /*__PB_CHROME__*/
+
+  /* TWO SCOPES. The page chrome is the TOOL: its names (--ds-*) are aliases of chrome.css's --pb-*,
+     so this site and the prototype shell are one vocabulary instead of two near-misses. The
+     components are the PROJECT: their tokens live on .pb-product, below, and the registry's tokens
+     are scoped to it (applyRegistryTokens). A project can be any colour and this page does not move.
+     The chrome follows the tool's theme (System / Light / Dark, chrome.css); the specimens never do —
+     every .pb-product is `color-scheme: light`, so a stage, a variant cell and a swatch are the same
+     pixels in a dark tool as in a light one. */
   :root {
+    --ds-bg:var(--pb-page); --ds-surface:var(--pb-surface); --ds-ink:var(--pb-ink); --ds-mut:var(--pb-ink-2);
+    --ds-faint:var(--pb-ink-3); --ds-line:var(--pb-hair); --ds-stage:var(--pb-stage); --ds-accent:var(--pb-ink);
+    --ds-mono:var(--pb-mono); --ds-sans:var(--pb-font);
+    --danger:var(--pb-fail); --success:var(--pb-pass); --neutral-90:var(--pb-ink);   /* status, not brand */
+  }
+  /* The PROJECT's defaults (the registry's tokens override these). Same names the components use. */
+  .pb-product {
     /* Brand */
     --brand:                  #1c4ed8;
     --brand-soft:             #eef2ff;
@@ -31,95 +57,305 @@
     --line-height-l:24px; --line-height-ui:1; --line-height-copy:1.5;
     --radius-small:8px; --radius-medium:16px; --radius-large:24px; --radius-full:9999px;
     --shadow-sm:0 1px 3px rgba(28,31,34,0.08); --shadow-md:0 4px 12px rgba(28,31,34,0.08);
-    /* workbench chrome */
-    --ds-bg:#fbfbfc; --ds-surface:#ffffff; --ds-ink:#101319; --ds-mut:#5e6873; --ds-faint:#98a1ac;
-    --ds-line:#e7e9ee; --ds-stage:#f6f7f9; --ds-accent:#1c4ed8;
-    --ds-mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
-    --ds-sans:ui-sans-serif,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
   }
-  @media (prefers-color-scheme:dark){ :root{ --ds-bg:#0b0c0e; --ds-surface:#16181c; --ds-ink:#f2f3f5; --ds-mut:#a0a7b0; --ds-faint:#6b7280; --ds-line:#24272d; --ds-stage:#101216; --ds-accent:#7aa2ff; } }
-  :root[data-theme="dark"]{ --ds-bg:#0b0c0e; --ds-surface:#16181c; --ds-ink:#f2f3f5; --ds-mut:#a0a7b0; --ds-faint:#6b7280; --ds-line:#24272d; --ds-stage:#101216; --ds-accent:#7aa2ff; }
-  :root[data-theme="light"]{ --ds-bg:#fbfbfc; --ds-surface:#ffffff; --ds-ink:#101319; --ds-mut:#5e6873; --ds-faint:#98a1ac; --ds-line:#e7e9ee; --ds-stage:#f6f7f9; --ds-accent:#1c4ed8; }
 
   *{box-sizing:border-box}
-  /* A demo stage shows the PROJECT's components, so it must be painted in the PROJECT's
-     colours. The page chrome follows the viewer's OS theme; the project's tokens have
-     exactly one theme. Uncoupled, a light design system viewed on a dark-mode machine
-     renders its components on a near-black stage — nothing wrong with either set, they were
-     simply never joined up. The project's own surface/text tokens win here, with the chrome
-     tokens as the fallback for a project that declares neither. */
-  .ds-render-fail { border:1px dashed var(--danger,#c2410c); border-radius:8px; padding:10px 12px; font-size:12.5px; line-height:1.5; color:var(--ds-ink); background:rgba(194,65,12,.05); }
-  .ds-render-fail code { font-family:var(--ds-mono); font-size:11.5px; background:rgba(127,127,127,.14); padding:0 4px; border-radius:3px; }
+  /* A demo stage shows the PROJECT's components, so it is painted in the PROJECT's colours
+     (mountThemeBridge, below): the page chrome follows the tool's theme, the project's tokens have
+     exactly one. Every specimen is a light island in a dark tool. */
+  .ds-render-fail { border:1px dashed var(--pb-fail); border-radius:8px; padding:10px 12px; font-size:12.5px; line-height:1.5; color:var(--ds-ink); background:var(--pb-fail-bg); }
+  .ds-render-fail code { font-family:var(--ds-mono); font-size:11.5px; background:var(--pb-wash); padding:0 4px; border-radius:3px; }
   .ds-render-fail-msg { margin-top:6px; font-family:var(--ds-mono); font-size:11px; color:var(--ds-mut); }
-  body{margin:0;background:var(--ds-bg);color:var(--ds-ink);font-family:var(--ds-sans);font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased}
-  header.ds-top{position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:16px;padding:14px 24px;background:color-mix(in srgb,var(--ds-bg) 88%,transparent);backdrop-filter:blur(8px);border-bottom:1px solid var(--ds-line)}
-  header.ds-top h1{margin:0;font-size:17px;font-weight:650;letter-spacing:-.01em}
-  header.ds-top .eyebrow{font-family:var(--ds-mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--ds-faint);margin:0}
-  .ds-switch{margin-left:auto;display:inline-flex;border:1px solid var(--ds-line);border-radius:9px;overflow:hidden;font-size:13px}
-  .ds-switch a{padding:6px 12px;color:var(--ds-mut);text-decoration:none}
-  .ds-switch a.on{background:var(--ds-accent);color:#fff}
-  main{max-width:1040px;margin:0 auto;padding:32px 24px 80px}
-  h2.ds-h{font-family:var(--ds-mono);font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--ds-faint);font-weight:600;margin:40px 0 14px;padding-bottom:8px;border-bottom:1px solid var(--ds-line)}
-  h2.ds-h:first-of-type{margin-top:8px}
+  body{margin:0;background:var(--ds-bg);color:var(--ds-ink);font-family:var(--ds-sans);font-size:var(--pb-t-md);line-height:1.5;-webkit-font-smoothing:antialiased}
+  code{font-family:var(--ds-mono);font-size:.92em}
 
-  .cmp{margin:0 0 30px;border:1px solid var(--ds-line);border-radius:14px;overflow:hidden;background:var(--ds-surface)}
-  .cmp-head{display:flex;align-items:center;gap:10px;padding:13px 16px;border-bottom:1px solid var(--ds-line)}
-  .cmp-head .nm{font-weight:640;font-size:15px}
-  .cmp-head .id{font-family:var(--ds-mono);font-size:12px;color:var(--ds-faint)}
-  .lvl{font-family:var(--ds-mono);font-size:10px;letter-spacing:.04em;text-transform:uppercase;color:var(--ds-accent);border:1px solid color-mix(in srgb,var(--ds-accent) 32%,transparent);border-radius:5px;padding:1px 6px}
-  .tagi{font-family:var(--ds-mono);font-size:10px;letter-spacing:.04em;text-transform:uppercase;color:var(--success);border:1px solid color-mix(in srgb,var(--success) 34%,transparent);border-radius:5px;padding:1px 6px}
-  .cmp-head .push{margin-left:auto;font:inherit;font-size:12px;padding:5px 11px;border:1px solid var(--ds-line);border-radius:8px;background:var(--ds-surface);color:var(--ds-ink);cursor:pointer}
-  .cmp-head .push:hover{border-color:var(--ds-accent);color:var(--ds-accent)}
-  .cmp-body{padding:0}
-  .sub{font-family:var(--ds-mono);font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--ds-faint);padding:14px 16px 0}
+  /* ── The bar: chrome.css's .pb-bar, the identical bar the prototype shell wears. The project
+     button (runtime.js) at the far left, a hairline, the one surface, then Search and the crossing
+     back to the prototype — in the same slot as the prototype's "Design system" link. ── */
+  .pb-tab[aria-current="page"]{cursor:default}
+  .pb-bar-start{display:flex;align-items:center;flex:none}
+  .pb-bar-vr{width:var(--pb-hair-w);height:1.25rem;background:var(--pb-hair);flex:none;align-self:center;margin:0 calc(var(--pb-s2) * -1)}
+  .pb-bar-end{gap:var(--pb-s1)}
+  .pb-bar-item + .pb-bar-item::before{left:-3px}
+  .ds-browse{display:none}
+
+  /* ── Docs layout: the tree on the left, one page at a time on the right ── */
+  .ds-shell{display:grid;grid-template-columns:17.5rem minmax(0,1fr);align-items:start}
+  .ds-nav{position:sticky;top:var(--pb-bar-h);height:calc(100vh - var(--pb-bar-h));display:flex;flex-direction:column;border-right:var(--pb-hair-w) solid var(--pb-hair);background:var(--ds-bg)}
+  /* the filter is the shared bar (pbFilterBar): search · Source chip · Clear · "N of M pages".
+     The result count lives in it and nowhere else. */
+  .ds-fbar{flex:none;padding:var(--pb-s4) var(--pb-s3) 0}
+  .ds-fbar .pb-fbar{padding-bottom:var(--pb-s3)}
+  .ds-fbar .pb-fbar-q{width:100%}
+  .ds-fbar .pb-fbar-grow{display:none}
+  /* the tree: two labels, Components and Foundations. A label is not a control: nothing to open, nothing to count */
+  .ds-tree{flex:1;min-height:0;overflow:auto;padding:0 var(--pb-s2) var(--pb-s3);scrollbar-width:thin}
+  .ds-sec{margin:var(--pb-s3) 0 var(--pb-s1);padding:0 var(--pb-s3);color:var(--pb-ink-3);font-size:var(--pb-t-sm);font-weight:var(--pb-w-bold);letter-spacing:var(--pb-track);text-transform:uppercase}
+  .ds-sec[hidden]{display:none}
+  .ds-sub{display:grid;gap:var(--pb-hair-w);margin:0 0 var(--pb-s3)}
+  /* a row: the name, then what it is (its level) and where it comes from (Local / Library) */
+  .ds-item{display:grid;gap:.125rem;padding:var(--pb-s2) var(--pb-s3);border-radius:var(--pb-r-md);color:var(--ds-mut);text-decoration:none}
+  .ds-item:hover{color:var(--ds-ink);background:var(--pb-wash)}
+  /* the page you are on: a wash and the bold weight — never a bar down its left edge */
+  .ds-item[aria-current="page"]{background:var(--pb-wash);color:var(--ds-ink)}
+  .ds-item[aria-current="page"] .t{font-weight:var(--pb-w-bold)}
+  .ds-item .t{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .ds-item-m{display:flex;align-items:center;gap:var(--pb-s2);min-width:0;color:var(--pb-ink-3);font-size:var(--pb-t-sm)}
+  /* in a list the badge is quiet: the word still says it; the page's own head carries the full-contrast one */
+  .ds-item .ds-badge{height:1.125rem;padding:0 var(--pb-s1);border-color:var(--pb-hair-2);color:var(--pb-ink-2);font-weight:var(--pb-w-reg)}
+  .ds-item .ds-badge.is-local{background:var(--pb-wash);color:var(--pb-ink)}
+  /* author `display` beats the UA's [hidden]{display:none}: say it again, or a filtered-out row stays on screen */
+  .ds-item[hidden]{display:none}
+  .ds-tree .pb-fbar-none{padding:var(--pb-s2) var(--pb-s3)}
+  /* the source key, pinned under the tree */
+  .ds-key{flex:none;display:grid;gap:var(--pb-s2);padding:var(--pb-s3);border-top:var(--pb-hair-w) solid var(--pb-hair);font-size:var(--pb-t-sm);color:var(--pb-ink-2)}
+  .ds-key div{display:flex;gap:var(--pb-s2);align-items:baseline}
+  /* Local = filled, Library = outlined; the word says it, the fill only repeats it */
+  .ds-badge{display:inline-flex;align-items:center;height:1.25rem;padding:0 var(--pb-s2);border:var(--pb-hair-w) solid var(--pb-ink);border-radius:var(--pb-r);font-size:var(--pb-t-sm);font-weight:var(--pb-w-bold);letter-spacing:.02em;line-height:1;white-space:nowrap;flex:none}
+  .ds-badge.is-local{background:var(--pb-ink);color:var(--pb-on-ink)}
+  .ds-badge.is-library{background:none;color:var(--pb-ink)}
+  .ds-scrim{display:none}
+
+  /* ── a page ── */
+  #ds-root{min-width:0;max-width:64rem;padding:var(--pb-s5) var(--pb-s6) var(--pb-s6)}
+  [data-page][hidden]{display:none !important}
+  /* the head is the shared .pb-head (pbHeadHTML, chrome.css): name · badge + level · id in mono · Push on the right */
+  .ds-lvl{color:var(--pb-ink-2);font-size:var(--pb-t-md)}
+  /* the component's tabs are L2 — washed text segments */
+  .ds-tabs{display:flex;gap:var(--pb-s1);margin:0 0 var(--pb-s5);overflow-x:auto;scrollbar-width:none}
+  .ds-tabs::-webkit-scrollbar{display:none}
+  .ds-tab{display:inline-flex;flex-direction:column;justify-content:center;height:var(--pb-hit);padding:0 var(--pb-s3);border:0;border-radius:var(--pb-r-md);background:none;color:var(--pb-ink-2);font:inherit;white-space:nowrap}
+  .ds-tab:hover:not([aria-selected="true"]){background:var(--pb-stage);color:var(--pb-ink)}
+  .ds-tab[aria-selected="true"]{background:var(--pb-wash);color:var(--pb-ink);font-weight:var(--pb-w-bold)}
+  .ds-tab::after{content:attr(data-t);display:block;height:0;overflow:hidden;visibility:hidden;font-weight:var(--pb-w-bold)}
+  .ds-panel[hidden]{display:none}
+  .ds-h2{margin:var(--pb-s6) 0 var(--pb-s2);font-size:var(--pb-t-md);font-weight:var(--pb-w-bold)}
+  .ds-cap{margin:var(--pb-s2) 0 0;color:var(--pb-ink-3);font-size:var(--pb-t-sm)}
+  .ds-p{margin:0;color:var(--pb-ink-2);max-width:62ch}
+
+  /* Overview: the workbench — toolbar, the live demo at a device width, the code, the props */
+  .ds-wb{display:grid;grid-template-columns:minmax(0,1fr);gap:var(--pb-s3)}
+  /* the toolbar: a variant picker per enum prop · the device · (B5's Layers, in its slot) · Code */
+  .ds-tools{display:flex;flex-wrap:wrap;align-items:center;gap:var(--pb-s3) var(--pb-s4)}
+  /* a picker is capped to its container: a long option label ellipsizes (the whole label is the select's title)
+     instead of growing the select — and the page — past the viewport */
+  .ds-tg{display:flex;align-items:center;gap:var(--pb-s2);min-width:0;max-width:100%}
+  .ds-tg--seg{flex-wrap:wrap}
+  .ds-tg--seg .pb-seg{max-width:100%;overflow-x:auto;scrollbar-width:none}
+  .ds-tl{flex:none;color:var(--pb-ink-3);font:var(--pb-t-sm)/1 var(--ds-mono)}
+  .ds-tools .pb-seg-btn{padding:0 var(--pb-s3)}
+  /* the chosen segment is already lifted; hover still has to answer, so it takes a firmer edge */
+  .cmp .pb-seg-btn[aria-checked="true"]:hover{box-shadow:0 0 0 var(--pb-hair-w) var(--pb-ink-3)}
+  .ds-sel{flex:0 1 auto;min-width:0;max-width:100%;height:var(--pb-hit);padding:0 var(--pb-s2);border:var(--pb-hair-w) solid var(--pb-hair-2);border-radius:var(--pb-r-md);background:var(--pb-surface);color:var(--pb-ink);font:inherit;font-size:var(--pb-t-md);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .ds-layers{display:flex;align-items:center;gap:var(--pb-s2)}
+  .ds-layers:empty{display:none}
+  .ds-codebtn{margin-left:auto}
+  .ds-codebtn[aria-pressed="true"]{background:var(--pb-wash);border-color:var(--pb-ink-3);font-weight:var(--pb-w-bold)}
+  .ds-spechint{display:none}
+  .cmp:has([data-pb-layer="spec"].is-on) .ds-spechint{display:inline}
+  .ds-note{display:flex;flex-wrap:wrap;justify-content:space-between;gap:var(--pb-s1) var(--pb-s4);margin:0;color:var(--pb-ink-3);font-size:var(--pb-t-sm)}
+  /* the Code view: HTML (the live demo, pretty-printed) | CSS (its styleSrc sheet) */
+  .ds-code{display:grid;gap:var(--pb-s3);padding:var(--pb-s3) 0}
+  .ds-code[hidden],.ds-code-pane[hidden]{display:none}
+  .ds-code-seg{width:max-content;max-width:100%}
+  .ds-code-pane{display:grid;gap:var(--pb-s2);min-width:0}
+  .ds-code-h{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:var(--pb-s2) var(--pb-s4)}
+  .ds-code-h .ds-src{color:var(--pb-ink-3);font:var(--pb-t-sm)/1.4 var(--ds-mono);overflow-wrap:anywhere}
+  .ds-hooks{display:inline-flex;align-items:center;gap:var(--pb-s2);color:var(--pb-ink-2);font-size:var(--pb-t-sm)}
+  .ds-hooks input{width:var(--pb-ico-sm);height:var(--pb-ico-sm);margin:0;accent-color:var(--pb-ink)}
+  .ds-pre{margin:0;padding:var(--pb-s3) var(--pb-s4);max-height:26rem;overflow:auto;background:var(--pb-surface);color:var(--pb-ink);border:var(--pb-hair-w) solid var(--pb-hair);border-radius:var(--pb-r-lg);font:var(--pb-t-sm)/1.55 var(--pb-mono);white-space:pre;tab-size:2;scrollbar-width:thin}
+  .ds-pre code{font:inherit}
+  .ds-code-sub{margin:var(--pb-s2) 0 0;font-size:var(--pb-t-md);font-weight:var(--pb-w-bold)}
+  .ds-notes{margin-top:var(--pb-s6)}
+  /* the stage shows the demo AT a device's width (.ds-fit, below), scaled down to fit the column */
+  .stage{position:relative;margin:0;min-height:9rem;padding:var(--pb-s5);display:flex;align-items:center;justify-content:center;background:var(--ds-project-surface,var(--ds-stage));color:var(--ds-project-ink,var(--ds-ink));border:var(--pb-hair-w) solid var(--ds-line);border-radius:var(--pb-r-lg)}
+  .ds-vp{flex:none;position:relative}
+  .ds-fit{container:pb-screen/inline-size;width:var(--ds-spec-w,375px);max-width:100%}
+  .ds-vp > .ds-fit{max-width:none;transform-origin:0 0}
+  /* Every place a component renders is a `pb-screen` container (product.css), so a component's own
+     @container rules answer the slot it is shown in. The demo's container is `.ds-fit`, sized to the
+     device picked in the toolbar (a mobile demo answers "compact", not the column's "medium"); a
+     variant cell and a specimen are containers of their own. A container has no intrinsic width,
+     so each one states it. */
+  .cell .box,.ds-spec-in{container:pb-screen/inline-size}
+  .ds-spec-in{width:var(--ds-spec-w,375px);max-width:100%}
+  .ds-spec-in > .ds-fit{width:100%}
   [data-step-pane][hidden]{display:none !important}
-  .stage{margin:10px 16px 4px;background:var(--ds-project-surface,var(--ds-stage));color:var(--ds-project-ink,var(--ds-ink));border:1px solid var(--ds-line);border-radius:10px;padding:22px;display:flex;flex-wrap:wrap;gap:16px;align-items:center}
-  .grid{margin:6px 16px 16px;display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px}
-  .cell{display:flex;flex-direction:column;gap:8px;color:var(--ds-project-ink,var(--ds-ink))}
-  .cell .lab{font-family:var(--ds-mono);font-size:11px;color:var(--ds-mut)}
-  .cell .box{background:var(--ds-project-surface,var(--ds-stage));color:var(--ds-project-ink,var(--ds-ink));border:1px solid var(--ds-line);border-radius:9px;padding:16px;display:flex;align-items:center;justify-content:center;min-height:52px;overflow:auto}
+  /* props: the body of the "Edit props" disclosure */
+  .ds-props-h{display:flex;align-items:center;justify-content:space-between;gap:var(--pb-s2);min-height:var(--pb-hit);margin-bottom:var(--pb-s1)}
+  .ds-props-h span{color:var(--pb-ink-3);font-size:var(--pb-t-sm)}
+  .ds-props-rows{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,15rem),1fr));gap:0 var(--pb-s5)}
+  .ds-prop{display:grid;gap:var(--pb-s1);padding:var(--pb-s2) 0;border-top:var(--pb-hair-w) solid var(--pb-hair)}
+  .ds-prop-k{display:flex;align-items:baseline;gap:var(--pb-s2);font-family:var(--ds-mono);font-size:var(--pb-t-sm);color:var(--pb-ink)}
+  .ds-prop-k .ty{margin-left:auto;font-family:var(--ds-sans);color:var(--pb-ink-3)}
+  .ds-prop input,.ds-prop select,.ds-prop textarea{width:100%;min-width:0;max-width:100%;height:var(--pb-hit);padding:0 var(--pb-s2);border:var(--pb-hair-w) solid var(--pb-hair-2);border-radius:var(--pb-r-md);background:var(--pb-surface);color:var(--pb-ink);font:inherit;font-size:var(--pb-t-md)}
+  .ds-prop select{text-overflow:ellipsis}
+  .ds-prop textarea{height:4.5rem;padding:var(--pb-s1) var(--pb-s2);font-family:var(--ds-mono);font-size:var(--pb-t-sm);resize:vertical}
+  .ds-prop [aria-invalid="true"]{border-color:var(--pb-fail)}
+  .ds-prop--sw{grid-template-columns:minmax(0,1fr) auto;align-items:center}
+  .ds-switch{position:relative;flex:none;width:2.25rem;height:1.25rem;padding:0;border:var(--pb-hair-w) solid var(--pb-hair-2);border-radius:var(--pb-r-pill);background:var(--pb-press)}
+  .ds-switch::after{content:"";position:absolute;top:.125rem;left:.125rem;width:.875rem;height:.875rem;border-radius:50%;background:var(--pb-surface);box-shadow:0 0 0 var(--pb-hair-w) var(--pb-ink-3);transition:transform var(--pb-t)}
+  .ds-switch:hover{border-color:var(--pb-ink-3)}
+  .ds-switch[aria-checked="true"]{background:var(--pb-ink);border-color:var(--pb-ink)}
+  .ds-switch[aria-checked="true"]::after{transform:translateX(1rem);background:var(--pb-on-ink);box-shadow:none}
+  .ds-props-none{margin:var(--pb-s2) 0;color:var(--pb-ink-3);font-size:var(--pb-t-sm)}
+  .ds-toks{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,16rem),1fr));gap:0 var(--pb-s4)}
+  .ds-tok{display:flex;align-items:center;gap:var(--pb-s3);min-height:2.5rem;padding:0 var(--pb-s2);border-radius:var(--pb-r-md);color:var(--pb-ink);text-decoration:none}
+  a.ds-tok:hover{background:var(--pb-wash)}
+  .ds-tok code{font-size:var(--pb-t-sm)}
+  .ds-tok .v{margin-left:auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--pb-ink-3);font-family:var(--ds-mono);font-size:var(--pb-t-sm)}
+  .ds-used{display:flex;flex-wrap:wrap;gap:var(--pb-s2)}
+  .ds-used a,.ds-used span{display:inline-flex;align-items:center;height:1.75rem;padding:0 var(--pb-s3);border:var(--pb-hair-w) solid var(--pb-hair-2);border-radius:var(--pb-r-md);color:var(--pb-ink-2);text-decoration:none;font-size:var(--pb-t-sm)}
+  .ds-used a:hover{background:var(--pb-wash);color:var(--pb-ink)}
 
-  .tok-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:2px;background:var(--ds-line);border:1px solid var(--ds-line);border-radius:12px;overflow:hidden}
-  .tok{display:flex;align-items:center;gap:11px;padding:10px 13px;background:var(--ds-surface)}
-  .sw{width:24px;height:24px;border-radius:7px;border:1px solid rgba(0,0,0,.14);flex:none}
-  .sw.dim{display:flex;align-items:center;justify-content:center;color:var(--ds-faint);border-style:dashed;font-family:var(--ds-mono);font-size:11px}
-  .tok .tn{font-family:var(--ds-mono);font-size:11.5px;word-break:break-word}
-  .tok .tv{font-family:var(--ds-mono);font-size:11px;color:var(--ds-mut)}
+  /* Variants: the live grid */
+  .grid{margin:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,15rem),1fr));gap:var(--pb-s4)}
+  .cell{display:flex;flex-direction:column;gap:var(--pb-s2);min-width:0;color:var(--ds-project-ink,var(--ds-ink))}
+  .cell .lab{font-family:var(--ds-mono);font-size:var(--pb-t-sm);color:var(--ds-mut)}
+  .cell .box{background:var(--ds-project-surface,var(--ds-stage));color:var(--ds-project-ink,var(--ds-ink));border:var(--pb-hair-w) solid var(--ds-line);border-radius:var(--pb-r-lg);padding:var(--pb-s4);display:flex;align-items:center;justify-content:center;min-height:3.25rem;overflow:auto}
+  .cell .box > *{max-width:100%}
+
+  /* Variants & spec, and Anatomy: the LIVE specimen with an overlay the engine (runtime.js, chrome.css .pb-sp-*)
+     draws from its DOM boxes, and a table beside it. The specimen is the product (.pb-product); the overlay is
+     the tool, so it sits beside the product, never inside it. The whole island says color-scheme: light, so the
+     tool's ink resolves to its light half on the light island in either theme. */
+  .ds-anat{display:grid;grid-template-columns:minmax(0,1fr);gap:var(--pb-s5);align-items:start}
+  .ds-spec{position:relative;display:flex;justify-content:center;color-scheme:light;min-width:0;background:var(--ds-project-surface,var(--pb-stage));border:var(--pb-hair-w) solid var(--pb-hair);border-radius:var(--pb-r-lg);padding:2.75rem 2.5rem 2.5rem 3rem;overflow:hidden}
+  .ds-spec-in{position:relative}
+  /* room for the markers: with Anatomy on, the demo stage and a variant cell gain the margin a specimen has */
+  .stage.is-anat,.ds-vc-box.is-anat{padding:2.25rem}
+  /* a variant card: its live cell, and its spec table beside it (stacked when the column is narrow) */
+  .ds-vbar{display:flex;flex-wrap:wrap;align-items:center;gap:var(--pb-s2) var(--pb-s4);margin:0 0 var(--pb-s4)}
+  .ds-vbar .ds-cap{margin:0;flex:1 1 18rem}
+  .ds-vgrid{grid-template-columns:minmax(0,1fr);gap:var(--pb-s5);container:ds-v/inline-size}
+  .ds-vc{display:grid;grid-template-columns:minmax(0,1fr);gap:var(--pb-s2) var(--pb-s4);align-items:start;padding:0 0 var(--pb-s5);border-bottom:var(--pb-hair-w) solid var(--pb-hair)}
+  .ds-vc:last-child{border-bottom:0;padding-bottom:0}
+  .ds-vc .lab{grid-column:1 / -1;display:flex;align-items:center;gap:var(--pb-s2)}
+  .ds-vc-def{padding:0 var(--pb-s2);border:var(--pb-hair-w) solid var(--pb-hair-2);border-radius:var(--pb-r-pill);color:var(--pb-ink-2);font:var(--pb-t-sm)/1.25rem var(--pb-font)}
+  .cell .ds-vc-box{position:relative;overflow:visible}
+  .ds-vt{min-width:0;color:var(--pb-ink)}   /* the card is the project's ink (.cell); its table is the tool's */
+  .ds-vt .ds-tw{margin-top:0}
+  @container ds-v (min-width: 46rem){ .ds-vc{grid-template-columns:minmax(12rem,22rem) minmax(0,1fr)} }
+  .ds-vtab{width:100%;border-collapse:collapse;font-size:var(--pb-t-sm)}
+  .ds-vtab th,.ds-vtab td{padding:var(--pb-s1) var(--pb-s2);border-bottom:var(--pb-hair-w) solid var(--pb-hair);text-align:left;vertical-align:top;font-variant-numeric:tabular-nums}
+  .ds-vtab thead th{color:var(--pb-ink-3);font-weight:var(--pb-w-bold);white-space:nowrap}
+  .ds-vtab tbody th{font-family:var(--ds-mono);font-weight:var(--pb-w-bold);white-space:nowrap}
+  .ds-vtab code{font-size:inherit;white-space:nowrap;font-variant-ligatures:none}
+  .ds-vtab .dim,.ds-vtab tr.is-off th{color:var(--pb-ink-3)}
+  /* a row is the legend of its part: pointing at it (or tabbing into it) shows that part's values on the render */
+  .ds-vtab tbody tr:hover,.ds-ptab tbody tr.ds-pr:hover{background:var(--pb-wash)}
+  /* a value that differs from the default variant: a tinted cell, never a coloured edge */
+  .ds-vtab .is-diff{background:var(--pb-info-bg);color:var(--pb-ink);font-weight:var(--pb-w-bold)}
+  .ds-sw2{display:inline-block;width:.75rem;height:.75rem;margin-right:var(--pb-s1);border:var(--pb-hair-w) solid var(--pb-hair-2);border-radius:var(--pb-r);vertical-align:-.125rem}
+  /* the Anatomy parts table: # · part · type · presence · tokens */
+  .ds-pbar{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:var(--pb-s2) var(--pb-s4);margin:0 0 var(--pb-s2)}
+  .ds-pbar .ds-cap{margin:0}
+  .ds-ptw .ds-tw{margin-top:0}
+  .ds-ptab{width:100%;border-collapse:collapse;font-size:var(--pb-t-md)}
+  .ds-ptab th,.ds-ptab td{padding:var(--pb-s2) var(--pb-s3) var(--pb-s2) 0;border-bottom:var(--pb-hair-w) solid var(--pb-hair);text-align:left;vertical-align:top}
+  .ds-ptab thead th{padding-top:var(--pb-s1);padding-bottom:var(--pb-s1);color:var(--pb-ink-3);font-size:var(--pb-t-sm);font-weight:var(--pb-w-bold);white-space:nowrap}
+  .ds-ptab tbody th{font:var(--pb-w-bold) var(--pb-t-md)/1.4 var(--ds-mono);overflow-wrap:anywhere}
+  .ds-ptab small{display:block;color:var(--pb-ink-3);font-size:var(--pb-t-sm)}
+  .ds-ptab small.ab{display:none}
+  .ds-ptab tr.is-absent small.ab{display:block}
+  .ds-n{display:inline-block;width:1.375rem;height:1.375rem;border-radius:50%;background:var(--pb-ink);color:var(--pb-on-ink);font:var(--pb-w-bold) var(--pb-t-sm)/1.375rem var(--pb-font);text-align:center}
+  .ds-n.is-root,.ds-ptab tr.is-absent .ds-n{background:none;color:var(--pb-ink-2);border:var(--pb-rule-w) dashed var(--pb-ink-3);line-height:1rem}
+  .ds-tkr{display:flex;flex-wrap:wrap;gap:var(--pb-s1) var(--pb-s2)}
+  .ds-tk{display:inline-flex;align-items:center;gap:var(--pb-s2);max-width:100%;min-height:var(--pb-hit-sm);padding:0 var(--pb-s2);border:var(--pb-hair-w) solid var(--pb-hair-2);border-radius:var(--pb-r-md);background:var(--pb-surface);color:var(--pb-ink);font:inherit;font-size:var(--pb-t-sm);text-align:left;cursor:pointer}
+  .ds-tk:hover{background:var(--pb-wash);border-color:var(--pb-ink-3)}
+  .ds-tk code,.ds-raw code{font-size:inherit;overflow-wrap:anywhere;font-variant-ligatures:none}
+  .ds-tk .k,.ds-raw .k{color:var(--pb-ink-3);font-family:var(--pb-font)}
+  .ds-raw{display:inline-flex;flex-wrap:wrap;align-items:center;gap:var(--pb-s2);min-height:var(--pb-hit-sm);padding:0 var(--pb-s1);color:var(--pb-ink-2);font-size:var(--pb-t-sm)}
+  /* an instance part: its child's own tokens, indented beneath it */
+  .ds-pin td{padding-top:0}
+  .ds-child{display:grid;gap:var(--pb-s1);padding:0 0 var(--pb-s1) var(--pb-s4)}
+  .ds-child-h{color:var(--pb-ink-3);font-size:var(--pb-t-sm)}
+  .ds-child-l{margin:0;display:grid;gap:var(--pb-s1)}
+  .ds-child-l > div{display:flex;flex-wrap:wrap;align-items:center;gap:var(--pb-s1) var(--pb-s2)}
+  .ds-child-l dt{min-width:4rem;color:var(--pb-ink-2);font:var(--pb-t-sm) var(--ds-mono)}
+  .ds-child-l dd{margin:0;display:flex;flex-wrap:wrap;gap:var(--pb-s1) var(--pb-s2)}
+  .ds-req{display:inline-flex;align-items:center;height:1.25rem;padding:0 var(--pb-s2);border:var(--pb-hair-w) solid var(--pb-ink-3);border-radius:var(--pb-r-pill);color:var(--pb-ink-2);font-size:var(--pb-t-sm);white-space:nowrap}
+  .ds-req.is-opt{border-style:dashed;color:var(--pb-ink-3)}
+  .ds-inst{display:inline-flex;align-items:center;gap:var(--pb-s1);padding:0;border:0;background:none;color:var(--pb-ink);font:var(--pb-w-bold) var(--pb-t-md)/1.4 var(--ds-mono);text-align:left;text-underline-offset:.2em}
+  .ds-inst:hover{text-decoration:underline}
+  .ds-inst .chev{width:var(--pb-ico-sm);height:var(--pb-ico-sm);flex:none;color:var(--pb-ink-3);fill:none;stroke:currentColor;stroke-width:var(--pb-stroke);stroke-linecap:round;stroke-linejoin:round;transform:rotate(-90deg);transition:transform var(--pb-t)}
+  .ds-inst[aria-expanded="true"] .chev{transform:none}
+  .ds-pst[hidden]{display:none}
+  .ds-states{display:grid;grid-template-columns:repeat(auto-fill,minmax(9rem,1fr));gap:var(--pb-s3);padding:var(--pb-s2) 0 var(--pb-s1) var(--pb-s4)}
+  .ds-stale{margin:var(--pb-s3) 0 0;padding:var(--pb-s2) var(--pb-s3);border-radius:var(--pb-r-md);background:var(--pb-warn-bg);color:var(--pb-ink);font-size:var(--pb-t-sm)}
+  .ds-tw{overflow-x:auto;margin-top:var(--pb-s4)}
+  .ds-empty{display:grid;gap:var(--pb-s1);justify-items:start;padding:var(--pb-s5);border:var(--pb-hair-w) dashed var(--pb-hair-2);border-radius:var(--pb-r-lg);color:var(--pb-ink-2)}
+  .ds-empty b{color:var(--pb-ink)}
+
+  /* Foundations */
+  .tok-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,14rem),1fr));gap:0 var(--pb-s4)}
+  .tok{display:flex;align-items:center;gap:var(--pb-s3);min-height:3rem;padding:var(--pb-s2) 0;border-bottom:var(--pb-hair-w) solid var(--pb-hair)}
+  .sw{width:1.75rem;height:1.75rem;border-radius:var(--pb-r-md);border:var(--pb-hair-w) solid var(--pb-hair-2);flex:none}
+  .sw.dim{display:flex;align-items:center;justify-content:center;color:var(--ds-faint);border-style:dashed;font-family:var(--ds-mono);font-size:var(--pb-t-sm)}
+  .tok .tn{font-family:var(--ds-mono);font-size:var(--pb-t-sm);word-break:break-word}
+  .tok .tv{font-family:var(--ds-mono);font-size:var(--pb-t-sm);color:var(--ds-mut);word-break:break-word}
   .tok .tc{display:flex;flex-direction:column;min-width:0}
   .empty{color:var(--ds-mut);padding:20px 0}
 
-  dialog.pushdlg{border:1px solid var(--ds-line);border-radius:14px;padding:0;max-width:640px;width:92vw;background:var(--ds-surface);color:var(--ds-ink)}
-  dialog.pushdlg::backdrop{background:rgba(0,0,0,.45)}
-  .pd-head{display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid var(--ds-line)}
-  .pd-head b{font-size:14px}
-  .pd-head .x{margin-left:auto;cursor:pointer;border:0;background:none;color:var(--ds-mut);font-size:18px}
-  .pd-body{padding:14px 16px}
-  .pd-body p{margin:0 0 10px;color:var(--ds-mut);font-size:13px}
-  .pd-body textarea{width:100%;height:300px;font-family:var(--ds-mono);font-size:11.5px;border:1px solid var(--ds-line);border-radius:9px;padding:10px;background:var(--ds-stage);color:var(--ds-ink);resize:vertical}
-  .pd-foot{display:flex;gap:8px;padding:12px 16px;border-top:1px solid var(--ds-line)}
-  .pd-foot button{font:inherit;font-size:13px;padding:7px 13px;border-radius:8px;border:1px solid var(--ds-line);background:var(--ds-surface);color:var(--ds-ink);cursor:pointer}
-  .pd-foot .primary{background:var(--ds-accent);border-color:var(--ds-accent);color:#fff}
-  .gapnote{color:var(--ds-mut);font-size:12px;margin-top:8px}
+  /* Push to Figma: two paths, side by side */
+  dialog.pb-dlg.ds-push{width:min(56rem,calc(100vw - 2rem))}
+  .ds-push-b{grid-template-columns:repeat(auto-fit,minmax(min(100%,20rem),1fr));align-items:stretch}
+  .ds-path{display:flex;flex-direction:column;gap:var(--pb-s2);padding:var(--pb-s3);border:var(--pb-hair-w) solid var(--pb-hair);border-radius:var(--pb-r-lg)}
+  .ds-path h3{margin:0;font-size:var(--pb-t-md);font-weight:var(--pb-w-bold)}
+  .ds-path p{margin:0;color:var(--pb-ink-2);font-size:var(--pb-t-sm)}
+  .ds-path textarea{flex:1;width:100%;min-height:13rem;padding:var(--pb-s2);border:var(--pb-hair-w) solid var(--pb-hair-2);border-radius:var(--pb-r-md);background:var(--pb-stage);color:var(--pb-ink);font:var(--pb-t-sm)/1.45 var(--ds-mono);resize:vertical}
+  .ds-path-act{display:flex;flex-wrap:wrap;gap:var(--pb-s2);margin-top:auto}
+  .ds-path.is-off h3,.ds-path.is-off > p{color:var(--pb-ink-3)}
+  .ds-path-off{display:grid;gap:var(--pb-s2);justify-items:start;flex:1;align-content:center;padding:var(--pb-s4);border:var(--pb-hair-w) dashed var(--pb-hair-2);border-radius:var(--pb-r-md);color:var(--pb-ink-2)}
+  .ds-path-off b{color:var(--pb-ink)}
+  .ds-gap{color:var(--pb-warn);font-size:var(--pb-t-sm)}
 
-  #ds-toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%) translateY(20px);opacity:0;transition:opacity .18s,transform .18s;background:var(--neutral-90);color:#fff;padding:9px 15px;border-radius:9px;font-size:13px;pointer-events:none;z-index:20}
-  #ds-toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  /* ── Narrow: one column; the tree is a drawer from the bar's "Components" button ── */
+  @media (max-width: 43.75em){
+    .ds-browse{display:inline-flex}
+    .ds-shell{display:block}
+    /* it slides in; it leaves at once (a page picked from it is the thing to look at) */
+    .ds-nav{position:fixed;left:0;top:var(--pb-bar-h);bottom:0;z-index:1050;width:min(19rem,88vw);height:auto;transform:translateX(-100%);visibility:hidden;box-shadow:var(--pb-shadow)}
+    .ds-nav.is-open{transform:none;visibility:visible;transition:transform var(--pb-t)}
+    .ds-scrim{display:block;position:fixed;inset:var(--pb-bar-h) 0 0 0;z-index:1040;background:var(--pb-scrim)}
+    .ds-scrim[hidden]{display:none}
+    #ds-root{padding:var(--pb-s4) var(--pb-gutter) var(--pb-s6)}
+    .stage{padding:var(--pb-s3)}
+    .ds-codebtn{margin-left:0}
+    .ds-spec{padding:2.75rem 1.25rem 2rem 2.5rem}
+    /* the parts table folds into one card per part: number and name on top, then its type, presence, tokens */
+    .ds-ptab,.ds-ptab tbody{display:block}
+    .ds-ptab thead{position:absolute;width:var(--pb-hair-w);height:var(--pb-hair-w);overflow:hidden;clip-path:inset(50%)}
+    .ds-ptab tr{display:grid;grid-template-columns:1.375rem minmax(0,1fr);gap:var(--pb-s1) var(--pb-s3);padding:var(--pb-s2) 0;border-bottom:var(--pb-hair-w) solid var(--pb-hair)}
+    .ds-ptab th,.ds-ptab td{display:block;padding:0;border:0;grid-column:2}
+    .ds-ptab td[data-l="#"]{grid-column:1;grid-row:1}
+    .ds-ptab th[data-l="Part"]{grid-row:1}
+    .ds-ptab td:empty{display:none}
+    .ds-ptab td[colspan]{grid-column:1 / -1}
+    .ds-pst[hidden]{display:none}
+  }
 </style>
 </head>
 <body>
-<header class="ds-top">
-  <div>
-    <p class="eyebrow">Design system</p>
-    <h1 id="ds-title">Components</h1>
-  </div>
-  <nav class="ds-switch"><a href="/">Prototype</a><a href="/design-system" class="on">Design system</a></nav>
+<!-- The same bar the prototype shell wears (chrome.css). This is another SITE, not another tab, so the
+     crossing sits in the same slot as the shell's "Design system" link, pointing the other way. -->
+<header class="pb-bar ds-top">
+  <div class="pb-bar-start" id="pb-pj-host"></div><span class="pb-bar-vr" aria-hidden="true"></span>
+  <nav class="pb-tabs" aria-label="Surfaces"><a class="pb-tab active" href="/design-system" aria-current="page" data-t="Design system">Design system</a></nav>
+  <div class="pb-bar-end" id="ds-bar-end"></div>
 </header>
-<main id="ds-root"><p class="empty">Loading…</p></main>
-<div id="ds-toast"></div>
+<div class="ds-shell">
+  <nav class="ds-nav" id="ds-nav" aria-label="Design system"></nav>
+  <main id="ds-root"><p class="empty">Loading…</p></main>
+</div>
+<div class="ds-scrim" id="ds-scrim" hidden></div>
 
 <!--__PB_RUNTIME_DEPS__-->
 <script>
   const PB_REGISTRY = /*__PB_REGISTRY_START__*/ null /*__PB_REGISTRY_END__*/;
   const PB_NODES = /*__PB_NODES_START__*/ {} /*__PB_NODES_END__*/;
+  const PB_STYLES = /*__PB_STYLES_START__*/ {} /*__PB_STYLES_END__*/;   /* id → the component's styleSrc sheet (the Code view's CSS) */
+  const PB_DS_VERSION = "{{PB_SHELL_VERSION}}";   /* filled by render.build_ds_html */
 
   function pbEscape(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
 
@@ -128,38 +364,85 @@
   /*__PB_RENDER_FNS__*/
 
   // ── workbench ────────────────────────────────────────────────────────────────────
-  var LEVEL_ORDER = { atom:0, molecule:1, organism:2, template:3, page:4 };
-  var INTERACT_RE = /data-action|data-nav|data-go|data-redirect|data-required|data-validate|data-machine|data-step-go|onclick=|<button|<input|<select|<textarea/i;
-  /* Couple the demo stage to the PROJECT's theme.
-     The page chrome follows the viewer's OS dark-mode preference; a project's tokens have
-     exactly one theme. Uncoupled, a light design system viewed on a dark-mode machine draws
-     its components on a near-black stage — measured on a real project as the brand orange on
-     #101216. Nothing is wrong with either token set; they were simply never joined up.
+  /* What is listed. A component page is for the things a designer composes and checks: every
+     molecule, organism and template, plus an atom that is card-shaped (`shape: "card"` in its
+     sidecar, measured by spec_measure.py — never re-derived here). Every other atom appears only
+     as an `instance` part inside a parent's Anatomy, with its states shown inline. */
+  var LISTED_LEVELS = { molecule:1, organism:1, template:1 };
+  var TABS = [['overview','Overview'], ['variants','Variants & spec'], ['anatomy','Anatomy']];
+  var TAB_ALIAS = { spec:'variants' };   // the Spec tab became part of Variants & spec: an old #/c/<id>/spec link lands there
+  var TAB_IDS = TABS.map(function(t){ return t[0]; });
+  var HTTP = /^https?:$/.test(location.protocol);
+  var VIEW_ONLY = !!(PB_REGISTRY && PB_REGISTRY.config && PB_REGISTRY.config.viewOnly);
+  /* The specimen is laid out at the width spec_measure.py measured it at (by meta.device), so the
+     numbers in the Spec tab describe what is on screen. */
+  var SPEC_W = ({ mobile:375, tablet:768 })[(PB_REGISTRY && PB_REGISTRY.meta && PB_REGISTRY.meta.device) || ''] || 960;
+  var BY_ID = {}, LISTED = [], GROUPS = [], TOKS = { byName:{} }, CUR_PROPS = {};
 
+  /* The workbench shows its demo AT a device's width, so a component's own container queries answer
+     the device and not the column the demo happens to sit in. The widths are the shell's (monitor
+     1920, laptop 1280, tablet 834, mobile 429); the devices on offer are meta.devices (legacy
+     'desktop' = monitor + laptop; none declared = all four), and it opens on meta.device. */
+  var DEVICES = [ { id:'monitor', label:'Monitor', w:1920 }, { id:'laptop', label:'Laptop', w:1280 },
+                  { id:'tablet', label:'Tablet', w:834 }, { id:'mobile', label:'Mobile', w:429 } ];
+  function deviceById(id){ return DEVICES.filter(function(d){ return d.id === id; })[0] || null; }
+  function supportedDevices(){
+    var meta = (PB_REGISTRY && PB_REGISTRY.meta) || {}, set = {};
+    (Array.isArray(meta.devices) ? meta.devices : []).forEach(function(d){
+      if (d === 'desktop') { set.monitor = 1; set.laptop = 1; } else if (deviceById(d)) set[d] = 1;
+    });
+    var out = DEVICES.filter(function(d){ return set[d.id]; });
+    return out.length ? out : DEVICES.slice();
+  }
+  function startDevice(list){
+    var d = (PB_REGISTRY && PB_REGISTRY.meta && PB_REGISTRY.meta.device) || '';
+    if (d === 'desktop') d = 'laptop';
+    return list.filter(function(x){ return x.id === d; })[0] || list[0];
+  }
+  var DEV_LIST = supportedDevices(), DEV = startDevice(DEV_LIST), DEV_AUTO = true, WB_MOUNTED = {};
+  var MIN_SCALE = .5;   // below this a demo is a thumbnail, not something to read
+  /* Until the viewer picks a device, the demo opens on meta.device — unless that would be shown
+     under half size in this column. Then: the widest device of the same size class that reads
+     (monitor → laptop), else the widest that reads at all, else the narrowest there is. The picker
+     says which one it chose and by how much it is scaled. */
+  function autoDevice(avail){
+    var ok = function(d){ return avail / d.w >= MIN_SCALE; }, cls = function(d){ return d.w < 600 ? 0 : d.w < 1024 ? 1 : 2; };
+    if (ok(DEV)) return DEV;
+    var same = DEV_LIST.filter(function(d){ return cls(d) === cls(DEV) && ok(d); })[0];
+    return same || DEV_LIST.filter(ok)[0] || DEV_LIST[DEV_LIST.length - 1];
+  }
+
+  /* Couple the demo stage to the PROJECT's theme.
      Done in JS, not in CSS, because `var(--x, fallback)` does NOT fall back when --x exists
-     and resolves to EMPTY — you get an invalid declaration, which is exactly the trap the
-     first attempt here fell into. Token names also vary per project (--color-bg-surface,
-     --bg-soft, --bg-base, …), so the first NON-EMPTY candidate wins and, when none resolves,
-     nothing is set and the chrome's own stage colour stays. */
+     and resolves to EMPTY. Token names also vary per project (--color-bg-surface, --bg-soft, …),
+     so the first NON-EMPTY candidate wins and, when none resolves, nothing is set and the
+     chrome's own stage colour stays. It reads the PROJECT's tokens from a product-scoped probe
+     (they live on .pb-product, not :root), so it runs after applyRegistryTokens(). */
   function mountThemeBridge(){
-    var cs = getComputedStyle(document.documentElement);
+    var probe = document.createElement('div');
+    probe.className = 'pb-product'; probe.style.display = 'none';
+    document.body.appendChild(probe);
+    try { bridgeFrom(getComputedStyle(probe)); } finally { probe.remove(); }
+  }
+  function bridgeFrom(cs){
+    // A name the PROJECT's tokens define wins over one only this page's .pb-product defaults
+    // define (they alias --color-bg-surface to white, which would hide every white card).
+    var own = {};
+    try { own = pbResolveTokens((PB_REGISTRY && PB_REGISTRY.tokens) || {}).flat; } catch (e) {}
     function firstSet(names){
-      for (var i = 0; i < names.length; i++) {
-        var v = cs.getPropertyValue(names[i]).trim();
+      var pass, i, v;
+      for (pass = 0; pass < 2; pass++) for (i = 0; i < names.length; i++) {
+        if (pass === 0 && !Object.prototype.hasOwnProperty.call(own, names[i].slice(2))) continue;
+        v = cs.getPropertyValue(names[i]).trim();
         if (v) return v;
       }
       return '';
     }
-    var surface = firstSet(['--color-bg-surface','--bg-surface','--bg-app-base','--bg-base','--bg-soft','--surface','--bg-page']);
+    var surface = firstSet(['--color-bg-surface','--bg-surface','--bg-app-base','--bg-base','--color-bg','--bg-soft','--surface','--bg-page']);
     if (!surface) return;                       // nothing resolvable: leave the chrome alone
-    var ink = firstSet(['--color-text-primary','--text-primary','--text-body','--ink','--fg-primary']);
-
-    // Surface and ink move TOGETHER or not at all. Setting the surface alone is how a dark
-    // chrome plus a light project surface becomes near-white text on white. Many projects
-    // never name a text token, and one that does may name the BRAND colour (a real project
-    // resolves --text-primary to its orange) — unreadable as body text on any surface. So
-    // when no token resolves, or the one that does has too little contrast against the
-    // surface, derive the ink from the surface's luminance instead.
+    var ink = firstSet(['--color-text-primary','--text-primary','--text-body','--color-ink','--ink','--fg-primary']);
+    // Surface and ink move TOGETHER or not at all; when no ink token resolves, or the one that does
+    // has too little contrast against the surface, derive it from the surface's luminance.
     function lum(c){
       var d = document.createElement('div');
       d.style.color = c; document.body.appendChild(d);
@@ -178,27 +461,15 @@
     var contrast = (li === null) ? 0
       : (Math.max(ls, li) + 0.05) / (Math.min(ls, li) + 0.05);
     if (contrast < 4.5) ink = (ls > 0.5) ? '#101319' : '#f2f3f5';   // WCAG AA for body text
-
     document.documentElement.style.setProperty('--ds-project-surface', surface);
     document.documentElement.style.setProperty('--ds-project-ink', ink);
   }
-  // Runs after the body exists (it measures a probe element to normalise colours).
-  try {
-    if (document.body) { mountThemeBridge(); }
-    else { document.addEventListener('DOMContentLoaded', mountThemeBridge, { once: true }); }
-  } catch (e) { /* a theme is never worth failing the page over */ }
 
   var MAX_CELLS = 16;
 
-  // A prop default, as DATA rather than as whatever the author happened to type. A demo is
-  // built from these, so a component whose body does props.rows.map(...) gets exactly what
-  // lands here — and a default of '[]' is a two-character STRING, whose .map is not a
-  // function. Measured on a real project: 11 of 133 components could not render for this
-  // reason alone. The prototype never hits it, because there a parent passes real props via
-  // pbUse and the default never fires, which is why nothing caught it until a second site
-  // existed. lint's R-PROPTYPE reports both shapes so they get fixed at the source; this
-  // keeps the page usable until they are. An empty table is a poor demo; a thrown exception
-  // is not a demo at all.
+  // A prop default, as DATA rather than as whatever the author happened to type. A demo is built
+  // from these, so a default of '[]' (a two-character STRING, whose .map is not a function) would
+  // throw. lint's R-PROPTYPE reports it at the source; this keeps the page usable until then.
   function coerceDefault(v, type){
     if (v === null || typeof v !== 'string') return v;
     var wants = (type === 'array' || type === 'object');
@@ -213,7 +484,7 @@
     (c.properties||[]).forEach(function(pr){
       if (pr.default !== undefined) p[pr.id] = coerceDefault(pr.default, pr.type);
     });
-    // A spec sidecar's `usage.example` is real sample data authored for the demo — it beats
+    // A spec sidecar's `usage.example` is real sample data (the props a screen passes) — it beats
     // any default, which is at best a placeholder.
     if (c.usage && typeof c.usage === 'object' && c.usage.example && typeof c.usage.example === 'object') {
       Object.keys(c.usage.example).forEach(function(k){ p[k] = c.usage.example[k]; });
@@ -224,10 +495,7 @@
     var fn = window[c.renderFn];
     if (typeof fn !== 'function') return '<span style="color:var(--danger);font:12px var(--ds-mono)">no render fn: '+pbEscape(c.renderFn||c.id)+'</span>';
     try { return fn(props||{}); } catch(e){
-      // Name the component AND the prop. `render error: x.map is not a function`, repeated
-      // 11 times down a page, tells a reader nothing about which component or which field to
-      // fix. The message usually carries the offending identifier, so match it back to a
-      // declared prop and say so outright.
+      // Name the component AND the prop: the message usually carries the offending identifier.
       var msg = String(e && e.message || e);
       var m = msg.match(/([A-Za-z_$][\w$]*)\.\w+ is not a function/);
       var culprit = m && (c.properties||[]).filter(function(pr){ return pr.id === m[1]; })[0];
@@ -241,11 +509,6 @@
             : '')
         + '<div class="ds-render-fail-msg">' + pbEscape(msg) + '</div></div>';
     }
-  }
-  function hasStateProp(c){ return (c.properties||[]).some(function(p){ return p.id === 'state'; }); }
-  function isInteractive(c){
-    if (hasStateProp(c)) return true;
-    return INTERACT_RE.test(safeRender(c, defaultProps(c)));
   }
   function enumProps(c){ return (c.properties||[]).filter(function(p){ return p.type === 'enum' && p.options && p.options.length; }); }
   function variantCombos(c){
@@ -262,102 +525,1003 @@
     return { combos:combos, axes:enums.map(function(p){ return p.id; }), capped:capped };
   }
   function comboLabel(combo, axes){ return axes.length ? axes.map(function(a){ return a+'='+combo[a]; }).join(' · ') : 'default'; }
-
-  function componentSection(c){
-    var interactive = isInteractive(c);
-    var head = '<div class="cmp-head"><span class="nm">'+pbEscape(c.name||c.id)+'</span><span class="id">'+pbEscape(c.id)+'</span>'
-      + '<span class="lvl">'+pbEscape(c.level||'?')+'</span>'
-      + (interactive ? '<span class="tagi">interactive</span>' : '')
-      + (PB_NODES[c.id] ? '<button class="push" data-push="'+pbEscape(c.id)+'">Push to Figma ↗</button>' : '')
-      + '</div>';
-    var body = '';
-    if (interactive) {
-      body += '<div class="sub">Interactive demo — click it</div><div class="stage">' + safeRender(c, defaultProps(c)) + '</div>';
+  /* the variant whose enum values are the component's defaults: what every other card is compared with */
+  function defaultComboIndex(c, vc){
+    var base = defaultProps(c);
+    for (var i = 0; i < vc.combos.length; i++) {
+      if (vc.axes.every(function(a){ return vc.combos[i][a] === base[a]; })) return i;
     }
-    var vc = variantCombos(c);
-    body += '<div class="sub">All variants' + (vc.capped ? ' (first '+MAX_CELLS+')' : '') + '</div><div class="grid">'
-      + vc.combos.map(function(combo){
-          return '<div class="cell"><span class="lab">'+pbEscape(comboLabel(combo, vc.axes))+'</span><div class="box">'+safeRender(c, combo)+'</div></div>';
-        }).join('')
-      + '</div>';
-    return '<div class="cmp">'+head+'<div class="cmp-body">'+body+'</div></div>';
+    return 0;
+  }
+  /* Variants & spec: one card per variant combination — its live cell (a `.ds-fit` of its own, with its own
+     overlay, drawn by the engine in runtime.js under the same Layers state as the Overview) and a compact
+     spec table measured from THAT render; a value that differs from the default variant is highlighted. */
+  function variantCells(c){
+    var vc = variantCombos(c), def = defaultComboIndex(c, vc);
+    var bar = '<div class="ds-vbar">' + pbSpecLayersHTML()
+      + '<p class="ds-cap">Layers are shared with the Overview. Each table is measured from its own render; a highlighted value differs from the default variant. Hover or tap a part, or its row, to read its values on the render; Labels shows them all.</p></div>';
+    var cards = vc.combos.map(function(combo, i){
+      return '<article class="cell ds-vc' + (i === def ? ' is-default' : '') + '" data-vc="' + i + '" data-cid="' + pbEscape(c.id) + '">'
+        + '<span class="lab">' + pbEscape(comboLabel(combo, vc.axes)) + (i === def && vc.axes.length ? '<span class="ds-vc-def">default</span>' : '') + '</span>'
+        + '<div class="box ds-vc-box pb-product"' + pbSpecHostAttrs('cell', c.id, combo) + '><div class="ds-fit">' + safeRender(c, combo) + '</div></div>'
+        + '<div class="ds-vt" data-vtable><p class="ds-cap">Measuring…</p></div></article>';
+    }).join('');
+    return bar + '<div class="grid ds-vgrid">' + cards + '</div>' + (vc.capped ? '<p class="ds-cap">The first ' + MAX_CELLS + ' combinations.</p>' : '');
   }
 
-  function buildComponents(comps){
-    if (!comps.length) return '<p class="empty">No components yet — build one with <code>/pb:build</code>.</p>';
-    var out = '';
-    [['global','Global'],['local','Local']].forEach(function(sc){
-      var group = comps.filter(function(c){ return (c.scope||'local') === sc[0] || (sc[0]==='global' && c.dsMatch); });
-      // de-dup: a dsMatch'd local still reads global; keep simple by scope only
-      group = comps.filter(function(c){ return (c.scope||'local') === sc[0]; });
-      if (!group.length) return;
-      group.sort(function(a,b){ return (LEVEL_ORDER[a.level]||9) - (LEVEL_ORDER[b.level]||9); });
-      out += '<h2 class="ds-h">'+sc[1]+'</h2>' + group.map(componentSection).join('');
+  // ── what a component is ──────────────────────────────────────────────────────────
+  function cap(s){ s = String(s == null ? '' : s); return s.charAt(0).toUpperCase() + s.slice(1); }
+  function domId(s){ return String(s).replace(/[^\w-]/g, '_'); }
+  function isCardAtom(c){ return c.level === 'atom' && c.shape === 'card'; }
+  function isListed(c){ return !!LISTED_LEVELS[c.level] || isCardAtom(c); }
+  function isLibrary(c){ return c.scope === 'global' || !!c.dsMatch; }
+  function levelLabel(c){ return isCardAtom(c) ? 'Card' : cap(c.level || 'component'); }
+  function nameOf(c){ return c.name || c.id; }
+  function purposeOf(c){
+    var u = (c.usage && typeof c.usage === 'object') ? c.usage : {};
+    var p = c.description || c.purpose || u.purpose || c.bodyPurpose || '';
+    return typeof p === 'string' ? p : '';
+  }
+  function dsName(){ var d = PB_REGISTRY && PB_REGISTRY.meta && PB_REGISTRY.meta.designSystem; return (d && typeof d === 'object' && d.name) || ''; }
+  function badge(c){
+    return isLibrary(c)
+      ? '<span class="ds-badge is-library" title="Library — comes from the design system">Library</span>'
+      : '<span class="ds-badge is-local" title="Local — built in this project only">Local</span>';
+  }
+
+  /* The measured anatomy's parts, numbered as the Anatomy table and the overlay's markers are: one
+     implementation, in runtime.js (pbSpecPartList), shared with the engine that draws over the live render.
+     → [{n, name, type, instanceOf, el, required}], or null when the component is not measured. */
+  function partList(c){ return pbSpecPartList(c); }
+  function whenText(v){
+    if (!v || typeof v !== 'object' || !v.prop) return 'when a prop says so';
+    var p = '<code>' + pbEscape(v.prop) + '</code>';
+    if (v.is === 'set') return 'when ' + p + ' is set';
+    if (v.is === 'true' || v.is === true) return 'when ' + p + ' is on';
+    return 'when ' + p + ' is ' + pbEscape(String(v.is));
+  }
+  function specProps(c){
+    var m = c.measured && c.measured.props;
+    return (m && typeof m === 'object') ? Object.assign({}, m) : defaultProps(c);
+  }
+
+  // ── token bits ───────────────────────────────────────────────────────────────────
+  var KIND_LABEL = { color:'Colour', font:'Typography', fontSize:'Typography', fontWeight:'Typography',
+                     radius:'Radius', shadow:'Elevation', space:'Spacing', size:'Spacing', other:'Other' };
+  var KIND_ORDER = ['Colour','Typography','Spacing','Radius','Elevation','Other'];
+  function foundationGroups(rows){
+    var by = {};
+    Object.keys(rows.byName).forEach(function(name){
+      var t = rows.byName[name], label = KIND_LABEL[t.displayKind] || 'Other';
+      (by[label] = by[label] || []).push({ name:name, value:t.value, kind:t.displayKind });
     });
+    return KIND_ORDER.filter(function(l){ return by[l]; }).map(function(l){
+      by[l].sort(function(a,b){ return a.name < b.name ? -1 : 1; });
+      return { label:l, key:l.toLowerCase(), list:by[l] };
+    });
+  }
+  function swatch(name, kind){
+    return kind === 'color'
+      ? '<span class="sw pb-product" style="background:var(--'+pbEscape(name)+')"></span>'
+      : '<span class="sw dim" aria-hidden="true">'+(kind==='radius'?'◜':kind==='font'||kind==='fontSize'||kind==='fontWeight'?'Aa':kind==='shadow'?'▢':'↔')+'</span>';
+  }
+  function valueText(v){ return typeof v === 'object' ? JSON.stringify(v) : String(v); }
+  /* Tokens a component uses: the token names its measured sidecar recorded on each element's
+     styles, plus the ones the component declares. Nothing is guessed from the body. */
+  function tokensUsed(c){
+    var seen = {}, out = [];
+    function add(n){ if (typeof n === 'string' && n && !seen[n]) { seen[n] = 1; out.push(n.replace(/^--/, '')); } }
+    var els = (c.elements && typeof c.elements === 'object') ? c.elements : {};
+    Object.keys(els).sort().forEach(function(k){
+      var st = els[k] && els[k].styles; if (!st || typeof st !== 'object') return;
+      Object.keys(st).sort().forEach(function(sk){
+        var v = st[sk]; if (!v || typeof v !== 'object') return;
+        add(v.token);
+        if (v.tokens && typeof v.tokens === 'object') Object.keys(v.tokens).sort().forEach(function(s){ add(v.tokens[s]); });
+      });
+    });
+    (Array.isArray(c.tokens) ? c.tokens : []).forEach(function(t){ add(typeof t === 'string' ? t : t && t.name); });
+    return out.sort(function(a, b){
+      var ka = KIND_ORDER.indexOf(KIND_LABEL[(TOKS.byName[a] || {}).displayKind] || 'Other'),
+          kb = KIND_ORDER.indexOf(KIND_LABEL[(TOKS.byName[b] || {}).displayKind] || 'Other');
+      return ka - kb || (a < b ? -1 : a > b ? 1 : 0);
+    });
+  }
+
+  // ── a component page ─────────────────────────────────────────────────────────────
+  var CHEV = '<svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>';
+  function propRows(c){
+    var cur = CUR_PROPS[c.id], cid = domId(c.id), rows = [], seen = {};
+    function row(id, type, options){
+      seen[id] = 1;
+      var fid = 'pp-' + cid + '-' + domId(id), v = cur[id], k = '<span class="ds-prop-k">';
+      if (type === 'boolean') {
+        return '<div class="ds-prop ds-prop--sw"><label class="ds-prop-k" for="'+fid+'">'+pbEscape(id)+'<span class="ty">boolean</span></label>'
+          + '<button type="button" class="ds-switch" role="switch" id="'+fid+'" data-cid="'+pbEscape(c.id)+'" data-prop="'+pbEscape(id)+'" data-type="boolean"'
+          + ' aria-checked="'+(v === true)+'" aria-label="'+pbEscape(id)+'" title="Turn '+pbEscape(id)+' '+(v === true ? 'off' : 'on')+'"></button></div>';
+      }
+      var ctl;
+      if (type === 'enum') {
+        var opts = (options || []).map(function(o){ return o && typeof o === 'object' ? o : { value:o, label:o }; });
+        var chosen = opts.filter(function(o){ return o.value === v; })[0];
+        ctl = '<select id="'+fid+'" data-cid="'+pbEscape(c.id)+'" data-prop="'+pbEscape(id)+'" data-type="enum"'+(chosen ? ' title="'+pbEscape(chosen.label != null ? chosen.label : chosen.value)+'"' : '')+'>'
+          + (opts.some(function(o){ return o.value === v; }) ? '' : '<option value="" selected>—</option>')
+          + opts.map(function(o){ return '<option value="'+pbEscape(o.value)+'"'+(o.value === v ? ' selected' : '')+'>'+pbEscape(o.label != null ? o.label : o.value)+'</option>'; }).join('')
+          + '</select>';
+      } else if (type === 'array' || type === 'object' || (v && typeof v === 'object')) {
+        ctl = '<textarea id="'+fid+'" spellcheck="false" data-cid="'+pbEscape(c.id)+'" data-prop="'+pbEscape(id)+'" data-type="json">'+pbEscape(v === undefined ? '' : JSON.stringify(v, null, 1))+'</textarea>';
+        type = type || 'json';
+      } else {
+        ctl = '<input id="'+fid+'" type="text" autocomplete="off" spellcheck="false" data-cid="'+pbEscape(c.id)+'" data-prop="'+pbEscape(id)+'" data-type="'+(type === 'number' ? 'number' : 'string')+'" value="'+pbEscape(v == null ? '' : v)+'">';
+      }
+      return '<div class="ds-prop"><label class="ds-prop-k" for="'+fid+'">'+pbEscape(id)+'<span class="ty">'+pbEscape(type || 'string')+'</span></label>'+ctl+'</div>';
+    }
+    (c.properties || []).forEach(function(p){ if (p && p.id && !seen[p.id]) rows.push(row(p.id, p.type, p.options)); });
+    // Props the demo passes that the component never declared (usage.example): editable too,
+    // typed by the sample value — every property, not just the declared ones.
+    Object.keys(cur).sort().forEach(function(k){
+      if (seen[k]) return;
+      var v = cur[k];
+      rows.push(row(k, typeof v === 'boolean' ? 'boolean' : typeof v === 'number' ? 'number' : (v && typeof v === 'object') ? (Array.isArray(v) ? 'array' : 'object') : 'string'));
+    });
+    return rows.length ? rows.join('') : '<p class="ds-props-none">No props — this component always renders the same.</p>';
+  }
+  /* The demo is a viewport (.ds-vp) holding one `.ds-fit` — the `pb-screen` container, DEV.w wide —
+     which fitStage() scales down when the device is wider than the column. Re-rendering swaps the
+     fit's insides only, so whatever else lives in the stage (B5's overlay) survives a prop change. */
+  function demoHTML(c){ return '<div class="ds-vp"><div class="ds-fit">' + safeRender(c, CUR_PROPS[c.id]) + '</div></div>'; }
+  /* a select that ellipsizes a long label says the whole of it in its title */
+  function selTitle(el){ var o = el.options && el.options[el.selectedIndex]; el.title = o && o.value !== '' ? o.text : ''; }
+  function normOpts(options){ return (options || []).map(function(o){ return o && typeof o === 'object' ? o : { value:o, label:o }; }); }
+  function optLabel(o){ return o.label != null ? o.label : o.value; }
+  /* one picker per enum prop: a segmented control for a few short options, a select for the rest */
+  function pickerHTML(c, p){
+    var cid = domId(c.id), lid = 'vl-' + cid + '-' + domId(p.id), v = CUR_PROPS[c.id][p.id], opts = normOpts(p.options);
+    var at = ' data-vp data-cid="' + pbEscape(c.id) + '" data-prop="' + pbEscape(p.id) + '"';
+    var lab = '<span class="ds-tl" id="' + lid + '">' + pbEscape(p.id) + '</span>';
+    var has = opts.some(function(o){ return o.value === v; });
+    if (opts.length > 4 || opts.some(function(o){ return String(optLabel(o)).length > 12; })) {
+      var cur = opts.filter(function(o){ return o.value === v; })[0];
+      return '<div class="ds-tg">' + lab + '<select class="ds-sel"' + at + (cur ? ' title="' + pbEscape(optLabel(cur)) + '"' : '') + ' aria-labelledby="' + lid + '">'
+        + (has ? '' : '<option value="" selected>—</option>')
+        + opts.map(function(o){ return '<option value="' + pbEscape(o.value) + '"' + (o.value === v ? ' selected' : '') + '>' + pbEscape(optLabel(o)) + '</option>'; }).join('')
+        + '</select></div>';
+    }
+    return '<div class="ds-tg ds-tg--seg">' + lab + '<div class="pb-seg" role="radiogroup" aria-labelledby="' + lid + '">'
+      + opts.map(function(o, i){
+          var on = o.value === v;
+          return '<button type="button" class="pb-seg-btn" role="radio" aria-checked="' + on + '" tabindex="' + (on || (!has && i === 0) ? 0 : -1) + '"'
+            + at + ' data-value="' + pbEscape(o.value) + '">' + pbEscape(optLabel(o)) + '</button>';
+        }).join('') + '</div></div>';
+  }
+  /* shown only when the project has more than one device */
+  function devicePickerHTML(){
+    if (DEV_LIST.length < 2) return '';
+    return '<div class="pb-seg ds-dev" role="radiogroup" aria-label="Device">' + DEV_LIST.map(function(d){
+      var on = d.id === DEV.id;
+      return '<button type="button" class="pb-seg-btn" role="radio" aria-checked="' + on + '" tabindex="' + (on ? 0 : -1) + '" data-dev="' + d.id + '" data-value="' + d.id + '"'
+        + ' title="' + d.label + ' — ' + d.w + 'px wide">' + d.label + '</button>';
+    }).join('') + '</div>';
+  }
+  /* The Code view: HTML (the live demo, filled in when it opens) | CSS (the component's styleSrc
+     sheet, and its authored snippet when it has one). */
+  function codeHTML(c){
+    var cid = domId(c.id), css = PB_STYLES[c.id] || '', sn = (c.code && typeof c.code === 'object' && typeof c.code.snippet === 'string' && c.code.snippet) ? c.code : null;
+    var copy = function(kind, label, off){ return '<button type="button" class="pb-btn pb-btn--sm" data-copy-code="' + kind + '"' + (off ? ' disabled' : '') + '>' + pbUiIcon('copy') + label + '</button>'; };
+    var seg = function(kind, label, on){ return '<button type="button" class="pb-seg-btn" role="radio" aria-checked="' + on + '" tabindex="' + (on ? 0 : -1) + '" data-code-tab="' + kind + '" data-value="' + kind + '">' + label + '</button>'; };
+    return '<section class="ds-code" id="code-' + cid + '" data-code hidden aria-label="Code of ' + pbEscape(nameOf(c)) + '">'
+      + '<div class="pb-seg ds-code-seg" role="radiogroup" aria-label="Code language">' + seg('html', 'HTML', true) + seg('css', 'CSS', false) + '</div>'
+      + '<div class="ds-code-pane" data-code-pane="html"><div class="ds-code-h">'
+      +   '<label class="ds-hooks" title="Show the data-part and data-cmp attributes the Anatomy tab reads"><input type="checkbox" data-hooks> Show hooks</label>' + copy('html', 'Copy HTML') + '</div>'
+      +   '<pre class="ds-pre" tabindex="0" aria-label="HTML of the live demo"><code data-code-out="html"></code></pre></div>'
+      + '<div class="ds-code-pane" data-code-pane="css" hidden>'
+      +   (css
+            ? '<div class="ds-code-h"><span class="ds-src">' + pbEscape(c.styleSrc || 'stylesheet') + '</span>' + copy('css', 'Copy CSS') + '</div>'
+              + '<pre class="ds-pre" tabindex="0" aria-label="CSS of ' + pbEscape(nameOf(c)) + '"><code>' + pbEscape(css) + '</code></pre>'
+            : '<p class="ds-p">No stylesheet: this component styles itself inline, so there is no CSS to copy.</p>')
+      +   (sn ? '<div class="ds-code-h"><b class="ds-code-sub">Snippet <span class="ds-src">' + pbEscape(sn.lang || 'html') + '</span></b>' + copy('snippet', 'Copy snippet') + '</div>'
+            + '<pre class="ds-pre" tabindex="0" aria-label="Authored snippet"><code>' + pbEscape(sn.snippet) + '</code></pre>' : '')
+      + '</div></section>';
+  }
+
+  function tabOverview(c){
+    var cid = domId(c.id), toks = tokensUsed(c), groupKey = {};
+    GROUPS.forEach(function(g){ g.list.forEach(function(t){ groupKey[t.name] = g.key; }); });
+    var tokHTML = toks.length
+      ? '<ul class="ds-toks">' + toks.map(function(n){
+          var t = TOKS.byName[n], inner = (t ? swatch(n, t.displayKind) : '<span class="sw dim" aria-hidden="true">?</span>')
+            + '<code>'+pbEscape(n)+'</code><span class="v">'+(t ? pbEscape(valueText(t.value)) : 'not in the registry')+'</span>';
+          return '<li>' + (t && groupKey[n]
+            ? '<a class="ds-tok" href="#/f/'+groupKey[n]+'" title="'+pbEscape(n)+' in Foundations">'+inner+'</a>'
+            : '<span class="ds-tok">'+inner+'</span>') + '</li>';
+        }).join('') + '</ul>'
+      : '<p class="ds-p">No tokens recorded yet — they come from the measured spec, which <code>/pb:build</code> writes.</p>';
+    var screens = {};
+    ((PB_REGISTRY && PB_REGISTRY.screens) || []).forEach(function(s){ if (s && s.id) screens[s.id] = s; });
+    var used = Array.isArray(c.usedIn) ? c.usedIn : [];
+    var usedHTML = used.length
+      ? '<div class="ds-used">' + used.map(function(sid){
+          var label = pbEscape((screens[sid] && screens[sid].name) || sid);
+          return HTTP ? '<a href="/?screen='+encodeURIComponent(sid)+'" title="Open '+label+' in the prototype">'+label+'</a>' : '<span title="'+pbEscape(sid)+'">'+label+'</span>';
+        }).join('') + '</div>'
+      : '<p class="ds-p">No screen renders it yet.</p>';
+    var m = c.dsMatch && typeof c.dsMatch === 'object' ? c.dsMatch : null;
+    var src = isLibrary(c)
+      ? 'Library — comes from the design system' + ((m && m.library) || dsName() ? ' <b>' + pbEscape((m && m.library) || dsName()) + '</b>' : '')
+        + (m && m.component ? ', as <code>' + pbEscape(m.component) + '</code>' : '') + '.'
+      : 'Local — built in this project only. No design-system match is recorded for it.';
+    var nProps = Object.keys(CUR_PROPS[c.id]).length;
+    var props = '<div class="ds-props" role="group" aria-label="Props of ' + pbEscape(nameOf(c)) + '"><div class="ds-props-h"><span>' + nProps + ' prop' + (nProps === 1 ? '' : 's') + '</span>'
+      + '<button type="button" class="pb-btn pb-btn--sm pb-btn--ghost" data-reset="' + pbEscape(c.id) + '">Reset props</button></div>'
+      + '<div class="ds-props-rows">' + propRows(c) + '</div></div>';
+    var purpose = purposeOf(c);
+    return '<div class="ds-wb">'
+      + '<div class="ds-tools" role="toolbar" aria-label="Demo controls">' + enumProps(c).map(function(p){ return pickerHTML(c, p); }).join('') + devicePickerHTML()
+      +   '<span class="ds-layers" data-layers-slot></span>'
+      +   '<button type="button" class="pb-btn ds-codebtn" data-code-toggle aria-pressed="false" aria-controls="code-' + cid + '">Code</button></div>'
+      + '<div class="stage pb-product" data-demo="' + pbEscape(c.id) + '">' + demoHTML(c) + '</div>'
+      + '<p class="ds-note"><span>Live — click it, and change its props.<span class="ds-spechint"> Hover or tap a part to read its spec values; Labels shows them all.</span></span><span class="ds-fitnote" aria-live="polite"></span></p>'
+      + codeHTML(c)
+      + pbDiscHTML({ id:'ds-props-' + cid, summary:'Edit props', level:'section', body:props })
+      + '</div>'
+      + '<h2 class="ds-h2">Tokens used</h2>' + tokHTML
+      + '<h2 class="ds-h2">Used in</h2>' + usedHTML
+      + '<h2 class="ds-h2">Source</h2><p class="ds-p">' + src + '</p>'
+      + (purpose ? '<div class="ds-notes">' + pbDiscHTML({ id:'ds-notes-' + cid, summary:'Design notes', level:'section', body:pbRichText(purpose) }) + '</div>' : '');
+  }
+  function notMeasured(){
+    return '<div class="ds-empty"><b>Not measured yet.</b><span><code>/pb:build</code> measures it the next time this component is built.</span></div>';
+  }
+  /* The specimen: the component's render at the device width it was measured at, on a light island.
+     The engine (runtime.js) mounts on it by itself (pbSpecHostAttrs) and draws the overlay; `kind` says
+     which layer it wears for good — 'anatomy' (the Anatomy tab) — whatever the Layers toggles say. */
+  function specimen(c, kind){
+    return '<div class="ds-spec" data-spec="'+kind+'" data-cid="'+pbEscape(c.id)+'"' + pbSpecHostAttrs('specimen', c.id, specProps(c), kind === 'spec' ? 'spec' : 'anatomy') + '>'
+      + '<div class="ds-spec-in pb-product" inert><div class="ds-fit">' + safeRender(c, specProps(c)) + '</div></div></div>';
+  }
+
+  // ── tokens, as a part's sidecar names them: chips you can copy, and the CSS they make ──
+  var SIDES = ['top','right','bottom','left'];
+  function cssTok(n){ return 'var(--' + n + ')'; }
+  function uniq(a){ return a.filter(function(x, i){ return x && a.indexOf(x) === i; }); }
+  /* One part's measured declarations, read from its sidecar element — [{k, css, val, note, toks}].
+     `k` labels a chip, `css` is the property "Copy as CSS" writes (null: a comment — it is margins, not a
+     property), `val` its value (var(--token) where the value is one, else px), `toks` the token names. */
+  function partDecls(el){
+    var st = (el && el.styles) || {}, out = [], P = st.padding, S = st.itemSpacing, C = st.cornerRadius, f;
+    function one(v, tok){ return tok ? cssTok(tok) : v + 'px'; }
+    function shorthand(vals, toks){
+      var v = vals.map(function(x, i){ return one(x, toks[i]); });
+      if (v[0] === v[2] && v[1] === v[3]) v = v[0] === v[1] ? [v[0]] : [v[0], v[1]];
+      else if (v[1] === v[3]) v = [v[0], v[1], v[2]];
+      return v.join(' ');
+    }
+    if (P && typeof P === 'object') {
+      var vals = SIDES.map(function(s){ return P[s] == null ? 0 : P[s]; });
+      if (vals.some(function(v){ return v > 0; })) {
+        var toks = SIDES.map(function(s, i){ return vals[i] > 0 ? ((P.tokens && P.tokens[s]) || P.token || null) : null; });
+        out.push({ k:'padding', css:'padding', val:shorthand(vals, toks), toks:uniq(toks) });
+      }
+    }
+    if (S && typeof S === 'object' && S.via !== 'none') {
+      if (S.value === 'auto') out.push({ k:'min gap', css:null, val:'auto', note:'space between children (' + (S.via || 'space-between') + ')', toks:S.token ? [S.token] : [] });
+      else if (typeof S.value === 'number' && S.value > 0) {
+        var viaGap = /gap/.test(S.via || '');
+        out.push({ k:viaGap ? 'gap' : 'spacing', css:viaGap ? 'gap' : null, val:one(S.value, S.token), note:viaGap ? '' : 'between children, via margin', toks:S.token ? [S.token] : [] });
+      }
+    }
+    if (C && typeof C === 'object') {
+      if (C.value != null) { if (C.value > 0) out.push({ k:'radius', css:'border-radius', val:one(C.value, C.token), toks:C.token ? [C.token] : [] }); }
+      else {
+        var cs = [C.topLeft, C.topRight, C.bottomRight, C.bottomLeft].map(function(v){ return (v || 0) + 'px'; });
+        out.push({ k:'radius', css:'border-radius', val:cs.join(' '), toks:[] });
+      }
+    }
+    if ((f = st.backgroundColor) && typeof f === 'object') out.push({ k:'fill', css:'background-color', val:f.token ? cssTok(f.token) : String(f.value), toks:f.token ? [f.token] : [] });
+    if ((f = st.textColor) && typeof f === 'object') out.push({ k:'text', css:'color', val:f.token ? cssTok(f.token) : String(f.value), toks:f.token ? [f.token] : [] });
     return out;
   }
-
-  function buildFoundations(tokens){
-    var rows = pbResolveTokens(tokens || {});
-    var list = [];
-    Object.keys(rows.byName).forEach(function(name){ var t=rows.byName[name]; list.push({ name:name, value:t.value, kind:t.displayKind }); });
-    if (!list.length) return '';
-    list.sort(function(a,b){ return a.name < b.name ? -1 : 1; });
-    var cells = list.map(function(t){
-      var sw = (t.kind==='color')
-        ? '<span class="sw" style="background:var(--'+t.name+')"></span>'
-        : '<span class="sw dim">'+(t.kind==='radius'?'◜':t.kind==='font'||t.kind==='fontSize'?'Aa':'↔')+'</span>';
-      return '<div class="tok">'+sw+'<span class="tc"><span class="tn">'+pbEscape(t.name)+'</span><span class="tv">'+pbEscape(String(t.value))+'</span></span></div>';
+  /* a token is a button that copies var(--token); a value no token holds is plain text */
+  function declChips(ds){
+    return ds.map(function(d){
+      if (d.toks.length) return d.toks.map(function(t){
+        return '<button type="button" class="ds-tk" data-copy-tok="' + pbEscape(cssTok(t)) + '" title="Copy ' + pbEscape(cssTok(t)) + '">'
+          + '<span class="k">' + pbEscape(d.k) + '</span><code>' + pbEscape(cssTok(t)) + '</code></button>';
+      }).join('');
+      return '<span class="ds-raw"><span class="k">' + pbEscape(d.k) + '</span><code>' + pbEscape(d.val) + '</code>'
+        + (d.note ? '<span class="k">' + pbEscape(d.note) + '</span>' : '') + '</span>';
     }).join('');
-    return '<h2 class="ds-h">Token foundations</h2><div class="tok-grid">'+cells+'</div>';
+  }
+  /* "Copy as CSS": every part as a [data-part] rule, in the table's order, tokens as var(--token) */
+  function partCss(c, parts){
+    var els = (c.elements && typeof c.elements === 'object') ? c.elements : {};
+    var out = ['/* ' + nameOf(c) + ' — measured parts; a token where the value is one */'];
+    [{ name:'root', type:'container', el:els.root || {} }].concat(parts).forEach(function(p){
+      if (p.type === 'instance') { out.push('/* ' + p.name + ' — instance of ' + p.instanceOf + ': its own spec */'); return; }
+      var ds = partDecls(p.el);
+      out.push('[data-part="' + p.name + '"] {' + (ds.length ? '\n' + ds.map(function(d){
+        return d.css ? '  ' + d.css + ': ' + d.val + ';' : '  /* ' + d.k + ' ' + d.val + (d.note ? ' — ' + d.note : '') + ' */';
+      }).join('\n') + '\n' : ' /* nothing measured */ ') + '}');
+    });
+    return out.join('\n');
+  }
+  /* an instance's own tokens, from the child component's sidecar: its root, then each of its own parts */
+  function childTokens(kid, id){
+    var head = '<div class="ds-child-h">instance of <code>' + pbEscape(id) + '</code> · its own tokens</div>';
+    if (!kid || !partList(kid)) return head + '<p class="ds-cap">Not measured yet — <code>/pb:build</code> measures it.</p>';
+    var els = kid.elements || {}, groups = [{ name:'root', el:els.root || {} }].concat(partList(kid).filter(function(p){ return p.type !== 'instance'; }));
+    var rows = groups.map(function(g){
+      var ds = partDecls(g.el); if (!ds.length) return '';
+      return '<div><dt>' + pbEscape(g.name) + '</dt><dd>' + declChips(ds) + '</dd></div>';
+    }).join('');
+    return head + (rows ? '<dl class="ds-child-l">' + rows + '</dl>' : '<p class="ds-cap">It records no tokens of its own.</p>');
+  }
+
+  /* Anatomy: the live specimen, numbered, over a parts table — # · part · type · Required/Optional (and when) ·
+     tokens. The root is row 0 (it has no marker, but it holds the padding, radius and fill). An instance part
+     lists its child's own tokens beneath it, and an atom's states open inline from its name. */
+  function tabAnatomy(c){
+    var parts = partList(c);
+    if (!parts) return notMeasured();
+    var els = (c.elements && typeof c.elements === 'object') ? c.elements : {};
+    var all = [{ n:0, name:'root', type:'container', el:els.root || {}, required:true, root:true }].concat(parts);
+    var rows = all.map(function(p){
+      var name, sub = '', atom = p.instanceOf && BY_ID[p.instanceOf], extra = '';
+      var typ = p.instanceOf ? 'instance of <code>' + pbEscape(p.instanceOf) + '</code>' : pbEscape(p.type || '—');
+      if (atom) {
+        var sid = 'st-' + domId(c.id) + '-' + domId(p.name), vc = variantCombos(atom);
+        name = '<button type="button" class="ds-inst" aria-expanded="false" aria-controls="'+sid+'" title="Show the states of '+pbEscape(p.instanceOf)+'">'
+          + CHEV + '<span>' + pbEscape(p.name) + '</span></button>';
+        extra = '<tr class="ds-pst" id="'+sid+'" hidden><td></td><td colspan="4"><div class="ds-states">' + vc.combos.map(function(combo){
+          return '<div class="cell"><span class="lab">'+pbEscape(comboLabel(combo, vc.axes))+'</span><div class="box pb-product">'+safeRender(atom, combo)+'</div></div>';
+        }).join('') + '</div></td></tr>';
+      } else name = '<b>' + pbEscape(p.name) + '</b>';
+      if (!p.required) sub = '<small>' + whenText(p.el.visibleWhen) + '</small>';
+      var tk = p.instanceOf ? '<span class="ds-cap">listed below</span>' : '<div class="ds-tkr">' + (declChips(partDecls(p.el)) || '<span class="ds-cap">none measured</span>') + '</div>';
+      return '<tr class="ds-pr' + (p.root ? ' is-root' : '') + '" data-part-row="'+pbEscape(p.name)+'">'
+        + '<td data-l="#"><span class="ds-n' + (p.root ? ' is-root' : '') + '"' + (p.root ? ' title="The root has no marker"' : '') + '>' + (p.root ? '·' : p.n) + '</span></td>'
+        + '<th scope="row" data-l="Part">' + name + '<small class="ab">Not in this specimen.</small></th>'
+        + '<td data-l="Type">' + typ + '</td>'
+        + '<td data-l="Presence"><span class="ds-req'+(p.required ? '' : ' is-opt')+'">'+(p.required ? 'Required' : 'Optional')+'</span>' + sub + '</td>'
+        + '<td data-l="Tokens">' + tk + '</td></tr>'
+        + (p.instanceOf ? '<tr class="ds-pin" data-for="'+pbEscape(p.name)+'"><td></td><td colspan="4"><div class="ds-child">' + childTokens(BY_ID[p.instanceOf], p.instanceOf) + '</div></td></tr>' : '')
+        + extra;
+    }).join('');
+    return '<div class="ds-anat">' + specimen(c, 'anatomy')
+      + '<div class="ds-ptw"><div class="ds-pbar"><p class="ds-cap">A token chip copies <code>var(--token)</code>.</p>'
+      + '<button type="button" class="pb-btn pb-btn--sm" data-copy-css="' + pbEscape(c.id) + '">' + pbUiIcon('copy') + 'Copy as CSS</button></div>'
+      + '<div class="ds-tw"><table class="ds-ptab"><thead><tr><th scope="col">#</th><th scope="col">Part</th><th scope="col">Type</th><th scope="col">Presence</th><th scope="col">Tokens</th></tr></thead><tbody>'
+      + rows + '</tbody></table></div>'
+      + '<p class="ds-cap">Optional parts show only when their condition holds; the rest are always drawn. Names, types and tokens are as <code>/pb:build</code> last measured them'
+      + (c.measured && c.measured.at ? ' · <time datetime="' + pbEscape(c.measured.at) + '">' + pbEscape(c.measured.at) + '</time>' : '') + '.</p><div class="ds-stale-slot"></div></div></div>';
+  }
+
+  // ── Variants & spec: each card's table, from that card's own live render ──
+  function vtLen(e){ return e.tok ? '<code>' + pbEscape(e.tok) + '</code>' : pbEscape(String(e.v)); }
+  function vtZero(e){ return typeof e.v === 'number' && e.v === 0; }
+  function vtDash(){ return '<span class="dim">—</span>'; }
+  function vtSides(a){        // [top, right, bottom, left] of {v, tok}, as the CSS shorthand would write them
+    if (!a || a.every(vtZero)) return vtDash();
+    var k = a.map(function(e){ return e.tok || String(e.v); }), idx = [0, 1, 2, 3];
+    if (k[0] === k[2] && k[1] === k[3]) idx = k[0] === k[1] ? [0] : [0, 1];
+    else if (k[1] === k[3]) idx = [0, 1, 2];
+    return idx.map(function(i){ return vtLen(a[i]); }).join(' ');
+  }
+  function vtGap(a){
+    if (!a) return vtDash();
+    return a[0].tok === a[1].tok && a[0].v === a[1].v ? vtLen(a[0]) : vtLen(a[0]) + ' ' + vtLen(a[1]);
+  }
+  function vtColour(e){
+    if (!e) return vtDash();
+    var sw = /^#[0-9a-f]{6,8}$/.test(e.v) ? '<i class="ds-sw2" style="background:' + e.v + '"></i>' : '';
+    return sw + (e.tok ? '<code>' + pbEscape(e.tok) + '</code>' : pbEscape(e.v));
+  }
+  var VT_COLS = [['padding','Padding',function(r){ return vtSides(r.pd); }], ['margin','Margin',function(r){ return vtSides(r.mg); }],
+                 ['gap','Gap',function(r){ return vtGap(r.gap); }], ['radius','Radius',function(r){ return vtSides(r.rad); }],
+                 ['fill','Fill',function(r){ return vtColour(r.fill); }], ['text','Text',function(r){ return vtColour(r.text); }]];
+  /* the card's table; `defRows` are the default variant's (null on the default card itself) — a value that
+     differs from its counterpart there is highlighted, and so is a part the default variant does not render */
+  function renderVTable(card, rows, defRows){
+    var by = {}; (defRows || []).forEach(function(r){ by[r.name] = r; });
+    var body = rows.map(function(r){
+      var d = defRows ? by[r.name] : null, nm = '<th scope="row">' + pbEscape(r.name) + '</th>';
+      if (!r.shown) return '<tr class="is-off" data-part-row="' + pbEscape(r.name) + '">' + nm + '<td colspan="6" class="dim">not rendered in this variant</td></tr>';
+      var newPart = !!defRows && !(d && d.shown);
+      if (r.type === 'instance') return '<tr data-part-row="' + pbEscape(r.name) + '">' + nm.replace('<th', '<th' + (newPart ? ' class="is-diff"' : ''))
+        + '<td colspan="6" class="dim">instance of <code>' + pbEscape(r.instanceOf) + '</code> · margin ' + vtSides(r.mg) + '</td></tr>';
+      return '<tr data-part-row="' + pbEscape(r.name) + '">' + nm.replace('<th', '<th' + (newPart ? ' class="is-diff"' : '')) + VT_COLS.map(function(col){
+        var h = col[2](r), dh = d && d.shown && d.type !== 'instance' ? col[2](d) : null;
+        return '<td data-k="' + col[0] + '"' + (defRows && dh !== null && dh !== h ? ' class="is-diff"' : '') + '>' + h + '</td>';
+      }).join('') + '</tr>';
+    }).join('');
+    var html = '<div class="ds-tw"><table class="ds-vtab"><thead><tr><th scope="col">Part</th>' + VT_COLS.map(function(c){ return '<th scope="col">' + c[1] + '</th>'; }).join('')
+      + '</tr></thead><tbody>' + body + '</tbody></table></div>';
+    var slot = card.querySelector('[data-vtable]');
+    if (slot && card.__vt !== html) { slot.innerHTML = html; card.__vt = html; }
+  }
+  /* the engine says what a host drew (pb:specdraw): a specimen's legend rows dim when their part is not in
+     this render, and a part the sidecar never recorded is said; a variant cell fills its card's table */
+  document.addEventListener('pb:specdraw', function(e){
+    var d = e.detail, host = d && d.host;
+    if (!host || !host.getAttribute) return;
+    var kind = host.getAttribute('data-pb-spec');
+    if (kind === 'specimen') {
+      var panel = host.closest('.ds-panel'); if (!panel) return;
+      d.parts.forEach(function(p){
+        var row = panel.querySelector('[data-part-row="' + CSS.escape(p.name) + '"]'); if (row) row.classList.toggle('is-absent', !p.shown);
+      });
+      var slot = panel.querySelector('.ds-stale-slot');
+      if (slot) slot.innerHTML = d.extra.length
+        ? '<p class="ds-stale">The render has parts the last measure did not record (' + d.extra.map(function(n){ return '<code>' + pbEscape(n) + '</code>'; }).join(', ')
+          + '). <code>/pb:build</code> re-measures it.</p>' : '';
+    } else if (kind === 'cell') {
+      var card = host.closest('.ds-vc'), grid = card && card.parentNode; if (!grid || !d.rows) return;
+      var rows = (grid.__vrows = grid.__vrows || {});
+      rows[card.getAttribute('data-vc')] = d.rows;
+      var dc = grid.querySelector('.ds-vc.is-default'), def = dc && rows[dc.getAttribute('data-vc')];
+      Array.prototype.forEach.call(grid.querySelectorAll('.ds-vc'), function(cd){
+        var r = rows[cd.getAttribute('data-vc')]; if (r) renderVTable(cd, r, cd === dc ? null : def || null);
+      });
+    }
+  });
+  document.addEventListener('click', function(e){
+    var el;
+    if ((el = e.target.closest('[data-copy-tok]'))) { pbUiCopy(el.getAttribute('data-copy-tok'), 'Copied'); return; }
+    if ((el = e.target.closest('[data-copy-css]'))) {
+      var c = BY_ID[el.getAttribute('data-copy-css')], pl = c && partList(c);
+      if (pl) pbUiCopy(partCss(c, pl), 'Copied the CSS of ' + nameOf(c), pl.length + 1 + ' rules');
+    }
+  });
+  var TAB_BODY = { overview:tabOverview, variants:function(c){ return variantCells(c); }, anatomy:tabAnatomy };
+
+  function componentPage(c){
+    var cid = domId(c.id), node = PB_NODES[c.id];
+    // Push only when the node build succeeded: a failed one carries {error}, and there is nothing to paste
+    var head = pbHeadHTML({
+      title: nameOf(c), flush: true,
+      meta: badge(c) + '<span class="ds-lvl">' + pbEscape(levelLabel(c)) + '</span>',
+      sub: nameOf(c) !== c.id ? c.id : '',
+      actions: (node && !node.error) ? '<button type="button" class="pb-btn push" data-push="' + pbEscape(c.id) + '">Push to Figma</button>' : ''
+    });
+    var tabs = '<div class="ds-tabs" role="tablist" aria-label="'+pbEscape(nameOf(c))+' sections">' + TABS.map(function(t, i){
+      return '<button type="button" class="ds-tab" role="tab" id="t-'+cid+'-'+t[0]+'" aria-controls="p-'+cid+'-'+t[0]+'" data-tab="'+t[0]+'" data-t="'+pbEscape(t[1])+'"'
+        + ' aria-selected="'+(i === 0)+'" tabindex="'+(i === 0 ? 0 : -1)+'">'+pbEscape(t[1])+'</button>';
+    }).join('') + '</div>';
+    var panels = TABS.map(function(t, i){
+      return '<section class="ds-panel" role="tabpanel" id="p-'+cid+'-'+t[0]+'" aria-labelledby="t-'+cid+'-'+t[0]+'" data-panel="'+t[0]+'"'+(i === 0 ? '' : ' hidden')+'>'
+        + TAB_BODY[t[0]](c) + '</section>';
+    }).join('');
+    return '<article class="cmp" id="c-'+cid+'" data-page="c/'+pbEscape(c.id)+'" data-id="'+pbEscape(c.id)+'" hidden>' + head + tabs + panels + '</article>';
+  }
+  function buildFoundations(groups){
+    return groups.map(function(g){
+      var cells = g.list.map(function(t){
+        return '<div class="tok">'+swatch(t.name, t.kind)+'<span class="tc"><span class="tn">'+pbEscape(t.name)+'</span><span class="tv">'+pbEscape(valueText(t.value))+'</span></span></div>';
+      }).join('');
+      return '<section class="ds-found" data-page="f/'+g.key+'" hidden>'
+        + pbHeadHTML({ title: g.label, flush: true, meta: '<span class="ds-lvl">' + g.list.length + ' token' + (g.list.length === 1 ? '' : 's') + ' — every component draws from these.</span>' })
+        + '<div class="tok-grid">'+cells+'</div></section>';
+    }).join('');
+  }
+
+  // ── the overlay: the engine in runtime.js (pbSpec*) draws it from the LIVE boxes, never from stored coordinates ──
+  /* It mounts itself on every host the builders above mark (pbSpecHostAttrs), follows the DOM, a resize, a
+     theme change and fonts arriving, and redraws until a transition settles — so this page asks it for
+     nothing but a redraw when the Anatomy tab opens (selectTab). Reading a part (hover, focus, a tap, its
+     table row) is the engine's too: it matches the rows by their data-part-row. */
+
+  // ── the tree ────────────────────────────────────────────────────────────────────
+  /* Two plain labels — Components, Foundations — over their rows. A component row is its name, plus
+     a Local badge when it is built here (a library component stays unmarked); a foundation row adds its
+     token count. The filter is the shared bar (pbFilterBar): search plus a
+     Source chip, and it is the one place a result count appears. A foundation has no source, so
+     picking one hides the foundations. */
+  var TREE_BAR = 'ds-tree';
+  function buildNav(){
+    var nLocal = LISTED.filter(function(c){ return !isLibrary(c); }).length, nLib = LISTED.length - nLocal;
+    var h = '<div class="ds-fbar">' + pbFilterBar({
+      id: TREE_BAR, placeholder: 'Filter components', label: 'Filter components and foundations', countLabel: 'pages',
+      chips: [{ id: 'src', label: 'Source', options: [{ value: 'local', label: 'Local', count: nLocal }, { value: 'library', label: 'Library', count: nLib }] }]
+    }) + '</div><div class="ds-tree">';
+    h += '<p class="ds-sec" id="ds-sec-components">Components</p><div class="ds-sub" role="group" aria-labelledby="ds-sec-components">';
+    LISTED.forEach(function(c){
+      var hay = [c.name, c.id, levelLabel(c), purposeOf(c), isLibrary(c) ? 'library' : 'local'].join(' ').toLowerCase();
+      h += '<a class="ds-item" data-c="'+pbEscape(hay)+'" data-src="'+(isLibrary(c) ? 'library' : 'local')+'" href="#/c/'+encodeURIComponent(c.id)+'" data-to="c/'+pbEscape(c.id)+'">'
+        + '<span class="t">'+pbEscape(nameOf(c))+'</span>'+(isLibrary(c) ? '' : '<span class="ds-item-m">'+badge(c)+'</span>')+'</a>';
+    });
+    h += '</div><p class="ds-sec" id="ds-sec-foundations">Foundations</p><div class="ds-sub" role="group" aria-labelledby="ds-sec-foundations">';
+    GROUPS.forEach(function(g){
+      h += '<a class="ds-item" data-f="'+pbEscape(g.label.toLowerCase())+'" href="#/f/'+g.key+'" data-to="f/'+g.key+'"><span class="t">'+g.label+'</span>'
+        + '<span class="ds-item-m"><span class="lv">'+g.list.length+' token'+(g.list.length === 1 ? '' : 's')+'</span></span></a>';
+    });
+    h += '</div>' + pbFilterNoneHTML(TREE_BAR) + '</div>';
+    h += '<div class="ds-key" aria-label="Source key">'
+      + '<div><span class="ds-badge is-local">Local</span><span>Built in this project only.</span></div>'
+      + '<div><span>Unmarked components come from the design system'+(dsName() ? ' (' + pbEscape(dsName()) + ')' : '')+'.</span></div></div>';
+    return h;
+  }
+  /* what the shared bar filters: every row, with its source as the one facet (re-run on each keystroke) */
+  function treeItems(){
+    return Array.prototype.map.call(document.querySelectorAll('#ds-nav .ds-item'), function(a){
+      var src = a.getAttribute('data-src');
+      return { el: a, text: a.getAttribute('data-c') || a.getAttribute('data-f') || '', facets: src ? { src: src } : {} };
+    });
+  }
+  // a label with no row under it would be a heading over nothing
+  document.addEventListener('pb:filter', function(e){
+    if (!e.detail || e.detail.id !== TREE_BAR) return;
+    Array.prototype.forEach.call(document.querySelectorAll('#ds-nav .ds-sec'), function(sec){
+      var rows = sec.nextElementSibling;
+      sec.hidden = !(rows && rows.querySelector('.ds-item:not([hidden])'));
+    });
+  });
+
+  /* ── narrow: the tree is a drawer from the bar's "Components" button ── */
+  function drawerOpen(){ var n = document.getElementById('ds-nav'); return !!(n && n.classList.contains('is-open')); }
+  function openDrawer(){
+    var n = document.getElementById('ds-nav'), s = document.getElementById('ds-scrim'), b = document.querySelector('.ds-browse');
+    n.classList.add('is-open'); s.hidden = false; if (b) b.setAttribute('aria-expanded', 'true');
+    var f = n.querySelector('[data-pb-fq]'); if (f) setTimeout(function(){ f.focus(); }, 0);
+  }
+  function closeDrawer(refocus){
+    var n = document.getElementById('ds-nav'), s = document.getElementById('ds-scrim'), b = document.querySelector('.ds-browse');
+    if (!n || !n.classList.contains('is-open')) return;
+    n.classList.remove('is-open'); s.hidden = true; if (b) { b.setAttribute('aria-expanded', 'false'); if (refocus) b.focus(); }
+  }
+
+  /* ── One page at a time, by hash: #/c/<id>, #/c/<id>/<tab>, #/f/<kind>. All pages stay in the DOM
+     (a demo keeps its state while you look at another); the default is the first listed component,
+     and an unknown or unlisted id lands there too. ── */
+  var LAST_PAGE = null;
+  function selectTab(page, tab){
+    Array.prototype.forEach.call(page.querySelectorAll('.ds-tab'), function(t){
+      var on = t.getAttribute('data-tab') === tab;
+      t.setAttribute('aria-selected', String(on)); t.tabIndex = on ? 0 : -1;
+    });
+    Array.prototype.forEach.call(page.querySelectorAll('.ds-panel'), function(p){ p.hidden = p.getAttribute('data-panel') !== tab; });
+    if (tab === 'anatomy') requestAnimationFrame(pbSpecRedrawAll);
+  }
+  function tabHash(id, tab){ return '#/c/' + encodeURIComponent(id) + (tab && tab !== 'overview' ? '/' + tab : ''); }
+  function route(){
+    var seg = (location.hash || '').replace(/^#\/?/, '').split('/').map(function(s){ try { return decodeURIComponent(s); } catch (e) { return s; } });
+    var pages = [].slice.call(document.querySelectorAll('[data-page]'));
+    if (!pages.length) return;
+    var want = seg[0] + '/' + (seg[1] || '');
+    var hit = pages.filter(function(p){ return p.getAttribute('data-page') === want; })[0], cur = hit || pages[0];
+    var key = cur.getAttribute('data-page'), isC = key.charAt(0) === 'c';
+    var want3 = TAB_ALIAS[seg[2]] || seg[2];
+    var tab = (isC && hit && TAB_IDS.indexOf(want3) > 0) ? want3 : 'overview';
+    // an unknown or empty hash lands on the first page — and the URL says so, so a reload keeps your place
+    var canon = isC ? tabHash(cur.getAttribute('data-id'), tab) : '#/' + key.split('/').map(encodeURIComponent).join('/');
+    if (location.hash !== canon && history.replaceState) history.replaceState(null, '', canon);
+    pages.forEach(function(p){ p.hidden = (p !== cur); });
+    if (isC) selectTab(cur, tab);
+    if (isC && tab === 'overview') showOverview(cur);
+    [].forEach.call(document.querySelectorAll('.ds-item'), function(a){
+      if (a.getAttribute('data-to') === key) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
+    });
+    var title = cur.querySelector('.nm, h1');
+    var proj = (PB_REGISTRY && PB_REGISTRY.meta && PB_REGISTRY.meta.name) || 'Design system';
+    var tabName = (TABS.filter(function(t){ return t[0] === tab; })[0] || [tab, cap(tab)])[1];
+    document.title = (title ? title.textContent + (isC && tab !== 'overview' ? ' · ' + tabName : '') + ' · ' : '') + proj + ' — design system';
+    var act = document.querySelector('.ds-item[aria-current="page"]');
+    if (act && act.scrollIntoView && !drawerOpen()) act.scrollIntoView({ block:'nearest' });
+    if (LAST_PAGE !== key) window.scrollTo(0, 0);
+    LAST_PAGE = key;
+    closeDrawer(false);
+  }
+  window.addEventListener('hashchange', route);
+
+  // ── the shared chrome (runtime.js): project button + menu, Project settings, ⌘K ──
+  var IS_MAC = /Mac|iPhone|iPad/.test((navigator.platform || '') + ' ' + (navigator.userAgent || ''));
+  var CMDK = { label:'Search components, their tabs, foundations and commands',
+               placeholder:'Search components, tabs, foundations, commands', foot:'Searches the design system',
+               hint:'Try a component name, a tab (anatomy), or <code>theme</code>.' };
+  function mountBar(){
+    var kbd = IS_MAC ? '⌘K' : 'Ctrl K', proto = HTTP ? '/' : 'prototype.html';
+    document.getElementById('ds-bar-end').innerHTML =
+      '<button type="button" class="ds-browse pb-bar-item" id="ds-nav-toggle" aria-controls="ds-nav" aria-expanded="' + drawerOpen() + '" title="Components and foundations">'
+        + pbUiIcon('list') + '<span>Components</span></button>'
+      + '<button type="button" class="ds-search pb-bar-item" aria-keyshortcuts="' + (IS_MAC ? 'Meta+K' : 'Control+K') + '"'
+        + ' aria-label="Search the design system (' + kbd + ')" title="Search components, their tabs, foundations and commands (' + kbd + ')">'
+        + pbUiIcon('search') + '<span class="pb-bar-lb">Search</span><span class="pb-kbd" aria-hidden="true">' + kbd + '</span></button>'
+      + '<a class="ds-proto pb-bar-item" href="' + proto + '" aria-label="Prototype" title="Back to the prototype">'
+        + '<svg class="pb-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4.5" width="18" height="15" rx="2"/><path d="M3 9h18"/></svg>'
+        + '<span class="pb-bar-lb">Prototype</span></a>';
+    pbUiMountProjectButton(document.getElementById('pb-pj-host'), {
+      meta: (PB_REGISTRY && PB_REGISTRY.meta) || {}, version: PB_DS_VERSION,
+      onSettings: function(btn){ openSettings(btn); }
+    });
+  }
+  function openSettings(returnFocus, after){
+    pbUiOpenSettings({
+      meta: (PB_REGISTRY && PB_REGISTRY.meta) || {}, viewOnly: VIEW_ONLY, returnFocus: returnFocus,
+      onSaved: function(m){
+        // This page is a render of registry.json, so it is one save behind: patch the in-memory copy so
+        // the bar and the Push dialog say the new values at once; /pb:preview's reload follows.
+        PB_REGISTRY.meta = PB_REGISTRY.meta || {};
+        PB_REGISTRY.meta.name = m.name;
+        PB_REGISTRY.meta.designSystem = Object.assign({}, PB_REGISTRY.meta.designSystem || {}, m.designSystem);
+        if (!m.designSystem.designLink) delete PB_REGISTRY.meta.designSystem.designLink;
+        mountBar();
+        if (after) after();
+      }
+    });
+  }
+  function go(hash){ if (location.hash === hash) route(); else location.hash = hash; }
+  function dsSearchItems(){
+    var out = [];
+    function add(g, t, s, x, act, mono){ out.push({ g:g, t:t, s:s || '', x:x || '', act:act, mono:!!mono }); }
+    add('Commands', 'Toggle theme', 'System · Light · Dark', 'dark light mode appearance', function(){ pbUiCycleTheme(); });
+    add('Commands', 'Open project settings', 'Name · design system · Figma file', 'settings design system figma', function(){ openSettings(null); });
+    var cur = document.querySelector('.cmp:not([hidden])');
+    var curNode = cur && PB_NODES[cur.getAttribute('data-id')];
+    if (curNode && !curNode.error) add('Commands', 'Push to Figma', cur.getAttribute('data-id'), 'figma export node json prompt', function(){ openPush(cur.getAttribute('data-id')); }, true);
+    add('Go to', 'Prototype', HTTP ? 'Site' : 'prototype.html', 'screens flows', function(){ location.href = HTTP ? '/' : 'prototype.html'; });
+    LISTED.forEach(function(c){
+      add('Components', nameOf(c), levelLabel(c), [c.id, purposeOf(c), isLibrary(c) ? 'library' : 'local'].join(' '), function(){ go(tabHash(c.id, 'overview')); }, true);
+    });
+    LISTED.forEach(function(c){
+      TABS.forEach(function(t){
+        add('Component tabs', nameOf(c) + ' › ' + t[1], t[1], c.id + ' ' + t[0], function(){ go(tabHash(c.id, t[0])); });
+      });
+    });
+    GROUPS.forEach(function(g){
+      add('Foundations', g.label, g.list.length + ' token' + (g.list.length === 1 ? '' : 's'),
+        g.list.map(function(t){ return t.name; }).join(' ').slice(0, 400), function(){ go('#/f/' + g.key); });
+    });
+    return out;
   }
 
   function buildDS(){
     var reg = PB_REGISTRY || {};
     try { applyRegistryTokens(reg); } catch(e){}
-    document.getElementById('ds-title').textContent = (reg.meta && reg.meta.name) || 'Components';
-    document.title = ((reg.meta && reg.meta.name) || 'Design system') + ' — design system';
-    document.getElementById('ds-root').innerHTML = buildComponents(reg.components || []) + buildFoundations(reg.tokens || {});
+    try { mountThemeBridge(); } catch(e){ /* a theme is never worth failing the page over */ }
+    document.documentElement.style.setProperty('--ds-spec-w', SPEC_W + 'px');
+    (reg.components || []).forEach(function(c){ if (c && c.id) BY_ID[c.id] = c; });
+    LISTED = (reg.components || []).filter(function(c){ return c && c.id && isListed(c); });
+    LISTED.forEach(function(c){ CUR_PROPS[c.id] = defaultProps(c); });
+    TOKS = pbResolveTokens(reg.tokens || {});
+    GROUPS = foundationGroups(TOKS);
+    mountBar();
+    document.getElementById('ds-nav').innerHTML = buildNav();
+    var root = document.getElementById('ds-root');
+    root.innerHTML = (LISTED.map(componentPage).join('') + buildFoundations(GROUPS))
+      || '<p class="empty">No components yet — build one with <code>/pb:build</code>.</p>';
     pbSyncMachines(document.getElementById('ds-root'));   // a data-machine demo opens on its initial pane
+    pbFilterApply(TREE_BAR, treeItems);
+    LISTED.forEach(mountWorkbench);
+    route();
+    pbUiInstall({ items: dsSearchItems, cmdk: CMDK });
   }
 
-  // ── contained interactions for demos (self-contained toggles/sorts already work via the
-  //    runtime's inline onclick; here we wire flow controls so submit/nav respond on a screenless page) ──
-  function pbToast(msg){ var t=document.getElementById('ds-toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(t._h); t._h=setTimeout(function(){ t.classList.remove('show'); },1600); }
+  // ── the workbench: the stage fits the device, B5's layers mount on it, the code view reads it ──
+  function pageOf(id){ return document.querySelector('.cmp[data-id="' + CSS.escape(id) + '"]'); }
+  function stageOf(page){ return page && page.querySelector('.stage[data-demo]'); }
+  /* A device wider than the column is shown scaled down to it (a transform on the fit; the viewport
+     takes the scaled size, so the page lays out around what you see). Not while the page is hidden:
+     route() fits it when it is shown. */
+  function fitStage(stage){
+    var vp = stage && stage.querySelector('.ds-vp'), fit = vp && vp.firstElementChild;
+    if (!fit) return;
+    var cs = getComputedStyle(stage), avail = stage.clientWidth - (parseFloat(cs.paddingLeft) || 0) - (parseFloat(cs.paddingRight) || 0);
+    if (!(avail > 0)) return;
+    if (DEV_AUTO) {
+      DEV_AUTO = false;
+      var pick = autoDevice(avail);
+      if (pick !== DEV) { DEV = pick; Array.prototype.forEach.call(document.querySelectorAll('.ds-dev'), function(g){ segSet(g, DEV.id); }); }
+    }
+    var w = DEV.w, k = Math.min(1, avail / w), r = function(n){ return Math.round(n * 1000) / 1000; };
+    fit.style.width = w + 'px';
+    fit.style.transform = k < 1 ? 'scale(' + r(k) + ')' : '';
+    vp.style.width = r(w * k) + 'px';
+    vp.style.height = r(fit.offsetHeight * k) + 'px';
+    stage.setAttribute('data-k', String(r(k)));
+    var note = stage.closest('.cmp').querySelector('.ds-fitnote');
+    if (note) note.textContent = DEV.label + ' · ' + w + 'px' + (k < 1 ? ' · scaled to ' + Math.round(k * 100) + '%' : '');
+  }
+  // never inside the observer's own callback: a size changed there is a "loop" the browser reports
+  var FIT_SOON = null;
+  var STAGE_RO = window.ResizeObserver ? new ResizeObserver(function(entries){
+    entries.forEach(function(en){
+      var st = en.target.closest('.stage'); if (!st) return;
+      st.__fitDue = true;
+      if (FIT_SOON) return;
+      FIT_SOON = requestAnimationFrame(function(){
+        FIT_SOON = null;
+        Array.prototype.forEach.call(document.querySelectorAll('.stage[data-demo]'), function(s){ if (s.__fitDue) { s.__fitDue = false; fitStage(s); } });
+      });
+    });
+  }) : null;
+  function specUpdate(c){
+    var st = stageOf(pageOf(c.id));
+    if (st && WB_MOUNTED[c.id] && typeof pbSpecUpdate === 'function') { try { pbSpecUpdate(st, CUR_PROPS[c.id]); } catch (e) {} }
+  }
+  function showOverview(page){
+    var c = BY_ID[page.getAttribute('data-id')], st = stageOf(page);
+    if (!c || !st) return;
+    fitStage(st);
+    specUpdate(c);
+  }
+  /* Layers (anatomy + spec overlay) is B5's: it adds its control to the toolbar's slot and draws over the stage */
+  function mountWorkbench(c){
+    var page = pageOf(c.id), st = stageOf(page);
+    if (!st) return;
+    if (typeof pbSpecMount === 'function') {
+      try { pbSpecMount(st, c, CUR_PROPS[c.id], { layersSlot: page.querySelector('[data-layers-slot]') }); WB_MOUNTED[c.id] = 1; } catch (e) { /* the demo works without its layers */ }
+    }
+    if (STAGE_RO) { STAGE_RO.observe(st); STAGE_RO.observe(st.querySelector('.ds-fit')); }
+  }
+  /* a segmented control: one radio on, the others off, the on one is the tab stop */
+  function segSet(group, value){
+    var radios = Array.prototype.slice.call(group.querySelectorAll('[role="radio"]')), any = false;
+    radios.forEach(function(b){
+      var on = b.getAttribute('data-value') === value; any = any || on;
+      b.setAttribute('aria-checked', String(on)); b.tabIndex = on ? 0 : -1;
+    });
+    if (!any && radios[0]) radios[0].tabIndex = 0;
+  }
+  // one prop, shown in two places (the toolbar's picker and the props editor): keep them in step
+  function syncPropControls(c){
+    var page = pageOf(c.id); if (!page) return;
+    enumProps(c).forEach(function(p){
+      var v = CUR_PROPS[c.id][p.id];
+      Array.prototype.forEach.call(page.querySelectorAll('[data-cid="' + CSS.escape(c.id) + '"][data-prop="' + CSS.escape(p.id) + '"]'), function(el){
+        if (el.tagName === 'SELECT') { if (el.value !== v && Array.prototype.some.call(el.options, function(o){ return o.value === v; })) el.value = v; selTitle(el); }
+        else if (el.getAttribute('role') === 'radio') segSet(el.parentNode, v);
+      });
+    });
+  }
+  function setDevice(id){
+    var d = deviceById(id); if (!d) return;
+    DEV_AUTO = false;                      // the viewer's choice from here on
+    if (d === DEV) return;
+    DEV = d;
+    Array.prototype.forEach.call(document.querySelectorAll('.ds-dev'), function(g){ segSet(g, d.id); });
+    var page = document.querySelector('.cmp:not([hidden])');
+    if (page) showOverview(page);          // the pages not showing are fitted when they are
+  }
+
+  /* ── Code: HTML | CSS under the stage ── */
+  var VOID_TAGS = { area:1, base:1, br:1, col:1, embed:1, hr:1, img:1, input:1, link:1, meta:1, source:1, track:1, wbr:1 };
+  var RAW_TAGS = { pre:1, textarea:1, script:1, style:1 };
+  function escAttr(v){ return String(v).replace(/&/g, '&amp;').replace(/"/g, '&quot;'); }
+  function escText(v){ return String(v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+  /* The live DOM, indented. `hooks` keeps the data-part / data-cmp attributes the Anatomy tab reads;
+     without them the code is what a developer would write. */
+  function prettyHTML(root, hooks){
+    var lines = [];
+    function opening(el, pad){
+      var at = [];
+      Array.prototype.forEach.call(el.attributes, function(a){
+        if (!hooks && (a.name === 'data-part' || a.name === 'data-cmp')) return;
+        at.push(a.value === '' ? a.name : a.name + '="' + escAttr(a.value) + '"');
+      });
+      var one = '<' + el.localName + (at.length ? ' ' + at.join(' ') : '') + '>';
+      if (pad.length + one.length <= 100 || at.length < 2) return one;
+      return '<' + el.localName + '\n' + at.map(function(a){ return pad + '  ' + a; }).join('\n') + '\n' + pad + '>';
+    }
+    function walk(node, depth){
+      var pad = new Array(depth + 1).join('  ');
+      if (node.nodeType === 3) { var t = node.nodeValue.replace(/\s+/g, ' ').trim(); if (t) lines.push(pad + escText(t)); return; }
+      if (node.nodeType !== 1) return;
+      var tag = node.localName, open = opening(node, pad), close = '</' + tag + '>';
+      if (VOID_TAGS[tag]) { lines.push(pad + open); return; }
+      if (RAW_TAGS[tag]) { lines.push(pad + open + node.innerHTML + close); return; }
+      var kids = Array.prototype.filter.call(node.childNodes, function(n){ return n.nodeType === 1 || (n.nodeType === 3 && n.nodeValue.trim()); });
+      if (!kids.length) { lines.push(pad + open + close); return; }
+      if (kids.length === 1 && kids[0].nodeType === 3 && open.indexOf('\n') === -1) { lines.push(pad + open + escText(kids[0].nodeValue.replace(/\s+/g, ' ').trim()) + close); return; }
+      lines.push(pad + open);
+      kids.forEach(function(k){ walk(k, depth + 1); });
+      lines.push(pad + close);
+    }
+    Array.prototype.forEach.call(root.childNodes, function(n){ walk(n, 0); });
+    return lines.join('\n');
+  }
+  function refreshCode(page){
+    var sec = page.querySelector('[data-code]'); if (!sec || sec.hidden) return;
+    var fit = page.querySelector('.stage .ds-fit'), out = sec.querySelector('[data-code-out="html"]'), hooks = sec.querySelector('[data-hooks]');
+    if (!fit || !out) return;
+    var clone = fit.cloneNode(true);
+    Array.prototype.forEach.call(clone.querySelectorAll('.ds-ovl'), function(n){ n.remove(); });
+    out.textContent = prettyHTML(clone, !!(hooks && hooks.checked));
+  }
+  // while the code is open it follows the demo: a click that changes the markup changes the code
+  var CODE_OBS = {};
+  function watchCode(page, on){
+    var id = page.getAttribute('data-id'), fit = page.querySelector('.stage .ds-fit');
+    if (CODE_OBS[id]) { CODE_OBS[id].obs.disconnect(); delete CODE_OBS[id]; }
+    if (!on || !fit || !window.MutationObserver) return;
+    var due = false, obs = new MutationObserver(function(recs){
+      // the fit's own width / transform (fitStage) is not the demo's markup
+      if (due || !recs.some(function(r){ return r.target !== fit || r.type !== 'attributes'; })) return;
+      due = true; requestAnimationFrame(function(){ due = false; refreshCode(page); });
+    });
+    obs.observe(fit, { childList:true, subtree:true, attributes:true, characterData:true });
+    CODE_OBS[id] = { obs: obs };
+  }
+  function toggleCode(page){
+    var sec = page.querySelector('[data-code]'), btn = page.querySelector('[data-code-toggle]');
+    if (!sec || !btn) return;
+    var open = sec.hidden;
+    sec.hidden = !open; btn.setAttribute('aria-pressed', String(open));
+    if (open) refreshCode(page);
+    watchCode(page, open);
+  }
+  function showCodeTab(sec, kind){
+    segSet(sec.querySelector('.ds-code-seg'), kind);
+    Array.prototype.forEach.call(sec.querySelectorAll('[data-code-pane]'), function(p){ p.hidden = p.getAttribute('data-code-pane') !== kind; });
+  }
+
+  // ── props: edit one, the demo re-renders ──
+  function setProp(cid, prop, raw, type, ctl){
+    var c = BY_ID[cid]; if (!c) return;
+    var p = CUR_PROPS[cid];
+    if (type === 'json') {
+      if (!String(raw).trim()) { delete p[prop]; ctl.removeAttribute('aria-invalid'); }
+      else { try { p[prop] = JSON.parse(raw); ctl.removeAttribute('aria-invalid'); } catch (e) { ctl.setAttribute('aria-invalid', 'true'); return; } }
+    } else if (type === 'number') {
+      var n = Number(raw); p[prop] = (String(raw).trim() !== '' && !isNaN(n)) ? n : raw;
+    } else if (type === 'boolean') p[prop] = !!raw;
+    else p[prop] = raw;
+    rerenderDemo(c);
+  }
+  function rerenderDemo(c){
+    var stage = document.querySelector('.stage[data-demo="' + CSS.escape(c.id) + '"]'), fit = stage && stage.querySelector('.ds-fit'); if (!fit) return;
+    // the fit's insides only (whatever else is in the stage stays) — patched in place, not replaced, so the
+    // component's own CSS transitions play between two variants; the engine's overlay follows the boxes as they move
+    var html = safeRender(c, CUR_PROPS[c.id]);
+    try { pbSpecMorph(fit, html); } catch (e) { fit.innerHTML = html; }
+    pbSyncMachines(stage);
+    fitStage(stage);
+    syncPropControls(c);
+    specUpdate(c);
+  }
+  document.addEventListener('input', function(e){
+    var t = e.target;
+    if (t.hasAttribute && t.hasAttribute('data-prop') && t.tagName !== 'SELECT') setProp(t.getAttribute('data-cid'), t.getAttribute('data-prop'), t.value, t.getAttribute('data-type'), t);
+  });
+  document.addEventListener('change', function(e){
+    var t = e.target;
+    if (t.tagName === 'SELECT' && t.hasAttribute('data-prop')) { selTitle(t); setProp(t.getAttribute('data-cid'), t.getAttribute('data-prop'), t.value, 'enum', t); }
+    if (t.hasAttribute && t.hasAttribute('data-hooks')) { var pg = t.closest('.cmp'); if (pg) refreshCode(pg); }
+  });
+
+  // ── clicks: the tree, the tabs, the props, the legend, the bar, and the demos' own flow controls ──
   document.addEventListener('click', function(e){
-    var push = e.target.closest('[data-push]');
-    if (push){ openPush(push.getAttribute('data-push')); return; }
-    if (e.target.closest('[data-step-go]')){ e.preventDefault(); pbStepClick(e.target); return; }
-    var el = e.target.closest('[data-action],[data-nav],[data-go]');
+    var t = e.target, el;
+    if (t.closest('.ds-browse')) { if (drawerOpen()) closeDrawer(true); else openDrawer(); return; }
+    if (t.closest('#ds-scrim')) { closeDrawer(true); return; }
+    if (t.closest('#ds-nav .ds-item')) closeDrawer(false);   // even when it is the page you are on
+    if (t.closest('.ds-search')) { pbUiOpenCmdk(dsSearchItems, CMDK); return; }
+    if ((el = t.closest('.ds-tab'))) {
+      var page = el.closest('.cmp'); if (page) go(tabHash(page.getAttribute('data-id'), el.getAttribute('data-tab')));
+      return;
+    }
+    if ((el = t.closest('.ds-switch[data-prop]'))) {
+      var on = el.getAttribute('aria-checked') !== 'true';
+      el.setAttribute('aria-checked', String(on)); el.title = 'Turn ' + el.getAttribute('data-prop') + ' ' + (on ? 'off' : 'on');
+      setProp(el.getAttribute('data-cid'), el.getAttribute('data-prop'), on, 'boolean', el);
+      return;
+    }
+    if ((el = t.closest('[data-reset]'))) {
+      var c = BY_ID[el.getAttribute('data-reset')]; if (!c) return;
+      CUR_PROPS[c.id] = defaultProps(c);
+      var rows = el.closest('.ds-props').querySelector('.ds-props-rows'); if (rows) rows.innerHTML = propRows(c);
+      rerenderDemo(c); pbUiToast('Props reset');
+      return;
+    }
+    // the workbench's own controls: a variant picker, the device, the Code view
+    if ((el = t.closest('.pb-seg-btn[data-vp][data-prop]'))) { setProp(el.getAttribute('data-cid'), el.getAttribute('data-prop'), el.getAttribute('data-value'), 'enum', el); return; }
+    if ((el = t.closest('[data-dev]'))) { setDevice(el.getAttribute('data-dev')); return; }
+    if ((el = t.closest('[data-code-toggle]'))) { var pgc = el.closest('.cmp'); if (pgc) toggleCode(pgc); return; }
+    if ((el = t.closest('[data-code-tab]'))) { showCodeTab(el.closest('.ds-code'), el.getAttribute('data-code-tab')); return; }
+    if ((el = t.closest('[data-copy-code]'))) {
+      var pre = el.closest('.ds-code-h').nextElementSibling, kind = el.getAttribute('data-copy-code');
+      if (pre) pbUiCopy(pre.textContent, 'Copied the ' + (kind === 'snippet' ? 'snippet' : kind.toUpperCase()));
+      return;
+    }
+    if ((el = t.closest('.ds-inst'))) {
+      var open = el.getAttribute('aria-expanded') !== 'true', box = document.getElementById(el.getAttribute('aria-controls'));
+      el.setAttribute('aria-expanded', String(open)); if (box) box.hidden = !open;
+      return;
+    }
+    var push = t.closest('[data-push]');
+    if (push) { openPush(push.getAttribute('data-push')); return; }
+    // the demos: contained interactions (self-contained toggles already work via the runtime's inline
+    // onclick; here flow controls answer on a screenless page instead of going nowhere)
+    if (!t.closest('.stage, .box')) return;
+    if (t.closest('[data-step-go]')) { e.preventDefault(); pbStepClick(e.target); return; }
+    el = t.closest('[data-action],[data-nav],[data-go]');
     if (!el) return;
     var action = el.getAttribute('data-action');
     var nav = el.getAttribute('data-nav') || el.getAttribute('data-go');
-    if (action === 'submit'){
+    if (action === 'submit') {
       e.preventDefault();
-      var scope = el.closest('.stage') || document;
-      var bad = 0;
+      var scope = el.closest('.stage') || document, bad = 0;
       Array.prototype.forEach.call(scope.querySelectorAll('.field__input[data-required], input[data-required]'), function(inp){
-        if (!String(inp.value||'').trim()){ bad++; inp.style.outline='2px solid var(--danger)'; }
-        else inp.style.outline='';
+        if (!String(inp.value || '').trim()) { bad++; inp.style.outline = '2px solid var(--danger)'; }
+        else inp.style.outline = '';
       });
-      pbToast(bad ? (bad+' required field'+(bad>1?'s':'')+' empty') : (nav ? '✓ submitted → '+nav : '✓ submitted'));
-    } else if (nav){ pbToast('→ navigates to “'+nav+'”'); }
+      pbUiToast(bad ? (bad + ' required field' + (bad > 1 ? 's' : '') + ' empty') : (nav ? 'Submitted → ' + nav : 'Submitted'));
+    } else if (nav) { pbUiToast('Navigates to “' + nav + '”', 'In the prototype it opens that screen.'); }
+  });
+  document.addEventListener('keydown', function(e){
+    var t = e.target;
+    if (t.classList && t.classList.contains('ds-tab') && /^(ArrowLeft|ArrowRight|Home|End)$/.test(e.key)) {
+      var tabs = Array.prototype.slice.call(t.parentNode.querySelectorAll('.ds-tab')), i = tabs.indexOf(t);
+      var n = e.key === 'Home' ? 0 : e.key === 'End' ? tabs.length - 1 : (i + (e.key === 'ArrowRight' ? 1 : -1) + tabs.length) % tabs.length;
+      e.preventDefault(); tabs[n].focus(); tabs[n].click();
+      return;
+    }
+    if (t.classList && t.classList.contains('pb-seg-btn') && t.getAttribute('role') === 'radio' && t.closest('.cmp') && /^(ArrowLeft|ArrowRight|ArrowUp|ArrowDown|Home|End)$/.test(e.key)) {
+      var radios = Array.prototype.slice.call(t.parentNode.querySelectorAll('[role="radio"]')), i2 = radios.indexOf(t);
+      var n2 = e.key === 'Home' ? 0 : e.key === 'End' ? radios.length - 1 : (i2 + (/Right|Down/.test(e.key) ? 1 : -1) + radios.length) % radios.length;
+      e.preventDefault(); radios[n2].focus(); radios[n2].click();
+      return;
+    }
+    if (e.key === 'Escape' && drawerOpen() && !pbUiModalOpen()) { e.preventDefault(); closeDrawer(true); }
   });
 
+  // ── Push to Figma: two paths, side by side ──
+  var FIGMA_FILE = /^https:\/\/(www\.)?figma\.com\/(file|design)\/\S+$/i;
+  var LINK_MAX = 300;
+  /* The link goes into a prompt Claude will read, so it is data, never instruction: only URL
+     characters survive (no whitespace, quote, backtick, angle bracket or brace — nothing that can end
+     the sentence or start a line of its own) and it is cut at LINK_MAX. */
+  function figmaFile(){
+    var d = PB_REGISTRY && PB_REGISTRY.meta && PB_REGISTRY.meta.designSystem;
+    var l = String((d && typeof d === 'object' && d.designLink) || '').trim()
+      .replace(/[^A-Za-z0-9\-._~:\/?#\[\]@!$&()*+,;=%]/g, '').slice(0, LINK_MAX);
+    return FIGMA_FILE.test(l) ? l : '';
+  }
+  function pushPrompt(id, link){
+    return 'Push this component to the project\'s Figma file, ' + link + ': create this component if it is missing, update it if it changed.\n\n'
+      + '/pb:handoff --mode=3 --scope=components --component ' + id;
+  }
   function openPush(id){
+    if (!PB_NODES[id] || PB_NODES[id].error) return;      // nothing was built for it: there is nothing to push
     var json = JSON.stringify(PB_NODES[id] || {}, null, 2);
     var gaps = (PB_NODES[id] && PB_NODES[id].gaps) || [];
-    var dlg = document.getElementById('pushdlg') || (function(){
-      var d = document.createElement('dialog'); d.id='pushdlg'; d.className='pushdlg'; document.body.appendChild(d); return d;
-    })();
-    dlg.innerHTML = '<div class="pd-head"><b>Push “'+pbEscape(id)+'” to Figma</b><button class="x" onclick="document.getElementById(\'pushdlg\').close()">×</button></div>'
-      + '<div class="pd-body"><p>DS Bridge node JSON — paste into the plugin’s <b>Code → Figma</b> tab, then Build.</p>'
-      + '<textarea readonly id="pushta">'+pbEscape(json)+'</textarea>'
-      + (gaps.length ? '<div class="gapnote">⚠ '+gaps.length+' gap(s): a DS key/variable is missing — resolve at /pb:pull-ds (Scan DS). Never invented.</div>' : '')
-      + '</div><div class="pd-foot"><button class="primary" onclick="pbCopyPush()">Copy</button><button onclick="document.getElementById(\'pushdlg\').close()">Close</button></div>';
-    dlg.showModal();
+    var link = figmaFile(), page = document.querySelector('.cmp[data-id="' + CSS.escape(id) + '"]');
+    var old = document.getElementById('pushdlg'); if (old) { if (old.open) old.close(); old.remove(); }
+    var d = document.createElement('dialog');
+    d.id = 'pushdlg'; d.className = 'pb-dlg ds-push'; d.setAttribute('aria-labelledby', 'pushdlg-t');
+    d.innerHTML = '<div class="pb-dlg-h"><h2 id="pushdlg-t">Push “' + pbEscape(id) + '” to Figma</h2>'
+      + '<button type="button" class="pb-ib" data-close title="Close" aria-label="Close">' + pbUiIcon('x', 'pb-ico--lg') + '</button></div>'
+      + '<div class="pb-dlg-b ds-push-b">'
+      + '<section class="ds-path" data-path="json"><h3>Copy JSON</h3>'
+      + '<p>For the DS Bridge plugin: paste it into the plugin’s <b>Code → Figma</b> tab, then Build.</p>'
+      + '<textarea readonly id="pushta" aria-label="Node JSON for the DS Bridge plugin">' + pbEscape(json) + '</textarea>'
+      + (gaps.length ? '<p class="ds-gap">' + gaps.length + ' gap' + (gaps.length === 1 ? '' : 's') + ': a design-system key or variable is missing — resolve it at <code>/pb:pull-ds</code> (Scan DS). Never invented.</p>' : '')
+      + '<div class="ds-path-act"><button type="button" class="pb-btn pb-btn--solid" data-copy-json>' + pbUiIcon('copy') + 'Copy JSON</button></div></section>'
+      + '<section class="ds-path' + (link ? '' : ' is-off') + '" data-path="prompt"><h3>Copy prompt for Claude</h3>'
+      + '<p>Paste it into Claude Code: it writes the component into the project’s Figma file through the Figma MCP.</p>'
+      + (link
+          ? '<textarea readonly id="pushpr" aria-label="Prompt for Claude">' + pbEscape(pushPrompt(id, link)) + '</textarea>'
+          : '<div class="ds-path-off"><b>Add the project\'s Figma file in Project settings.</b>'
+            + '<span>The prompt names the file to write to, so it needs one first.</span>'
+            + '<button type="button" class="pb-btn" data-open-settings>' + pbUiIcon('sliders') + 'Open Project settings…</button></div>')
+      + '<div class="ds-path-act"><button type="button" class="pb-btn pb-btn--solid" data-copy-prompt' + (link ? '' : ' disabled title="Add the project\'s Figma file in Project settings first"') + '>'
+      + pbUiIcon('copy') + 'Copy prompt</button></div></section>'
+      + '</div>';
+    document.body.appendChild(d);
+    d.addEventListener('click', function(e){
+      if (e.target === d || e.target.closest('[data-close]')) { d.close(); return; }
+      if (e.target.closest('[data-copy-json]')) { pbUiCopy(json, 'Copied the node JSON'); return; }
+      if (e.target.closest('[data-copy-prompt]') && link) { pbUiCopy(pushPrompt(id, link), 'Copied the prompt'); return; }
+      if (e.target.closest('[data-open-settings]')) {
+        d.close();
+        openSettings(page && page.querySelector('.push'), function(){ openPush(id); });
+      }
+    });
+    d.addEventListener('close', function(){
+      if (d.isConnected) setTimeout(function(){ if (!d.open) d.remove(); }, 0);
+      var b = page && page.querySelector('.push'); if (b && !document.querySelector('dialog[open]')) b.focus();
+    });
+    d.showModal();
+    d.querySelector('[data-close]').focus();
   }
-  function pbCopyPush(){ var ta=document.getElementById('pushta'); ta.select(); try{ document.execCommand('copy'); pbToast('Copied node JSON'); }catch(e){} }
 
   buildDS();
 </script>
