@@ -2,6 +2,97 @@
 
 All notable changes to Product Builder. Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [2.2.0] — 2026-10-05
+
+*A minor: everything is additive, no command is removed and no schema changes. pb used to start more than
+it needed and never clean up after itself. Measured on three real projects in one morning: tests booted
+their own server and browser 156 of 183 times; agents hand-wrote about 740 browser scripts; up to four
+headless browsers (about 0.6 GB each) ran at once; preview servers never exited, and three of the four
+still running were orphans; and nothing that grew — explore rounds, backups, the server log — was ever
+flagged or pruned. This release bounds what pb starts and shows what it leaves behind.*
+
+**Two behaviours change, and you will notice both.** `test_run.py` now **reuses your running preview**
+instead of booting its own server (it prints `reusing the running preview at <url>`; `--isolated` gets the
+old behaviour), and a preview server now **stops itself after 30 minutes** with no browser tab open and no
+request (`--idle-exit 0` turns that off). Everything else below is new surface.
+
+### Browsers: a limit, reuse, one run, and one tool to look
+
+*Every test mode launched its own Chromium, every screenshot round another, and an agent that wanted to
+see a screen wrote a Playwright script and left a server behind it.*
+
+- **At most 3 headless browsers at once, per machine and user.** Every browser pb opens for tests,
+  screenshots, `explore.py check --shots` and `spec_measure.py` (`/pb:build`'s component
+  measuring) goes through one door, `pb/tools/browser.py`. A fourth waits
+  for a slot (`waiting for a browser slot (3 in use) …`, printed once); a crashed holder frees its slot
+  by itself. `PB_BROWSER_SLOTS` sets the limit (`0` = none) and `PB_BROWSER_WAIT` the wait (default 120 s).
+  **The limit fails open:** past the wait, one `note:` line says it was not honoured and the browser
+  starts anyway, so it can slow a run but never fail one.
+- **Tests reuse the running preview.** With no flag, `test_run.py` attaches to this project's `/pb:preview`
+  when it is up and boots a private server — stopped at the end — only when it is not. `--isolated`
+  always boots the private one; `--attach [URL]` is unchanged.
+- **`test_run.py --all`: three modes, one browser.** Functional, roles and server run in one process,
+  over one transport, with a fresh browser context per mode. Each prints under its own
+  `── test_run.py --all · <mode> ──` header, the run ends with
+  `test_run.py --all: functional exit N · roles exit N · server exit N` and exits with the worst code.
+  `--json` writes `{"mode": "all", "modes": {…}}`. Single-mode runs print and exit exactly as before. The
+  default `/pb:test` battery uses it, and hands the three browser lanes to one `pb-tester` instead of three.
+- **`shot.py` — look at a screen without writing a script.**
+  `shot.py registry.json --screen <id>` (or `--path /explore/<id>/<slot>`, or a loopback `--url`) reuses
+  the preview, opens one browser for every `--viewport` (default 1440x900 and 390x844) and prints the path
+  of each PNG, under `.preview/shots/`. `--role`, `--selector`, `--click`, `--wait-for`, `--full-page`,
+  `--eval` (prints the JSON result) and `--console` (exit 1 on console errors) cover what the hand-written
+  scripts were for. Exit 3 means it could not run — blocked, not passed.
+- **Agents are told.** `/pb:test`, `/pb:explore`, `/pb:build`, `/pb:orchestrate`, `/pb:preview`, the
+  builder, design-system, explorer and tester agents and the layout, component-build, design-compare and
+  sandbox-test skills now say: never hand-write a Playwright script to look at a prototype, never start
+  `serve.py` with `&` or `nohup`, never `kill` a preview. The rule is written once, in `CLAUDE.md`
+  § *pb bounds its own footprint*.
+
+### The preview server: stops itself, quieter, controllable
+
+*A preview ran until someone remembered it, polled the disk every 0.3 s all day, and the only way to end
+it was `kill`.*
+
+- **It exits when idle.** After 30 minutes with no tab connected and no request, it logs
+  `idle for 30 min — stopping (explore.py link or /pb:preview starts it again)`, removes
+  `.preview/server.json` and exits. An open tab keeps it alive. `--idle-exit MINUTES` (`0` = never) or
+  `PB_PREVIEW_IDLE_MIN` changes it. `/pb:preview` and `explore.py link` start it again; `test_run.py` and
+  `shot.py` boot a private server for their own run when none is up, and stop it when they finish.
+- **Quieter while nobody watches, never stale.** It checks files every 0.3 s while a tab is open or a
+  request arrived in the last minute, every 2 s otherwise — and a page request checks first, so a page is
+  never rendered from older files than the ones on disk.
+- **A burst of saves is one reload.** `--debounce-ms` (default 300; `0` = reload on the first change)
+  waits for the saves to settle, at most 2 s. One save still reloads in about half a second.
+- **Status and stop without `kill`.** `serve.py --status` prints url, pid, uptime, open tabs and idle
+  time (exit 0 running, 1 not); `serve.py --stop` ends it, but only after its health check confirms the
+  server is this project's and the pid is the recorded one. Both take `--json`. `/__pb_health` gains
+  `clients`, `idleSeconds` and `startedAt`.
+
+### The long run: see it, prune it, no round left open
+
+*Nothing expired. Explore rounds sat open for days; closed rounds, `memory/backups/`, `.pb-backups/`
+and `.preview/server.log` only grew; and the health report watched none of them.*
+
+- **`/pb:clean`.** A dry run by default: open explore rounds (with age), closed rounds, `memory/backups/`,
+  `.pb-backups/`, `.preview/server.log`, `.preview/shots/`, scratch `render/_candidates/` folders no round
+  owns, and the preview server's state. `--apply` on its own does only the always-safe set — removes those
+  orphan folders, trims a log over 1 MB to its last 256 KB, deletes the screenshots — and **never** a
+  backup or a closed round. **Those go only with a number you give:** `--keep-backups N` (the newest N in
+  each of the two backup folders) and `--keep-closed N`. It never touches an open round and never stops a
+  server. `/pb:update-version` still never deletes a backup; `/pb:clean --keep-backups N` is the one
+  explicit exception.
+- **Health budgets.** `/pb:test`'s ranked health report has a `resources` block: the registry's largest
+  key, backups, open and closed rounds, the server log, orphan candidate folders and the preview server.
+  A crossed budget ranks a line that names the fix (`clean.py --apply --keep-backups 10`,
+  `explore.py reject <id>`, `serve.py --stop`). The budgets are `backups_mb` 50 · `backups_count` 20 ·
+  `explore_open_days` 3 · `explore_closed_mb` 50 · `server_log_kb` 1024 · `registry_key_share` 0.35 ·
+  `preview_idle_min` 60, all overridable in `memory/doctor.json`. It still ranks and never gates.
+- **Stale rounds say so.** `explore.py list` shows each open round's age (`· open 5d`) and `STALE` past
+  `--stale-days` (default 3); `promote` and `reject` end with
+  `still open: <id> (5d, STALE), … — promote or reject each once it is decided`, so a round is never left
+  open silently. `.preview/server.log` is trimmed whenever `explore.py` starts a server.
+
 ## [2.1.0] — 2026-10-03
 
 *A minor: everything is additive and no command is removed. Four problems from real projects (an HR
