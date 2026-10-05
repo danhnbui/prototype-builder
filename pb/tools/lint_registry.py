@@ -50,7 +50,9 @@ Usage:  python3 lint_registry.py [--strict] [--exec] [--report] [--sync-elements
 --report        rank, never gate: a histogram by code, the items carrying the most, the
                 shape metrics, and a "fix first" list. ALWAYS exits 0 — at 87 findings on a
                 real project a flat list is unreadable, and the ordering is the product.
-                Thresholds from an optional memory/doctor.json beside the registry.
+                Thresholds from an optional memory/doctor.json beside the registry. Also a
+                `resources` block — the registry's largest keys, backups, open and closed explore
+                rounds, .preview/server.log, the preview server — ranked with the command that fixes it.
 --sync-elements APPEND a screens[].elements[] entry per composed-but-undeclared component.
                 Append-only and idempotent; never edits, reorders or removes an entry. Takes the
                 registry lock (exit 2 with a message naming the holder if it is held) and writes
@@ -1266,6 +1268,100 @@ def _pascal_calls(text, cid):
     return f"renderCmp{pascal(cid)}" in text
 
 
+def _th(th, key, default):
+    """A threshold as a number: a hand-edited memory/doctor.json value that is not one falls back to the default."""
+    try:
+        v = float(th.get(key, default))
+    except (TypeError, ValueError):
+        return float(default)
+    return v if v == v else float(default)
+
+
+def _resources(reg, path, base_dir, th, flag):
+    """--report's `resources` block: what the project has piled up, ranked, with the fix named.
+
+    Prints its rows and returns the "fix first" lines it earned. Measured by clean.py (the tool that
+    prunes it), so the number here and the number there are one measurement. Never raises for a
+    project that has no memory/, no explore/ or no .preview/ — each is just zero."""
+    import clean as _clean
+    base_dir = base_dir or "."
+    rank = []
+
+    # registry weight: which top-level key (and which key under meta) holds the bytes
+    total = max(1, len(json.dumps(reg, ensure_ascii=False)))
+    top = sorted(((len(json.dumps(v, ensure_ascii=False)), k) for k, v in reg.items()), reverse=True)
+    if top:
+        size, key = top[0]
+        share = size / total
+        # a key of a few KB is never the problem, however large its share of a small registry
+        heavy = share > _th(th, "registry_key_share", 0.35) and size / 1024 > _th(th, "slice_kb", 20)
+        print(f"  largest key         {key} ({size / 1024:.0f} KB, {share:.0%} of registry){flag(heavy)}")
+        if heavy:
+            rank.append(f"registry key '{key}' is {size / 1024:.0f} KB — {share:.0%} of registry.json, which every "
+                        f"command loads; move the bulk to a sidecar (renderSrc / specSrc / logicSrc for a component "
+                        f"or screen); slice.py reads one slice at a time")
+    meta = reg.get("meta")
+    if isinstance(meta, dict) and meta:
+        msize, mkey = max((len(json.dumps(v, ensure_ascii=False)), k) for k, v in meta.items())
+        print(f"  largest meta key    meta.{mkey} ({msize / 1024:.0f} KB, {msize / total:.0%} of registry)")
+
+    data = _clean.scan(os.path.abspath(base_dir), os.path.abspath(path))
+    mb = 1024 * 1024
+    places = data["backups"]
+    n_back = sum(v["count"] for v in places.values())
+    b_bytes = sum(v["bytes"] for v in places.values())
+    over_b = n_back > _th(th, "backups_count", 20) or b_bytes / mb > _th(th, "backups_mb", 50)
+    print(f"  backups             {n_back:5d} ({places['memory/backups']['count']} in memory/backups/ · "
+          f"{places['.pb-backups']['count']} in .pb-backups/)  {b_bytes / mb:.1f} MB{flag(over_b)}")
+    if over_b:
+        rank.append(f"{n_back} backups, {b_bytes / mb:.0f} MB — nothing prunes them on its own; keep the newest 10 in each place: "
+                    f"clean.py --apply --keep-backups 10 (run `clean.py` first to see what it would delete)")
+
+    op = data["open"]
+    oldest = max(op, key=lambda r: r["ageDays"], default=None)
+    over_o = bool(oldest) and oldest["ageDays"] > _th(th, "explore_open_days", 3)
+    print(f"  explore open        {len(op):5d}" + (f"  (oldest {oldest['target']}, {oldest['ageDays']:.1f} days)" if oldest else "")
+          + flag(over_o))
+    if over_o:
+        old = [r for r in op if r["ageDays"] > _th(th, "explore_open_days", 3)]
+        rank.append(f"{len(old)} explore round(s) open more than {_th(th, 'explore_open_days', 3):g} days "
+                    f"(oldest: {oldest['target']}, {oldest['ageDays']:.0f} days) — decide it, or drop it: "
+                    f"explore.py reject {oldest['target']}")
+
+    c = data["closed"]
+    over_c = c["bytes"] / mb > _th(th, "explore_closed_mb", 50)
+    print(f"  explore closed      {c['count']:5d} round(s)  {c['bytes'] / mb:.1f} MB{flag(over_c)}")
+    if over_c:
+        rank.append(f"closed explore rounds take {c['bytes'] / mb:.0f} MB in {c['count']} round(s) — keep the newest 5: "
+                    f"clean.py --apply --keep-closed 5")
+
+    log_kb = data["serverLog"]["bytes"] / 1024
+    over_l = log_kb > _th(th, "server_log_kb", 1024)
+    print(f"  server.log          {log_kb:8.0f} KB{flag(over_l)}")
+    if over_l:
+        rank.append(f".preview/server.log is {log_kb:.0f} KB — clean.py --apply trims it to its last 256 KB")
+
+    orph = data["candidates"]["orphans"]
+    if orph:
+        print(f"  candidate folders   {len(orph):5d} with no open round  ⚠")
+        rank.append(f"{len(orph)} render/_candidates/ folder(s) belong to no open round "
+                    f"({', '.join(o['target'] for o in orph[:4])}) — clean.py --apply removes them")
+
+    sv = data["server"]
+    if sv.get("running"):
+        idle = sv.get("idleSeconds")
+        idle_min = idle / 60.0 if isinstance(idle, (int, float)) else None
+        stuck = idle_min is not None and idle_min >= _th(th, "preview_idle_min", 60)
+        print(f"  preview server      running at {sv['url']}"
+              + (f", idle {idle_min:.0f} min" if idle_min is not None else "") + flag(stuck))
+        if stuck:
+            rank.append(f"the preview server has sat idle for {idle_min:.0f} min — serve.py --stop "
+                        f"(a current server stops itself when idle; this one predates that, or was started with --idle-exit 0)")
+    else:
+        print("  preview server      not running")
+    return rank
+
+
 def report(reg, path, base_dir, findings):
     """--report (D-22): rank, never gate. Always exits 0.
 
@@ -1276,7 +1372,10 @@ def report(reg, path, base_dir, findings):
     """
     import collections
     th = {"body_lines_warn": 500, "body_lines_high": 1000, "registry_kb": 500,
-          "slice_kb": 20, "decisions_kb": 500}
+          "slice_kb": 20, "decisions_kb": 500,
+          # the resources block (clean.py's pile): how much a project may accumulate before it is ranked
+          "backups_mb": 50, "backups_count": 20, "explore_open_days": 3, "explore_closed_mb": 50,
+          "server_log_kb": 1024, "registry_key_share": 0.35, "preview_idle_min": 60}
     cfg = os.path.join(base_dir or ".", "memory", "doctor.json")
     if os.path.isfile(cfg):
         try:
@@ -1344,6 +1443,13 @@ def report(reg, path, base_dir, findings):
         rotated = f"  (+{sibs} rotated sibling{'s' if sibs != 1 else ''})" if sibs else ""
         print(f"  decisions log       {d_kb:8.0f} KB{flag(d_kb > th['decisions_kb'])}{rotated}")
 
+    print("\n── resources " + "─" * 47)
+    try:
+        res_rank = _resources(reg, path, base_dir, th, flag)
+    except Exception as e:      # rank, never gate — and never crash on a project that lacks a folder
+        res_rank = []
+        print(f"  (resources unavailable: {type(e).__name__}: {e})")
+
     print("\n── information (never a finding) " + "─" * 27)
     # Orphans. GUARDED: a component is reached by pbUse OR by a direct renderCmp* call.
     # Without the second clause this reports 36 on a project whose true count is 0.
@@ -1388,6 +1494,7 @@ def report(reg, path, base_dir, findings):
         rank.append(f"decisions log at {d_kb:.0f} KB — rotate it: "
                     f"decisions_rotate.py memory/decisions.md --apply "
                     f"(whole entries, by date, verified lossless)")
+    rank.extend(res_rank)
     for i, r in enumerate(rank, 1):
         print(f"  {i}. {r}")
     if not rank:
