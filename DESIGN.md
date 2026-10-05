@@ -8,7 +8,7 @@ rather than against taste.
 Read this before changing the render path, the registry contract, the tool surface, or the loop.
 Point changes do not need it.
 
-**Status:** v2.1 (unreleased; the last tag is v2.0.0) · schema 13 · last reviewed 2026-10-03
+**Status:** v2.2 (unreleased; the last tag is v2.1.0) · schema 13 · last reviewed 2026-10-05
 **History** lives in [docs/remediation-decisions.md](docs/remediation-decisions.md) (D-1…D-30) and
 per-project `memory/decisions.md`. Those are append-only; this file is edited in place.
 
@@ -164,6 +164,14 @@ an invariant with no enforcement is a wish.
   sees half a file. A crash drops the lock with its process, so none goes stale.
   *Enforced by:* `slice.py` (the one implementation); `tests/slice_cli.py`, `tests/serve_meta.py`,
   `tests/tool_cli.py`, `tests/specs_shape.py`, `tests/spec_measure.py`.
+- **I-10 · pb bounds its own footprint.** At most **3** headless browsers run at once on a machine (the
+  limit **fails open** — past a wait it proceeds with a note, so it is a courtesy and never a reason a
+  test cannot run); a preview server **exits when idle** (30 minutes with no tab and no request);
+  tests **reuse the running preview** rather than boot their own; and **nothing is deleted without an
+  explicit keep flag** — `/pb:clean --apply` alone never removes a backup or a closed round. A tool that
+  starts a process or grows a file answers for how it ends and how it is pruned.
+  *Enforced by:* `tests/browser_slots.py`, `tests/serve_idle.py`, `tests/test_run_reuse.py`,
+  `tests/clean_tool.py`, `tests/health_resources.py`.
 
 ## Alternatives rejected
 

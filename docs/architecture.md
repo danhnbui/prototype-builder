@@ -24,11 +24,11 @@ prototype-builder/
 ├─ pb/                          # the plugin
 │  ├─ .claude-plugin/
 │  │  └─ plugin.json            # name "pb", version 2.0.0 — the shell version stamp reads THIS file
-│  ├─ commands/                 # the 13 /pb:* command bodies (*.md)
+│  ├─ commands/                 # the 14 /pb:* command bodies (*.md)
 │  ├─ agents/                   # the 9 pb-* subagents, installed by tools/agents_install.py
 │  ├─ skills/                   # the 18 capability skills the commands invoke
 │  ├─ migrations/               # manifest.py (CURRENT_SCHEMA) + the 000N_* version updates
-│  ├─ tools/                    # 21 stdlib tools; render.py + serve.py are the load-bearing two
+│  ├─ tools/                    # 27 stdlib tools; render.py + serve.py are the load-bearing two
 │  │  ├─ render.py              # deterministic registry.json → prototype.html / design-system.html
 │  │  └─ serve.py               # the one preview server: `/` and `/design-system`
 │  └─ template/                 # seeds copied into each project at /pb:init

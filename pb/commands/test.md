@@ -27,13 +27,24 @@ tab's glyphs read.
 | `--security` | Only the static security scan |
 | `--drift` | Only §7–§10, the read-only audits (the old `/pb:check-drift`) |
 | `--story <id\|title>` | Scope the scenario run to one story |
-| `--attach [URL]` | **Transport, not a mode.** Reuse the running `/pb:preview` instead of booting a headless one. Composes with every mode |
+| `--attach [URL]` | **Transport, not a mode.** Attach to a running `/pb:preview` you name (bare `--attach` discovers it from `.claude/launch.json` or `127.0.0.1`). Composes with every mode. Since v2.2 this is no longer needed to reuse the preview — see *Transport* below |
+| `--isolated` | **Transport, not a mode.** Boot a private server for this run even when the project's preview is running. Cannot be combined with `--attach` |
 | `--strict` | Promote the pre-flight lint to strict and **fail-closed** — stop before running anything |
 | `--no-delegate` | Answer the plan in **this** context instead of dispatching subagents (§2b) — stamps the report self-graded |
 | `--save` | Also write the drift report to `memory/drift-reports/<YYYY-MM-DD-HHMMSS>.md` |
 | `--render` | After the run, regenerate `prototype.html` so the glyphs land in the snapshot |
 
 `$ARGUMENTS` may also name a single principle (e.g. `principle #3`) to scope the drift audit.
+
+**Transport (v2.2).** `test_run.py` **reuses this project's running `/pb:preview`** when there is one
+(it prints `reusing the running preview at <url>`) and boots a private server — stopped at the end of
+the run — only when there is none. `--isolated` forces the private server; `--attach [URL]` is the
+explicit form and behaves as it always did. **Browsers:** every one goes through `tools/browser.py`,
+which allows **3 headless browsers at once on the machine** (`PB_BROWSER_SLOTS`, default 3, `0` = no limit;
+`PB_BROWSER_WAIT`, default 120 s, after which it proceeds anyway with a `note:` — the limit never makes
+a test fail). The default battery runs its three browser modes (§3 · §4 · §5) as **one**
+`test_run.py --all`: one transport, one browser, a fresh context per mode. Canonical text:
+`CLAUDE.md` § *pb bounds its own footprint*.
 
 ## 1 · Pre-write schema check
 Apply the **Schema compatibility** check from `CLAUDE.md`. This command writes only
@@ -186,18 +197,27 @@ by a **fresh agent that has never seen this conversation**.
 
 Launch **`pb-tester` subagents** via the **Task tool** with `model: sonnet`, **all in one message** so
 they run concurrently:
-- **One agent per lane** that produced items.
+- **One agent per lane** that produced items — **except the three browser lanes (§3 functional · §4
+  roles · §5 server), which share one agent** when each holds ≤25 items: that agent runs
+  `test_run.py … --all` once (one transport, one browser) and answers all three lanes from its three
+  labelled sections. Parallel browser agents are what filled a machine with headless Chromiums.
 - A lane over **25 items** splits — by story (§3/§4), by screen (§5), by principle (§7) — into chunks
-  of ≤25, one agent each.
+  of ≤25, one agent each. Chunked browser lanes each run their own single-mode command (§3–§5); all of
+  them reuse the one preview, and the 3-browser limit makes the surplus wait rather than pile up.
 - **Never more than 8 agents in one run.** Past that make the chunks bigger, not the fan-out wider.
 
 `pb-tester` ships `model: inherit`, so the pin belongs at the dispatch site — it also runs
 `/pb:orchestrate`'s acceptance gate, where inheriting is right. If the host cannot pin a model, dispatch
 anyway and say so: sonnet is the cost choice, but the **fresh context is the load-bearing half**.
 
+**One preview for every lane.** Testers reuse the running preview by default, so **never** hand one
+`--isolated` or tell it to start a server. When no preview is running and more than one browser agent
+will be dispatched (chunked lanes), start one first — `/pb:preview` §1 — so they share it instead of each
+booting a private server; it stops by itself after 30 idle minutes.
+
 **Hand each agent exactly this and nothing more:** the absolute path to the plan file and **the item
-ids it owns**; the path to `registry.json` plus the preview URL (or the instruction to run one headless
-instance); the literal command(s) for its lane, copied from §3–§10; and the skill name `sandbox-test`.
+ids it owns**; the path to `registry.json` plus the preview URL when one is running (otherwise nothing:
+`test_run.py` boots a private server by itself); the literal command(s) for its lane, copied from §3–§10; and the skill name `sandbox-test`.
 
 **Never hand an agent:**
 - any framing from this conversation — what changed, what was just built, what is expected to pass;
@@ -224,9 +244,17 @@ unavailable, never to save a round trip on a design this session just wrote.
 
 ## 3 · Authored scenarios
 Invoke the **sandbox-test** skill for the `test{}` vocabulary, target resolution, and the
-fail-closed discipline. Then:
+fail-closed discipline. The default battery runs §3, §4 and §5 together:
 ```
-python3 "${CLAUDE_PLUGIN_ROOT}/tools/test_run.py" registry.json --functional [--attach [URL]] [--story <id|title>] [--json <out>]
+python3 "${CLAUDE_PLUGIN_ROOT}/tools/test_run.py" registry.json --all [--attach [URL] | --isolated] [--story <id|title>] [--json <out>]
+```
+It prints each mode under `── test_run.py --all · <mode> ──`, ends with
+`test_run.py --all: functional exit N · roles exit N · server exit N`, and exits with the **worst** of
+the three (3 if it could not run at all). `--all` cannot be combined with a mode flag; `--json` writes
+`{"mode": "all", "modes": {…}}`. A mode flag narrows the run to the single-mode commands below, whose
+output and exit codes are unchanged. §3:
+```
+python3 "${CLAUDE_PLUGIN_ROOT}/tools/test_run.py" registry.json --functional [--attach [URL] | --isolated] [--story <id|title>] [--json <out>]
 ```
 For each scenario the tester sets `state.protoScreenId = test.start`, performs each `steps[]` action
 (`fill` · `click` · `nav` · `submit` · `toggle-password` · `back`) against `#proto-frame`, then verifies
@@ -240,7 +268,7 @@ every declared role passes. `test.seed` is applied too.
 
 ## 4 · Role gating
 ```
-python3 "${CLAUDE_PLUGIN_ROOT}/tools/test_run.py" registry.json --roles [--attach [URL]]
+python3 "${CLAUDE_PLUGIN_ROOT}/tools/test_run.py" registry.json --roles [--attach [URL] | --isolated]
 ```
 Walks every screen per role, asserting gated screens and elements are visible only to permitted roles
 (an `isAdmin` role bypasses), then runs the authored scenarios per role. Visibility sampling alone
@@ -250,7 +278,7 @@ expects: they test **presence, not visibility**, so a CSS-hidden element still c
 
 ## 5 · Server health
 ```
-python3 "${CLAUDE_PLUGIN_ROOT}/tools/test_run.py" registry.json --server [--attach [URL]]
+python3 "${CLAUDE_PLUGIN_ROOT}/tools/test_run.py" registry.json --server [--attach [URL] | --isolated]
 ```
 `GET /` returns 200, `/__pb_events` is an SSE stream, every screen renders with no console errors, and
 every `data-nav` / `data-go` / `data-redirect` target resolves to a real screen id.
@@ -284,7 +312,10 @@ python3 "${CLAUDE_PLUGIN_ROOT}/tools/lint_registry.py" registry.json --report
 ```
 **Always exits 0** — it ranks, it never fails a build. A histogram by finding code, the items carrying
 the most findings, the shape metrics (registry size, oversized render bodies, the largest slice, the
-decisions-log size), and a "fix first" list. Thresholds come from an optional `memory/doctor.json`.
+decisions-log size), a **`resources` block** (the largest registry key, backups, open and closed explore
+rounds, `server.log`, orphan candidate folders, whether a preview server is running and for how long it
+has been idle — a crossed threshold ranks a line naming the fix, usually `/pb:clean`), and a "fix first"
+list. Thresholds come from an optional `memory/doctor.json`.
 
 Two lines are **information, never defects**: unreferenced tokens (a design system ships full ramps) and
 a present-but-all-zero `staleness` slice (deprecated — nothing writes it). Do not propose fixes for either.
@@ -365,7 +396,10 @@ python3 "${CLAUDE_PLUGIN_ROOT}/tools/render.py" registry.json \
 Otherwise stop after the report — the written `lastResult` is picked up live by `/pb:preview`.
 
 ## NEVER
-- NEVER boot a second preview server — reuse the one `/pb:preview` (`--attach`) or a single headless run.
+- NEVER boot a second preview server — `test_run.py` reuses this project's running `/pb:preview` by
+  default; `--isolated` is for a run that must not touch it, and it stops its own server when done.
+- NEVER hand-write a Playwright script, start `serve.py` with `&` / `nohup`, or `kill` a preview —
+  `CLAUDE.md` § *pb bounds its own footprint* (`shot.py` to look, `serve.py --stop` to stop).
 - NEVER edit screens / components / logic to make a test pass — tests observe the design, they don't shape it.
 - NEVER claim a pass without an actual run — an unexecuted scenario is `untested` (`○`), not `pass`.
 - NEVER write anything but `flow.stories[].lastResult` back to the registry, and never touch
