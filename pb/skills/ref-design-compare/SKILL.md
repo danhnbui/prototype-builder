@@ -66,7 +66,9 @@ phone's edge and clipped a status pill off-screen, and reading the CSS did not c
 
 Presenting something you have not rendered yourself is the most common way this goes wrong. In pb:
 `explore.py check <id> --shots` renders every option and writes a desktop and a phone screenshot per
-option — open each image. Exit 3 (no Playwright) means the gate is **blocked**, not passed.
+option — open each image. To look at one option again, `python3 "${CLAUDE_PLUGIN_ROOT}/tools/shot.py"
+registry.json --path /explore/<id>/<slot>` — never a hand-written Playwright script. Exit 3 (no
+Playwright) means the gate is **blocked**, not passed.
 
 ## 4 · The score sheet (presenting)
 

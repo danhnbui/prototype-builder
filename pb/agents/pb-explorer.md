@@ -47,6 +47,10 @@ decide; build the nearest thing the plan does say.
 - Never change `renderFn`, a prop's name or its meaning.
 - Never add a candidate header comment — a body says what it does, never that it is a candidate; it is
   promoted as is.
+- Never hand-write a Playwright script, start `serve.py` with `&` / `nohup`, or `kill` a preview. You do
+  not need a browser: the coordinator looks (`explore.py check --shots`, `shot.py`). If you must see
+  your slot, `python3 "${CLAUDE_PLUGIN_ROOT}/tools/shot.py" registry.json --path /explore/<id>/<slot>`
+  — `CLAUDE.md` § *pb bounds its own footprint*.
 - Never reflect, self-review or grade your own result, and never propose alternatives — the plan is
   the contract, and `explore.py check --shots` and the user's rubric verify the result.
 - Never ask the user anything. If the plan cannot be built as written, build what can be and say what

@@ -43,7 +43,8 @@ current version.
 - Keep `plugin.json`'s `version` **stable** while iterating so reloads don't re-cache; bump it only on
   release. (The shell stamp tracks `plugin.json`, so a bump is how a release becomes visible.)
 - Run `/pb:preview` from a **persistent terminal** (not one tied to a session you cycle) so the server
-  survives reloads.
+  survives reloads. Since v2.2 a preview stops itself after 30 minutes with no browser tab open and no
+  request (`--idle-exit 0` keeps it running; `serve.py --status` / `--stop` inspect and end it).
 
 ## Symptom → layer → fix
 

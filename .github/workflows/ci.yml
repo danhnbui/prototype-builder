@@ -27,7 +27,7 @@ env:
     chrome_states handler_escape ia_view responsive spec_measure ui_primitives
   # A stdlib half that passes in unit with the browser half skipped; e2e runs them again, whole.
   BROWSER_HALF: >-
-    chrome_foundation logic_blocks r5_ds_site tc_shapes tradeoff_rules
+    chrome_foundation logic_blocks r5_ds_site tc_shapes tradeoff_rules test_run_reuse shot_tool
 
 jobs:
   unit:

@@ -32,18 +32,35 @@ you. (An in-app preview pane is optional; see the macOS note.)
   (a watch-mode `/pb:build --render`). The written files are clean — the live-reload script is injected
   into the served pages only.
 - `--no-open` — don't open the browser on start.
+- `--idle-exit <MINUTES>` — stop by itself after this many minutes with no browser tab open and no
+  request (float; default **30**; `0` = never). `PB_PREVIEW_IDLE_MIN` sets the default for every start.
+  See §4.
+- `--debounce-ms <N>` — fold a burst of saves into one reload: wait this long with no further change, at
+  most 2 s (default **300**; `0` = reload on the first change seen).
+- `--status [--json]` — print this registry's running preview (url, pid, uptime, clients, idle seconds)
+  and exit: `0` running, `1` not. Starts nothing. `--stop [--json]` — stop it (§4). The two cannot be
+  combined.
 - `<registry.json>` — preview a registry other than `./registry.json`.
 
 ## 1 · Launch (from the project root, in the background)
 ```
 python3 "${CLAUDE_PLUGIN_ROOT}/tools/serve.py" registry.json
 ```
-(In-place dev tree: `python3 pb/tools/serve.py registry.json`.) Start it as a **background** process —
-it runs until stopped — then report the `preview http://…` URL from its startup banner. The server
-opens that URL in your browser automatically unless `--no-open`.
+(In-place dev tree: `python3 pb/tools/serve.py registry.json`.) First ask whether one is already up:
+`serve.py registry.json --status` exits `0` and prints its URL when this project's preview is running —
+then report that URL and start nothing. Otherwise start it as a **background task of the host** (the
+Bash tool's `run_in_background`), **never** with a trailing `&` or `nohup`: a shell-detached server
+outlives the session with nothing holding its handle, which is how previews became orphans. Then report
+the `preview http://…` URL from its startup banner. The server opens that URL in your browser
+automatically unless `--no-open`. (`explore.py link <id>` starts one the same way when an exploration
+needs it; `test_run.py` and `shot.py` boot one only for their own run.)
 
 ## 2 · Iterate
-Leave it running. Each `/pb:build` (no `--render` needed) re-renders and reloads every open tab.
+Leave it running. Each `/pb:build` (no `--render` needed) re-renders and reloads every open tab. A save
+reloads within about half a second; a burst of saves (a build writing several files) is folded into one
+reload (`--debounce-ms`). The server checks the files every 0.3 s while a tab is open or a request
+arrived in the last minute and every 2 s otherwise — and a page request (`/`, `/design-system`,
+`/explore…`) checks them first, so a page is never rendered from files older than what is on disk.
 A registry that won't render (invalid JSON mid-edit, a missing shell anchor) shows a recoverable
 error page with the cause — fix and save, and it reloads clean.
 
@@ -101,7 +118,8 @@ Same server, same port — an exploration never gets a server of its own. While
 
 **Found by `explore.py link`.** On start the server writes `.preview/server.json` next to the
 registry (url, port, pid, registry) and removes it on exit, Ctrl-C or SIGTERM. `GET /__pb_health`
-(loopback only) names the registry it serves. `explore.py link <id>` reads the record and confirms
+(loopback only) names the registry it serves, its pid, and — since v2.2 — `clients` (open tabs),
+`idleSeconds` and `startedAt`; a health probe is not activity, so it never keeps the server alive. `explore.py link <id>` reads the record and confirms
 through the health route that the server is this project's. It starts one in the background if none
 is, then prints `http://127.0.0.1:<port>/explore/<id>`: the URL every exploration hands the user.
 
@@ -150,11 +168,33 @@ It upserts one entry named `pb-preview · <folder>` (updates in place, never app
 collapses any duplicates for this project, and **never touches entries it doesn't own**. Run it on every
 `/pb:preview` so the pane shows one preview, not a pile.
 
+## 4 · It stops itself — and `--status` / `--stop`
+
+**Idle exit (v2.2).** A preview nobody is looking at is just a process. With no browser tab connected
+(`/__pb_events`) **and** no request for 30 minutes, the server logs
+`idle for 30 min — stopping (explore.py link or /pb:preview starts it again)`, removes
+`.preview/server.json` and exits 0. A tab left open keeps it alive indefinitely; `--idle-exit 0` turns
+the exit off for a server you want to leave running. Anything that needs the preview later — `/pb:preview`,
+`explore.py link`, `test_run.py`, `shot.py` — finds none and starts one, so the exit loses nothing but memory.
+The startup banner says which: `idle exit after 30 min with no tab open and no request` or `idle exit off`.
+
+**Without `kill`.**
+```
+python3 "${CLAUDE_PLUGIN_ROOT}/tools/serve.py" registry.json --status [--json]
+python3 "${CLAUDE_PLUGIN_ROOT}/tools/serve.py" registry.json --stop [--json]
+```
+`--status` prints url, pid, uptime, connected tabs and idle seconds (exit `0` running, `1` not).
+`--stop` sends SIGTERM to the recorded pid **only after** the health check at the recorded URL answers as
+this registry's server and names that same pid; it waits up to 5 s. Exit `0` = stopped, or it was not
+running (a record naming another project's server is left alone); `1` = it is this server and would not
+stop, or its pid could not be confirmed. Never `kill` a preview by hand: a pid read from a stale record
+can belong to something else now.
+
 ## Result
 A watching dev server at `http://127.0.0.1:<port>/` (prototype) + `/design-system` (the component
 workbench) that mirrors `registry.json` live on both routes, viewable in any browser, and takes the
-Project settings save (`POST /api/meta`). Stop it with
-Ctrl-C (or by killing the background process).
+Project settings save (`POST /api/meta`). It stops itself when idle (§4); stop it sooner with
+`serve.py registry.json --stop`, or Ctrl-C if it runs in a terminal of yours.
 
 ## macOS note (in-app preview pane + ~/Desktop)
 Viewing in a **browser always works**, wherever the project lives — the server reads `~/Desktop` fine
@@ -176,3 +216,5 @@ sandboxed working directory.
 - NEVER use this as the hand-off artifact — it's a local dev server. Use `/pb:handoff` to share.
 - NEVER start a second server (or `python3 -m http.server`) to show explore options — they live at
   `/explore/<id>` on this one.
+- NEVER start `serve.py` with `&` or `nohup`, NEVER `kill` it, and NEVER hand-write a Playwright script
+  to look at it — `CLAUDE.md` § *pb bounds its own footprint* (`serve.py --stop`, `shot.py`).

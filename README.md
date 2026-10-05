@@ -1,4 +1,4 @@
-# Product Builder v2.1.0
+# Product Builder v2.2.0
 
 A standalone, CLAUDE.md-native prototype builder for Claude Code. Turn a PRD into two interactive,
 self-documenting sites from **one `registry.json`** — a **4-tab prototype** (a real click-through flow
@@ -31,6 +31,13 @@ holding a glossary over the canonical wording for every action, status and messa
 **keeps the flow and data slices in sync** after any structural patch — no Sync button, no second
 command.
 
+**New in v2.2 — pb bounds its own footprint.** Tests reuse the running preview and run their three browser
+modes in one browser (`test_run.py --all`); no more than 3 headless browsers run at once on the machine; a
+preview server stops itself after 30 idle minutes; agents look at a screen with `shot.py` instead of
+writing Playwright scripts; and the new **`/pb:clean`** shows what a project has piled up (explore rounds,
+backups, logs, screenshots) and prunes it only when told to. Nothing is deleted without an explicit
+keep flag.
+
 **Earlier** — one registry projected into two sites, both rendered by Python at ~0 model tokens
 (v1.11); an agent-powered testing sandbox and a multi-agent orchestrator (v1.5); the unified
 two-column tab layout and the ⌥-hover element inspector (v1.4–v1.9).
@@ -60,7 +67,7 @@ state stays in each prototype's folder.)
 **only** thing pb needs on your machine is **Python 3** (already present on most Macs and Linux; on Windows
 install it from python.org and tick "Add to PATH"). No other setup, no `pip install`.
 
-Those skills are **internal**: each sets `user-invocable: false`, so only the 13 commands appear in the `/`
+Those skills are **internal**: each sets `user-invocable: false`, so only the 14 commands appear in the `/`
 menu. `think-clarify`, for example, is how `/pb:init` and `/pb:specify` decide what to ask — it is not a
 second `/pb:clarify`. `tests/skill_refs_lint.py` keeps it that way.
 
@@ -79,7 +86,7 @@ If `/pb:init` says Python isn't installed, it will tell you exactly how to fix i
 
 ## Commands
 
-Thirteen commands. Flags narrow a command; they are not commands of their own.
+Fourteen commands. Flags narrow a command; they are not commands of their own.
 
 | Command | Does |
 |---|---|
@@ -90,10 +97,11 @@ Thirteen commands. Flags narrow a command; they are not commands of their own.
 | `/pb:plan` | Implementation plan + per-tab task breakdown (acceptance · skill · agent · deps · slice) built from the IA `/pb:clarify` chose (`--ia <job-id> --into <screen-id>` places one late job), and the first authoring of the flow and data slices (`--flow` / `--data` / `--mock`) |
 | `/pb:orchestrate` | Dispatch `memory/tasks.md` to the 8 routable agents of the 9-agent roster in dependency **waves** — serial registry writes, render once per wave, acceptance-gated |
 | `/pb:build` | The cheap loop: targeted `registry.json` patches, trio-gated, no per-tweak render. Runs the DS-first reuse → variant → local check on every new component, and keeps flow + data in sync. `--render` to regenerate both sites |
-| `/pb:preview` | Live preview dev server: watch `registry.json` → render → live-reload. One server, two routes — the prototype at `/`, the design-system workbench at `/design-system` |
+| `/pb:preview` | Live preview dev server: watch `registry.json` → render → live-reload. One server, two routes — the prototype at `/`, the design-system workbench at `/design-system`. Stops itself after 30 idle minutes; `serve.py --status` / `--stop` |
 | `/pb:test` | **Check everything.** No flag = scenarios · roles · server · security · drift · health · shell coherence · DS drift, one verdict. Writes a yes/no test plan, then delegates it to subagents that never saw the design. A flag narrows it (`--drift`, `--roles`, `--security`, …) |
 | `/pb:report` | A retrospective for the pb maintainer: scans the project's decisions log, `memory/`, backups, explore rounds and (opt-in, `--sessions`) session transcripts, then writes one report of facts and ranked proposals for the next pb release to `memory/reports/`. Read-only on the project |
 | `/pb:explore` | An **id** → N agents diverge that render body, scored against a rubric, keep one. A **goal sentence** → the gated discovery pipeline |
+| `/pb:clean` | What the project has piled up — open and closed explore rounds, backups, the preview log, screenshots, scratch candidate folders — as a dry run, then pruned on request. Bare `--apply` does only the always-safe set; a backup or a closed round goes only with an explicit `--keep-backups N` / `--keep-closed N` |
 | `/pb:handoff` | The one hand-off. Asks who is receiving it: **1** everything incl. a vendored Product Builder · **2** engineering (`--tier=host` runnable · `--tier=scaffold` React+Tailwind) · **3** Figma |
 | `/pb:update-version` | Schema version update: dry-run / `--apply` / `--rollback` / `--to <N>` |
 
@@ -117,7 +125,12 @@ Thirteen commands. Flags narrow a command; they are not commands of their own.
 - **`pb/tools/serve.py`** is the preview dev server: it watches `registry.json` and renders through the
   *same* generator in memory, live-reloading the browser on every change (`/pb:preview`). It's the **one**
   preview per project — view it in any browser; `pb/tools/preview_register.py` keeps a single canonical
-  `.claude/launch.json` entry when an in-app preview pane is used. Stdlib-only.
+  `.claude/launch.json` entry when an in-app preview pane is used. Stdlib-only. It exits by itself after
+  30 minutes with no tab open and no request (`--idle-exit`), and `serve.py --status` / `--stop` inspect and
+  stop it without `kill`.
+- **`pb/tools/browser.py`** is the one door pb opens a headless browser through (at most 3 at once per
+  machine; `PB_BROWSER_SLOTS`), **`pb/tools/shot.py`** is how an agent looks at a screen (reusing the
+  preview), and **`pb/tools/clean.py`** is `/pb:clean`. All stdlib; Playwright stays optional.
 - **Memory:** `memory/constitution.md` (Principles + Stack/DS locks), `memory/decisions.md`,
   `design-system/{name}/`.
 

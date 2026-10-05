@@ -33,11 +33,20 @@ POST /api/meta  the Project settings dialog's save (localhost + same-origin only
 under slice.py's registry lock and replace-atomically; every bad request is a 400 with a message, a
 busy registry a 503, a response may carry `warnings`.
 
+The server looks after its own footprint: with no browser tab connected and no request for
+--idle-exit minutes (default 30; 0 = never) it stops itself and removes the record, so a forgotten
+preview does not run for days. It polls the files every 0.3 s while somebody is looking and every
+2 s otherwise (a page request checks synchronously first, so a page is never stale), and folds a
+burst of saves into one reload (--debounce-ms). `--status` and `--stop` read and end the running
+server without a `kill`.
+
 Usage:
   python3 serve.py [registry.json] [--port N] [--host H] [--shell PATH]
-                   [--write [--out PATH]] [--no-open]
+                   [--write [--out PATH]] [--no-open] [--idle-exit MINUTES] [--debounce-ms N]
+  python3 serve.py [registry.json] --status [--json]    exit 0 running · 1 not
+  python3 serve.py [registry.json] --stop [--json]      exit 0 stopped / was not running · 1 could not
 """
-import argparse, glob, importlib, json, mimetypes, os, re, signal, socket, sys, threading, time, traceback, unicodedata, urllib.parse, webbrowser
+import argparse, datetime, glob, importlib, json, mimetypes, os, re, select, signal, socket, sys, threading, time, traceback, unicodedata, urllib.parse, webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from html import escape as _esc
@@ -52,6 +61,19 @@ pbslice = importlib.import_module("slice")
 
 def log(msg):
     print("pb-serve · " + msg, flush=True)
+
+
+# How the server spends time when nobody is looking (WP-B of the resource-hygiene release).
+FAST_POLL = 0.3            # seconds between file checks while a tab is connected or a request is recent
+SLOW_POLL = 2.0            # …and when nobody has asked for anything for WARM_SECONDS
+WARM_SECONDS = 60.0
+DEBOUNCE_MS = 300          # a burst of saves is one reload: wait this long with no further change…
+DEBOUNCE_CAP = 2.0         # …but never longer than this after the first change, so a file that keeps changing still reloads
+DEBOUNCE_STEP = 0.05       # how finely the quiet window is watched
+IDLE_EXIT_MIN = 30.0       # stop after this many minutes with no tab and no request (0 disables)
+SSE_SLICE = 1.0            # an SSE stream looks for a vanished client this often; it pings every SSE_PING
+SSE_PING = 15.0
+STOP_WAIT = 5.0            # --stop waits this long for the server to go away
 
 
 # The live-reload client. Injected before </body> in the served HTML only — never written
@@ -256,7 +278,7 @@ class State:
     """Shared between the watcher thread and the request handler threads."""
 
     def __init__(self, reg_path, shell_path, out_path, write, ds_shell_path=None, runtime_path=None,
-                 explore_shell_path=None):
+                 explore_shell_path=None, idle_exit_min=IDLE_EXIT_MIN, debounce_ms=DEBOUNCE_MS):
         self.reg_path = reg_path
         self.shell_path = shell_path
         self.explore_shell_path = explore_shell_path  # the /explore/<target> compare page template
@@ -276,6 +298,47 @@ class State:
         self._cache_ds_version = -1       # separate cache for the design-system site
         self._cache_ds_html = None
         self._cache_ds_err = None
+        # — resource hygiene: who is looking, and what changed on disk since anyone last looked —
+        self.idle_exit_s = max(0.0, float(idle_exit_min)) * 60.0   # 0 = never exit on idle
+        self.debounce_s = max(0, debounce_ms) / 1000.0              # 0 = bump on the first change seen
+        self.started_at = explore._now()
+        self.last_activity = time.monotonic()  # the last request that was not a health probe
+        self.sse_clients = 0                   # open /__pb_events streams
+        self._act_lock = threading.Lock()
+        self.wake = threading.Event()          # a tab connected: stop sleeping on the slow poll
+        self.check_lock = threading.Lock()     # one change check at a time: one bump per change
+        self.seen = None                       # {watched path: mtime} as of the last check
+        self.exit_reason = None
+        self.on_idle = None                    # set by main(): how to stop serve_forever from another thread
+
+    def touch(self):
+        self.last_activity = time.monotonic()
+
+    def client_open(self):
+        with self._act_lock:
+            self.sse_clients += 1
+            self.last_activity = time.monotonic()
+        self.wake.set()
+
+    def client_close(self):
+        with self._act_lock:
+            self.sse_clients -= 1
+            self.last_activity = time.monotonic()
+
+    def idle_seconds(self):
+        return max(0.0, time.monotonic() - self.last_activity)
+
+    def poll_interval(self):
+        """0.3 s while a tab is connected or someone asked for something lately, else 2 s."""
+        if self.sse_clients > 0 or self.idle_seconds() < WARM_SECONDS:
+            return FAST_POLL
+        return SLOW_POLL
+
+    def idle_remaining(self):
+        """Seconds until the idle exit fires, or None when it cannot (disabled, or a tab is open)."""
+        if self.idle_exit_s <= 0 or self.sse_clients > 0:
+            return None
+        return self.idle_exit_s - self.idle_seconds()
 
     @property
     def base_dir(self):
@@ -306,6 +369,17 @@ class State:
         with self.cond:
             self.version += 1
             self.cond.notify_all()
+        self.prune_slot_cache()
+
+    def prune_slot_cache(self):
+        """Forget the rendered options of an exploration that is no longer open (promoted, rejected)."""
+        try:
+            open_targets = {s["target"] for s in explore.sessions(self.base_dir)}
+        except Exception:
+            return
+        with self._cache_lock:
+            for key in [k for k in self._slot_cache if k[0] not in open_targets]:
+                del self._slot_cache[key]
 
 
 def render_current(state):
@@ -466,15 +540,26 @@ def _mtime(path):
         return None
 
 
-def watcher(state):
-    """Poll watched-file mtimes; on any change bump the version and eagerly re-render (to log)."""
-    seen = {p: _mtime(p) for p in state.watched}
-    while not state.stop.wait(0.3):
-        changed = [p for p in state.watched if _mtime(p) != seen.get(p)]
+def _snapshot(state):
+    return {p: _mtime(p) for p in state.watched}
+
+
+def refresh(state):
+    """The change check — what the watcher does each tick and what a page request does before it
+    renders, so a page is never built from files older than what is on disk even while the watcher
+    sleeps on its slow poll. One check at a time under check_lock: two threads never both bump the
+    version for the same change, and a request that arrives mid-check waits for the re-render and
+    then gets it from the cache. Returns the changed paths ([] when nothing changed)."""
+    with state.check_lock:
+        now = _snapshot(state)
+        if state.seen is None:
+            state.seen = now
+            return []
+        changed = [p for p in now if now[p] != state.seen.get(p)]
         if not changed:
-            continue
+            return []
         for p in changed:
-            seen[p] = _mtime(p)
+            state.seen[p] = now[p]
         state.bump()
         _html, err = render_current(state)
         what = ", ".join(os.path.basename(p) for p in changed)
@@ -482,6 +567,55 @@ def watcher(state):
             log("✗ %s changed — render error (preview shows it; auto-recovers on save)" % what)
         else:
             log("✓ %s changed — re-rendered, reloading browsers" % what)
+        return changed
+
+
+def _settle(state):
+    """After a change is seen, wait for the burst to end: return once no watched file has changed for
+    debounce_s, or DEBOUNCE_CAP after the first change, whichever comes first. A single save costs
+    one quiet window; ten saves 30 ms apart cost one reload."""
+    t0 = quiet_since = time.monotonic()
+    prev = _snapshot(state)
+    while not state.stop.is_set():
+        now = time.monotonic()
+        if now - quiet_since >= state.debounce_s or now - t0 >= DEBOUNCE_CAP:
+            return
+        state.stop.wait(DEBOUNCE_STEP)
+        cur = _snapshot(state)
+        if cur != prev:
+            prev, quiet_since = cur, time.monotonic()
+
+
+def _stop_idle(state):
+    minutes = state.idle_exit_s / 60.0
+    log("idle for %s min — stopping (explore.py link or /pb:preview starts it again)" % ("%g" % round(minutes, 2)))
+    state.exit_reason = "idle"
+    if state.on_idle:
+        state.on_idle()        # httpd.shutdown(): serve_forever returns and main()'s finally runs, as for SIGTERM
+    state.stop.set()
+
+
+def watcher(state):
+    """Poll watched-file mtimes; on a change coalesce the burst, bump the version once and eagerly
+    re-render (to log). Also where the idle exit is decided: it runs on this thread, never on the
+    serve_forever one, so shutting the server down from here cannot deadlock."""
+    refresh(state)  # primes state.seen when main() has not
+    while not state.stop.is_set():
+        timeout = state.poll_interval()
+        left = state.idle_remaining()
+        if left is not None:
+            timeout = min(timeout, max(0.05, left))
+        if state.wake.wait(timeout):
+            state.wake.clear()
+        if state.stop.is_set():
+            return
+        left = state.idle_remaining()
+        if left is not None and left <= 0:
+            return _stop_idle(state)
+        if state.seen is not None and any(_mtime(p) != state.seen.get(p) for p in state.watched):
+            if state.debounce_s > 0:
+                _settle(state)
+            refresh(state)
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -513,13 +647,22 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         path = self.path.split("?", 1)[0]
+        if path != "/__pb_health":   # a health probe (--status, explore.py link) is not use: it must not keep the server alive
+            self.state.touch()
         if path == "/__pb_events":
             return self.serve_events()
         if path == "/__pb_health":   # names a local path, so this machine only (--host may bind wider)
             if self.client_address[0] not in LOOPBACK_ADDRS:
                 return self._send(b"404 not found", ctype="text/plain", status=404)
-            return self._json({"ok": True, "app": "pb-preview", "registry": self.state.reg_path,
-                               "pid": os.getpid(), "version": render.plugin_version()})
+            st = self.state
+            return self._json({"ok": True, "app": "pb-preview", "registry": st.reg_path,
+                               "pid": os.getpid(), "version": render.plugin_version(),
+                               "clients": st.sse_clients, "idleSeconds": int(st.idle_seconds()),
+                               "startedAt": st.started_at})
+        is_page = (path in ("/", "/index.html", "/design-system", "/design-system/", "/design-system.html")
+                   or path == "/explore" or path.startswith("/explore/"))
+        if is_page:
+            refresh(self.state)   # the watcher may be on its slow poll: look at the disk now, never render stale
         if path in ("/", "/index.html"):
             return self.serve_preview()
         if path in ("/design-system", "/design-system/", "/design-system.html"):
@@ -590,6 +733,7 @@ class Handler(BaseHTTPRequestHandler):
         self._send(data, ctype=mimetypes.guess_type(candidate)[0] or "application/octet-stream")
 
     def do_POST(self):
+        self.state.touch()
         path = self.path.split("?", 1)[0]
         if path == "/api/meta":
             return self.post_meta()
@@ -719,30 +863,55 @@ class Handler(BaseHTTPRequestHandler):
                 else inject_reload(inject_preview_api(html))).encode("utf-8")
         self._send(body)
 
+    def _client_gone(self):
+        """True when the browser has closed its end of this stream (a tab closed, a laptop slept):
+        the socket is readable and a peek says end-of-file. A write would only find out a ping later,
+        and the idle exit counts open streams, so a vanished tab must not be believed for 15 s."""
+        try:
+            ready, _, _ = select.select([self.connection], [], [], 0)
+            return bool(ready) and self.connection.recv(1, socket.MSG_PEEK) == b""
+        except (OSError, ValueError):
+            return True
+
     def serve_events(self):
-        """One long-lived SSE stream per browser tab; emits `reload` when the version bumps."""
+        """One long-lived SSE stream per browser tab; emits `reload` when the version bumps. Counted in
+        state.sse_clients for exactly as long as it is open — the decrement is in a `finally`, so a
+        client that vanishes mid-write cannot leave the count (and with it the server) stuck."""
         st = self.state
-        self.send_response(200)
-        self.send_header("Content-Type", "text/event-stream")
-        self.send_header("Cache-Control", "no-cache")
-        self.send_header("Connection", "keep-alive")
-        self.send_header("X-Accel-Buffering", "no")  # disable proxy buffering
-        self.end_headers()
-        if not self._write(b": connected\n\n"):
-            return
-        last = st.version
-        while not st.stop.is_set():
-            with st.cond:
-                st.cond.wait_for(lambda: st.version != last or st.stop.is_set(), timeout=15)
-            if st.stop.is_set():
-                break
-            if st.version != last:
-                last = st.version
-                ok = self._write(b"data: reload\n\n")
-            else:
-                ok = self._write(b": ping\n\n")  # heartbeat / dead-client detection
-            if not ok:
-                break
+        st.client_open()
+        try:
+            self.send_response(200)
+            self.send_header("Content-Type", "text/event-stream")
+            self.send_header("Cache-Control", "no-cache")
+            self.send_header("Connection", "keep-alive")
+            self.send_header("X-Accel-Buffering", "no")  # disable proxy buffering
+            self.end_headers()
+            if not self._write(b": connected\n\n"):
+                return
+            last = st.version
+            pinged = time.monotonic()
+            while not st.stop.is_set():
+                with st.cond:
+                    st.cond.wait_for(lambda: st.version != last or st.stop.is_set(), timeout=SSE_SLICE)
+                if st.stop.is_set():
+                    break
+                if st.version != last:
+                    last = st.version
+                    ok = self._write(b"data: reload\n\n")
+                elif self._client_gone():
+                    break
+                elif time.monotonic() - pinged >= SSE_PING:
+                    pinged = time.monotonic()
+                    ok = self._write(b": ping\n\n")  # heartbeat / dead-client detection
+                else:
+                    continue
+                if not ok:
+                    break
+        except OSError:      # the headers could not be sent: the client was already gone
+            pass
+        finally:
+            st.client_close()
+            self.close_connection = True
 
     def serve_static(self, path):
         """Fall back to files next to the registry (e.g. local assets a render references)."""
@@ -813,6 +982,10 @@ def drop_server_record(path):
                 os.remove(path)
     except (OSError, ValueError, AttributeError):
         pass
+    try:
+        os.rmdir(os.path.dirname(path))   # only when empty: a log or shots/ beside it keeps the folder
+    except OSError:
+        pass
 
 
 def startup_summary(reg_path):
@@ -825,6 +998,140 @@ def startup_summary(reg_path):
             len(reg.get("tokens", {})))
     except Exception:
         return None
+
+
+def _loopback_url(url):
+    """True for an http URL on this machine — the only kind a server record may send --status / --stop to."""
+    try:
+        u = urllib.parse.urlsplit(url)
+        return u.scheme == "http" and u.hostname in ("127.0.0.1", "localhost", "::1", "0.0.0.0")
+    except ValueError:
+        return False
+
+
+def server_status(reg_path):
+    """What this registry's preview server says about itself → (state, info).
+
+    state is "running" (info = its /__pb_health answer plus `url`), "none" (no record, or nothing answers
+    at the recorded URL — a stale record), "other" (something answers there that is NOT this registry's
+    server: another project's, or not a preview at all; info = {"url", "registry"}) or "mismatch" (it IS
+    this registry's server but its pid is not the recorded one; info = {"url", "pid", "recorded"}).
+    Only "running" is a server --stop may signal."""
+    rec = explore.server_record(os.path.dirname(reg_path))
+    if not rec or not _loopback_url(rec["url"]):
+        return "none", {}
+    base = rec["url"].rstrip("/")
+    code, body = explore._get(base + "/__pb_health", timeout=3)
+    if code is None:
+        return "none", {}
+    try:
+        health = json.loads(body) if code == 200 else None
+    except ValueError:
+        health = None
+    if not isinstance(health, dict) or health.get("app") != "pb-preview":
+        return "other", {"url": base + "/", "registry": None}
+    if not explore._ours(base, reg_path):
+        return "other", {"url": base + "/", "registry": health.get("registry")}
+    pid = health.get("pid")
+    if not isinstance(pid, int) or isinstance(pid, bool) or pid <= 1 or rec.get("pid") != pid:
+        return "mismatch", {"url": base + "/", "pid": pid, "recorded": rec.get("pid")}
+    info = dict(health)
+    info["url"] = base + "/"
+    return "running", info
+
+
+def _uptime_seconds(started_at):
+    try:
+        return max(0, int((datetime.datetime.now() - datetime.datetime.fromisoformat(started_at)).total_seconds()))
+    except (TypeError, ValueError):
+        return None
+
+
+def _human_seconds(n):
+    if n is None:
+        return "unknown"
+    h, rem = divmod(int(n), 3600)
+    m, sec = divmod(rem, 60)
+    return "%dh %02dm" % (h, m) if h else ("%dm %02ds" % (m, sec) if m else "%ds" % sec)
+
+
+def cmd_status(reg_path, as_json):
+    """`serve.py --status` — exit 0 when this registry's preview server is running, 1 when not."""
+    st, info = server_status(reg_path)
+    if st != "running":
+        if as_json:
+            print(json.dumps({"running": False, "registry": reg_path, "state": st}))
+        elif st in ("other", "mismatch"):
+            print("pb-serve · not running — %s" % _refusal(st, info))
+        else:
+            print("pb-serve · not running")
+        return 1
+    up = _uptime_seconds(info.get("startedAt"))
+    if as_json:
+        print(json.dumps({"running": True, "url": info["url"], "pid": info["pid"], "registry": info.get("registry"),
+                          "startedAt": info.get("startedAt"), "uptimeSeconds": up,
+                          "clients": info.get("clients"), "idleSeconds": info.get("idleSeconds")}))
+    else:
+        print("pb-serve · running")
+        print("  url       %s" % info["url"])
+        print("  pid       %s" % info["pid"])
+        print("  uptime    %s" % _human_seconds(up))
+        print("  clients   %s" % info.get("clients"))
+        print("  idle      %ss" % info.get("idleSeconds"))
+    return 0
+
+
+def _refusal(st, info):
+    if st == "other":
+        who = info.get("registry")
+        return "%s answers as %s, not this registry's server — left alone" % (
+            info["url"], "another registry (%s)" % who if who else "something else")
+    return "%s is this registry's server but its pid (%s) is not the recorded one (%s) — left alone" % (
+        info["url"], info.get("pid"), info.get("recorded"))
+
+
+def cmd_stop(reg_path, as_json):
+    """`serve.py --stop` — SIGTERM the recorded pid, but only once the health check at the recorded URL has
+    answered as THIS registry's server AND named that same pid; then wait up to STOP_WAIT seconds for it to
+    go. Exit 0: stopped, or it was not running (a record that names another server is "not running" for
+    this registry, and that server is never touched). Exit 1: it is this registry's server and it would
+    not stop, or its pid could not be confirmed."""
+    st, info = server_status(reg_path)
+
+    def done(code, stopped, msg, **extra):
+        if as_json:
+            out = {"stopped": stopped, "state": st}
+            out.update(extra)
+            print(json.dumps(out))
+        else:
+            print("pb-serve · " + msg)
+        return code
+
+    if st == "none":
+        return done(0, False, "not running")
+    if st == "other":
+        return done(0, False, "not running — " + _refusal(st, info), refused=True)
+    if st == "mismatch":
+        return done(1, False, "not stopped — " + _refusal(st, info), refused=True)
+    pid, url = info["pid"], info["url"]
+    try:
+        os.kill(pid, signal.SIGTERM)
+    except ProcessLookupError:
+        return done(0, True, "stopped (pid %d was already gone)" % pid, pid=pid)
+    except OSError as e:
+        return done(1, False, "not stopped — could not signal pid %d (%s)" % (pid, e), pid=pid)
+    deadline = time.monotonic() + STOP_WAIT
+    while time.monotonic() < deadline:
+        # gone = nothing answers at the URL as that pid. (A zombie child still has a pid; its socket is closed.)
+        code, body = explore._get(url.rstrip("/") + "/__pb_health", timeout=1)
+        try:
+            alive = code == 200 and json.loads(body).get("pid") == pid
+        except (ValueError, AttributeError):
+            alive = False
+        if not alive:
+            return done(0, True, "stopped pid %d (%s)" % (pid, url), pid=pid)
+        time.sleep(0.1)
+    return done(1, False, "not stopped — pid %d still answers at %s after %gs" % (pid, url, STOP_WAIT), pid=pid)
 
 
 def main():
@@ -854,9 +1161,35 @@ def main():
     ap.add_argument("--out", default=None,
                     help="output path for --write (default: prototype.html next to the registry)")
     ap.add_argument("--no-open", action="store_true", help="don't open the browser on start")
+    try:
+        idle_default = float(os.environ.get("PB_PREVIEW_IDLE_MIN", IDLE_EXIT_MIN))
+        if idle_default < 0:
+            raise ValueError
+    except ValueError:
+        idle_default = IDLE_EXIT_MIN
+    ap.add_argument("--idle-exit", type=float, default=idle_default, metavar="MINUTES",
+                    help="stop by itself after this many minutes with no browser tab open and no request "
+                         "(default: %g, or $PB_PREVIEW_IDLE_MIN; 0 = never)" % idle_default)
+    ap.add_argument("--debounce-ms", type=int, default=DEBOUNCE_MS, metavar="MS",
+                    help="fold a burst of saves into one reload: wait this long with no further change, "
+                         "at most %gs (default: %d; 0 = reload on the first change)" % (DEBOUNCE_CAP, DEBOUNCE_MS))
+    mode = ap.add_mutually_exclusive_group()
+    mode.add_argument("--status", action="store_true",
+                      help="print this registry's running preview server (url, pid, uptime, clients, idle) and exit: "
+                           "0 running, 1 not; starts nothing")
+    mode.add_argument("--stop", action="store_true",
+                      help="stop this registry's preview server (SIGTERM, only after its health check confirms it is "
+                           "this registry's and the pid matches) and exit: 0 stopped / not running, 1 could not")
+    ap.add_argument("--json", action="store_true", help="with --status / --stop: print one JSON object")
     args = ap.parse_args()
+    if args.idle_exit < 0:
+        ap.error("--idle-exit must be 0 or more minutes")
+    if args.debounce_ms < 0:
+        ap.error("--debounce-ms must be 0 or more")
 
     reg_path = os.path.abspath(args.registry)
+    if args.status or args.stop:   # one-shot: ask the running server, never start one
+        sys.exit((cmd_status if args.status else cmd_stop)(reg_path, args.json))
     shell_path = os.path.abspath(args.shell)
     if not os.path.isfile(reg_path):
         sys.exit("pb-serve: registry not found: %s" % reg_path)
@@ -877,7 +1210,8 @@ def main():
     ds_shell_path = os.path.abspath(args.ds_shell) if (args.ds_shell and os.path.isfile(args.ds_shell)) else None
     runtime_path = os.path.abspath(args.runtime) if (args.runtime and os.path.isfile(args.runtime)) else None
     state = State(reg_path, shell_path, out_path, args.write, ds_shell_path, runtime_path,
-                  default_explore_shell if os.path.isfile(default_explore_shell) else None)
+                  default_explore_shell if os.path.isfile(default_explore_shell) else None,
+                  idle_exit_min=args.idle_exit, debounce_ms=args.debounce_ms)
     Handler.state = state
 
     explicit_port = ("--port" in sys.argv) or any(a.startswith("--port=") for a in sys.argv)
@@ -904,19 +1238,23 @@ def main():
     log("  watching  registry.json, shells, render.py, render/**/*.{js,css}, runtime/**/*.js — saving any reloads the browser")
     log("  to disk   %s" % ("ON → %s" % rel(out_path) if args.write
                             else "off (in-memory preview; --write to update prototype.html)"))
+    log("  idle exit %s" % ("after %g min with no tab open and no request (--idle-exit 0 keeps it running)" % args.idle_exit
+                            if args.idle_exit else "off (--idle-exit MINUTES to stop it when forgotten)"))
 
+    refresh(state)  # prime the mtimes the watcher compares against (before the render: a save during it is not missed)
     _html, err = render_current(state)  # render once up front so the banner reflects reality
     if err:
         log("  status    ✗ current registry has a render error — preview shows it")
     log("Ctrl-C to stop.")
 
+    state.on_idle = httpd.shutdown   # called from the watcher thread, never from serve_forever's
     threading.Thread(target=watcher, args=(state,), daemon=True).start()
     if not args.no_open:
         threading.Thread(target=lambda: (time.sleep(0.4), webbrowser.open(url)), daemon=True).start()
 
     record = os.path.join(state.base_dir, explore.SERVER_FILE)
     write_server_record(record, {"url": url, "host": args.host, "port": port, "pid": os.getpid(),
-                                 "registry": reg_path, "startedAt": explore._now()})
+                                 "registry": reg_path, "startedAt": state.started_at})
     # A plain kill (SIGTERM) unwinds like Ctrl-C, so the record goes with the server.
     signal.signal(signal.SIGTERM, lambda *_: sys.exit(0))
     try:

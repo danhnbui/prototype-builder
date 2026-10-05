@@ -359,6 +359,22 @@ both rows. **The chat gets the short form**: a header, one line per `no` or `blo
 `<N> items · <Y> held · <Z> failed · <B> blocked`. Held items are the count and the file, not 38 printed
 successes. Vocabulary: `sandbox-test`. Canonical rule: `pb/commands/test.md` §2a–§2b, §11.
 
+## Footprint — what pb starts, and what it leaves behind (v2.2)
+
+Browsers, servers and the files a project grows are bounded by four tools and one report. All are
+stdlib; Playwright stays a lazy, optional import. Canonical rules: `CLAUDE.md` § *pb bounds its own
+footprint*; the design reason is `DESIGN.md` **I-10**.
+
+| Tool | What it does |
+|---|---|
+| `tools/browser.py` | The one door a headless browser opens through: `browser_slot(who)` · `open_browser(p, who)` · `find_preview(registry)`. A counting semaphore of `slot-<i>.lock` files in `<tmp>/pb-browser-slots-<uid>/` (mode 0700; the kernel frees a slot when its holder dies). Limit `PB_BROWSER_SLOTS` (default **3**, `0` = none); `PB_BROWSER_WAIT` (default 120 s) after which it **fails open** with a `note:`; `PB_BROWSER_TRACE` (a file, one line per launch) |
+| `tools/test_run.py` | Transport: this project's running preview when there is one (`reusing the running preview at <url>`), else a private server for the run; `--isolated` forces the private one, `--attach [URL]` is explicit. `--all` = functional + roles + server in one process, one browser, a fresh context per mode; worst exit code; `--json` → `{"mode": "all", "modes": {…}}` |
+| `tools/shot.py` | `shot.py [registry.json] (--screen ID \| --path /explore/<id>/<slot> \| --url http://127.0.0.1:…) [--viewport WxH]… [--full-page] [--selector CSS] [--click CSS]… [--wait-for CSS] [--wait MS] [--role ID] [--eval JS] [--console] [--out FILE_OR_DIR] [--isolated]`. Default 1440x900 and 390x844 → `.preview/shots/<name>-<WxH>.png`. Exit 0 ok · 1 console errors / something not found · 2 usage · 3 cannot run |
+| `tools/serve.py` | The preview server. `--idle-exit MINUTES` (default 30, `0` = never; `PB_PREVIEW_IDLE_MIN`) · `--debounce-ms N` (default 300) · `--status` / `--stop` (`--json`). `/__pb_health` adds `clients`, `idleSeconds`, `startedAt`. Polls every 0.3 s while a tab is open or a request came in the last minute, every 2 s otherwise; a page request checks the files first |
+| `tools/explore.py` | `list` adds each open round's age and `STALE` (`--stale-days`, default 3; `--json` adds `ageDays`, `stale`); `promote` / `reject` report `stillOpen`; `check --shots` launches through `browser.py`; `server.log` is trimmed to its last 256 KB when over 1 MB |
+| `tools/clean.py` | `/pb:clean`. Dry run by default; bare `--apply` = orphan `render/_candidates/` folders, an over-1 MB `server.log`, `.preview/shots/`; `--keep-backups N` (in each of `memory/backups/` and `.pb-backups/`) and `--keep-closed N` are the only deletion of a backup or a closed round. Never an open round, never a server |
+| `lint_registry.py --report` | A `resources` block (largest key, backups, open and closed rounds, `server.log`, orphan candidates, the preview server); thresholds `backups_mb` 50 · `backups_count` 20 · `explore_open_days` 3 · `explore_closed_mb` 50 · `server_log_kb` 1024 · `registry_key_share` 0.35 · `preview_idle_min` 60, overridable in `memory/doctor.json`. Ranks, never gates |
+
 ## Component governance
 
 _(Phase 5)_ — DS-first, Local-first (R0); extend with a variant before spawning (R2); auto-layout

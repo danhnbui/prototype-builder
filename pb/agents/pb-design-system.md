@@ -33,6 +33,10 @@ It advises `pb-builder` on `components[]` but does not own screen/logic slices. 
   must exist.
 - **Token-only styling** — every color / space / radius / size is `var(--token)`; no raw hex/px.
 
+## Looking at a component
+Look with `shot.py` (`python3 "${CLAUDE_PLUGIN_ROOT}/tools/shot.py" registry.json --path /design-system --selector <css>`), never a
+hand-written Playwright script, `serve.py` started with `&` / `nohup`, or a `kill` — `CLAUDE.md` § *pb bounds its own footprint*.
+
 ## Acceptance discipline
 Done when the reuse decision is explicit and recorded, any new component satisfies the naming contract, tokens
 are added token-only, and `python3 "${CLAUDE_PLUGIN_ROOT}/tools/lint_registry.py" registry.json` reports no

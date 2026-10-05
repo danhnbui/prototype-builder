@@ -101,9 +101,13 @@ Before hand-back, render — in memory through `/pb:preview`, or `render.py` —
   compact layout stretched — navigation, columns and density changed where the width allows.
 
 Tools: an explore candidate has `explore.py check <id> --shots` (both widths, into
-`memory/explore/<id>/shots/`). The live screen: open the preview at `?screen=<id>&device=<id>&embed=1`
-and screenshot it with Playwright or the session's browser tool; `/pb:test --attach` then runs the
-scenarios on the same server. Neither available → report "not looked at — blocked", never "passed".
+`memory/explore/<id>/shots/`). The live screen: **`shot.py`** — one command, every width, through the
+project's running preview (or one it boots for the run):
+`python3 "${CLAUDE_PLUGIN_ROOT}/tools/shot.py" registry.json --screen <id> --viewport 390x844 --viewport 834x1112 --viewport 1440x900 [--role <id>] [--console]`
+writes one PNG per width under `.preview/shots/` and prints each path — open them. The overflow check
+above is `--eval`: `--eval "<expression>"` prints its JSON result per width. Never a hand-written
+Playwright script (`CLAUDE.md` § *pb bounds its own footprint*); `/pb:test` then runs the scenarios on
+the same preview. No Playwright, or `shot.py` exits 3 → report "not looked at — blocked", never "passed".
 
 ## Output
 The header lines (§1–§2), the word count per region, the container model, spacing tokens, responsive

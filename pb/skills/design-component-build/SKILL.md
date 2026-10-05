@@ -102,8 +102,9 @@ Read the lines for your id:
   **2** Playwright absent (say so in one line and go on) · **3** Chromium missing · **4** a file could not be
   read · **5** the measuring page did not load · **6** `--write` below schema 13 (`/pb:update-version`) ·
   **7** the registry lock is held (wait, run it again).
-- **Looked at** — open the design-system site (`/pb:preview` → `/design-system`) and look at every
-  cell of the variant grid. Two cells that look the same are an option nothing branches on; a cell
+- **Looked at** — open the design-system site (`/pb:preview` → `/design-system`; or
+  `python3 "${CLAUDE_PLUGIN_ROOT}/tools/shot.py" registry.json --path /design-system --full-page`, never a
+  hand-written Playwright script) and look at every cell of the variant grid. Two cells that look the same are an option nothing branches on; a cell
   reading "could not render its demo" threw.
 
 ## Output

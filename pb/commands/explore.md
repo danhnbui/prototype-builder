@@ -29,7 +29,8 @@ scores, states a verdict, or stops at a gate over them (A3, A4, B4, G-DESIGN, an
 python3 "${CLAUDE_PLUGIN_ROOT}/tools/explore.py" --registry registry.json link <id> [--open]
 ```
 `link` finds this project's `/pb:preview` server, which records itself in `.preview/server.json` next
-to the registry. If none is running, it starts one in the background. It checks that the compare page
+to the registry. If none is running, it starts one in the background (a server stops itself after 30
+idle minutes, so a round reopened the next day finds none and starts a fresh one — the URL may change). It checks that the compare page
 and every option frame load, then prints `http://127.0.0.1:<port>/explore/<id>`. Pass `--open` the
 first time a round's options are shown, so the page also opens in the browser. Later stops re-run it
 without `--open`.
@@ -56,6 +57,14 @@ result at `/explore/<target>` — **the same server and port as the prototype**.
 present an exploration: no hand-written preview or compare HTML, no second server, no score table in chat.
 A subject the tool cannot render as a registry body is a **page round** (`--pages`, below), not an
 exception to this.
+
+**Open rounds are visible, and none is left open silently (v2.2).** `explore.py list [--stale-days N]`
+prints every open round with its age (`· open 5d`, `· open today`) and `STALE` once it is older than
+`--stale-days` (default 3; `--json` adds `ageDays` and `stale`). Run it at the start of a session and say
+which rounds are `STALE`: each is promoted or rejected once the user decides, never carried along.
+`promote` and `reject` end by naming what is still open — `still open: <id> (5d, STALE), … — promote or
+reject each once it is decided` (`stillOpen` in `--json`) — and print nothing when no round is. Relay that
+line; it is the only reminder a forgotten round gets.
 
 ## A0 · Resolve the target + open the exploration
 ```
@@ -133,7 +142,10 @@ hex/px), lints, and hands back `slot · files touched · one line on the take` �
 ```
 python3 $T check <id> --shots [--url http://127.0.0.1:<port>] [--converge 0.85]
 ```
-Exit 0 means every option is labelled, differs from the live body, lints, and **renders** in memory
+`--shots` opens its one browser through the machine-wide limit (3 headless browsers at once; it waits for
+a slot, and after `PB_BROWSER_WAIT` seconds goes ahead anyway with a `note:`). To look at one slot again
+afterwards, run `python3 "${CLAUDE_PLUGIN_ROOT}/tools/shot.py" registry.json --path /explore/<id>/<slot>`
+(add `--full-page`, `--viewport WxH`, `--click CSS` as needed) — not a script. Exit 0 means every option is labelled, differs from the live body, lints, and **renders** in memory
 against the real registry. In a page round, it means every option's page exists inside its round's
 folder and no two are the same file. In both, every pair of options differs on **≥ 4 of the 7 axes**
 (fewer is a failure, not a warning; an axis missing on either side counts as equal). `--shots` writes a desktop and
@@ -194,6 +206,9 @@ live bodies up to `memory/backups/explore-<id>-<stamp>/`, copies the overlay ove
 scratch tree and archives the manifest under `memory/explore/_closed/` — the brief and the round's
 folder (`plans/`, `shots/`) move beside it. `renderFn` / `renderSrc` are unchanged, so `registry.json`
 needs **no** edit; a running `/pb:preview` reloads on its own.
+
+Both end with the `still open:` line described at the top: if it names another round, say so, and ask the
+user whether to decide it now.
 
 **Either way, keep the owner's reasons — before you promote or reject**, since both move the brief.
 Every rejected option's "taught" sentence, and the notes that explain a low row, are rules about this
@@ -280,6 +295,10 @@ Dispatch the plan in dependency waves. `/pb:orchestrate` already gates each wave
 entry in `memory/decisions.md` recording both gate approvals · `DESIGN.md` when an invariant moved.
 
 ## NEVER
+- NEVER hand-write a Playwright script to look at an option — `shot.py` does it, through the browser
+  limit, against the same preview (`CLAUDE.md` § *pb bounds its own footprint*):
+  `python3 "${CLAUDE_PLUGIN_ROOT}/tools/shot.py" registry.json --path /explore/<id>/<slot>`. And never
+  start `serve.py` with `&` / `nohup` (`link` starts it) or `kill` it (`serve.py --stop`).
 - NEVER hand-write a preview or a compare page, and NEVER start a second server or port for an
   exploration — options are rendered by `explore.py` / `serve.py` and shown at `/explore/<id>` on the
   `/pb:preview` server. Three loose HTML files is the failure this command exists to prevent. A

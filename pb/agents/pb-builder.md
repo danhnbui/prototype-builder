@@ -32,6 +32,11 @@ coordinator serializes writes and **renders once per wave** — the render step 
 generator itself. After each patch it runs the advisory contract check:
 `python3 "${CLAUDE_PLUGIN_ROOT}/tools/lint_registry.py" registry.json` (read-only; never blocks the loop).
 
+## Looking at what it built
+Look with `shot.py` — `python3 "${CLAUDE_PLUGIN_ROOT}/tools/shot.py" registry.json --screen <id> [--viewport WxH]… [--console]` —
+never a hand-written Playwright script, never `serve.py` with `&` / `nohup`, never `kill` a preview.
+Canonical text: `CLAUDE.md` § *pb bounds its own footprint*.
+
 ## Not for exploration options
 `/pb:explore` options are built by **`pb-explorer`** (`pb/agents/pb-explorer.md`), one per execution plan,
 in the slot's candidate files. This agent patches the live slice only.

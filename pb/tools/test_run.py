@@ -37,16 +37,25 @@ server health + per-screen render + reachability.) A scenario's `roles` and `see
 honoured: it runs once per declared role, with the role set EXPLICITLY every time rather than
 inherited, and `lastResult` records which role produced the verdict.
 
+Transport, by default, REUSES this project's running preview (found through .preview/server.json
+and confirmed by its /__pb_health answering to THIS registry); with none running it boots a private
+serve.py and stops it at the end. `--isolated` always boots the private one. `--all` is the whole
+battery in ONE process — functional, then roles, then server — over one transport and ONE browser
+launch (a fresh browser context per mode, so nothing leaks between them), exiting with the worst
+code of the three. Every browser launch goes through browser.py, which keeps at most
+PB_BROWSER_SLOTS (default 3) headless browsers running on the machine at once.
+
 Findings mirror lint_registry.py exactly — each prints as `<SEVERITY> [<CODE>] <where>: <msg>`;
 exit 0 = clean, 1 = warnings only, 2 = any error, 3 = COULD NOT RUN (no browser, no reachable
 preview) — so CI can tell "the sandbox is not installed here" from "this prototype is broken";
 a clean run prints `✓ <label>: <ok>`.
 
 Usage:
-  python3 test_run.py <registry.json> [--functional] [--roles] [--server] [--explore]
-                      [--attach [URL]] [--story <id|title>] [--json <out>]
+  python3 test_run.py <registry.json> [--functional] [--roles] [--server] [--explore] [--all]
+                      [--attach [URL]] [--isolated] [--story <id|title>] [--json <out>]
 """
 import argparse
+import contextlib
 import importlib
 import json
 import os
@@ -63,6 +72,8 @@ sys.path.insert(0, HERE)
 # The registry's write path (advisory lock + atomic write). importlib because `import slice` would
 # shadow the builtin of the same name in this module — serve.py does the same.
 pbslice = importlib.import_module("slice")
+# Every headless browser pb opens goes through here — the machine-wide limit (see browser.py).
+import browser as pbbrowser  # noqa: E402
 
 ERROR, WARN = "ERROR", "WARN"
 
@@ -94,17 +105,23 @@ def _findings_json(findings):
             for f in findings]
 
 
-def _report(findings, label, ok_msg):
-    """Print findings, then exit 0 (clean) / 1 (warnings) / 2 (any error)."""
+def _verdict(findings, label, ok_msg):
+    """Print findings and the one-line verdict; return the exit code — 0 clean / 1 warnings / 2 any
+    error. A mode returns this so `--all` can run three of them in one process."""
     errors = [f for f in findings if f.severity == ERROR]
     warns = [f for f in findings if f.severity == WARN]
     for f in findings:
         print(f.line())
     if not findings:
         print(f"✓ {label}: {ok_msg}")
-        sys.exit(0)
+        return 0
     print(f"{label}: {len(errors)} error(s), {len(warns)} warning(s)")
-    sys.exit(2 if errors else 1)
+    return 2 if errors else 1
+
+
+def _report(findings, label, ok_msg):
+    """Print findings, then exit 0 (clean) / 1 (warnings) / 2 (any error)."""
+    sys.exit(_verdict(findings, label, ok_msg))
 
 
 def _load_json(path):
@@ -236,9 +253,19 @@ class _Attached:
         return False
 
 
-def _transport(reg_path, attach):
-    """The context manager a mode should use: an attached preview, or a fresh headless one."""
-    return _Attached(attach) if attach else Server(reg_path)
+def _transport(reg_path, attach, isolated=False):
+    """The context manager a mode should use. `--attach` is taken as given; `--isolated` always boots
+    a private headless preview; otherwise THIS project's running preview is reused (a second
+    serve.py on the same registry costs memory and answers nothing the first one does not), and a
+    private one is booted only when none is running."""
+    if attach:
+        return _Attached(attach)
+    if not isolated:
+        url = pbbrowser.find_preview(reg_path)
+        if url:
+            print(f"reusing the running preview at {url}")
+            return _Attached(url)
+    return Server(reg_path)
 
 
 class Server:
@@ -246,8 +273,17 @@ class Server:
         self.registry = registry
         self.proc = None
         self.url = None
+        self._prior = None     # the project's own preview record, put back if this server clobbers it
+
+    def _record_path(self):
+        return os.path.join(os.path.dirname(os.path.abspath(self.registry)), ".preview", "server.json")
 
     def __enter__(self):
+        try:                   # explore.SERVER_FILE — read as text, so it can be restored byte for byte
+            with open(self._record_path(), encoding="utf-8") as f:
+                self._prior = f.read()
+        except OSError:
+            self._prior = None
         self.proc = subprocess.Popen(
             [sys.executable, SERVE, self.registry, "--no-open", "--host", "127.0.0.1"],
             stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1,
@@ -280,6 +316,36 @@ class Server:
                 self.proc.wait(timeout=5)
             except subprocess.TimeoutExpired:
                 self.proc.kill()
+                self.proc.wait()
+            if self.proc.stdout:
+                self.proc.stdout.close()
+        self._restore_record()
+
+    def _restore_record(self):
+        """serve.py records itself in .preview/server.json and drops the record when it stops — which,
+        beside a preview that is already running, would erase THAT preview's record. Put it back
+        when the server it names still answers."""
+        if not self._prior:
+            return
+        try:
+            prior = json.loads(self._prior)
+            cur = None
+            try:
+                with open(self._record_path(), encoding="utf-8") as f:
+                    cur = json.load(f)
+            except (OSError, ValueError):
+                pass
+            if (isinstance(prior, dict) and isinstance(prior.get("url"), str)
+                    and (cur is None or (isinstance(cur, dict) and cur.get("pid") == getattr(self.proc, "pid", None)))
+                    and pbbrowser.is_loopback_url(prior["url"])):
+                import explore
+                if explore._ours(prior["url"].rstrip("/"), self.registry):
+                    tmp = self._record_path() + ".tmp"
+                    with open(tmp, "w", encoding="utf-8") as f:
+                        f.write(self._prior)
+                    os.replace(tmp, self._record_path())
+        except Exception:                                               # noqa: BLE001 — best effort
+            pass
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -308,10 +374,22 @@ def _require_playwright():
 
 def _launch(p):
     try:
-        return p.chromium.launch()
+        return pbbrowser.open_browser(p, "test_run")      # the machine-wide limit applies (browser.py)
     except Exception as e:  # browser binary missing / launch failure
         print(f"Could not launch Chromium ({e}). Run: playwright install chromium")
         sys.exit(2)
+
+
+def _prep_page(opener, url):
+    """Open `url` on a new page of `opener` (a browser or a browser context), wait for the Prototype
+    tab, wire an error buffer. Returns (page, console_errors)."""
+    page = opener.new_page()
+    console_errors = []
+    page.on("console", lambda m: console_errors.append(m.text) if m.type == "error" else None)
+    page.on("pageerror", lambda e: console_errors.append(str(e)))
+    page.goto(url, wait_until="domcontentloaded")
+    page.wait_for_selector("#proto-frame", timeout=10000)
+    return page, console_errors
 
 
 def _open_page(p, url):
@@ -320,13 +398,78 @@ def _open_page(p, url):
     Returns (browser, page, console_errors) — console_errors is a live list mutated by
     the console/pageerror handlers; clear it in place (del buf[:]) to scope a check."""
     browser = _launch(p)
-    page = browser.new_page()
-    console_errors = []
-    page.on("console", lambda m: console_errors.append(m.text) if m.type == "error" else None)
-    page.on("pageerror", lambda e: console_errors.append(str(e)))
-    page.goto(url, wait_until="domcontentloaded")
-    page.wait_for_selector("#proto-frame", timeout=10000)
+    page, console_errors = _prep_page(browser, url)
     return browser, page, console_errors
+
+
+class _Session:
+    """What a mode runs against: `with sess as s:` gives `s.url` (the preview) and `s.open_page()`
+    → (closer, page, console_errors); the mode calls `closer.close()` when it is done with the page.
+    This default session is the original behaviour — a mode owns its Playwright, its transport and its
+    browser. `--all` swaps in _SharedSession so the three modes share ONE of each."""
+    url = None
+
+    def __init__(self, reg_path, attach=None, isolated=False):
+        self.reg_path, self.attach, self.isolated = reg_path, attach, isolated
+        self._stack = None
+        self._p = None
+
+    def _start(self):
+        sync_playwright = _require_playwright()
+        stack = contextlib.ExitStack()
+        try:
+            self._p = stack.enter_context(sync_playwright())
+            self.url = stack.enter_context(_transport(self.reg_path, self.attach, self.isolated)).url
+        except BaseException:
+            stack.close()
+            raise
+        self._stack = stack
+
+    def __enter__(self):
+        self._start()
+        return self
+
+    def __exit__(self, *exc):
+        stack, self._stack = self._stack, None
+        return stack.__exit__(*exc) if stack else False
+
+    def open_page(self):
+        return _open_page(self._p, self.url)
+
+
+class _SharedSession(_Session):
+    """One Playwright, one transport and ONE browser launch for several modes. Started on first use
+    (a mode that needs no browser never starts it); every open_page() is a fresh browser context, so
+    no cookie, storage or page state leaks from one mode into the next. close() ends it all."""
+
+    def __init__(self, reg_path, attach=None, isolated=False):
+        super().__init__(reg_path, attach, isolated)
+        self._browser = None
+
+    def _start(self):
+        if self._stack is not None:
+            return
+        super()._start()
+        try:
+            self._browser = _launch(self._p)
+            self._stack.callback(self._browser.close)
+        except BaseException:
+            self.close()
+            raise
+
+    def __exit__(self, *exc):          # a mode finishing is not the session finishing
+        return False
+
+    def open_page(self):
+        self._start()
+        ctx = self._browser.new_context()
+        page, cerr = _prep_page(ctx, self.url)
+        return ctx, page, cerr
+
+    def close(self):
+        stack, self._stack = self._stack, None
+        if stack:
+            stack.close()
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -703,59 +846,64 @@ def _scenario_inputs(test, body_hash):
     return {sid: body_hash[sid] for sid in _scenario_screens(test) if sid in body_hash}
 
 
-def run_functional(reg_path, story_filter, json_out, attach=None):
+def run_functional(reg_path, story_filter, json_out, attach=None, isolated=False):
+    code, payload = _functional(reg_path, story_filter, _Session(reg_path, attach, isolated))
+    if json_out:
+        _write_json(json_out, payload)
+    sys.exit(code)
+
+
+def _functional(reg_path, story_filter, sess):
+    """--functional as a function: (exit code, the JSON this mode writes). `sess` is the _Session
+    that supplies the page — its own, or the one `--all` shares."""
     reg = _load_json(reg_path)
     body_hash = _body_hashes(reg_path)
     tests = list(_iter_test_scenarios(reg, story_filter))
     if not tests:
         note = ("no scenarios match --story %r" % story_filter) if story_filter else "no functional test blocks"
-        if json_out:
-            _write_json(json_out, {"mode": "functional", "scenarios": [], "summary": note})
-        _report([], "test_run.py --functional", f"{note} — {reg_path}")
-        return
+        return (_verdict([], "test_run.py --functional", f"{note} — {reg_path}"),
+                {"mode": "functional", "scenarios": [], "summary": note})
 
-    sync_playwright = _require_playwright()
     findings, results = [], []
     key_of = {id(sc): key for key, sc, _t in _scenario_keys(reg)}
     verdicts = {}                       # scenario key -> (test that ran, lastResult); saved after the run
-    with sync_playwright() as p:
-        with _transport(reg_path, attach) as srv:
-            browser, page, cerr = _open_page(p, srv.url)
-            page.evaluate(_TOAST_OBS_JS)
-            roles = (reg.get("meta") or {}).get("roles") or []
-            fallback = _default_role_id(reg, roles)
-            for (story, sc, test) in tests:
-                title = sc.get("text") or story.get("title") or "(scenario)"
-                # D-27: honour test.roles — run the scenario once per declared role. The field is
-                # already authored on real projects and was being discarded, so every scenario ran
-                # as whatever role happened to be active and reported `pass` for an unknown one.
-                want = [r for r in (test.get("roles") or []) if isinstance(r, str)] or [fallback]
-                per_role = []
-                for rid in want:
-                    status, detail = _run_scenario(page, cerr, test, role_id=rid)
-                    per_role.append({"role": rid, "status": status, "detail": detail})
-                    results.append({"story": story.get("title"), "scenario": title,
-                                    "role": rid, "status": status, "detail": detail})
-                    if status == "fail":
-                        findings.append(Finding(
-                            ERROR, "T-FUNC",
-                            f"flow.stories[{story.get('title')!r}] scenario {title!r} "
-                            f"as role {rid!r}", detail))
-                # lastResult records WHICH role produced the verdict; a scenario is only `pass`
-                # when every declared role passes.
-                worst = ("fail" if any(r["status"] == "fail" for r in per_role)
-                         else "skip" if any(r["status"] == "skip" for r in per_role) else "pass")
-                verdicts[key_of[id(sc)]] = (test, {
-                    "status": worst, "ranAt": _now_z(),
-                    "detail": "; ".join(f"{r['role']}: {r['status']}" for r in per_role),
-                    "roles": per_role,
-                    # WHAT THIS VERDICT WAS COMPUTED FROM. Without it a `pass` is undated
-                    # evidence: on the reference project three scenarios read "passing" after
-                    # 141 of 141 render bodies had changed underneath them. The shell compares
-                    # these against the live digests and shows a stale verdict as stale.
-                    "inputs": _scenario_inputs(test, body_hash),
-                })
-            browser.close()
+    with sess as srv:
+        browser, page, cerr = srv.open_page()
+        page.evaluate(_TOAST_OBS_JS)
+        roles = (reg.get("meta") or {}).get("roles") or []
+        fallback = _default_role_id(reg, roles)
+        for (story, sc, test) in tests:
+            title = sc.get("text") or story.get("title") or "(scenario)"
+            # D-27: honour test.roles — run the scenario once per declared role. The field is
+            # already authored on real projects and was being discarded, so every scenario ran
+            # as whatever role happened to be active and reported `pass` for an unknown one.
+            want = [r for r in (test.get("roles") or []) if isinstance(r, str)] or [fallback]
+            per_role = []
+            for rid in want:
+                status, detail = _run_scenario(page, cerr, test, role_id=rid)
+                per_role.append({"role": rid, "status": status, "detail": detail})
+                results.append({"story": story.get("title"), "scenario": title,
+                                "role": rid, "status": status, "detail": detail})
+                if status == "fail":
+                    findings.append(Finding(
+                        ERROR, "T-FUNC",
+                        f"flow.stories[{story.get('title')!r}] scenario {title!r} "
+                        f"as role {rid!r}", detail))
+            # lastResult records WHICH role produced the verdict; a scenario is only `pass`
+            # when every declared role passes.
+            worst = ("fail" if any(r["status"] == "fail" for r in per_role)
+                     else "skip" if any(r["status"] == "skip" for r in per_role) else "pass")
+            verdicts[key_of[id(sc)]] = (test, {
+                "status": worst, "ranAt": _now_z(),
+                "detail": "; ".join(f"{r['role']}: {r['status']}" for r in per_role),
+                "roles": per_role,
+                # WHAT THIS VERDICT WAS COMPUTED FROM. Without it a `pass` is undated
+                # evidence: on the reference project three scenarios read "passing" after
+                # 141 of 141 render bodies had changed underneath them. The shell compares
+                # these against the live digests and shows a stale verdict as stale.
+                "inputs": _scenario_inputs(test, body_hash),
+            })
+        browser.close()
 
     # Persist the verdicts (read by the UX-tab glyph) — now, after the run, under the registry lock.
     try:
@@ -768,11 +916,10 @@ def run_functional(reg_path, story_filter, json_out, attach=None):
     except pbslice.RegistryLocked as e:
         findings.append(Finding(WARN, "T-WRITE", reg_path, f"lastResult verdicts NOT saved — {e}"))
     passed = sum(1 for r in results if r["status"] == "pass")
-    if json_out:
-        _write_json(json_out, {"mode": "functional", "passed": passed, "total": len(results),
-                               "scenarios": results, "findings": _findings_json(findings)})
-    _report(findings, "test_run.py --functional",
-            f"{passed}/{len(results)} scenario(s) passed — {reg_path}")
+    code = _verdict(findings, "test_run.py --functional",
+                    f"{passed}/{len(results)} scenario(s) passed — {reg_path}")
+    return code, {"mode": "functional", "passed": passed, "total": len(results),
+                  "scenarios": results, "findings": _findings_json(findings)}
 
 
 def _default_role_id(reg, roles):
@@ -786,85 +933,88 @@ def _default_role_id(reg, roles):
     return roles[0].get("id") if roles else None
 
 
-def run_roles(reg_path, json_out, attach=None):
+def run_roles(reg_path, json_out, attach=None, isolated=False):
+    code, payload = _roles(reg_path, _Session(reg_path, attach, isolated))
+    if json_out:
+        _write_json(json_out, payload)
+    sys.exit(code)
+
+
+def _roles(reg_path, sess):
+    """--roles as a function: (exit code, the JSON this mode writes)."""
     reg = _load_json(reg_path)
     roles = ((reg.get("meta") or {}).get("roles")) or []
     if not roles:
-        if json_out:
-            _write_json(json_out, {"mode": "roles", "note": "no meta.roles"})
-        _report([], "test_run.py --roles", f"no meta.roles — role gating not applicable — {reg_path}")
-        return
+        return (_verdict([], "test_run.py --roles", f"no meta.roles — role gating not applicable — {reg_path}"),
+                {"mode": "roles", "note": "no meta.roles"})
 
     screens = reg.get("screens") or []
-    sync_playwright = _require_playwright()
     findings, checked, ran = [], [], []
-    with sync_playwright() as p:
-        with _transport(reg_path, attach) as srv:
-            browser, page, cerr = _open_page(p, srv.url)
-            if page.evaluate("() => typeof setProtoRole") != "function":
-                findings.append(Finding(
-                    WARN, "T-ROLE-SEAM", "shell",
-                    "setProtoRole seam not found — cannot verify role gating"))
-            else:
-                for role in roles:
-                    rid = role.get("id")
-                    admin = bool(role.get("isAdmin"))
-                    page.evaluate("(id) => setProtoRole(id)", rid)
-                    page.wait_for_timeout(60)
-                    for s in screens:
-                        if not isinstance(s, dict):
-                            continue
-                        sid = s.get("id")
-                        sroles = s.get("roles")
-                        permitted = admin or not sroles or (rid in sroles)
-                        page.evaluate("(id) => { if (typeof setProtoScreen==='function') setProtoScreen(id); }", sid)
-                        page.wait_for_timeout(40)
-                        cur = page.evaluate("() => (typeof state!=='undefined' && state) ? state.protoScreenId : null")
-                        shown = (cur == sid)
-                        if permitted and not shown:
+    with sess as srv:
+        browser, page, cerr = srv.open_page()
+        if page.evaluate("() => typeof setProtoRole") != "function":
+            findings.append(Finding(
+                WARN, "T-ROLE-SEAM", "shell",
+                "setProtoRole seam not found — cannot verify role gating"))
+        else:
+            for role in roles:
+                rid = role.get("id")
+                admin = bool(role.get("isAdmin"))
+                page.evaluate("(id) => setProtoRole(id)", rid)
+                page.wait_for_timeout(60)
+                for s in screens:
+                    if not isinstance(s, dict):
+                        continue
+                    sid = s.get("id")
+                    sroles = s.get("roles")
+                    permitted = admin or not sroles or (rid in sroles)
+                    page.evaluate("(id) => { if (typeof setProtoScreen==='function') setProtoScreen(id); }", sid)
+                    page.wait_for_timeout(40)
+                    cur = page.evaluate("() => (typeof state!=='undefined' && state) ? state.protoScreenId : null")
+                    shown = (cur == sid)
+                    if permitted and not shown:
+                        findings.append(Finding(
+                            ERROR, "T-ROLE-SCREEN", f"role {rid!r} screen {sid!r}",
+                            f"role should see this screen but navigation fell back to {cur!r}"))
+                    if (not permitted) and shown:
+                        findings.append(Finding(
+                            ERROR, "T-ROLE-SCREEN", f"role {rid!r} screen {sid!r}",
+                            "screen gated to other roles is reachable (leak)"))
+                    if shown:
+                        g = page.evaluate(_GATE_JS, {"rid": rid, "admin": admin})
+                        if (not admin) and g["leaks"] > 0:
                             findings.append(Finding(
-                                ERROR, "T-ROLE-SCREEN", f"role {rid!r} screen {sid!r}",
-                                f"role should see this screen but navigation fell back to {cur!r}"))
-                        if (not permitted) and shown:
+                                ERROR, "T-ROLE-EL", f"role {rid!r} screen {sid!r}",
+                                f"{g['leaks']} element(s) gated to other roles are visible (leak)"))
+                        if admin and g["hiddenForAdmin"] > 0:
                             findings.append(Finding(
-                                ERROR, "T-ROLE-SCREEN", f"role {rid!r} screen {sid!r}",
-                                "screen gated to other roles is reachable (leak)"))
-                        if shown:
-                            g = page.evaluate(_GATE_JS, {"rid": rid, "admin": admin})
-                            if (not admin) and g["leaks"] > 0:
-                                findings.append(Finding(
-                                    ERROR, "T-ROLE-EL", f"role {rid!r} screen {sid!r}",
-                                    f"{g['leaks']} element(s) gated to other roles are visible (leak)"))
-                            if admin and g["hiddenForAdmin"] > 0:
-                                findings.append(Finding(
-                                    ERROR, "T-ROLE-EL", f"role {rid!r} screen {sid!r}",
-                                    f"{g['hiddenForAdmin']} data-roles element(s) hidden despite admin bypass"))
-                            checked.append({"role": rid, "screen": sid, "gatedEls": g["total"]})
+                                ERROR, "T-ROLE-EL", f"role {rid!r} screen {sid!r}",
+                                f"{g['hiddenForAdmin']} data-roles element(s) hidden despite admin bypass"))
+                        checked.append({"role": rid, "screen": sid, "gatedEls": g["total"]})
 
-                # D-27: --roles RUNS the authored scenarios per role. Visibility sampling above
-                # answers "is a data-roles element hidden"; it cannot answer "does this role's
-                # flow work", and a role-gated write control carries no data-roles attribute at
-                # all — the render body omits it. Running the scenarios is the only way to see
-                # that. `present`/`absent` expects are what a scenario uses to assert it.
-                for (story, sc, test) in _iter_test_scenarios(reg, None):
-                    title = sc.get("text") or story.get("title") or "(scenario)"
-                    want = [r for r in (test.get("roles") or []) if isinstance(r, str)] \
-                        or [r.get("id") for r in roles]
-                    for rid in want:
-                        status, detail = _run_scenario(page, cerr, test, role_id=rid)
-                        ran.append({"scenario": title, "role": rid, "status": status})
-                        if status == "fail":
-                            findings.append(Finding(
-                                ERROR, "T-ROLE-FUNC",
-                                f"scenario {title!r} as role {rid!r}", detail))
-            browser.close()
+            # D-27: --roles RUNS the authored scenarios per role. Visibility sampling above
+            # answers "is a data-roles element hidden"; it cannot answer "does this role's
+            # flow work", and a role-gated write control carries no data-roles attribute at
+            # all — the render body omits it. Running the scenarios is the only way to see
+            # that. `present`/`absent` expects are what a scenario uses to assert it.
+            for (story, sc, test) in _iter_test_scenarios(reg, None):
+                title = sc.get("text") or story.get("title") or "(scenario)"
+                want = [r for r in (test.get("roles") or []) if isinstance(r, str)] \
+                    or [r.get("id") for r in roles]
+                for rid in want:
+                    status, detail = _run_scenario(page, cerr, test, role_id=rid)
+                    ran.append({"scenario": title, "role": rid, "status": status})
+                    if status == "fail":
+                        findings.append(Finding(
+                            ERROR, "T-ROLE-FUNC",
+                            f"scenario {title!r} as role {rid!r}", detail))
+        browser.close()
 
-    if json_out:
-        _write_json(json_out, {"mode": "roles", "roles": len(roles), "checked": checked,
-                               "scenarios": ran, "findings": _findings_json(findings)})
-    _report(findings, "test_run.py --roles",
-            f"role gating verified across {len(roles)} role(s); "
-            f"{len(ran)} scenario run(s) — {reg_path}")
+    code = _verdict(findings, "test_run.py --roles",
+                    f"role gating verified across {len(roles)} role(s); "
+                    f"{len(ran)} scenario run(s) — {reg_path}")
+    return code, {"mode": "roles", "roles": len(roles), "checked": checked,
+                  "scenarios": ran, "findings": _findings_json(findings)}
 
 
 def _check_health(url):
@@ -892,7 +1042,15 @@ def _check_health(url):
     return (True, "server healthy (GET / 200, /__pb_events SSE)")
 
 
-def run_server(reg_path, json_out, attach=None):
+def run_server(reg_path, json_out, attach=None, isolated=False):
+    code, payload = _server(reg_path, _Session(reg_path, attach, isolated))
+    if json_out:
+        _write_json(json_out, payload)
+    sys.exit(code)
+
+
+def _server(reg_path, sess):
+    """--server as a function: (exit code, the JSON this mode writes)."""
     reg = _load_json(reg_path)
     base_dir = os.path.dirname(os.path.abspath(reg_path))
     screens = reg.get("screens") or []
@@ -902,52 +1060,49 @@ def run_server(reg_path, json_out, attach=None):
 
     findings = list(reachability_findings(reg, base_dir))  # static, browserless
     health = {}
-    sync_playwright = _require_playwright()
-    with sync_playwright() as p:
-        with _transport(reg_path, attach) as srv:
-            ok, detail = _check_health(srv.url)
-            health = {"ok": ok, "detail": detail}
-            if not ok:
-                findings.append(Finding(ERROR, "T-SERVE", "server", detail))
+    with sess as srv:
+        ok, detail = _check_health(srv.url)
+        health = {"ok": ok, "detail": detail}
+        if not ok:
+            findings.append(Finding(ERROR, "T-SERVE", "server", detail))
 
-            browser, page, cerr = _open_page(p, srv.url)
-            has_role_seam = page.evaluate("() => typeof setProtoRole") == "function"
-            if admin and has_role_seam:
-                page.evaluate("(id) => setProtoRole(id)", admin.get("id"))  # admin bypasses gating
-            for s in screens:
-                if not isinstance(s, dict):
-                    continue
-                sid = s.get("id")
-                fn = s.get("renderFn")
-                # Ensure the active role can see this screen so it actually renders.
-                if roles and not admin and has_role_seam:
-                    sroles = s.get("roles")
-                    rid = (sroles[0] if sroles else default_role)
-                    page.evaluate("(id) => setProtoRole(id)", rid)
-                del cerr[:]
-                page.evaluate("(id) => { if (typeof setProtoScreen==='function') setProtoScreen(id); }", sid)
-                page.wait_for_timeout(80)
-                info = page.evaluate(_SCREEN_INFO_JS, {"fn": fn})
-                where = f"screen {sid!r}"
-                if not info["hasFn"]:
-                    findings.append(Finding(ERROR, "T-RENDERFN", where,
-                                            f"render fn {fn!r} is not defined on window"))
-                if not info["hasFrame"]:
-                    findings.append(Finding(ERROR, "T-FRAME", where,
-                                            "no #proto-frame after navigation"))
-                elif info["cur"] != sid:
-                    findings.append(Finding(ERROR, "T-FRAME", where,
-                                            f"screen did not render (active screen is {info['cur']!r})"))
-                if cerr:
-                    findings.append(Finding(ERROR, "T-CONSOLE", where,
-                                            f"console error(s): {cerr[:3]}"))
-            browser.close()
+        browser, page, cerr = srv.open_page()
+        has_role_seam = page.evaluate("() => typeof setProtoRole") == "function"
+        if admin and has_role_seam:
+            page.evaluate("(id) => setProtoRole(id)", admin.get("id"))  # admin bypasses gating
+        for s in screens:
+            if not isinstance(s, dict):
+                continue
+            sid = s.get("id")
+            fn = s.get("renderFn")
+            # Ensure the active role can see this screen so it actually renders.
+            if roles and not admin and has_role_seam:
+                sroles = s.get("roles")
+                rid = (sroles[0] if sroles else default_role)
+                page.evaluate("(id) => setProtoRole(id)", rid)
+            del cerr[:]
+            page.evaluate("(id) => { if (typeof setProtoScreen==='function') setProtoScreen(id); }", sid)
+            page.wait_for_timeout(80)
+            info = page.evaluate(_SCREEN_INFO_JS, {"fn": fn})
+            where = f"screen {sid!r}"
+            if not info["hasFn"]:
+                findings.append(Finding(ERROR, "T-RENDERFN", where,
+                                        f"render fn {fn!r} is not defined on window"))
+            if not info["hasFrame"]:
+                findings.append(Finding(ERROR, "T-FRAME", where,
+                                        "no #proto-frame after navigation"))
+            elif info["cur"] != sid:
+                findings.append(Finding(ERROR, "T-FRAME", where,
+                                        f"screen did not render (active screen is {info['cur']!r})"))
+            if cerr:
+                findings.append(Finding(ERROR, "T-CONSOLE", where,
+                                        f"console error(s): {cerr[:3]}"))
+        browser.close()
 
-    if json_out:
-        _write_json(json_out, {"mode": "server", "health": health,
-                               "screens": len(screens), "findings": _findings_json(findings)})
-    _report(findings, "test_run.py --server",
-            f"server + {len(screens)} screen(s) healthy, reachability clean — {reg_path}")
+    code = _verdict(findings, "test_run.py --server",
+                    f"server + {len(screens)} screen(s) healthy, reachability clean — {reg_path}")
+    return code, {"mode": "server", "health": health,
+                  "screens": len(screens), "findings": _findings_json(findings)}
 
 
 def run_explore(reg_path, json_out, attach=None):
@@ -1035,6 +1190,33 @@ def run_explore(reg_path, json_out, attach=None):
 # ─────────────────────────────────────────────────────────────────────────────
 # Entry
 # ─────────────────────────────────────────────────────────────────────────────
+def run_all(reg_path, story_filter, json_out, attach=None, isolated=False):
+    """--all: functional, then roles, then server — in ONE process, over one transport and ONE
+    browser launch (a fresh browser context per mode, so no state leaks from one into the next).
+    Each mode prints its findings under its own header and keeps its own exit code; the run exits
+    with the worst of them, and with 3 the moment one cannot run at all."""
+    sess = _SharedSession(reg_path, attach, isolated)
+    modes = (("functional", lambda: _functional(reg_path, story_filter, sess)),
+             ("roles", lambda: _roles(reg_path, sess)),
+             ("server", lambda: _server(reg_path, sess)))
+    codes, payloads = {}, {}
+    try:
+        for name, mode in modes:
+            print(f"── test_run.py --all · {name} ──")
+            try:
+                codes[name], payloads[name] = mode()
+            except SystemExit as e:          # could not run (3) / a boot or I/O failure (2): no point going on
+                codes[name] = e.code if isinstance(e.code, int) else 2
+                break
+    finally:
+        sess.close()
+    code = max(codes.values())
+    print("test_run.py --all: " + " · ".join(f"{n} exit {c}" for n, c in codes.items()))
+    if json_out:
+        _write_json(json_out, {"mode": "all", "modes": payloads})
+    sys.exit(code)
+
+
 def run(argv=None):
     ap = argparse.ArgumentParser(
         prog="test_run.py",
@@ -1044,6 +1226,9 @@ def run(argv=None):
     ap.add_argument("--roles", action="store_true", help="verify meta.roles screen/element gating")
     ap.add_argument("--server", action="store_true", help="server health + per-screen render + reachability")
     ap.add_argument("--explore", action="store_true", help="print a reachability / dead-end / untested report")
+    ap.add_argument("--all", action="store_true", dest="all_modes",
+                    help="functional + roles + server in one process: one transport, one browser "
+                         "launch, a fresh browser context per mode; exits with the worst code")
     ap.add_argument("--story", default=None, help="limit --functional to one story (id or title)")
     ap.add_argument("--json", dest="json_out", default=None, help="write a machine-readable result JSON")
     # TRANSPORT, not a mode (D-27). `--server` is and stays a MODE (server health + per-screen
@@ -1053,21 +1238,31 @@ def run(argv=None):
     ap.add_argument("--attach", nargs="?", const="", default=None, metavar="URL",
                     help="reuse an already-running /pb:preview server instead of booting a headless "
                          "one; bare --attach discovers it from .claude/launch.json or 127.0.0.1")
+    ap.add_argument("--isolated", action="store_true",
+                    help="always boot a private preview for this run. Without --attach or --isolated "
+                         "this project's running preview is reused, and a private one is booted only "
+                         "when none is running")
     args = ap.parse_args(argv)
+    if args.all_modes and (args.functional or args.roles or args.server or args.explore):
+        ap.error("--all runs functional, roles and server together — do not combine it with a mode flag")
+    if args.isolated and args.attach is not None:
+        ap.error("--isolated and --attach are opposites: one boots a private preview, the other reuses a running one")
 
     reg_path = os.path.abspath(args.registry)
     # Mode and transport are independent: any mode may be combined with --attach.
     attach = _resolve_attach(args.attach, reg_path) if args.attach is not None else None
 
-    # Mode precedence: explore > server > roles > functional (the default).
-    if args.explore:
+    # Mode precedence: all > explore > server > roles > functional (the default).
+    if args.all_modes:
+        run_all(reg_path, args.story, args.json_out, attach=attach, isolated=args.isolated)
+    elif args.explore:
         run_explore(reg_path, args.json_out, attach=attach)
     elif args.server:
-        run_server(reg_path, args.json_out, attach=attach)
+        run_server(reg_path, args.json_out, attach=attach, isolated=args.isolated)
     elif args.roles:
-        run_roles(reg_path, args.json_out, attach=attach)
+        run_roles(reg_path, args.json_out, attach=attach, isolated=args.isolated)
     else:
-        run_functional(reg_path, args.story, args.json_out, attach=attach)
+        run_functional(reg_path, args.story, args.json_out, attach=attach, isolated=args.isolated)
 
 
 if __name__ == "__main__":

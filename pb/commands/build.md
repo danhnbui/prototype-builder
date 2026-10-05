@@ -89,7 +89,9 @@ The **trio** = a **screen**, a **component**, or **logic** (states, validation, 
    `think-logic` (state/rules), `design-component-build` (a new custom component).
    For a new or restructured screen or component, `think-layout` §2–§3 (a component chosen per region,
    the density budget) and §5 (render it and look at both widths) are not optional — a layout handed
-   back without them is unfinished, and §5 with no browser is reported blocked, never passed.
+   back without them is unfinished, and §5 with no browser is reported blocked, never passed. Look with
+   `shot.py` — `python3 "${CLAUDE_PLUGIN_ROOT}/tools/shot.py" registry.json --screen <id> [--viewport WxH]…` —
+   never a hand-written Playwright script (`CLAUDE.md` § *pb bounds its own footprint*).
    With **`meta.responsive: true`**, `think-layout` §4 *Responsive* is part of that: each size class
    in `meta.devices` gets its own answer (navigation, columns, table → cards, dialog → sheet), written
    as container queries in the item's `styleSrc` sheet or with the `r-*` utilities, and §5 looks at

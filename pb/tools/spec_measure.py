@@ -60,6 +60,8 @@ sys.path.insert(0, HERE)
 import importlib  # noqa: E402
 import render as R  # noqa: E402
 import tokens as T  # noqa: E402
+# Every headless browser pb opens goes through here — the machine-wide limit (see browser.py).
+import browser as pbbrowser  # noqa: E402
 # slice.py is the registry's write path: the advisory lock and the atomic write. Imported by name
 # because `import slice` would shadow the builtin of the same name here (serve.py does the same).
 pbslice = importlib.import_module("slice")
@@ -676,7 +678,7 @@ def main(argv=None):
             errors[cid] = "%s — not measured, nothing written for it" % unreadable[cid]
     with sync_playwright() as p:
         try:
-            browser = p.chromium.launch()
+            browser = pbbrowser.open_browser(p, "spec_measure")
         except Exception as e:
             print("spec_measure: could not launch Chromium (%s). Run: playwright install chromium"
                   % str(e).splitlines()[0], file=sys.stderr)

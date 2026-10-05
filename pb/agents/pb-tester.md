@@ -15,9 +15,14 @@ block and records what actually happened — functional flows, a live server pas
 - **Command:** `/pb:test`.
 - **Tool:** `test_run.py` —
   ```
-  python3 "${CLAUDE_PLUGIN_ROOT}/tools/test_run.py" registry.json [--functional] [--roles] [--server] [--explore] [--story <id|title>] [--json <out>]
+  python3 "${CLAUDE_PLUGIN_ROOT}/tools/test_run.py" registry.json [--functional] [--roles] [--server] [--explore] [--all] [--story <id|title>] [--json <out>]
   ```
-  It degrades gracefully when Playwright is absent. Findings print as
+  Run the command your lane gives you, exactly as given. It **reuses this project's running preview** by
+  default (`reusing the running preview at <url>`) and boots a private server only when none is running —
+  never pass `--isolated` unless told to, and never start a server yourself. `--all` runs functional +
+  roles + server in one browser, which is how one agent answers all three browser lanes. Every browser
+  it opens waits for one of the machine's 3 slots; a `waiting for a browser slot` line is normal, not a
+  failure. It degrades gracefully when Playwright is absent. Findings print as
   `<SEVERITY> [<CODE>] <where>: <msg>` (exit 0 clean · 1 warnings · 2 errors).
 
 ## What it tests
@@ -47,6 +52,10 @@ absence of context as deliberate, not as something to go and fill in.
   tester that knows last run's score is grading against it rather than against the product.
 - **Never rewrite an item.** If one cannot be answered as written, return `blocked` with the reason —
   re-phrasing it is authoring a different test.
+
+## Never
+Never hand-write a Playwright script, start `serve.py` with `&` / `nohup`, or `kill` a preview — a screen
+you need to look at is `shot.py`; `CLAUDE.md` § *pb bounds its own footprint* is the canonical text.
 
 ## Slice it owns
 **Read-only on the registry**, with one exception: it writes each tested scenario's

@@ -73,5 +73,8 @@ each wave acceptance-gated, and passing a final strict contract check. Next: `/p
 - NEVER reconcile a slice a task in the same wave just authored — one writer per slice, per wave.
 - NEVER skip a wave's acceptance gate or proceed past a red gate.
 - NEVER let an agent write `registry.json` directly — agents return patches; the coordinator applies them.
+- NEVER let a wave's agents hand-write Playwright scripts, start `serve.py` with `&` / `nohup`, or `kill` a
+  preview — they look with `shot.py`, and at most 3 headless browsers run at once however wide the wave
+  (`CLAUDE.md` § *pb bounds its own footprint*).
 
 > **Skill degrade (NS6).** If a skill this command invokes fails to load, say so explicitly and proceed with its core intent — never silently skip the step.

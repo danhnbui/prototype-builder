@@ -60,11 +60,14 @@ validation, and output. Read its printed output and surface it to the user.
 3. Restores the backup to `registry.json`, and the matching `spec.<from>.<ts>/` snapshot to
    `spec/components` + `spec/screens` (a backup that predates sidecar snapshots leaves `spec/` as it is).
 4. Re-renders `prototype.html`.
-5. Confirms. **Backups are NEVER deleted** — a rollback adds one.
+5. Confirms. **Backups are NEVER deleted** — a rollback adds one. (The one explicit exception is
+   `/pb:clean --keep-backups N`, which the user runs on purpose: it keeps the newest N in `.pb-backups/`
+   and in `memory/backups/` and deletes the rest. This command never does.)
 
 ## NEVER
 - NEVER write to `memory/constitution.md`, the Stack Lock, or the DS Lock.
 - NEVER write without `--apply`.
-- NEVER delete backups from `.pb-backups/` (a rollback adds a `pre-rollback.<ts>/` one).
+- NEVER delete backups from `.pb-backups/` (a rollback adds a `pre-rollback.<ts>/` one). Only the
+  user's own `/pb:clean --keep-backups N` prunes them; point to it if the folder has grown, never run it.
 - NEVER leave a half-updated registry — the chain runs fully in memory; one write at the end.
 - NEVER run this command on behalf of another command — users invoke `/pb:update-version` explicitly.

@@ -59,8 +59,13 @@ Subcommands (all take --registry PATH, default ./registry.json):
         the background when none is running, and confirms the compare page and every option frame
         answer on it before printing the URL. --open also opens it in the browser. Every stop that
         shows options ends with this URL; a file path or an editor link is not a way to compare.
-  list
-        The open explorations.
+  list [--stale-days N]
+        The open explorations — each with its age in days, and STALE once it is older than --stale-days
+        (default 3): a round nobody finished is a direction the next one silently inherits. --json
+        adds `ageDays` and `stale` to every entry.
+
+Promote and reject also name the rounds still open (`stillOpen` in --json; one line otherwise), so a
+round left behind is seen at the moment another one closes.
 
 Promote and reject archive the manifest as memory/explore/_closed/<target>-<stamp>.json, move the
 direction brief beside it (<target>-<stamp>.brief.md), and move the whole working folder
@@ -82,6 +87,7 @@ import pathlib
 import re
 import shutil
 import socket
+import stat
 import subprocess
 import sys
 import time
@@ -94,6 +100,8 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 
 import render  # noqa: E402
+# Every headless browser pb opens goes through here — the machine-wide limit (see browser.py).
+import browser as pbbrowser  # noqa: E402
 # The registry's write path (advisory lock + atomic write). importlib because `import slice` would
 # shadow the builtin of the same name in this module — serve.py does the same.
 pbslice = importlib.import_module("slice")
@@ -106,6 +114,9 @@ CANDIDATES_DIR = os.path.join("render", "_candidates")
 # project's .gitignore block already ignores .preview/ — runtime state, never a source.
 SERVER_FILE = os.path.join(".preview", "server.json")
 SERVER_LOG = os.path.join(".preview", "server.log")
+LOG_MAX = 1024 * 1024        # server.log is appended forever; past this much, a start keeps only its tail
+LOG_KEEP = 256 * 1024
+STALE_DAYS = 3               # an open round older than this is STALE
 _ID = re.compile(r"^[a-z0-9][a-z0-9-]*\Z")
 _PBUSE = re.compile(r"pbUse\(\s*['\"]([a-z0-9][a-z0-9-]*)['\"]")
 
@@ -229,8 +240,8 @@ def save_manifest(base_dir, man):
     _write_json(manifest_path(base_dir, man["target"]), man)
 
 
-def sessions(base_dir):
-    """Every open exploration, summarised — what serve.py injects as PB_EXPLORE."""
+def _open_manifests(base_dir):
+    """[(manifest, path)] for every open exploration, by name."""
     root = os.path.join(base_dir, EXPLORE_DIR)
     out = []
     if not os.path.isdir(root):
@@ -238,18 +249,64 @@ def sessions(base_dir):
     for name in sorted(os.listdir(root)):
         if not name.endswith(".json"):
             continue
+        path = os.path.join(root, name)
         try:
-            with open(os.path.join(root, name), encoding="utf-8") as f:
+            with open(path, encoding="utf-8") as f:
                 man = json.load(f)
         except (OSError, ValueError):
             continue
-        if man.get("status", "open") != "open" or not _ID.match(str(man.get("target", ""))):
+        if not isinstance(man, dict) or man.get("status", "open") != "open" \
+                or not _ID.match(str(man.get("target", ""))):
             continue
-        out.append({"target": man["target"], "kind": man.get("kind"), "host": man.get("host"),
-                    "mode": man.get("mode", "target"),
-                    "slots": [{"slot": o.get("slot"), "label": o.get("label") or o.get("slot")}
-                              for o in man.get("options", [])]})
+        out.append((man, path))
     return out
+
+
+def sessions(base_dir):
+    """Every open exploration, summarised — what serve.py injects as PB_EXPLORE."""
+    return [{"target": man["target"], "kind": man.get("kind"), "host": man.get("host"),
+             "mode": man.get("mode", "target"),
+             "slots": [{"slot": o.get("slot"), "label": o.get("label") or o.get("slot")}
+                       for o in man.get("options", [])]}
+            for man, _path in _open_manifests(base_dir)]
+
+
+def _age_days(man, path, now=None):
+    """How long this round has been open, in days (a float): from `createdAt`, else the manifest file's
+    own mtime. Never negative."""
+    now = now or datetime.datetime.now()
+    try:
+        made = datetime.datetime.fromisoformat(str(man.get("createdAt")).replace("Z", "+00:00"))
+        if made.tzinfo is not None:
+            made = made.astimezone().replace(tzinfo=None)
+    except (ValueError, TypeError):
+        try:
+            made = datetime.datetime.fromtimestamp(os.path.getmtime(path))
+        except OSError:
+            return 0.0
+    return max(0.0, (now - made).total_seconds() / 86400.0)
+
+
+def open_rounds(base_dir, stale_days=STALE_DAYS):
+    """The open explorations with their age: [{target, mode, slots, ageDays, stale}] — `sessions()` plus
+    how long each has been open. `stale` is True once a round is older than `stale_days`."""
+    now = datetime.datetime.now()
+    out = []
+    for (man, path), row in zip(_open_manifests(base_dir), sessions(base_dir)):
+        age = _age_days(man, path, now)
+        row.update({"ageDays": round(age, 1), "stale": age > stale_days})
+        out.append(row)
+    return out
+
+
+def still_open(base_dir, stale_days=STALE_DAYS):
+    """[{target, ageDays, stale}] — what promote and reject report is still open after they close one."""
+    return [{"target": r["target"], "ageDays": r["ageDays"], "stale": r["stale"]}
+            for r in open_rounds(base_dir, stale_days)]
+
+
+def _age_text(ageDays):
+    return ("%dd" % round(ageDays)) if ageDays >= 1 else "today"
 
 
 # ── registry lookups ─────────────────────────────────────────────────────────────
@@ -888,7 +945,7 @@ def _screenshots(reg_path, shell_path, man, url):
     pages = man.get("mode") == "pages"
     with sync_playwright() as p:
         try:
-            browser = p.chromium.launch()
+            browser = pbbrowser.open_browser(p, "explore")      # the machine-wide limit applies
         except Exception as e:  # noqa: BLE001 — any launch failure means we cannot look
             raise ExploreError("could not launch Chromium (%s) — playwright install chromium" % e, EXIT_CANNOT_RUN)
         for opt in man["options"]:
@@ -1079,6 +1136,14 @@ def _promote_ia(reg_path, man, slot, force=False):
 
 
 def cmd_promote(reg_path, target, slot, force=False):
+    """Promote `slot` of `target` (see _promote) → the result dict, plus `stillOpen`: the rounds that
+    are still open once this one is archived."""
+    res = _promote(reg_path, target, slot, force)
+    res["stillOpen"] = still_open(os.path.dirname(os.path.abspath(reg_path)))
+    return res
+
+
+def _promote(reg_path, target, slot, force=False):
     base_dir = os.path.dirname(os.path.abspath(reg_path))
     man = load_manifest(base_dir, target)
     if man.get("mode") == "goal":
@@ -1131,6 +1196,7 @@ def cmd_reject(reg_path, target):
                "why": (man.get("verdict") or {}).get("why", ""), "averages": averages(man)}
     archived = _archive(base_dir, man, "rejected")
     lessons["archived"] = os.path.relpath(archived, base_dir)
+    lessons["stillOpen"] = still_open(base_dir)
     return lessons
 
 
@@ -1196,12 +1262,37 @@ def _claimed_port(base_dir, reg_path):
     return None
 
 
+def trim_log(path, limit=LOG_MAX, keep=LOG_KEEP):
+    """.preview/server.log is appended to by every server start and never rotated. When it is over
+    `limit` bytes keep only its last `keep` (from a line boundary) → the bytes dropped, else 0.
+    Atomic (a temp file + os.replace); a symlink or anything that is not a regular file is left alone."""
+    try:
+        st = os.lstat(path)
+        if not stat.S_ISREG(st.st_mode) or st.st_size <= limit:
+            return 0
+        with open(path, "rb") as f:
+            f.seek(max(0, st.st_size - keep))
+            tail = f.read()
+        nl = tail.find(b"\n")
+        if nl != -1 and nl + 1 < len(tail):      # the cut fell mid-line: begin at the next whole one
+            tail = tail[nl + 1:]
+        tmp = path + ".tmp"
+        with open(tmp, "wb") as f:
+            f.write(tail)
+        os.replace(tmp, path)
+        return st.st_size - len(tail)
+    except OSError:
+        return 0
+
+
 def _start_server(reg_path, wait=30.0):
     """Start serve.py for this registry in its own session (it outlives this command) and wait
-    until it answers as ours. Its output goes to .preview/server.log."""
+    until it answers as ours. Its output goes to .preview/server.log (trimmed to its last 256 KB
+    first when it has grown past 1 MB)."""
     base_dir = os.path.dirname(os.path.abspath(reg_path))
     log_path = os.path.join(base_dir, SERVER_LOG)
     os.makedirs(os.path.dirname(log_path), exist_ok=True)
+    trim_log(log_path)
     port = _claimed_port(base_dir, reg_path)
     with open(log_path, "ab") as log:
         proc = subprocess.Popen([sys.executable, os.path.join(HERE, "serve.py"), reg_path, "--no-open"]
@@ -1302,13 +1393,22 @@ def main(argv=None):
     p = sub.add_parser("link", help="the browser URL of the compare-and-rate page, checked live")
     p.add_argument("target")
     p.add_argument("--open", action="store_true", dest="open_browser", help="also open it in the browser")
-    sub.add_parser("list")
+    p = sub.add_parser("list")
+    p.add_argument("--stale-days", type=float, default=STALE_DAYS, dest="stale_days",
+                   help="mark an open round STALE once it is older than this many days (default %d)" % STALE_DAYS)
     a = ap.parse_args(argv)
     reg_path = os.path.abspath(a.registry)
     base_dir = os.path.dirname(reg_path)
 
     def emit(obj, text):
         print(json.dumps(obj, ensure_ascii=False, indent=2) if a.json else text)
+
+    def open_line(res):
+        """The one line naming the rounds still open after a promote or reject (nothing when none)."""
+        if not a.json and res.get("stillOpen"):
+            print("  still open: %s — promote or reject each once it is decided" % ", ".join(
+                "%s (%s%s)" % (r["target"], _age_text(r["ageDays"]), ", STALE" if r.get("stale") else "")
+                for r in res["stillOpen"]))
 
     try:
         if a.cmd == "init":
@@ -1365,20 +1465,24 @@ def main(argv=None):
                               "; ".join("%s += %s" % (j, ", ".join(s)) for j, s in sorted(res["jobs"].items())) or "no new screens",
                               res["layers"], res["navHub"] or "unchanged", res["backup"], res["archived"],
                               res["structure"], "\n  note     " + res["note"] if res["note"] else ""))
+                open_line(res)
                 return EXIT_OK
             if res.get("mode") == "pages":
                 emit(res, "✓ picked %s — nothing went live: a page round's pick is built into the real files "
                           "after G-DESIGN\n  page     %s\n  archived %s" % (res["promoted"], res["page"], res["archived"]))
+                open_line(res)
                 return EXIT_OK
             emit(res, "✓ promoted %s → %s\n  backup   %s\n  archived %s%s" % (
                 res["promoted"], ", ".join(res["files"]), res["backup"], res["archived"],
                 "\n  ⚠ overwrote a concurrent edit (--force): %s" % ", ".join(res["drift"]) if res["drift"] else ""))
+            open_line(res)
         elif a.cmd == "reject":
             res = cmd_reject(reg_path, a.target)
             emit(res, "✓ nothing promoted; scratch discarded, manifest archived at %s\n"
                       "  lessons for /pb:clarify → ia.rules[]:\n%s" % (
                           res["archived"], json.dumps({k: res[k] for k in ("notes", "taught", "why")},
                                                       ensure_ascii=False, indent=2)))
+            open_line(res)
         elif a.cmd == "link":
             res = cmd_link(reg_path, a.target, a.open_browser)
             n = len(res["options"])
@@ -1393,9 +1497,10 @@ def main(argv=None):
                     "  give the user this URL on its own line — it is where they compare and rate"])))
             return EXIT_FAIL if res["problems"] else EXIT_OK
         elif a.cmd == "list":
-            ss = sessions(base_dir)
-            emit(ss, "\n".join("%s  %s  %s" % (s["target"], s["mode"], " · ".join(o["slot"] for o in s["slots"]))
-                               for s in ss) or "no open explorations")
+            ss = open_rounds(base_dir, a.stale_days)
+            emit(ss, "\n".join("%s  %s  %s  · open %s%s" % (
+                s["target"], s["mode"], " · ".join(o["slot"] for o in s["slots"]),
+                _age_text(s["ageDays"]), " · STALE" if s["stale"] else "") for s in ss) or "no open explorations")
     except ExploreError as e:
         print("✗ " + str(e), file=sys.stderr)
         return e.code
