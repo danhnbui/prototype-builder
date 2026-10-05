@@ -166,10 +166,13 @@ class Events:
             return
 
     def close(self):
-        try:
-            self.sock.close()
-        except OSError:
-            pass
+        # shutdown() first: on Linux a close() while the reader thread is blocked in recv() leaves the
+        # socket open in the kernel, so no FIN reaches the server — a closed browser tab does send one.
+        for step in (lambda: self.sock.shutdown(socket.SHUT_RDWR), self.sock.close):
+            try:
+                step()
+            except OSError:
+                pass
 
 
 def cli(reg_arg, *args, cwd=None):

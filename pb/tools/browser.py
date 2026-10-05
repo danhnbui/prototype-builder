@@ -99,7 +99,8 @@ def _ensure_dir(path):
         raise SlotUnsafe("%s belongs to another user" % path)
     if st.st_mode & 0o077:
         try:
-            os.chmod(path, 0o700)
+            # Tightens to owner-only; 0o700 is the narrowest mode a directory can be used with.
+            os.chmod(path, 0o700)  # nosemgrep: python.lang.security.audit.insecure-file-permissions.insecure-file-permissions
         except OSError:
             raise SlotUnsafe("%s is open to other users and cannot be tightened" % path)
 
