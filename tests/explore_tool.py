@@ -27,6 +27,9 @@ edited in the meantime. Each assertion below is one of those, made impossible:
     check fails a missing, escaping or duplicated page; serve.py serves the round's files on the
     same port (a bare slot redirects to its page, ../shared resolves, traversal is refused); promote
     records the pick and copies nothing
+  * `list` shows each open round's age and STALE once it is older than --stale-days; promote and reject
+    name the rounds still open (`stillOpen`, and one line in the CLI); starting a server trims an
+    oversized .preview/server.log to its last 256 KB
   * `link` — the URL the user is handed: it finds this project's server through .preview/server.json
     + GET /__pb_health, refuses a server of another registry, starts one when none answers, and the
     started server drops its record on SIGTERM
@@ -36,7 +39,10 @@ IA mode (--ia) is tests/explore_ia.py.
 Usage:  python3 tests/explore_tool.py
 Exit:   0 = pass · 1 = a failure
 """
+import contextlib
+import datetime
 import http.client
+import io
 import json
 import os
 import shutil
@@ -187,6 +193,96 @@ def shots_convergence(reg_path, project):
         check(problems == [] and len(shots) == 4, "a structurally different option passes, 2 shots each (%s)" % problems)
     finally:
         explore.cmd_reject(reg_path, "card")
+
+
+def hygiene_round(reg_path, project):
+    """list shows age + STALE; promote and reject report the rounds still open; the server log is trimmed."""
+    def cli(*argv):
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            rc = explore.main(["--registry", reg_path] + list(argv))
+        return rc, buf.getvalue()
+
+    explore.cmd_init(reg_path, "old-one", options=2, goal=True, intent="left open for days")
+    explore.cmd_init(reg_path, "new-one", options=2, goal=True, intent="started today")
+    explore.cmd_init(reg_path, "pg", options=2, pages=True, intent="a page round")
+    man = explore.load_manifest(project, "old-one")
+    man["createdAt"] = (datetime.datetime.now() - datetime.timedelta(days=5, hours=2)).replace(microsecond=0).isoformat()
+    explore.save_manifest(project, man)
+
+    rc, out = cli("list")
+    old = [ln for ln in out.splitlines() if ln.startswith("old-one")]
+    new = [ln for ln in out.splitlines() if ln.startswith("new-one")]
+    check(rc == 0 and old and "open 5d" in old[0] and old[0].endswith("STALE"), "list: a 5-day-old round shows its age and STALE (%s)" % old)
+    check(new and "open today" in new[0] and "STALE" not in new[0], "list: a round opened today is not STALE (%s)" % new)
+    rc, out = cli("--json", "list")
+    rows = {r["target"]: r for r in json.loads(out)}
+    check(rows["old-one"]["stale"] is True and 5.0 <= rows["old-one"]["ageDays"] < 5.2 and rows["new-one"]["stale"] is False
+          and rows["new-one"]["ageDays"] < 0.1, "list --json gains ageDays and stale")
+    check(all(k in rows["old-one"] for k in ("target", "mode", "slots")), "…and keeps every key it had")
+    rc, out = cli("--json", "list", "--stale-days", "10")
+    check(not any(r["stale"] for r in json.loads(out)), "--stale-days 10: the same round is no longer stale")
+    man = explore.load_manifest(project, "new-one")
+    man.pop("createdAt")
+    explore.save_manifest(project, man)
+    mt = time.time() - 4 * 86400
+    os.utime(explore.manifest_path(project, "new-one"), (mt, mt))
+    rows = {r["target"]: r for r in explore.open_rounds(project)}
+    check(rows["new-one"]["stale"] is True and 3.9 < rows["new-one"]["ageDays"] < 4.1, "a manifest with no createdAt is aged by its file's mtime")
+    explore.save_manifest(project, dict(man, createdAt=explore._now()))
+
+    print("promote and reject name the rounds still open")
+    res = explore.cmd_reject(reg_path, "new-one")
+    check([r["target"] for r in res["stillOpen"]] == ["old-one", "pg"] and res["stillOpen"][0]["stale"] is True
+          and res["stillOpen"][0]["ageDays"] >= 5, "reject: stillOpen lists the other rounds with their age (%s)" % res["stillOpen"])
+    explore.cmd_init(reg_path, "new-one", options=2, goal=True, intent="again")
+    rc, out = cli("reject", "new-one")
+    check("  still open: old-one (5d, STALE), pg (today)" in out, "reject (CLI) prints one line naming them: %s" % [l for l in out.splitlines() if "still open" in l])
+    pg = explore.load_manifest(project, "pg")
+    full = {"%s:%s" % (c["id"], o["slot"]): 4 for c in pg["rubric"] for o in pg["options"]}
+    explore.save_manifest(project, explore.apply_scores(pg, {"scores": full}))
+    rc, out = cli("--json", "promote", "pg", "opt-1")
+    res = json.loads(out)
+    check(rc == 0 and [r["target"] for r in res["stillOpen"]] == ["old-one"] and res["promoted"] == "opt-1",
+          "promote --json: stillOpen is added beside the existing keys (%s)" % res.get("stillOpen"))
+    explore.cmd_init(reg_path, "pg2", options=2, pages=True)
+    pg = explore.load_manifest(project, "pg2")
+    full = {"%s:%s" % (c["id"], o["slot"]): 3 for c in pg["rubric"] for o in pg["options"]}
+    explore.save_manifest(project, explore.apply_scores(pg, {"scores": full}))
+    rc, out = cli("promote", "pg2", "opt-1")
+    check(rc == 0 and "  still open: old-one (5d, STALE)" in out, "promote (CLI) prints the line too")
+    rc, out = cli("reject", "old-one")
+    check(rc == 0 and "still open" not in out, "with nothing left open, no line is printed")
+    check(explore.still_open(project) == [], "…and stillOpen is empty")
+
+    print("server.log is trimmed before a server appends to it")
+    log = os.path.join(project, explore.SERVER_LOG)
+    os.makedirs(os.path.dirname(log), exist_ok=True)
+    with open(log, "wb") as f:
+        for i in range(30000):
+            f.write(b"line %06d of an old server log, padded out a little\n" % i)
+    big = os.path.getsize(log)
+    check(big > explore.LOG_MAX, "(the log is %d KB, over 1 MB)" % (big // 1024))
+    check(explore.trim_log(log, limit=big + 1) == 0 and os.path.getsize(log) == big, "a log under the limit is left alone")
+    rec = explore._start_server(reg_path)
+    try:
+        with open(log, "rb") as f:
+            body = f.read()
+        check(len(body) < explore.LOG_KEEP + 8192, "starting a server cut it to its last 256 KB (+ the new start): %d KB" % (len(body) // 1024))
+        check(b"line 029999 of an old" in body and b"line 000000 " not in body, "…keeping the NEWEST lines")
+        check(body.startswith(b"line "), "…and it begins on a whole line")
+        check(not os.path.exists(log + ".tmp"), "…with no temp file left behind")
+    finally:
+        try:
+            os.kill(rec["pid"], signal.SIGTERM)
+        except OSError:
+            pass
+        end = time.time() + 5
+        while time.time() < end and explore._get(rec["url"].rstrip("/") + "/__pb_health")[0] == 200:
+            time.sleep(0.1)
+    link = os.path.join(project, "memory", "log-link")
+    os.symlink(log, link)
+    check(explore.trim_log(link, limit=10, keep=5) == 0, "a symlink is never trimmed through")
 
 
 def in_process_server(reg_path):
@@ -545,6 +641,9 @@ def main():
 
         print("link — the URL the user compares and rates at")
         link_round(reg_path, project)
+
+        print("age, STALE, still-open rounds, server.log trim")
+        hygiene_round(reg_path, project)
 
         print("check --shots — structural convergence (Playwright)")
         shots_convergence(reg_path, project)
