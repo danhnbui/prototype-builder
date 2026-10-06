@@ -266,7 +266,7 @@ Non-trio tweaks (step 2) **skip this**, exactly as they skip the gate.
 | renamed a screen | rename the node label; update the affected `path` strings | — |
 | changed navigation | add / remove / re-point that one edge | — |
 | added or changed branching logic (validation, a role gate, a conditional) | add or adjust the decision node and its `-- Yes -->` / `-- No -->` branches | — |
-| changed logic an `ia.rules[]` rule describes (its `implementedBy` / `displayedIn` names the touched item) | — | — · and patch that rule's matching `blocks[]` entry (a `cases` row, a `params` value, a `validation` message) so the Logic tab still says what the code does. Never rewrite its `decision{}` — a changed decision is `/pb:clarify` |
+| changed logic an `ia.rules[]` rule describes (its `implementedBy` / `displayedIn` names the touched item) | — | — · and patch that rule's matching `blocks[]` entry (a `cases` row, a `params` value, a `validation` message) — or create the block when the rule has none — so the Logic tab still says what the code does, not only its prose. Then run `python3 "${CLAUDE_PLUGIN_ROOT}/tools/logic_shape.py" registry.json --rule <id> --json` on each touched rule and author what it suggests from facts the change already stated Never rewrite its `decision{}` — a changed decision is `/pb:clarify` |
 | added a data-bearing field | — | append its `{ entity, field, type, example, notes }` row; a new entity arrives as a **stub** (PK + this field) with a `warnings[]` line |
 | removed a data-bearing field | — | drop that row |
 | anything else — a component body, a prop, a label | — | — |

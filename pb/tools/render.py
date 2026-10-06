@@ -247,6 +247,12 @@ def load_logic(base_dir, reg=None):
             rules = reg["rules"]
         if rules:
             graph["rules"] = rules
+        # Prose rules name the visual they would become: {rule_id: [{type, why}]}. Fails open.
+        try:
+            import logic_shape
+            graph["shapes"] = logic_shape.suggest_all(reg)
+        except Exception:                                           # noqa: BLE001
+            graph["shapes"] = {}
     return graph
 
 

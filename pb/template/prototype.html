@@ -2597,21 +2597,22 @@
        Standalone it keeps its header. Colour only where it means something; every length is a --pb-*
        token or a rem. `--lgc-px` is the card's side padding (0 inside a row), `--lgc-gap` the space
        between its sections — the one gap that also sits between the last body line and History. */
-    .lgc { --lgc-ink: var(--pb-ink); --lgc-soft: var(--pb-ink-2); --lgc-faint: var(--pb-ink-3);
+    .lgc, .lgc-drawer { --lgc-ink: var(--pb-ink); --lgc-soft: var(--pb-ink-2); --lgc-faint: var(--pb-ink-3);
       --lgc-line: var(--pb-hair); --lgc-line-strong: var(--pb-hair-2); --lgc-fill: var(--pb-wash);
       --lgc-tint: color-mix(in srgb, var(--pb-wash) 45%, var(--pb-surface));
       --lgc-ok: var(--pb-pass); --lgc-ok-soft: var(--pb-pass-bg); --lgc-warn: var(--pb-warn); --lgc-warn-soft: var(--pb-warn-bg);
       --lgc-bad: var(--pb-fail); --lgc-bad-soft: var(--pb-fail-bg); --lgc-info: var(--pb-info); --lgc-info-soft: var(--pb-info-bg);
-      --lgc-px: var(--pb-s4); --lgc-gap: var(--pb-s4);
+      --lgc-px: var(--pb-s4); --lgc-gap: var(--pb-s4); }
+    .lgc {
       padding: 0; overflow: hidden; background: var(--pb-surface); border: var(--pb-hair-w) solid var(--lgc-line-strong); color: var(--lgc-ink);
       font-size: var(--pb-t-md); line-height: var(--pb-lh); min-width: 0; }
     .lgc *, .lgc *::before, .lgc *::after { box-sizing: border-box; }
     /* In a row: flat, on the page, one gap between sections. */
     .lgc--bare { --lgc-px: 0; display: grid; gap: var(--lgc-gap); margin: 0; border: 0; border-radius: 0; background: none; overflow: visible; }
-    .lgc--bare > .lgc-lead, .lgc--bare > .lgc-pad, .lgc--bare > .lgc-rule { padding: 0; }
+    .lgc--bare > .lgc-lead, .lgc--bare > .lgc-pad { padding: 0; }
     /* Ids and paths in prose are long unbroken runs; they wrap rather than widen the card. */
-    .lgc-hd, .lgc-lead, .lgc-pad, .lgc-rule, .lgc-p { overflow-wrap: anywhere; }
-    .lgc code { font-family: var(--pb-mono); font-size: .9em; background: var(--lgc-fill); border: var(--pb-hair-w) solid var(--lgc-line); border-radius: var(--pb-r); padding: 0 var(--pb-s1); overflow-wrap: anywhere; }
+    .lgc-hd, .lgc-lead, .lgc-pad { overflow-wrap: anywhere; }
+    .lgc code, .lgc-drawer code { font-family: var(--pb-mono); font-size: .9em; background: var(--lgc-fill); border: var(--pb-hair-w) solid var(--lgc-line); border-radius: var(--pb-r); padding: 0 var(--pb-s1); overflow-wrap: anywhere; }
     .lgc.lg-card--sup { opacity: 1; border-style: dashed; }
     .lgc--bare.lg-card--sup { border-style: none; }
     .lgc-hd { display: block; padding: var(--pb-s4) var(--pb-s4) 0; }
@@ -2642,7 +2643,6 @@
     .lgc-tdi { flex: none; width: var(--pb-ico); height: var(--pb-ico); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: var(--pb-t-sm); font-weight: var(--pb-w-bold); color: var(--pb-on-ink); margin-top: var(--pb-hair-w); }
     .lgc-todo-bad .lgc-tdi { background: var(--lgc-bad); } .lgc-todo-warn .lgc-tdi { background: var(--lgc-warn); }
     .lgc-tdw { font-weight: var(--pb-w-bold); } .lgc-tdf { margin-top: var(--pb-s0); color: var(--lgc-soft); }
-    .lgc-rule { padding: var(--pb-s3) var(--lgc-px) var(--pb-s4); } .lgc-rule > * + * { margin-top: var(--lgc-gap); }
     .lgc-h { display: flex; align-items: center; gap: var(--pb-s2); flex-wrap: wrap; font-size: var(--pb-t-sm); font-weight: var(--pb-w-bold); letter-spacing: var(--pb-track); text-transform: uppercase; margin: 0 0 var(--pb-s2); }
     .lgc-h .lgc-b, .lgc-hn { text-transform: none; letter-spacing: 0; }
     .lgc-hn { font-weight: var(--pb-w-reg); color: var(--lgc-soft); }
@@ -2732,26 +2732,6 @@
     .lgc-tan td { vertical-align: middle; } .lgc-tan td:first-child { width: 1.75rem; }
     .lgc-pn { margin-top: var(--pb-s1); font-size: var(--pb-t-sm); } .lgc-t-warn .lgc-pn { color: var(--lgc-warn); }
     .lgc-kv > div + div { margin-top: var(--pb-s0); }
-    /* tabs: Values + History, when a rule has both */
-    .lgc-tabs { position: relative; border-top: var(--pb-hair-w) solid var(--lgc-line); }
-    .lgc--bare > .lgc-tabs { padding-top: var(--pb-s2); }
-    .lgc-r { position: absolute; opacity: 0; width: .0625rem; height: .0625rem; margin: 0; pointer-events: none; }
-    .lgc-bar { display: flex; gap: var(--pb-s1); padding: var(--pb-s2) var(--lgc-px) 0; border-bottom: var(--pb-hair-w) solid var(--lgc-line); overflow-x: auto; }
-    .lgc--bare .lgc-bar { padding-left: 0; padding-right: 0; }
-    .lgc-l { cursor: pointer; font-size: var(--pb-t-sm); font-weight: var(--pb-w-bold); padding: calc(var(--pb-s1) + var(--pb-s0)) calc(var(--pb-s2) + var(--pb-s0)); color: var(--lgc-soft); border-bottom: var(--pb-rule-w) solid transparent; margin-bottom: calc(var(--pb-hair-w) * -1); white-space: nowrap; user-select: none; }
-    .lgc-l:hover { color: var(--lgc-ink); }
-    .lgc-tdot { display: inline-block; width: .375rem; height: .375rem; border-radius: 50%; margin-left: var(--pb-s1); vertical-align: middle; }
-    .lgc-tdot-warn { background: var(--lgc-warn); } .lgc-tdot-bad { background: var(--lgc-bad); }
-    .lgc-p { display: none; padding: var(--pb-s3) var(--lgc-px) var(--pb-s4); } .lgc-p > * + * { margin-top: var(--lgc-gap); }
-    .lgc--bare .lgc-tabs .lgc-p { padding-left: 0; padding-right: 0; padding-bottom: 0; }
-    .lgc-r-values:checked ~ .lgc-p-values, .lgc-r-history:checked ~ .lgc-p-history { display: block; }
-    .lgc-r-values:checked ~ .lgc-bar .lgc-l-values, .lgc-r-history:checked ~ .lgc-bar .lgc-l-history { color: var(--lgc-ink); border-bottom-color: var(--lgc-ink); }
-    .lgc-r-values:focus-visible ~ .lgc-bar .lgc-l-values, .lgc-r-history:focus-visible ~ .lgc-bar .lgc-l-history { outline: var(--pb-rule-w) solid var(--lgc-ink); outline-offset: calc(var(--pb-rule-w) * -1); border-radius: var(--pb-r); }
-    /* a section on its own — Values alone, or History alone — drawn open, set off from the rule above */
-    .lgc-lone { padding: var(--pb-s3) var(--lgc-px) var(--pb-s4); border-top: var(--pb-hair-w) solid var(--lgc-line); }
-    .lgc--bare > .lgc-lone { padding: var(--pb-s3) 0 0; }
-    .lgc-lone > .lgc-h { margin-bottom: var(--pb-s3); }
-    .lgc-lone > .lgc-p { display: block; padding: 0; }
     /* history: a timeline, newest first. Three levels — the event, its headline, its detail rows. */
     .lgc-open { padding: var(--pb-s3); background: var(--lgc-warn-soft); border-radius: var(--pb-r-md); margin-bottom: var(--pb-s4); }
     .lgc-openh { font-size: var(--pb-t-md); font-weight: var(--pb-w-bold); color: var(--lgc-warn); margin-bottom: var(--pb-s1); }
@@ -2778,8 +2758,340 @@
     .lgc-dl dd .lgc-ul { padding-left: var(--pb-s4); }
     /* the id the rule is cited by, with its copy button, at the foot of the card */
     .lgc-rid { display: flex; flex-wrap: wrap; align-items: center; gap: var(--pb-s2); font-size: var(--pb-t-sm); color: var(--lgc-soft); }
-    .lgc > .lgc-rid { padding: var(--pb-s2) var(--lgc-px) var(--pb-s3); border-top: var(--pb-hair-w) solid var(--lgc-line); }
-    .lgc--bare > .lgc-rid { padding: 0; border-top: 0; }
+    /* ── Logic visuals (feat/logic-visuals): the card's stack and details bar, the row's glyph, the drawer, the
+       SVG kit. --pb-* only; hairlines; light and dark come from the tokens. ── */
+    .lgc-vis { border: var(--pb-hair-w) solid var(--lgc-line); border-radius: var(--pb-r-lg); background: var(--pb-surface); min-width: 0; overflow-wrap: anywhere; }
+    .lgc-vis > .lgc-sec { padding: var(--pb-s3) var(--pb-s4); min-width: 0; }
+    .lgc-vis > .lgc-sec + .lgc-sec { border-top: var(--pb-hair-w) solid var(--lgc-line); }
+    .lgc-vis > .lgc-sec > .lgc-h { color: var(--lgc-soft); }
+    .lgc-vis--none { border-style: dashed; background: none; }
+    .lgc-nov { display: flex; flex-wrap: wrap; align-items: center; gap: var(--pb-s1) var(--pb-s3); padding: var(--pb-s3) var(--pb-s4); color: var(--lgc-soft); }
+    .lgc-nov-t { font-weight: var(--pb-w-bold); color: var(--lgc-ink); }
+    .lgc-nov-l { font-size: var(--pb-t-sm); color: var(--lgc-faint); }
+    .lgc-nov-c { display: inline-flex; flex-wrap: wrap; gap: var(--pb-s1); }
+    .lgc-nov-cmd { margin-left: auto; font-size: var(--pb-t-sm); }
+    .lgc:not(.lgc--bare) > .lgc-vis { margin: var(--pb-s3) var(--lgc-px) 0; }
+    .lgc:not(.lgc--bare) > .lgc-dbar { padding: var(--pb-s3) var(--lgc-px) var(--pb-s4); }
+    .lgc-dbar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--pb-s2) var(--pb-s3); min-width: 0; }
+    .lgc-dch { display: inline-flex; flex-wrap: wrap; align-items: center; gap: var(--pb-s1) var(--pb-s3); min-width: 0; }
+    .lgc-qc { display: inline-flex; align-items: center; gap: var(--pb-s1); min-width: 0; font-size: var(--pb-t-sm); color: var(--lgc-faint); white-space: nowrap; }
+    .lgc-qt { min-width: 0; max-width: 26rem; overflow: hidden; text-overflow: ellipsis; }
+    /* a rule's row: its pattern glyph, the title, a tiny preview of what it holds */
+    .pb-scan--logic .pb-scan-tr > .pb-disc-t .ti { display: flex; align-items: center; gap: var(--pb-s2); }
+    .lgc-gl { flex: none; display: inline-flex; width: var(--pb-ico); height: var(--pb-ico); color: var(--pb-ink-3); }
+    .lgc-gl-svg { width: var(--pb-ico); height: var(--pb-ico); }
+    .pb-scan-tr.is-open .lgc-gl { color: var(--pb-ink); }
+    .lgc-tt { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .lgc-pv { flex: none; margin-left: var(--pb-s2); font-family: var(--pb-mono); font-size: var(--pb-t-sm); font-weight: var(--pb-w-reg); color: var(--pb-ink-3); white-space: nowrap; }
+    /* the drawer: one shared right-hand dialog */
+    .lgc-drawer { position: fixed; inset: 0; z-index: 1800; visibility: hidden; pointer-events: none; transition: visibility 0s linear calc(var(--pb-t) * 2);
+      --lgc-px: 0; color: var(--pb-ink); font: var(--pb-w-reg) var(--pb-t-md)/var(--pb-lh) var(--pb-font); }
+    .lgc-drawer.is-open { visibility: visible; pointer-events: auto; transition-delay: 0s; }
+    .lgc-drawer *, .lgc-drawer *::before, .lgc-drawer *::after { box-sizing: border-box; }
+    .lgc-dscrim { position: absolute; inset: 0; background: var(--pb-scrim); opacity: 0; transition: opacity calc(var(--pb-t) * 2); }
+    .lgc-drawer.is-open .lgc-dscrim { opacity: 1; }
+    .lgc-dpanel { position: absolute; top: 0; right: 0; bottom: 0; width: min(30rem, 100%); display: flex; flex-direction: column; min-width: 0;
+      background: var(--pb-raised); border: var(--pb-hair-w) solid var(--pb-hair-2); border-radius: var(--pb-r-lg) 0 0 var(--pb-r-lg); box-shadow: var(--pb-shadow);
+      transform: translateX(105%); transition: transform calc(var(--pb-t) * 2); outline: none; }
+    .lgc-drawer.is-open .lgc-dpanel { transform: none; }
+    .lgc-dhd { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--pb-s3); padding: var(--pb-s3) var(--pb-s3) var(--pb-s3) var(--pb-s4); border-bottom: var(--pb-hair-w) solid var(--pb-hair); }
+    .lgc-dhm { min-width: 0; }
+    .lgc-dti { margin: 0; font-size: var(--pb-t-lg); font-weight: var(--pb-w-bold); line-height: var(--pb-lh-tight); overflow-wrap: anywhere; }
+    .lgc-dsub { margin-top: var(--pb-s1); font-size: var(--pb-t-sm); color: var(--pb-ink-3); overflow-wrap: anywhere; }
+    .lgc-dbody { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--pb-s5); align-content: start; padding: var(--pb-s4); overflow-wrap: anywhere; }
+    .lgc-dsec + .lgc-dsec { border-top: var(--pb-hair-w) solid var(--pb-hair); padding-top: var(--pb-s4); }
+    .lgc-dsh { margin: 0 0 var(--pb-s2); font-size: var(--pb-t-sm); font-weight: var(--pb-w-bold); letter-spacing: var(--pb-track); text-transform: uppercase; color: var(--pb-ink-3); }
+    .lgc-dsb > * + * { margin-top: var(--pb-s3); }
+    .lgc-dim { margin: 0; color: var(--pb-ink-3); }
+    .lgc-dmeta { font-size: var(--pb-t-sm); color: var(--pb-ink-2); }
+    .lgc-oql, .lgc-tl-list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--pb-s2); }
+    .lgc-oq { display: flex; flex-wrap: wrap; align-items: flex-start; gap: var(--pb-s1) var(--pb-s2); }
+    .lgc-oq > span:last-child { flex: 1 1 12rem; min-width: 0; } .lgc-oq .lgc-tx { margin: 0; }
+    .lgc-tst { display: flex; align-items: flex-start; gap: var(--pb-s2); }
+    .lgc-tg { flex: none; width: var(--pb-ico); text-align: center; font-weight: var(--pb-w-bold); color: var(--pb-ink-3); }
+    .lgc-tg-pass { color: var(--lgc-ok); } .lgc-tg-fail { color: var(--lgc-bad); } .lgc-tg-stale, .lgc-tg-blocked { color: var(--lgc-warn); }
+    .lgc-drawer .lgc-rid { padding: 0; border: 0; margin-bottom: var(--pb-s2); }
+    .lgc-drawer .lg-link { color: var(--pb-ink); text-decoration: underline; text-underline-offset: .15em; }
+    .lgc-drawer .lgc-dl { grid-template-columns: 7rem minmax(0, 1fr); }
+    .lgc-drawer .lgc-sec { padding: 0; }
+    .lgc-drawer .lgc-sec + .lgc-sec { margin-top: var(--pb-s3); }
+    @media (max-width: 599px) { .lgc-dpanel { width: 100%; border-radius: 0; } }
+    /* the SVG kit: colours by class, from the diagram tokens and the status tokens */
+    .lgc-sv { display: block; max-width: none; }
+    .lgc-sv-n { fill: var(--pb-surface); stroke: var(--pb-hair-2); stroke-width: 1.25; }
+    .lgc-sv-n--strong { stroke: var(--pb-ink); stroke-width: 2; }
+    .lgc-sv-n--ok { fill: var(--pb-pass-bg); stroke: var(--pb-pass); } .lgc-sv-n--warn { fill: var(--pb-warn-bg); stroke: var(--pb-warn); }
+    .lgc-sv-n--bad { fill: var(--pb-fail-bg); stroke: var(--pb-fail); } .lgc-sv-n--info { fill: var(--pb-info-bg); stroke: var(--pb-info); }
+    .lgc-sv-n--dash { stroke-dasharray: 5 4; }
+    .lgc-sv-e { fill: none; stroke: var(--pb-edge-def); stroke-width: 1.5; }
+    .lgc-sv-e--ok { stroke: var(--pb-pass); } .lgc-sv-e--bad { stroke: var(--pb-fail); } .lgc-sv-e--warn { stroke: var(--pb-warn); } .lgc-sv-e--info { stroke: var(--pb-info); }
+    .lgc-sv-e--dash { stroke-dasharray: 5 4; }
+    .lgc-sv-mk { fill: var(--pb-edge-def); }
+    .lgc-sv-mk--ok { fill: var(--pb-pass); } .lgc-sv-mk--bad { fill: var(--pb-fail); } .lgc-sv-mk--warn { fill: var(--pb-warn); } .lgc-sv-mk--info { fill: var(--pb-info); }
+    .lgc-sv-band { fill: none; stroke: var(--pb-hair-2); stroke-width: 1.25; stroke-dasharray: 6 4; }
+    .lgc-sv-band--ok { stroke: var(--pb-pass); } .lgc-sv-band--warn { stroke: var(--pb-warn); } .lgc-sv-band--bad { stroke: var(--pb-fail); } .lgc-sv-band--info { stroke: var(--pb-info); }
+    .lgc-sv-lane { fill: var(--pb-wash); stroke: var(--pb-hair); stroke-width: 1; } .lgc-sv-lane--alt { fill: var(--pb-surface); }
+    .lgc-sv-t { fill: var(--pb-ink); font-family: var(--pb-font); font-size: var(--pb-t-sm); }
+    .lgc-sv-t2 { fill: var(--pb-ink-3); font-family: var(--pb-font); font-size: var(--pb-t-sm); }
+    .lgc-sv-t--sub { font-size: .6875rem; }
+    .lgc-sv-elab { fill: var(--pb-surface); stroke: var(--pb-hair-2); stroke-width: 1; }
+    .lgc-sv-etxt { fill: var(--pb-edge-label); font-family: var(--pb-font); font-size: var(--pb-t-sm); }
+    .lgc-scx { overflow-x: auto; overflow-y: hidden; max-width: 100%; padding-bottom: var(--pb-s2); }
+    .lgc-scx > div { min-width: 0; }
+    .lgc-kbd { display: inline-block; min-width: 1.25rem; padding: 0 var(--pb-s2); text-align: center; font-family: var(--pb-mono); font-size: var(--pb-t-sm); color: var(--pb-ink);
+      background: var(--pb-raised); border: var(--pb-hair-w) solid var(--pb-hair-2); border-bottom-width: var(--pb-rule-w); border-radius: var(--pb-r); }
+    .lgc-fr { display: flex; flex-direction: column; flex: none; overflow: hidden; border: var(--pb-hair-w) solid var(--pb-hair-2); border-radius: var(--pb-r-lg); background: var(--pb-raised); }
+    .lgc-fr-bar { padding: var(--pb-s1) var(--pb-s3); font-size: var(--pb-t-sm); font-weight: var(--pb-w-bold); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; border-bottom: var(--pb-hair-w) solid var(--pb-hair); background: var(--pb-page); }
+    .lgc-fr--ok .lgc-fr-bar { background: var(--pb-pass-bg); color: var(--pb-pass); } .lgc-fr--warn .lgc-fr-bar { background: var(--pb-warn-bg); color: var(--pb-warn); }
+    .lgc-fr--bad .lgc-fr-bar { background: var(--pb-fail-bg); color: var(--pb-fail); } .lgc-fr--info .lgc-fr-bar { background: var(--pb-info-bg); color: var(--pb-info); }
+    .lgc-fr-body { flex: 1; display: flex; flex-direction: column; gap: var(--pb-s2); padding: var(--pb-s3); font-size: var(--pb-t-sm); overflow: hidden; }
+    .lgc-sk-line { height: .5rem; border-radius: var(--pb-r-pill); background: var(--pb-wash); }
+    .lgc-sk-block { border-radius: var(--pb-r); background: var(--pb-wash); }
+    .lgc-sk-btn { margin-top: auto; min-height: var(--pb-hit-sm); display: flex; align-items: center; justify-content: center; padding: 0 var(--pb-s2); text-align: center; font-size: var(--pb-t-sm); border-radius: var(--pb-r); background: var(--pb-ink); color: var(--pb-on-ink); }
+    .lgc-sk-btn--off { background: var(--pb-wash); color: var(--pb-ink-3); }
+    .lgc-sk-btn--ok { background: var(--pb-pass); color: var(--pb-on-ink); } .lgc-sk-btn--bad { background: var(--pb-fail); color: var(--pb-on-ink); }
+    .lgc-sk-btn--warn { background: var(--pb-warn); color: var(--pb-on-ink); } .lgc-sk-btn--info { background: var(--pb-info); color: var(--pb-on-ink); }
+    @media (max-width: 719px) { .lgc-pv { display: none; } .lgc-qt { max-width: 14rem; } }
+    /* ── lgc:flow ── */
+    .lgc-sv-tb { font-weight: var(--pb-w-bold); }
+    .lgc-sv-tm { font-family: var(--pb-mono); }
+    .lgc-sv-tag--info { fill: var(--pb-info-bg); stroke: var(--pb-info); } .lgc-sv-tag--ok { fill: var(--pb-pass-bg); stroke: var(--pb-pass); }
+    .lgc-sv-tag--warn { fill: var(--pb-warn-bg); stroke: var(--pb-warn); } .lgc-sv-tag--bad { fill: var(--pb-fail-bg); stroke: var(--pb-fail); }
+    .lgc-sv-tt--info { fill: var(--pb-info); } .lgc-sv-tt--ok { fill: var(--pb-pass); } .lgc-sv-tt--warn { fill: var(--pb-warn); } .lgc-sv-tt--bad { fill: var(--pb-fail); }
+    .lgc-sc-dead .lgc-sv-tb { fill: var(--pb-warn); }
+    .lgc-sc-flag { margin-top: var(--pb-s2); padding: var(--pb-s2) var(--pb-s3); border: var(--pb-hair-w) dashed var(--pb-warn); border-radius: var(--pb-r); background: var(--pb-warn-bg); color: var(--pb-ink); font-size: var(--pb-t-sm); }
+    .lgc-sc-flag { display: flex; flex-wrap: wrap; gap: var(--pb-s1) var(--pb-s4); }
+    .lgc-sc-fl b { margin-right: var(--pb-s1); }
+    /* steps */
+    .lgc-st, .lgc-as { margin-top: var(--pb-s2); }
+    /* states */
+    .lgc-stfs { display: flex; flex-wrap: wrap; gap: var(--pb-s4); margin-top: var(--pb-s2); }
+    .lgc-stf { margin: 0; width: 148px; display: flex; flex-direction: column; gap: var(--pb-s2); }
+    .lgc-stf figcaption { display: flex; flex-direction: column; gap: 2px; font-size: var(--pb-t-sm); color: var(--pb-ink-2); overflow-wrap: anywhere; }
+    .lgc-stf-sh i { font-style: normal; color: var(--pb-ink-3); }
+    .lgc-stx { display: flex; flex-wrap: wrap; align-items: center; gap: var(--pb-s2) var(--pb-s3); margin-top: var(--pb-s3); padding-top: var(--pb-s3); border-top: var(--pb-hair-w) solid var(--pb-hair); }
+    .lgc-stx-h, .lgc-nvc-h { font-size: var(--pb-t-sm); color: var(--pb-ink-3); } .lgc-stx-h i, .lgc-nvc-h i { font-style: normal; }
+    .lgc-stx-c { display: inline-flex; flex-wrap: wrap; gap: var(--pb-s1); }
+    /* nav */
+    .lgc-nvs { display: flex; flex-wrap: wrap; gap: var(--pb-s5); margin-top: var(--pb-s2); }
+    .lgc-nvf { margin: 0; width: 176px; display: flex; flex-direction: column; gap: var(--pb-s2); }
+    .lgc-nvf figcaption { font-size: var(--pb-t-sm); color: var(--pb-ink-3); }
+    .lgc-nv-ph { width: 176px; height: 220px; border-radius: var(--pb-r-lg); }
+    .lgc-nv-back .lgc-nv-bk { color: var(--pb-info); font-weight: var(--pb-w-bold); }
+    .lgc-nv-bar { display: flex; border-top: var(--pb-hair-w) solid var(--pb-hair-2); background: var(--pb-page); }
+    .lgc-nv-tab { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: var(--pb-s2) 2px; font-size: .6875rem; color: var(--pb-ink-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .lgc-nv-tab.is-on { color: var(--pb-ink); font-weight: var(--pb-w-bold); }
+    .lgc-nv-ic { width: 14px; height: 14px; border-radius: var(--pb-r-pill); background: var(--pb-wash); border: var(--pb-hair-w) solid var(--pb-hair-2); }
+    .lgc-nv-tab.is-on .lgc-nv-ic { background: var(--pb-ink); border-color: var(--pb-ink); }
+    .lgc-nvs + .lgc-nvc, .lgc-nvc + .lgc-nvc { margin-top: var(--pb-s4); }
+    .lgc-nvs ~ .lgc-sub { margin-top: var(--pb-s3); }
+    .lgc-nvc { display: flex; flex-wrap: wrap; align-items: center; gap: var(--pb-s2); margin-top: var(--pb-s3); }
+    /* branches */
+    .lgc-bt { display: flex; flex-direction: column; gap: var(--pb-s2); margin-top: var(--pb-s2); }
+    .lgc-bn { display: flex; flex-wrap: wrap; align-items: center; gap: var(--pb-s2) var(--pb-s3); }
+    .lgc-bn-root { padding: var(--pb-s1) var(--pb-s4); border-radius: var(--pb-r-pill); background: var(--pb-ink); color: var(--pb-on-ink); font-size: var(--pb-t-sm); font-weight: var(--pb-w-bold); }
+    .lgc-bn-note { font-size: var(--pb-t-sm); color: var(--pb-ink-3); }
+    .lgc-bl { display: flex; flex-direction: column; gap: var(--pb-s2); position: relative; padding-left: var(--pb-s5); }
+    .lgc-bl::before { content: ''; position: absolute; left: var(--pb-s3); top: 0; bottom: var(--pb-s4); width: 1px; background: var(--pb-hair-2); }
+    .lgc-br { display: grid; grid-template-columns: minmax(0, 1fr) 24px minmax(0, 1fr); gap: var(--pb-s2); align-items: center; padding: var(--pb-s2); border: var(--pb-hair-w) solid var(--pb-hair); border-radius: var(--pb-r-md); background: var(--pb-surface); }
+    .lgc-br-else { border-style: dashed; }
+    .lgc-bc { display: flex; flex-direction: column; gap: 2px; padding: var(--pb-s2) var(--pb-s3); border: var(--pb-hair-w) solid var(--pb-hair-2); border-radius: var(--pb-r); font-size: var(--pb-t-sm); overflow-wrap: anywhere; }
+    .lgc-bc i { color: var(--pb-ink-3); font-style: normal; }
+    .lgc-bc--info { background: var(--pb-info-bg); border-color: var(--pb-info); } .lgc-bc--warn { background: var(--pb-warn-bg); border-color: var(--pb-warn); }
+    .lgc-bc--bad { background: var(--pb-fail-bg); border-color: var(--pb-fail); } .lgc-bc--ok { background: var(--pb-pass-bg); border-color: var(--pb-pass); }
+    .lgc-bw { font-size: .6875rem; text-transform: uppercase; letter-spacing: .05em; color: var(--pb-ink-3); font-weight: var(--pb-w-bold); }
+    .lgc-bar { text-align: center; color: var(--pb-ink-3); font-size: var(--pb-t-md); }
+    .lgc-bs { display: flex; align-items: center; gap: var(--pb-s2); min-width: 0; }
+    .lgc-bm { flex: none; width: 76px; height: 58px; border: var(--pb-hair-w) solid var(--pb-hair-2); border-radius: var(--pb-r-md); overflow: hidden; background: var(--pb-raised); display: flex; flex-direction: column; }
+    .lgc-bm-bar { height: 10px; background: var(--pb-page); border-bottom: var(--pb-hair-w) solid var(--pb-hair); }
+    .lgc-bm-body { padding: var(--pb-s2); display: flex; flex-direction: column; gap: var(--pb-s1); }
+    .lgc-bm--info .lgc-bm-bar { background: var(--pb-info-bg); } .lgc-bm--warn .lgc-bm-bar { background: var(--pb-warn-bg); }
+    .lgc-bm--bad .lgc-bm-bar { background: var(--pb-fail-bg); } .lgc-bm--ok .lgc-bm-bar { background: var(--pb-pass-bg); }
+    .lgc-bsh { font-size: var(--pb-t-sm); min-width: 0; overflow-wrap: anywhere; }
+    @media (max-width: 600px) { .lgc-br { grid-template-columns: minmax(0, 1fr); } .lgc-bar { transform: rotate(90deg); } }
+    /* ── /lgc:flow ── */
+    /* ── lgc:tables ── */
+    /* Tables family: the cases ladder, timeline ruler, matrix, order, ladder, placement grid and scope region. --pb-* only. */
+    .lgt-g { display: inline-flex; align-items: center; justify-content: center; min-width: 1rem; font-size: 1rem; line-height: 1; color: var(--pb-ink-2); flex: none; }
+    .lgt-g--ok { color: var(--pb-pass); } .lgt-g--bad { color: var(--pb-fail); } .lgt-g--mute { color: var(--pb-ink-3); } .lgt-g--ink { color: var(--pb-ink); }
+    .lgt-n { display: inline-flex; align-items: center; justify-content: center; flex: none; min-width: 1.5rem; height: 1.5rem; padding: 0 var(--pb-s1); border-radius: var(--pb-r-pill); background: var(--pb-ink); color: var(--pb-on-ink); font-size: var(--pb-t-sm); font-weight: var(--pb-w-bold); line-height: 1; font-variant-numeric: tabular-nums; }
+    .lgt-c { display: inline-flex; align-items: center; gap: var(--pb-s1); max-width: 100%; min-height: 1.5rem; padding: 0 var(--pb-s2); border: var(--pb-hair-w) solid var(--pb-hair-2); border-radius: var(--pb-r-md); background: var(--pb-page); font-size: var(--pb-t-sm); overflow-wrap: anywhere; }
+    .lgt-c--dim { color: var(--pb-ink-3); border-style: dashed; } .lgt-c--bad { color: var(--pb-fail); border-color: var(--pb-fail); background: var(--pb-fail-bg); }
+    .lgt-chain, .lgt-when { display: flex; flex-wrap: wrap; align-items: center; gap: var(--pb-s1) var(--pb-s2); min-width: 0; }
+    .lgt-lbl { font-size: var(--pb-t-sm); color: var(--pb-ink-3); text-transform: uppercase; letter-spacing: var(--pb-track); }
+    .lgt-foot, .lgt-legend { display: flex; flex-wrap: wrap; align-items: center; gap: var(--pb-s1) var(--pb-s4); margin-top: var(--pb-s3); font-size: var(--pb-t-sm); color: var(--pb-ink-2); }
+    .lgt-foot { gap: var(--pb-s2); } .lgt-legend > span { display: inline-flex; align-items: center; gap: var(--pb-s1); }
+    .lgt-ladder, .lgt-ord, .lgt-steps { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--pb-s2); }
+    /* cases: n · when → then */
+    .lgt-cr { display: grid; grid-template-columns: 2.5rem fit-content(26rem) 1rem minmax(6rem, 1fr); gap: var(--pb-s3); align-items: center; padding: var(--pb-s2) var(--pb-s3); border: var(--pb-hair-w) solid var(--pb-hair); border-radius: var(--pb-r-lg); background: var(--pb-page); }
+    .lgt-cr .lgt-n { justify-self: start; } .lgt-cr--else { background: var(--pb-wash); border-style: dashed; } .lgt-cr--else .lgt-n { background: var(--pb-ink-3); }
+    .lgt-in { display: inline-flex; align-items: center; gap: var(--pb-s1); } .lgt-k { font-size: var(--pb-t-sm); color: var(--pb-ink-3); }
+    .lgt-then .lgc-b { max-width: 100%; white-space: normal; }
+    @media (max-width: 599px) { .lgt-cr { grid-template-columns: 2.5rem minmax(0, 1fr); } .lgt-cr .lgt-ar { display: none; } .lgt-cr .lgt-then { grid-column: 2; } }
+    /* timeline */
+    .lgt-seg { stroke-width: 1.25; } .lgt-seg--n { fill: var(--pb-wash); stroke: var(--pb-hair-2); }
+    .lgt-seg--ok { fill: var(--pb-pass-bg); stroke: var(--pb-pass); } .lgt-seg--warn { fill: var(--pb-warn-bg); stroke: var(--pb-warn); }
+    .lgt-seg--bad { fill: var(--pb-fail-bg); stroke: var(--pb-fail); } .lgt-seg--info { fill: var(--pb-info-bg); stroke: var(--pb-info); }
+    .lgt-seg--open { stroke: none; }
+    .lgt-st--n { stop-color: var(--pb-wash); } .lgt-st--ok { stop-color: var(--pb-pass-bg); } .lgt-st--warn { stop-color: var(--pb-warn-bg); }
+    .lgt-st--bad { stop-color: var(--pb-fail-bg); } .lgt-st--info { stop-color: var(--pb-info-bg); }
+    .lgt-axis { stroke: var(--pb-ink-3); stroke-width: 1.5; } .lgt-tick { stroke: var(--pb-ink-2); stroke-width: 1.5; }
+    /* matrix + placement */
+    .lgt-tm td.lgc-mx { vertical-align: middle; } .lgt-tm td.lgc-yes { background: none; } .lgt-tm td.lgc-gap { background: none; }
+    .lgt-tm .lgt-g { font-weight: var(--pb-w-bold); }
+    .lgt-gapm { display: inline-flex; align-items: center; justify-content: center; width: 1.5rem; height: 1.5rem; border-radius: 50%; background: var(--pb-warn-bg); color: var(--pb-warn); border: var(--pb-hair-w) solid var(--pb-warn); font-size: 1rem; font-weight: var(--pb-w-bold); line-height: 1; }
+    .lgt-role { display: inline-flex; align-items: center; gap: var(--pb-s2); white-space: nowrap; }
+    .lgt-rd { width: .75rem; height: .75rem; border-radius: 50%; background: var(--c, var(--pb-ink-3)); flex: none; }
+    .lgt-pl td.lgc-never { background: none; }
+    /* order */
+    .lgt-key { display: grid; grid-template-columns: 1.5rem minmax(0, 1fr); gap: var(--pb-s3); align-items: start; padding: var(--pb-s3); border: var(--pb-hair-w) solid var(--pb-hair); border-radius: var(--pb-r-lg); background: var(--pb-page); }
+    .lgt-nm { display: flex; align-items: center; gap: var(--pb-s2); } .lgt-key .lgt-chain { margin-top: var(--pb-s2); }
+    .lgt-tie { display: flex; align-items: center; gap: var(--pb-s2); padding: 0 var(--pb-s3); color: var(--pb-ink-3); font-size: var(--pb-t-sm); }
+    .lgt-never { display: flex; flex-wrap: wrap; align-items: center; gap: var(--pb-s2) var(--pb-s3); margin-top: var(--pb-s3); }
+    /* ladder */
+    .lgt-steps { gap: 0; }
+    .lgt-rung { margin-left: calc(var(--i) * 1.5rem); display: grid; grid-template-columns: 1.5rem minmax(0, 1fr); gap: var(--pb-s3); align-items: start; padding: var(--pb-s3); border: var(--pb-hair-w) solid var(--pb-hair-2); border-radius: var(--pb-r-lg); background: var(--pb-page); }
+    .lgt-rung--end { border-style: dashed; background: var(--pb-wash); } .lgt-rung--end .lgt-n { background: transparent; color: var(--pb-ink-2); font-size: 1rem; }
+    .lgt-fall { margin-left: calc(var(--i) * 1.5rem + .5rem); display: flex; align-items: center; gap: var(--pb-s1); padding: var(--pb-s1) 0; color: var(--pb-ink-3); font-size: var(--pb-t-sm); }
+    @media (max-width: 599px) { .lgt-rung { margin-left: calc(var(--i) * .375rem); } .lgt-fall { margin-left: calc(var(--i) * .375rem + .5rem); } }
+    /* scope */
+    .lgt-reg { margin-bottom: var(--pb-s3); max-width: 25rem; } .lgt-reg .lgc-sv { max-width: 100%; height: auto; } .lgt-dim { opacity: .55; }
+    .lgc-sch .lgt-g { display: inline-flex; vertical-align: middle; color: inherit; }
+    /* ── /lgc:tables ── */
+    /* ── lgc:values ── */
+    .lgc-cap { font-size: var(--pb-t-sm); font-weight: var(--pb-w-bold); letter-spacing: var(--pb-track); text-transform: uppercase; color: var(--lgc-faint); }
+    .lgc-gg { flex: none; width: var(--pb-ico); text-align: center; font-size: 1rem; line-height: 1; font-weight: var(--pb-w-bold); }
+    .lgc-gg--ok { color: var(--lgc-ok); } .lgc-gg--bad { color: var(--lgc-bad); } .lgc-gg--off { color: var(--lgc-faint); }
+    .lgc-code { font-family: var(--pb-mono); font-size: var(--pb-t-sm); padding: 0 var(--pb-s2); border-radius: var(--pb-r); background: var(--lgc-bad-soft); color: var(--lgc-bad); border: var(--pb-hair-w) solid transparent; }
+    /* validation + gate: two states side by side */
+    .lgc-fpair { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr)); gap: var(--pb-s3); align-items: start; }
+    .lgc-fcard, .lgc-gc { border: var(--pb-hair-w) solid var(--lgc-line); border-radius: var(--pb-r-lg); background: var(--pb-page); padding: var(--pb-s3) var(--pb-s4); display: grid; gap: var(--pb-s3); align-content: start; min-width: 0; }
+    .lgc-fcard--bad, .lgc-gc--off { border-color: var(--lgc-bad); } .lgc-gc--on { border-color: var(--lgc-ok); }
+    .lgc-fhd { display: flex; gap: var(--pb-s2); align-items: center; justify-content: space-between; flex-wrap: wrap; }
+    .lgc-fld { display: grid; gap: var(--pb-s1); }
+    .lgc-flab { font-size: var(--pb-t-sm); font-weight: var(--pb-w-bold); }
+    .lgc-fin { display: flex; align-items: center; justify-content: space-between; gap: var(--pb-s2); min-height: var(--pb-hit); padding: 0 var(--pb-s3); border: var(--pb-hair-w) solid var(--lgc-line-strong); border-radius: var(--pb-r-md); background: var(--pb-raised); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+    .lgc-fin--bad { border-color: var(--lgc-bad); box-shadow: 0 0 0 var(--pb-hair-w) var(--lgc-bad); } .lgc-fin--ok { border-color: var(--lgc-ok); }
+    .lgc-fph { color: var(--lgc-faint); }
+    .lgc-ferr { display: flex; gap: var(--pb-s2); align-items: baseline; flex-wrap: wrap; font-size: var(--pb-t-sm); color: var(--lgc-bad); }
+    .lgc-fhelp { font-size: var(--pb-t-sm); color: var(--lgc-faint); }
+    .lgc-pbtn { display: flex; align-items: center; justify-content: center; min-height: var(--pb-hit); padding: 0 var(--pb-s5); border-radius: var(--pb-r-pill); background: var(--pb-ink); color: var(--pb-on-ink); font-weight: var(--pb-w-bold); text-align: center; overflow-wrap: anywhere; }
+    .lgc-pbtn--off { background: var(--pb-wash); color: var(--lgc-faint); }
+    .lgc-ghint { font-size: var(--pb-t-sm); color: var(--lgc-bad); text-align: center; }
+    .lgc-ckl { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--pb-s2); }
+    .lgc-ckl li { display: flex; gap: var(--pb-s2); align-items: baseline; } .lgc-ckl li > span:last-child { flex: 1; min-width: 0; }
+    .lgc-ckl--mute { color: var(--lgc-soft); }
+    .lgc-ng { margin-top: var(--pb-s3); padding: var(--pb-s3) var(--pb-s4); border: var(--pb-hair-w) dashed var(--lgc-line-strong); border-radius: var(--pb-r-lg); display: grid; gap: var(--pb-s2); }
+    /* formula */
+    .lgc-fxe { padding: var(--pb-s3) var(--pb-s4); background: var(--pb-wash); border-radius: var(--pb-r-md); overflow-x: auto; }
+    .lgc-fxe code { font-family: var(--pb-mono); font-size: var(--pb-t-lg); line-height: 1.4; background: none; border: 0; padding: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+    .lgc-fxe + *, .lgc-sgw + * { margin-top: var(--pb-s3); }
+    .lgc-fxw { margin-top: var(--pb-s3); padding: var(--pb-s3) var(--pb-s4); border: var(--pb-hair-w) solid var(--lgc-line); border-radius: var(--pb-r-md); display: grid; gap: var(--pb-s2); }
+    .lgc-fxin { display: grid; grid-template-columns: auto 1fr; gap: var(--pb-s1) var(--pb-s3); align-items: baseline; font-family: var(--pb-mono); font-size: var(--pb-t-sm); }
+    .lgc-fxin code { background: none; border: 0; padding: 0; color: var(--lgc-faint); }
+    .lgc-fxres { display: flex; gap: var(--pb-s2); align-items: baseline; font-size: var(--pb-t-xl); font-weight: var(--pb-w-bold); font-variant-numeric: tabular-nums; }
+    .lgc-fxar { color: var(--lgc-faint); }
+    .lgc-sgb { display: flex; height: 2.25rem; border-radius: var(--pb-r-md); overflow: hidden; border: var(--pb-hair-w) solid var(--lgc-line-strong); background: var(--pb-wash); gap: var(--pb-hair-w); }
+    .lgc-sgb > i { display: block; min-width: 2px; }
+    .lgc-sg-k0 { background: var(--pb-ink); } .lgc-sg-k1 { background: var(--pb-ink-3); }
+    .lgc-sg-k2 { background: repeating-linear-gradient(135deg, var(--pb-ink-3) 0 3px, var(--pb-surface) 3px 6px); }
+    .lgc-sg-ok { background: var(--lgc-ok); } .lgc-sg-warn { background: var(--lgc-warn); } .lgc-sg-bad { background: var(--lgc-bad); }
+    .lgc-sg-info { background: var(--lgc-info); } .lgc-sg-n { background: var(--lgc-faint); }
+    .lgc-sg--neg { background-image: repeating-linear-gradient(135deg, var(--pb-surface) 0 2px, transparent 2px 6px); }
+    .lgc-sgl { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr)); gap: var(--pb-s1) var(--pb-s4); margin-top: var(--pb-s2); font-size: var(--pb-t-sm); }
+    .lgc-sgl > div { display: flex; gap: var(--pb-s2); align-items: center; min-width: 0; }
+    .lgc-sgl i { width: 1rem; height: 1rem; border-radius: var(--pb-r); flex: none; border: var(--pb-hair-w) solid var(--lgc-line-strong); }
+    .lgc-sgl b { margin-left: auto; font-variant-numeric: tabular-nums; } .lgc-sgl em { font-style: normal; color: var(--lgc-faint); min-width: 2.5rem; text-align: right; }
+    /* params */
+    .lgc-ptiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 11.5rem), 1fr)); gap: var(--pb-s3); }
+    .lgc-pt { border: var(--pb-hair-w) solid var(--lgc-line); border-radius: var(--pb-r-lg); background: var(--pb-page); padding: var(--pb-s3) var(--pb-s4); display: grid; gap: var(--pb-s1); align-content: start; min-width: 0; overflow-wrap: anywhere; }
+    .lgc-pt--warn { border-color: var(--lgc-warn); background: var(--lgc-warn-soft); }
+    .lgc-ptop { display: flex; gap: var(--pb-s2); align-items: flex-start; justify-content: space-between; flex-wrap: wrap; }
+    .lgc-pnm { font-weight: var(--pb-w-bold); min-width: 0; }
+    .lgc-pnum { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 var(--pb-s2); font-size: 1.75rem; line-height: 1.15; font-weight: var(--pb-w-bold); font-variant-numeric: tabular-nums; }
+    .lgc-pnum .lgc-unit { font-size: var(--pb-t-md); white-space: nowrap; }
+    .lgc-pref { font-size: var(--pb-t-sm); color: var(--lgc-faint); }
+    /* inputs */
+    .lgc-kmi { white-space: nowrap; } .lgc-kmi .lgc-kbd { margin-right: var(--pb-s0); }
+    .lgc-plus, .lgc-or { color: var(--lgc-faint); font-size: var(--pb-t-sm); margin: 0 var(--pb-s1); }
+    .lgc-mw { display: inline-flex; align-items: center; gap: var(--pb-s1); vertical-align: middle; }
+    .lgc-mouse { flex: none; width: 1rem; height: 1.375rem; color: var(--lgc-ink); }
+    .lgc-nvr { color: var(--lgc-bad); }
+    /* invariants as a checklist */
+    .lgc-ivsum { display: flex; align-items: center; gap: var(--pb-s3); margin-bottom: var(--pb-s2); font-size: var(--pb-t-sm); }
+    .lgc-ivmeter { display: flex; gap: var(--pb-s0); flex: 0 1 12rem; min-width: 4rem; height: .5rem; }
+    .lgc-ivmeter i { flex: 1; border-radius: var(--pb-r); background: var(--pb-wash); border: var(--pb-hair-w) solid var(--lgc-line-strong); } .lgc-ivmeter i.on { background: var(--lgc-ok); border-color: var(--lgc-ok); }
+    .lgc-ivs { align-items: flex-start; gap: var(--pb-s3); padding: var(--pb-s2) var(--pb-s3); }
+    .lgc-ivs .lgc-n { margin-top: 0; }
+    .lgc-ivm { display: grid; gap: var(--pb-s1); min-width: 0; } .lgc-ivt { font-weight: var(--pb-w-bold); line-height: 1.4; }
+    .lgc-ivmeta { display: flex; flex-wrap: wrap; gap: var(--pb-s1) var(--pb-s2); align-items: center; font-size: var(--pb-t-sm); color: var(--lgc-soft); }
+    .lgc-ivside { flex: none; display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: var(--pb-s1); max-width: 45%; }
+    .lgc-ivok.lgc-b, .lgc-ivno.lgc-b { padding-top: var(--pb-hair-w); }
+    .lgc-ivwhen { max-width: 14rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--lgc-soft); }
+    .lgc-ivs .lgc-chev { margin-top: var(--pb-s1); }
+    @media (max-width: 600px) { .lgc-ivs { flex-wrap: wrap; } .lgc-ivside { max-width: none; flex-basis: 100%; justify-content: flex-start; padding-left: calc(1.25rem + var(--pb-s3)); } }
+    /* the three that sit inline in the stack */
+    .lgc-vis .lgc-swl, .lgc-vis .lgc-an { margin-bottom: 0; } .lgc-vis .lgc-an + .lgc-w { margin-top: var(--pb-s2); }
+    /* ── /lgc:values ── */
+    /* ── lgc:effects ── */
+    .lgx-toasts { display: flex; gap: var(--pb-s4); flex-wrap: wrap; margin-top: var(--pb-s3); }
+    .lgx-tc { display: grid; gap: var(--pb-s1); min-width: 0; max-width: 100%; }
+    .lgx-toast { display: inline-flex; align-items: center; gap: var(--pb-s3); background: var(--pb-ink); color: var(--pb-on-ink); border-radius: var(--pb-r-md); padding: var(--pb-s3) var(--pb-s4); font-size: var(--pb-t-md); box-shadow: 0 4px 14px color-mix(in srgb, var(--pb-ink) 22%, transparent); max-width: 100%; overflow-wrap: anywhere; }
+    .lgx-tic { flex: none; width: 1rem; height: 1rem; border-radius: 50%; background: var(--pb-pass); display: inline-block; }
+    .lgx-cap { font-size: var(--pb-t-sm); color: var(--pb-ink-3); }
+    .lgx-sum { display: flex; gap: var(--pb-s3); align-items: center; flex-wrap: wrap; margin-bottom: var(--pb-s3); font-size: var(--pb-t-sm); color: var(--pb-ink-2); }
+    .lgx-bar { display: flex; gap: 2px; height: .5rem; flex: 1 1 8rem; max-width: 18rem; border-radius: var(--pb-r-pill); overflow: hidden; background: var(--pb-wash); }
+    .lgx-bar i { flex: 1; display: block; } .lgx-bar-ok { background: var(--pb-pass); } .lgx-bar-warn { background: var(--pb-warn); } .lgx-bar-n { background: var(--pb-ink-3); }
+    .lgx-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(13.5rem, 1fr)); gap: var(--pb-s4); }
+    .lgx-cell { display: grid; gap: var(--pb-s2); align-content: start; min-width: 0; }
+    .lgx-cell .lgc-fr { width: 100% !important; }
+    .lgx-msg { font-weight: var(--pb-w-bold); color: var(--pb-ink); line-height: 1.3; overflow-wrap: anywhere; }
+    .lgx-none { color: var(--pb-ink-3); border: var(--pb-hair-w) dashed var(--pb-hair-2); border-radius: var(--pb-r); padding: var(--pb-s1) var(--pb-s2); }
+    .lgx-body { display: grid; gap: var(--pb-s3); min-width: 0; }
+    .lgi-graph { border: var(--pb-hair-w) solid var(--pb-hair-2); border-radius: 12px; padding: var(--pb-s3); min-width: 0; }
+    .lgi-graph-h { font-size: var(--pb-t-sm); color: var(--pb-ink-3); margin-bottom: var(--pb-s2); }
+    .lgi-col { display: grid; gap: 18px; min-width: 0; }
+    @media (max-width: 640px) { .lg-ripple { grid-template-columns: minmax(0, 1fr); } .lg-ripple .lg-list-wrap { position: static; max-height: 40vh; } }
+    .lgi-g { transition: opacity .12s; } .lgi-graph.is-focus .lgi-g--dim { opacity: .28; }
+    .lgc-tl { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--pb-s3); }
+    .lgc-tl-i { position: relative; padding-left: var(--pb-s5); min-width: 0; }
+    .lgc-tl-i::before { content: ""; position: absolute; left: .4375rem; top: 1.25rem; bottom: calc(-1 * var(--pb-s3)); width: 1px; background: var(--pb-hair-2); }
+    .lgc-tl-i:last-child::before { display: none; }
+    .lgc-tl-dot { position: absolute; left: 0; top: .25rem; width: .9375rem; height: .9375rem; border-radius: 50%; background: var(--pb-info); box-shadow: 0 0 0 3px var(--pb-surface); }
+    .lgc-tl-dot--n { background: var(--pb-ink-3); }
+    .lgc-tl-h { display: flex; gap: var(--pb-s2); align-items: center; flex-wrap: wrap; font-size: var(--pb-t-sm); color: var(--pb-ink-2); }
+    .lgc-tl-h time { font-family: var(--pb-mono); }
+    .lgc-tl-b { margin-top: var(--pb-s1); }
+    /* ── /lgc:effects ── */
+    /* ── lgc:drawer-sections ── */
+    .lgc-dq { font-weight: var(--pb-w-bold); line-height: 1.4; }
+    .lgc-dq .lgc-tx { margin: 0; }
+    .lgc-dq--none { font-weight: var(--pb-w-reg); font-style: italic; color: var(--pb-ink-3); border: var(--pb-hair-w) dashed var(--pb-hair-2); border-radius: var(--pb-r-md); padding: var(--pb-s2) var(--pb-s3); }
+    .lgc-cmp { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: var(--pb-s3); align-items: start; }
+    .lgc-cmp--one { grid-template-columns: minmax(0, 1fr); }
+    .lgc-rej { display: grid; gap: var(--pb-s2); min-width: 0; }
+    .lgc-co { border: var(--pb-hair-w) solid var(--pb-hair); border-radius: var(--pb-r-md); padding: var(--pb-s3); display: grid; gap: var(--pb-s2); min-width: 0; background: var(--pb-surface); }
+    .lgc-coh { display: flex; align-items: center; gap: var(--pb-s2); flex-wrap: wrap; }
+    .lgc-ck { font-size: 1rem; line-height: 1; font-weight: var(--pb-w-bold); color: var(--pb-pass); }
+    .lgc-cot { overflow-wrap: anywhere; }
+    .lgc-co--yes { border-color: var(--pb-pass); background: var(--pb-pass-bg); }
+    .lgc-co--yes .lgc-cot { font-weight: var(--pb-w-bold); }
+    .lgc-co--no { background: transparent; color: var(--pb-ink-2); }
+    .lgc-cor { font-size: var(--pb-t-sm); color: var(--pb-ink-3); border-top: var(--pb-hair-w) solid var(--pb-hair); padding-top: var(--pb-s2); }
+    .lgc-cor b { font-weight: var(--pb-w-reg); text-transform: uppercase; letter-spacing: var(--pb-track); margin-right: var(--pb-s1); }
+    .lgc-dline { display: flex; gap: var(--pb-s2); flex-wrap: wrap; }
+    .lgc-oq--lead { display: block; color: var(--pb-ink-2); }
+    .lgc-oq--lead .lgc-tx { margin: 0; }
+    .lgc-lin { margin-bottom: var(--pb-s3); }
+    .lgc-tsum { display: flex; gap: var(--pb-s2); flex-wrap: wrap; margin-bottom: var(--pb-s3); }
+    .lgc-tsb { flex: 1; min-width: 0; display: grid; gap: var(--pb-s1); }
+    .lgc-rrs { display: flex; flex-wrap: wrap; gap: var(--pb-s1) var(--pb-s3); font-size: var(--pb-t-sm); color: var(--pb-ink-2); }
+    .lgc-rr { display: inline-flex; align-items: center; gap: var(--pb-s1); }
+    .lgc-rr .lgc-tg { width: auto; }
+    .lgc-dsec--tests .lgc-tg { font-size: 1rem; line-height: var(--pb-t-md); }
+    .lgc-drawer .lgc-chip .lg-link { text-decoration: none; }
+    @media (max-width: 640px) { .lgc-cmp { grid-template-columns: minmax(0, 1fr); } }
+    /* ── /lgc:drawer-sections ── */
     @media (max-width: 640px) {
       .lgc-flow { grid-template-columns: minmax(0, 1fr) !important; }
       .lgc-fn, .lgc-fa, .lgc-fb { grid-column: 1 !important; grid-row: auto !important; }
@@ -3260,6 +3572,7 @@
       // The Sandbox belongs to the Prototype tab. Leaving it puts the inspector away; coming back
       // to it brings a pinned one back, docked, as it was.
       if (state.metaView !== 'prototype') pbSandboxClose(false);
+      if (state.logicDetails && state.metaView !== 'flow') pbLogicDetailsClose(true);
       renderMetaNav();
       if (state.metaView === 'prototype') {
         renderPrototype();
@@ -6315,16 +6628,17 @@
       const rows = rules.map((r, n) => {
         const fx = pbRuleFacts(r);
         const dot = fx.reds ? 'pb-dot--fail' : fx.status === 'To resolve' ? 'pb-dot--open' : fx.status === 'Superseded' ? 'pb-dot--hollow' : '';
+        const pat = lgcRowPattern(r);
         return pbScanRowHTML('logic', r.id, (noId ? [] : [
           `<span class="id" title="${escapeHtmlAttr(r.id)}">${pbEscape(r.id)}</span>`,
         ]).concat([
-          `<span class="ti" title="${escapeHtmlAttr(fx.title)}">${pbEscape(fx.title)}</span>`,
+          `<span class="ti" title="${escapeHtmlAttr(fx.title)}"><span class="lgc-gl" aria-hidden="true">${lgcGlyph(pat.glyph)}</span><span class="lgc-tt">${pbEscape(fx.title)}</span><span class="lgc-pv">${pbEscape(pat.preview)}</span></span>`,
           `<span class="st" title="${escapeHtmlAttr(fx.label)}"><span class="pb-dot ${dot}"></span><span class="w">${pbEscape(fx.label)}</span></span>`,
           `<span class="kd">${pbEscape(fx.kind)}</span>`,
         ]), pbLogicCard(r, n, { bare: true }), {
           dim: fx.status === 'Superseded', archived: fx.status === 'Superseded', label: fx.title,
           hay: [r.id, fx.title, fx.kind, fx.status, fx.label, r.summary || '', (r.decision || {}).chose || '', (r.decision || {}).question || ''].join(' '),
-          vals: { status: fx.status, kind: fx.kind },
+          vals: { status: fx.status, kind: fx.kind, pattern: pat.fams.join('|') },
         });
       }).join('');
       return legacy + pbLogicFbar(rules)
@@ -6342,20 +6656,16 @@
     }
 
     /* =====================================================================
-       THE RULE CARD (v2.1.0) — chosen in /pb:explore logic-card, option 3, on the real rules of a
-       polygon editor and an HR fund app. Read top to bottom it answers, in order:
-         1. what the rule is            — the title (a statement, never a question) + one-line lead
+       THE RULE CARD (v2.1.0; variant B, feat/logic-visuals) — read top to bottom it answers, in order:
+         1. what the rule is            — the title (a statement, never a question) + a one-line lead
          2. is anything wrong with it   — one status pill, then a to-do row per problem saying what
                                            is wrong, what to do, and which command does it
-         3. the rule itself             — its structure, always open: lifecycle, matrix, invariants,
-                                           and every structural block, in the order authored
-         4. on demand                   — Values (colours, anatomy, examples, parameters) and History
-                                           (a timeline: the decision is its latest entry, not a
-                                           second record beside it)
+         3. the rule itself             — a STACK OF VISUALS, always open, in LGC_ORDER: flow, tables, values, effects
+         4. on demand                   — one Details button: rule text, decision, open questions, history, tests
+                                           and sources in a right-hand drawer (pbLogicDetails)
        A superseded rule folds to its header. Colour carries meaning only: red = the rule is
        incomplete or contradicts itself, amber = something is unanswered, green = chosen/checked.
        ===================================================================== */
-    const LGC_VALUE_TYPES = { swatches: 1, anatomy: 1, examples: 1, params: 1 };
     const lgcArr = v => v == null || v === '' ? [] : (Array.isArray(v) ? v : [v]);
     const lgcStr = v => v == null ? '' : String(v);
     const lgcSentences = s => {
@@ -6393,62 +6703,436 @@
     const lgcBy = iv => iv.enforcedBy ? pbLgLink('handler', iv.enforcedBy, iv.enforcedBy + '()')
       : iv.enforcedIn ? `<code>${pbEscape(pbList(iv.enforcedIn))}</code>` : '';
 
+    /* =====================================================================
+       LOGIC VISUALS — THE SVG KIT (feat/logic-visuals). Every helper returns a STRING.
+       Colours are CSS classes (.lgc-sv-*) mapped to --pb-node-* / --pb-edge-* / the status tokens, so a
+       diagram follows light and dark with no repaint. Nothing here reads the registry: callers pass
+       already-final text (it is escaped here) and numbers (coerced here).
+
+         lgcSvg(w, h, title, inner)  -> '<svg …>' string. `title` is the accessible name. Marker ids are unique per
+                                        svg (a counter), so two diagrams on one page never share an arrowhead.
+                                        `inner` is the concatenation of the helpers below, in paint order:
+                                        bands and lanes FIRST (they sit behind), then edges, then nodes.
+         lgcNode({x, y, w=120, h=40, label, sub, tone, dashed, shape, strong})
+                                     -> { svg, cx, cy, top, bottom, left, right }   (top… are [x, y] points to wire edges to)
+                                        shape: 'rect' (default) | 'pill' | 'diamond' | 'circle'. tone: ok|warn|bad|info
+                                        (lgcTone aliases accepted: success, danger, red…); anything else is neutral.
+                                        A label too long for the box is cut with … and the full text is its tooltip.
+         lgcEdge({from:[x,y], to:[x,y], via:[[x,y]…], curve, label, tone, dashed})
+                                     -> '<g>…</g>'. Straight/polyline through `via`, or a cubic curve when `curve`
+                                        (via[0], via[1] are then the control points). `label` is a pill at the midpoint.
+                                        An arrowhead of the edge's tone ends it. dashed = a return / optional path.
+         lgcBand({x, y, w, h, label, tone})
+                                     -> dashed rounded region with a small caption top-left (an overlay, a group).
+         lgcLane({y, w, h, label, alt})
+                                     -> a full-width swimlane strip with its label at the left.
+         lgcText({x, y, text, anchor='start', dim, small})
+                                     -> a <text>, vertically centred on y. dim = secondary ink, small = caption size.
+         lgcScrollX(html, minW)      -> wraps a wide diagram: scrolls sideways INSIDE itself (keyboard-focusable region),
+                                        never traps the wheel. Use it for every diagram wider than ~320px.
+         lgcFrame({title, body, w=148, h=220, tone})
+                                     -> a mini screen: title bar + body. `body` is HTML (escape text yourself).
+         lgcFrame.line(pct=100) · lgcFrame.block(h=40) · lgcFrame.btn(text, {disabled, tone})
+                                     -> skeleton rows for a frame's body.
+         lgcKey(text)                -> <kbd class="lgc-kbd">text</kbd>
+       ===================================================================== */
+    let LGC_SV_UID = 0;
+    const LGC_SV_TONES = ['ok', 'warn', 'bad', 'info'];
+    const lgcNum = v => Number.isFinite(+v) ? +v : 0;
+    const lgcRound = v => Math.round(lgcNum(v) * 100) / 100;
+    const lgcSvTone = t => { t = lgcTone(t); return LGC_SV_TONES.indexOf(t) === -1 ? '' : t; };
+    const lgcPt = p => [lgcRound(p && p[0]), lgcRound(p && p[1])];
+    // Text width is estimated (an SVG cannot wrap): ~6.6px a character at the caption size.
+    const lgcFitText = (s, px) => { s = lgcStr(s); const max = Math.max(1, Math.floor(px / 6.6)); return s.length > max ? s.slice(0, Math.max(1, max - 1)) + '…' : s; };
+
+    function lgcSvg(w, h, title, inner) {
+      const id = ++LGC_SV_UID;
+      w = Math.max(1, Math.round(lgcNum(w))); h = Math.max(1, Math.round(lgcNum(h)));
+      const mk = ['', 'ok', 'bad', 'warn', 'info'].map(t => `<marker id="lgc-mk-${t || 'def'}-${id}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse" markerUnits="userSpaceOnUse"><path d="M0,0 L10,5 L0,10 z" class="lgc-sv-mk${t ? ' lgc-sv-mk--' + t : ''}"/></marker>`).join('');
+      return `<svg class="lgc-sv" viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" role="img" aria-label="${escapeHtmlAttr(lgcStr(title) || 'Diagram')}"><title>${pbEscape(lgcStr(title) || 'Diagram')}</title><defs>${mk}</defs>${lgcStr(inner).replace(/__MK__/g, id)}</svg>`;
+    }
+    function lgcText(o) {
+      o = o || {};
+      const anchor = o.anchor === 'middle' || o.anchor === 'end' ? o.anchor : 'start';
+      return `<text x="${lgcRound(o.x)}" y="${lgcRound(o.y)}" text-anchor="${anchor}" dominant-baseline="central" class="lgc-sv-t${o.dim ? ' lgc-sv-t2' : ''}${o.small ? ' lgc-sv-t--sub' : ''}">${pbEscape(lgcStr(o.text))}</text>`;
+    }
+    function lgcNode(o) {
+      o = o || {};
+      const x = lgcNum(o.x), y = lgcNum(o.y), w = lgcNum(o.w) || 120, h = lgcNum(o.h) || 40, shape = o.shape || 'rect';
+      const cx = x + w / 2, cy = y + h / 2, tone = lgcSvTone(o.tone);
+      const k = 'lgc-sv-n' + (tone ? ' lgc-sv-n--' + tone : '') + (o.dashed ? ' lgc-sv-n--dash' : '') + (o.strong ? ' lgc-sv-n--strong' : '');
+      let shp;
+      if (shape === 'diamond') shp = `<polygon points="${cx},${y} ${x + w},${cy} ${cx},${y + h} ${x},${cy}" class="${k}"/>`;
+      else if (shape === 'circle') shp = `<ellipse cx="${cx}" cy="${cy}" rx="${w / 2}" ry="${h / 2}" class="${k}"/>`;
+      else shp = `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${shape === 'pill' ? h / 2 : 6}" class="${k}"/>`;
+      const room = shape === 'diamond' ? w * 0.55 : shape === 'circle' ? w * 0.75 : w - 14;
+      let txt = '', tip = '';
+      if (o.label != null && o.label !== '') {
+        const full = lgcStr(o.label), shown = lgcFitText(full, room);
+        if (shown !== full) tip = `<title>${pbEscape(full)}</title>`;
+        const ly = o.sub ? cy - 7 : cy;
+        txt = `<text x="${cx}" y="${ly}" text-anchor="middle" dominant-baseline="central" class="lgc-sv-t">${pbEscape(shown)}</text>`
+          + (o.sub ? `<text x="${cx}" y="${cy + 9}" text-anchor="middle" dominant-baseline="central" class="lgc-sv-t2 lgc-sv-t--sub">${pbEscape(lgcFitText(o.sub, room))}</text>` : '');
+      }
+      return { svg: `<g>${tip}${shp}${txt}</g>`, cx, cy, top: [cx, y], bottom: [cx, y + h], left: [x, cy], right: [x + w, cy] };
+    }
+    function lgcEdge(o) {
+      o = o || {};
+      const from = lgcPt(o.from), to = lgcPt(o.to), via = lgcArr(o.via).map(lgcPt);
+      let d, mid;
+      if (o.curve) {
+        const horiz = Math.abs(to[0] - from[0]) >= Math.abs(to[1] - from[1]);
+        const off = Math.max(40, (horiz ? Math.abs(to[0] - from[0]) : Math.abs(to[1] - from[1])) / 2);
+        const sg = (a, b) => Math.sign(b - a) || 1;
+        const c1 = via[0] || (horiz ? [from[0] + off * sg(from[0], to[0]), from[1]] : [from[0], from[1] + off * sg(from[1], to[1])]);
+        const c2 = via[1] || (horiz ? [to[0] - off * sg(from[0], to[0]), to[1]] : [to[0], to[1] - off * sg(from[1], to[1])]);
+        d = `M${from[0]} ${from[1]} C${c1[0]} ${c1[1]} ${c2[0]} ${c2[1]} ${to[0]} ${to[1]}`;
+        mid = [0, 1].map(i => .125 * from[i] + .375 * c1[i] + .375 * c2[i] + .125 * to[i]);
+      } else {
+        const pts = [from].concat(via, [to]);
+        d = 'M' + pts.map(p => p[0] + ' ' + p[1]).join(' L');
+        const segs = [];
+        let total = 0;
+        for (let i = 1; i < pts.length; i++) { const l = Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]); segs.push(l); total += l; }
+        let half = total / 2;
+        mid = pts[0];
+        for (let j = 0; j < segs.length; j++) {
+          if (half <= segs[j] || j === segs.length - 1) { const f = segs[j] ? half / segs[j] : 0; mid = [pts[j][0] + (pts[j + 1][0] - pts[j][0]) * f, pts[j][1] + (pts[j + 1][1] - pts[j][1]) * f]; break; }
+          half -= segs[j];
+        }
+      }
+      const t = lgcSvTone(o.tone);
+      let lab = '';
+      if (o.label) {
+        const txt = lgcStr(o.label), lw = Math.round(txt.length * 6.4 + 14);
+        lab = `<rect x="${lgcRound(mid[0] - lw / 2)}" y="${lgcRound(mid[1] - 9)}" width="${lw}" height="18" rx="9" class="lgc-sv-elab"/>`
+          + `<text x="${lgcRound(mid[0])}" y="${lgcRound(mid[1])}" text-anchor="middle" dominant-baseline="central" class="lgc-sv-etxt">${pbEscape(txt)}</text>`;
+      }
+      return `<g><path d="${d}" class="lgc-sv-e${t ? ' lgc-sv-e--' + t : ''}${o.dashed ? ' lgc-sv-e--dash' : ''}" marker-end="url(#lgc-mk-${t || 'def'}-__MK__)"/>${lab}</g>`;
+    }
+    function lgcBand(o) {
+      o = o || {};
+      const t = lgcSvTone(o.tone);
+      return `<g><rect x="${lgcRound(o.x)}" y="${lgcRound(o.y)}" width="${lgcRound(o.w)}" height="${lgcRound(o.h)}" rx="10" class="lgc-sv-band${t ? ' lgc-sv-band--' + t : ''}"/>`
+        + (o.label ? `<text x="${lgcRound(lgcNum(o.x) + 10)}" y="${lgcRound(lgcNum(o.y) + 11)}" dominant-baseline="central" class="lgc-sv-t2 lgc-sv-t--sub">${pbEscape(lgcStr(o.label))}</text>` : '') + '</g>';
+    }
+    function lgcLane(o) {
+      o = o || {};
+      return `<g><rect x="0" y="${lgcRound(o.y)}" width="${lgcRound(o.w)}" height="${lgcRound(o.h)}" class="lgc-sv-lane${o.alt ? ' lgc-sv-lane--alt' : ''}"/>`
+        + (o.label ? `<text x="10" y="${lgcRound(lgcNum(o.y) + lgcNum(o.h) / 2)}" dominant-baseline="central" class="lgc-sv-t2">${pbEscape(lgcStr(o.label))}</text>` : '') + '</g>';
+    }
+    const lgcScrollX = (html, minW) => `<div class="lgc-scx" tabindex="0" role="region" aria-label="Diagram — scrolls sideways"><div${minW ? ` style="min-width:${Math.max(0, Math.round(lgcNum(minW)))}px"` : ''}>${html}</div></div>`;
+    function lgcFrame(o) {
+      o = o || {};
+      const t = lgcSvTone(o.tone);
+      return `<div class="lgc-fr${t ? ' lgc-fr--' + t : ''}" style="width:${Math.round(lgcNum(o.w) || 148)}px;height:${Math.round(lgcNum(o.h) || 220)}px"><div class="lgc-fr-bar">${pbEscape(lgcStr(o.title))}</div><div class="lgc-fr-body">${lgcStr(o.body)}</div></div>`;
+    }
+    lgcFrame.line = pct => `<div class="lgc-sk-line" style="width:${Math.max(0, Math.min(100, Math.round(lgcNum(pct == null ? 100 : pct))))}%"></div>`;
+    lgcFrame.block = h => `<div class="lgc-sk-block" style="height:${Math.round(lgcNum(h) || 40)}px"></div>`;
+    lgcFrame.btn = (text, o) => { o = o || {}; const t = lgcSvTone(o.tone); return `<div class="lgc-sk-btn${o.disabled ? ' lgc-sk-btn--off' : ''}${t ? ' lgc-sk-btn--' + t : ''}"${o.disabled ? ' aria-disabled="true"' : ''}>${pbEscape(lgcStr(text))}</div>`; };
+    const lgcKey = text => `<kbd class="lgc-kbd">${pbEscape(lgcStr(text))}</kbd>`;
+
     // Each block type is drawn by one function. The `lg-block--<type>` hook stays on the wrapper.
     const LGC_BLOCKS = {
+      // ── blocks:flow ──   (steps · states · nav · branches · async)
+      // A stepper: a card per step, the guard on the connector out of it (what must happen to advance),
+      // a dashed return arrow where a step sends the user back, the outcome as the terminal card.
+      steps(b) {
+        const items = lgcArr(b.items).map(s => typeof s === 'string' ? { label: s } : (s || {}));
+        if (!items.length) return lgcHead(b.title);
+        const W = 160, H = 74, TOP = 26, LM = 14, nodes = [], edges = [];
+        const out = b.outcome && typeof b.outcome === 'object' && b.outcome.label ? b.outcome : null;
+        const all = items.concat(out ? [{ label: out.label, detail: out.detail, outcome: true }] : []);
+        let x = LM;
+        const lowest = { y: TOP + H };
+        all.forEach((s, i) => {
+          const g = !s.outcome && i < all.length - 1 && s.guard ? lgcStr(typeof s.guard === 'object' ? s.guard.label || s.guard.text : s.guard) : '';
+          const nd = { x, y: TOP, s, i, gap: g ? Math.max(80, Math.round(g.length * 6.4 + 36)) : 52, guard: g };
+          nodes.push(nd);
+          x += W + nd.gap;
+        });
+        const width = nodes[nodes.length - 1].x + W + LM;
+        let svg = '';
+        nodes.forEach((n, i) => {
+          const s = n.s, term = !!s.outcome;
+          const nd = lgcNode({ x: n.x, y: n.y, w: W, h: H, tone: term ? 'ok' : '', strong: i === 0 && !term });
+          let t = `<title>${pbEscape(lgcStr(s.label))}</title>` + lgcTx(n.x + W / 2, n.y + 22, lgcFitText(s.label, W - 16), 'lgc-sv-tb', 'middle');
+          if (s.detail) lgcWrap(s.detail, W - 18, 2).lines.forEach((l, k) => { t += lgcTx(n.x + W / 2, n.y + 42 + 13 * k, l, 'lgc-sv-t2 lgc-sv-t--sub', 'middle'); });
+          t += lgcTag(n.x + 8, n.y - 8, term ? '✓ outcome' : String(i + 1), term ? 'ok' : '');
+          svg += `<g class="lgc-st-node${term ? ' lgc-st-out' : ''}" data-step="${i}">${nd.svg}${t}</g>`;
+          if (i < nodes.length - 1) {
+            edges.push(lgcEdge({ from: [n.x + W, n.y + H / 2], to: [nodes[i + 1].x, n.y + H / 2], label: n.guard || '', tone: nodes[i + 1].s.outcome ? 'ok' : '' }));
+          }
+        });
+        // Return arrows, shortest first, each on its own lane under the row.
+        const backs = [];
+        items.forEach((s, i) => {
+          if (!s.back) return;
+          const want = lgcStr(s.back).trim().toLowerCase();
+          let j = items.findIndex(o => lgcStr(o.label).trim().toLowerCase() === want);
+          if (j < 0 || j >= i) j = Math.max(0, i - 1);
+          backs.push({ i, j, text: lgcStr(s.back) });
+        });
+        backs.sort((a, c) => (a.i - a.j) - (c.i - c.j));
+        backs.forEach((bk, lv) => {
+          const A = nodes[bk.i], B = nodes[bk.j], ly = TOP + H + 22 + 22 * lv;
+          lowest.y = Math.max(lowest.y, ly);
+          edges.push(lgcEdge({ from: [A.x + W / 2 - 14 + 28 * 0, A.y + H], via: [[A.x + W / 2 - 14, ly], [B.x + W / 2 + 14, ly]], to: [B.x + W / 2 + 14, B.y + H], dashed: true, label: 'back: ' + lgcFitText(bk.text, 150) }));
+        });
+        const height = lowest.y + 20;
+        return lgcHead(b.title) + `<div class="lgc-st">${lgcScrollX(lgcSvg(width, height, b.title || 'Steps', edges.join('') + svg), width)}</div>`;
+      },
+      // Business states of a component, each a mini frame; interaction states are a separate chip row.
+      states(b) {
+        const items = lgcArr(b.items).filter(Boolean);
+        const frames = items.map(s => {
+          const tone = lgcTone(s.tone), bar = lgcStr(s.label || s.key);
+          const body = lgcFrame.line(70) + lgcFrame.block(34) + lgcFrame.line(50) + (s.shows ? lgcFrame.btn(lgcFitText(s.shows, 112), { tone: lgcSvTone(tone) }) : '');
+          return `<figure class="lgc-stf" data-state="${escapeHtmlAttr(lgcStr(s.key))}">${lgcFrame({ title: bar, body, w: 148, h: 156, tone })}`
+            + `<figcaption>${s.key != null && s.key !== '' ? `<code>${pbEscape(lgcStr(s.key))}</code>` : ''}${s.shows ? `<span class="lgc-stf-sh"><i>shows</i> ${pbEmph(lgcStr(s.shows))}</span>` : ''}</figcaption></figure>`;
+        }).join('');
+        const inter = lgcArr(b.interaction).filter(x => x != null && x !== '');
+        return lgcHead(b.title || 'States', b.component ? lgcBadge('k', `<code>${pbEscape(lgcStr(b.component))}</code>`) : '')
+          + `<div class="lgc-stfs">${frames}</div>`
+          + (inter.length ? `<div class="lgc-stx"><span class="lgc-stx-h">Interaction states <i>(not business states)</i></span><span class="lgc-stx-c">${inter.map(x => lgcBadge('n', pbEscape(lgcStr(x)))).join('')}</span></div>` : '');
+      },
+      // Bottom-bar mini for the tab screen, a pushed screen with a back control and no bar, then chips.
+      nav(b) {
+        const tabs = lgcArr(b.tabs).filter(Boolean);
+        const bar = tabs.map((t, i) => `<span class="lgc-nv-tab${i === 0 ? ' is-on' : ''}" data-tab="${escapeHtmlAttr(lgcStr(t.key))}"><span class="lgc-nv-ic"></span>${pbEscape(lgcStr(t.label || t.key))}</span>`).join('');
+        const tabFrame = `<figure class="lgc-nvf"><div class="lgc-fr lgc-nv-ph"><div class="lgc-fr-bar">${pbEscape(lgcStr(tabs[0] && (tabs[0].label || tabs[0].key)) || 'Tab')}</div>`
+          + `<div class="lgc-fr-body">${lgcFrame.line(70)}${lgcFrame.block(34)}${lgcFrame.line(50)}</div><div class="lgc-nv-bar" role="presentation">${bar}</div></div><figcaption>Tab screen — the bar holds the tabs, in order</figcaption></figure>`;
+        const pushFrame = `<figure class="lgc-nvf"><div class="lgc-fr lgc-nv-ph"><div class="lgc-fr-bar lgc-nv-back"><span class="lgc-nv-bk">‹ Back</span></div>`
+          + `<div class="lgc-fr-body">${lgcFrame.line(60)}${lgcFrame.block(34)}${lgcFrame.line(80)}</div></div><figcaption>Pushed screen — a back control, no bar</figcaption></figure>`;
+        const pushed = lgcArr(b.pushed).filter(x => x != null && x !== ''), reset = lgcArr(b.reset).filter(x => x != null && x !== '');
+        const chips = (pushed.length ? `<div class="lgc-nvc"><span class="lgc-nvc-h">Pushed screens</span>${pushed.map(x => lgcBadge('info', pbEscape(lgcStr(x)), 'Pushed: has a back control')).join('')}</div>` : '')
+          + (reset.length ? `<div class="lgc-nvc"><span class="lgc-nvc-h">Reset screens <i>(no back, resets history)</i></span>${reset.map(x => lgcBadge('warn', pbEscape(lgcStr(x)), 'No back, resets history')).join('')}</div>` : '');
+        return lgcHead(b.title || 'Navigation') + `<div class="lgc-nvs">${tabFrame}${pushFrame}</div>${chips}${b.note ? `<div class="lgc-sub">${pbEmph(lgcStr(b.note))}</div>` : ''}`;
+      },
+      // A show-when tree: one root fanning out to a condition card per row, each followed by what it
+      // shows as a mini frame; the else row last.
+      branches(b) {
+        const rows = lgcArr(b.rows).filter(Boolean);
+        const mini = (shows, tone) => `<div class="lgc-bm${lgcSvTone(tone) ? ' lgc-bm--' + lgcSvTone(tone) : ''}"><div class="lgc-bm-bar"></div><div class="lgc-bm-body">${lgcFrame.line(80)}${lgcFrame.line(55)}</div></div><div class="lgc-bsh">${pbEmph(lgcStr(shows))}</div>`;
+        const row = (when, shows, tone, isElse) => `<div class="lgc-br${isElse ? ' lgc-br-else' : ''}"><div class="lgc-bc${lgcSvTone(tone) ? ' lgc-bc--' + lgcSvTone(tone) : ''}"><span class="lgc-bw">${isElse ? 'else' : 'when'}</span>${isElse ? '<i>none of the above</i>' : pbEmph(lgcStr(when))}</div>`
+          + `<span class="lgc-bar" aria-hidden="true">→</span><div class="lgc-bs">${mini(shows, tone)}</div></div>`;
+        const els = b.else && typeof b.else === 'object' ? b.else : (b.else != null && b.else !== '' ? { shows: b.else } : null);
+        return lgcHead(b.title || 'Shows when') + `<div class="lgc-bt"><div class="lgc-bn"><span class="lgc-bn-root">What shows</span><span class="lgc-bn-note">first match wins, top to bottom</span></div>`
+          + `<div class="lgc-bl">${rows.map(x => row(x.when, x.shows, x.tone, false)).join('')}${els ? row('', els.shows, els.tone, true) : ''}</div></div>`;
+      },
+      // Swimlanes UI / queue / server. The outcomes are pills in the UI lane, each with its copy as a
+      // toast (pending, ok) or an alert (fail, partial); `order` links them as a numbered sequence.
+      async(b) {
+        const outs = lgcArr(b.outcomes).filter(o => o && o.key != null);
+        if (!outs.length) return lgcHead(b.title);
+        const order = lgcArr(b.order).map(String).filter(k => outs.some(o => o.key === k));
+        const seq = order.map(k => outs.find(o => o.key === k)).concat(outs.filter(o => order.indexOf(o.key) === -1));
+        const LM = 84, PW = 190, PITCH = 224, UI_Y = 0, UI_H = 112, Q_H = 56, S_H = 56;
+        const qy = UI_H, sy = UI_H + Q_H;
+        const cols = seq.map((o, i) => ({ o, x: LM + i * PITCH, i }));
+        const server = { cx: LM + PW / 2 + (order.length > 1 ? PITCH / 2 : PITCH * 0.55) };
+        const width = Math.max(cols[cols.length - 1].x + PW + 20, server.cx + 90 + 20);
+        const height = UI_H + Q_H + S_H;
+        let lanes = lgcLane({ y: UI_Y, w: width, h: UI_H, label: 'UI' }) + lgcLane({ y: qy, w: width, h: Q_H, label: 'queue', alt: true }) + lgcLane({ y: sy, w: width, h: S_H, label: 'server' });
+        let edges = '', nodes = '';
+        cols.forEach(c => {
+          const tone = lgcSvTone(c.o.tone) || LGC_KEY_TONE[c.o.key] || '', k = lgcStr(c.o.key);
+          const pill = lgcNode({ x: c.x, y: 64, w: PW, h: 34, shape: 'pill', tone, dashed: order.length > 0 && order.indexOf(k) === -1, label: lgcFitText(c.o.label || k, PW - 30) });
+          c.pill = pill;
+          nodes += `<g class="lgc-as-out" data-key="${escapeHtmlAttr(k)}">${pill.svg}`;
+          if (order.indexOf(k) !== -1) nodes += lgcTag(c.x + 4, 56 - 8 + 0, String(order.indexOf(k) + 1), '');
+          if (k === 'partial') nodes += lgcTag(c.x + PW - lgcTagW('partial') - 4, 56 - 8, 'partial', 'warn');
+          if (c.o.copy) {
+            const alert = k === 'fail' || k === 'partial';
+            const cp = lgcNode({ x: c.x, y: 10, w: PW, h: 38, shape: alert ? 'rect' : 'pill', tone: alert ? (k === 'fail' ? 'bad' : 'warn') : '', label: lgcFitText((alert ? '! ' : '') + lgcStr(c.o.copy), PW - 24), sub: alert ? 'alert' : 'toast' });
+            nodes += cp.svg;
+          }
+          nodes += '</g>';
+        });
+        if (order.length) {
+          const first = cols[0], last = cols[order.length - 1];
+          for (let i = 0; i < order.length - 1; i++) edges += lgcEdge({ from: [cols[i].pill.right[0], 81], to: [cols[i + 1].x, 81], tone: cols[i + 1].o.key === 'fail' ? 'bad' : '' });
+          const q = lgcNode({ x: first.x, y: qy + 11, w: PW, h: 34, label: 'Queued', shape: 'pill' }), sv = lgcNode({ x: server.cx - 90, y: sy + 11, w: 180, h: 34, label: 'Handles the request', shape: 'pill' });
+          nodes += q.svg + sv.svg;
+          const ax = first.x + PW / 2 - 22;
+          edges += lgcEdge({ from: [ax, 98], to: [ax, qy + 11], label: '' });
+          edges += lgcEdge({ from: q.right, via: [[server.cx, q.cy]], to: [server.cx, sv.top[1]] });
+          edges += lgcEdge({ from: sv.right, via: [[last.x + PW / 2 + 22, sv.cy]], to: [last.x + PW / 2 + 22, 98], dashed: true, tone: last.o.key === 'fail' ? 'bad' : (last.o.key === 'ok' ? 'ok' : '') });
+        }
+        return lgcHead(b.title || 'Async outcomes') + `<div class="lgc-as">${lgcScrollX(lgcSvg(width, height, b.title || 'Swimlanes', lanes + edges + nodes), width)}</div>`
+          + (b.note ? `<div class="lgc-sub">${pbEmph(lgcStr(b.note))}</div>` : '');
+      },
+      // ── /blocks:flow ──
+      // ── blocks:tables ──   (cases · timeline · matrix · order · ladder · placement · scope)
+      // A first-match ladder: number · the condition as chips · an arrow · the outcome as a toned pill.
       cases(b) {
         const rows = lgcArr(b.rows);
         const inputs = Array.isArray(b.inputs) && b.inputs.length && rows.some(x => x.when && typeof x.when === 'object') ? b.inputs : null;
-        const body = rows.map((x, n) => `<tr><td class="lgc-num">${n + 1}</td>${inputs
-            ? inputs.map(i => `<td>${lgcVal((x.when || {})[i] ?? '·')}</td>`).join('') : `<td>${lgcVal(x.when)}</td>`}`
-          + `<td>${lgcThen(x.then, x.tone)}${x.note ? `<div class="lgc-sub">${pbEmph(x.note)}</div>` : ''}</td></tr>`).join('')
-          + (b.else != null ? `<tr class="lgc-else"><td class="lgc-num"></td><td colspan="${inputs ? inputs.length : 1}"><i>Otherwise</i></td><td>${typeof b.else === 'object' && b.else.then != null ? lgcThen(b.else.then, b.else.tone) : lgcVal(b.else)}</td></tr>` : '');
-        return lgcHead(b.title) + lgcTable(['#'].concat(inputs || [b.whenLabel || 'When']).concat([b.thenLabel || 'Then']), body, 'lgc-cases');
+        const outcome = (v, tone) => v != null && typeof v === 'object' && !Array.isArray(v) ? lgcVal(v) : lgcBadge(lgcTone(tone) || 'n', pbEmph(lgcStr(Array.isArray(v) ? v.join(', ') : v)));
+        const row = (n, when, then, note, cls) => `<li class="lgt-cr${cls ? ' ' + cls : ''}"><span class="lgt-n">${n}</span><div class="lgt-when">${when}</div>`
+          + `<span class="lgt-ar" aria-hidden="true">→</span><div class="lgt-then">${then}${note ? `<div class="lgc-sub">${pbEmph(note)}</div>` : ''}</div></li>`;
+        const body = rows.map((x, n) => row(n + 1, inputs
+          ? inputs.map(i => `<span class="lgt-in"><span class="lgt-k">${pbEscape(i)}</span>${lgcCondChips((x.when || {})[i] ?? '·')}</span>`).join('')
+          : lgcCondChips(x.when), outcome(x.then, x.tone), x.note)).join('')
+          + (b.else != null ? row('else', '<span class="lgt-c lgt-c--dim">none of the above</span>',
+            typeof b.else === 'object' && b.else.then != null ? outcome(b.else.then, b.else.tone) : outcome(b.else), b.else && b.else.note, 'lgt-cr--else') : '');
+        return lgcHead(b.title) + `<ol class="lgt-ladder lgc-cases">${body}</ol>`
+          + '<div class="lgt-foot"><span class="lgt-g" aria-hidden="true">↓</span>Evaluated top-down; the first match decides.</div>';
       },
-      scope(b) {
-        const col = (label, items, cls, mark) => `<div class="lgc-sc lgc-sc-${cls}"><div class="lgc-sch">${mark} ${pbEmph(label)}</div><ul class="lgc-ul">${lgcArr(items).map(x => `<li>${pbEmph(lgcStr(x))}</li>`).join('')}</ul></div>`;
-        return lgcHead(b.title) + `<div class="lgc-g2">${col(b.actsLabel || 'Acts on', b.acts, 'in', '✓')}${col(b.untouchedLabel || 'Leaves untouched', b.untouched, 'out', '✕')}</div>`;
+      // An SVG ruler: marks are ticks in time order, bands are coloured segments between them.
+      timeline(b) {
+        const marks = lgcArr(b.marks).map(m => typeof m === 'object' ? m : { key: m, label: m });
+        const bands = lgcArr(b.bands);
+        const n = marks.length, W = Math.max(520, 150 * (n + 1)), L = 14, R = W - 14, step = (R - L) / (n + 1);
+        const at = k => { const i = marks.findIndex(m => m.key === k); return i < 0 ? null : L + step * (i + 1); };
+        const BY = 30, BH = 42, AX = BY + BH + 14;
+        let defs = '', segs = '', labels = '', notes = '';
+        bands.forEach((bd, i) => {
+          const x1 = at(bd.from), x2 = at(bd.to), t = lgcSvTone(bd.tone) || 'n';
+          const a = x1 == null ? L : x1, z = x2 == null ? R : x2, w = Math.max(8, z - a);
+          const gid = `lgt-fd${i}-__MK__`, fadeL = x1 == null, fadeR = x2 == null;
+          if (fadeL || fadeR) defs += `<linearGradient id="${gid}" x1="0" x2="1" y1="0" y2="0"><stop offset="0" class="lgt-st lgt-st--${t}" stop-opacity="${fadeL ? 0 : 1}"/><stop offset="${fadeL ? 0.7 : 0.3}" class="lgt-st lgt-st--${t}" stop-opacity="1"/>`
+            + `<stop offset="1" class="lgt-st lgt-st--${t}" stop-opacity="${fadeR ? 0 : 1}"/></linearGradient>`;
+          segs += `<rect x="${lgcRound(a)}" y="${BY}" width="${lgcRound(w)}" height="${BH}" rx="6" class="lgt-seg lgt-seg--${t}${fadeL || fadeR ? ' lgt-seg--open' : ''}"${fadeL || fadeR ? ` style="fill:url(#${gid})"` : ''}>${fadeL || fadeR ? `<title>open-ended</title>` : ''}</rect>`;
+          const mid = a + w / 2, room = w - 16;
+          labels += lgcText({ x: mid, y: BY + BH / 2, text: lgcFitText(bd.then, room), anchor: 'middle' });
+          if (bd.note) notes += lgcText({ x: mid, y: AX + 50, text: lgcFitText(bd.note, Math.max(room, 90)), anchor: 'middle', dim: true, small: true });
+        });
+        let ticks = `<line x1="${L}" y1="${AX}" x2="${R}" y2="${AX}" class="lgt-axis"/>`;
+        marks.forEach((m, i) => {
+          const x = L + step * (i + 1);
+          ticks += `<line x1="${lgcRound(x)}" y1="${BY + BH}" x2="${lgcRound(x)}" y2="${AX + 7}" class="lgt-tick"/>` + lgcText({ x, y: AX + 24, text: lgcFitText(m.label || m.key, step - 8), anchor: 'middle' });
+        });
+        const svg = lgcSvg(W, AX + 66, b.title || 'Timeline', `<defs>${defs}</defs>${segs}${ticks}${labels}${notes}`);
+        return lgcHead(b.title) + lgcScrollX(svg, W);
       },
-      placement(b) {
-        const never = lgcArr(b.surfaces).some(s => lgcArr(s.never).length);
-        const rows = lgcArr(b.surfaces).map(s => `<tr><td><b>${pbEmph(lgcStr(s.surface))}</b></td><td>${lgcArr(s.holds).map(x => pbEmph(lgcStr(x))).join('<br>')}</td>`
-          + (never ? `<td class="lgc-never">${lgcArr(s.never).map(x => '✕ ' + pbEmph(lgcStr(x))).join('<br>')}</td>` : '') + '</tr>').join('');
-        return lgcHead(b.title) + lgcTable([b.surfaceLabel || 'Surface', 'Shows'].concat(never ? ['Never'] : []), rows);
-      },
+      // Rows x columns. ✓ passes, – is muted, ? is a gap, anything else is a chip. axis "role" dots the rows.
       matrix(m) {
-        const cols = lgcArr(m.cols);
-        const rows = lgcArr(m.rows).map(row => `<tr><td><b>${pbEmph(lgcStr(row))}</b></td>${cols.map(col => {
+        const cols = lgcArr(m.cols), role = m.axis === 'role';
+        const rows = lgcArr(m.rows).map((row, i) => `<tr><td>${role ? `<span class="lgt-role"><span class="lgt-rd" style="--c:var(--pb-role-${i % 8 + 1})" aria-hidden="true"></span><b>${pbEmph(lgcStr(row))}</b></span>` : `<b>${pbEmph(lgcStr(row))}</b>`}</td>${cols.map(col => {
           const v = lgcCell(m, row, col);
-          if (v === true) return '<td class="lgc-mx lgc-yes" title="yes">✓</td>';
-          if (v === false) return '<td class="lgc-mx lgc-no" title="no">–</td>';
-          if (v == null) return `<td class="lgc-mx lgc-gap" title="No answer for ${escapeHtmlAttr(row)} × ${escapeHtmlAttr(col)}">?</td>`;
-          return `<td class="lgc-mx">${pbEmph(lgcStr(v))}</td>`;
+          if (v === true) return '<td class="lgc-mx lgc-yes" title="yes"><span class="lgt-g lgt-g--ok" aria-label="yes">✓</span></td>';
+          if (v === false) return '<td class="lgc-mx lgc-no" title="no"><span class="lgt-g lgt-g--mute" aria-label="no">–</span></td>';
+          if (v == null) return `<td class="lgc-mx lgc-gap" title="No answer for ${escapeHtmlAttr(row)} × ${escapeHtmlAttr(col)}"><span class="lgt-gapm" aria-label="no answer">?</span></td>`;
+          return `<td class="lgc-mx"><span class="lgt-c">${pbEmph(lgcStr(v))}</span></td>`;
         }).join('')}</tr>`).join('');
-        return lgcHead(m.title) + lgcTable([m.rowLabel || ''].concat(cols), rows, 'lgc-tm');
+        return lgcHead(m.title) + lgcTable([m.rowLabel || ''].concat(cols), rows, 'lgc-tm lgt-tm');
       },
-      validation(b) { return lgcHead(b.title) + lgcInvariants(lgcArr(b.items)); },
+      // Sort keys as numbered stacked rows, then the tie-break, then what is never listed.
+      order(b) {
+        const keys = lgcArr(b.keys);
+        const row = (k, i) => {
+          const dir = k.dir === 'desc' ? 'desc' : 'asc', vals = lgcArr(k.values);
+          return `<li class="lgt-key"><span class="lgt-n">${i + 1}</span><div class="lgt-kb"><div class="lgt-nm">by <b>${pbEmph(lgcStr(k.by))}</b>`
+            + `<span class="lgt-g lgt-g--ink" title="${dir === 'desc' ? 'descending' : 'ascending'}" aria-label="${dir === 'desc' ? 'descending' : 'ascending'}">${dir === 'desc' ? '↓' : '↑'}</span></div>`
+            + (vals.length ? `<div class="lgt-chain">${vals.map((v, j) => (j ? '<span class="lgt-g" aria-hidden="true">→</span>' : '') + `<span class="lgt-c">${pbEmph(lgcStr(v))}</span>`).join('')}</div>` : '') + '</div></li>';
+        };
+        const body = keys.map((k, i) => (i ? '<li class="lgt-tie"><span class="lgt-g" aria-hidden="true">↓</span>same? use the next key</li>' : '') + row(k, i)).join('');
+        const tie = b.tiebreak ? `<li class="lgt-tie"><span class="lgt-g" aria-hidden="true">↓</span>still tied? then <b>${pbEmph(lgcStr(b.tiebreak))}</b></li>` : '';
+        const never = lgcArr(b.never);
+        return lgcHead(b.title) + `<ol class="lgt-ord">${body}${tie}</ol>`
+          + (never.length ? `<div class="lgt-never"><span class="lgt-lbl">Never listed</span><span class="lgt-chain">${never.map(x => `<span class="lgt-c lgt-c--bad"><span class="lgt-g" aria-hidden="true">✕</span>${pbEmph(lgcStr(x))}</span>`).join('')}</span></div>` : '');
+      },
+      // A fallback chain: try 1, if none try 2 …; the fallback is the dashed end.
+      ladder(b) {
+        const items = lgcArr(b.items).map(x => typeof x === 'object' && x ? x : { label: x });
+        const rung = (i, body, end) => `<li class="lgt-rung${end ? ' lgt-rung--end' : ''}" style="--i:${Math.min(i, 4)}"><span class="lgt-n">${end ? '↳' : i + 1}</span><div>${body}</div></li>`;
+        const conn = i => `<li class="lgt-fall" style="--i:${Math.min(i, 4)}" aria-hidden="true">if none<span class="lgt-g">→</span></li>`;
+        const parts = items.map((x, i) => (i ? conn(i) : '') + rung(i, `<b>${pbEmph(lgcStr(x.label))}</b>${x.detail ? `<div class="lgc-sub">${pbEmph(lgcStr(x.detail))}</div>` : ''}`));
+        if (b.fallback != null && b.fallback !== '') parts.push(conn(items.length) + rung(items.length, `<span class="lgt-lbl">Fallback</span><div><b>${pbEmph(lgcStr(typeof b.fallback === 'object' ? b.fallback.label : b.fallback))}</b></div>`, true));
+        return lgcHead(b.title) + `<ol class="lgt-steps">${parts.join('')}</ol>`;
+      },
+      // Surfaces across, figures down: ● holds it, ✕ never shows it, empty is not stated.
+      placement(b) {
+        const surfaces = lgcArr(b.surfaces), figs = [];
+        surfaces.forEach(s => lgcArr(s.holds).concat(lgcArr(s.never)).forEach(x => { x = lgcStr(x); if (figs.indexOf(x) === -1) figs.push(x); }));
+        const has = (s, k, f) => lgcArr(s[k]).some(x => lgcStr(x) === f);
+        const rows = figs.map(f => `<tr><td><b>${pbEmph(f)}</b></td>${surfaces.map(s => has(s, 'holds', f)
+          ? `<td class="lgc-mx"><span class="lgt-g lgt-g--ink" title="${escapeHtmlAttr(lgcStr(s.surface))} holds it" aria-label="holds">●</span></td>`
+          : has(s, 'never', f) ? `<td class="lgc-mx lgc-never"><span class="lgt-g lgt-g--bad" title="${escapeHtmlAttr(lgcStr(s.surface))} never shows it" aria-label="never">✕</span></td>` : '<td class="lgc-mx"></td>').join('')}</tr>`).join('');
+        return lgcHead(b.title) + lgcTable([b.figureLabel || ''].concat(surfaces.map(s => lgcStr(s.surface))), rows, 'lgc-tm lgt-tm lgt-pl')
+          + `<div class="lgt-legend"><span><span class="lgt-g lgt-g--ink" aria-hidden="true">●</span>holds</span><span><span class="lgt-g lgt-g--bad" aria-hidden="true">✕</span>never</span></div>`;
+      },
+      // A small region diagram (the unit highlighted, the rest dimmed), then the two lists.
+      scope(b) {
+        const col = (label, items, cls, mark) => `<div class="lgc-sc lgc-sc-${cls}"><div class="lgc-sch"><span class="lgt-g" aria-hidden="true">${mark}</span> ${pbEmph(label)}</div><ul class="lgc-ul">${lgcArr(items).map(x => `<li>${pbEmph(lgcStr(x))}</li>`).join('')}</ul></div>`;
+        const rest = lgcArr(b.untouched).slice(0, 4), W = 400, tw = 176, rowsN = Math.ceil(rest.length / 2);
+        const unit = lgcStr(b.unit) || lgcStr(b.actsLabel) || 'Acts on';
+        let inner = lgcBand({ x: 1, y: 1, w: W - 2, h: 38 + 56 + rowsN * 44 + 10, label: 'Everything in reach' });
+        inner += lgcNode({ x: 14, y: 26, w: W - 28, h: 50, label: unit, sub: 'acted on', tone: 'ok', strong: true }).svg;
+        rest.forEach((x, i) => { inner += `<g class="lgt-dim">${lgcNode({ x: 14 + (i % 2) * (tw + 8), y: 90 + Math.floor(i / 2) * 44, w: tw, h: 36, label: lgcStr(x), dashed: true }).svg}</g>`; });
+        const svg = lgcSvg(W, 38 + 56 + rowsN * 44 + 12, 'Scope: ' + unit + ' is acted on, the rest is untouched', inner);
+        return lgcHead(b.title) + `<div class="lgt-reg">${lgcScrollX(svg, W)}</div><div class="lgc-g2">${col(b.actsLabel || 'Acts on', b.acts, 'in', '✓')}${col(b.untouchedLabel || 'Leaves untouched', b.untouched, 'out', '✕')}</div>`;
+      },
+      // ── /blocks:tables ──
+      // ── blocks:values ──   (validation · gate · formula · params · inputs · swatches · anatomy · examples)
+      // A field drawn twice, valid and refused, then the rules behind it as a checklist.
+      validation(b) {
+        const items = lgcArr(b.items).filter(i => i && typeof i === 'object');
+        const f = b.field && typeof b.field === 'object' ? b.field : null;
+        let field = '';
+        if (f) {
+          const m = items.find(i => i.message) || items[0] || {};
+          const label = pbEscape(lgcStr(f.label || 'Field'));
+          const val = (v, ph) => v != null && v !== '' ? pbEscape(lgcStr(v)) : `<span class="lgc-fph">${ph}</span>`;
+          const card = bad => `<div class="lgc-fcard${bad ? ' lgc-fcard--bad' : ''}"><div class="lgc-fhd"><span class="lgc-cap">${bad ? 'Invalid' : 'Valid'}</span>${lgcBadge(bad ? 'bad' : 'ok', bad ? 'refused' : 'accepted')}</div>`
+            + `<div class="lgc-fld"><div class="lgc-flab">${label}</div>`
+            + `<div class="lgc-fin ${bad ? 'lgc-fin--bad' : 'lgc-fin--ok'}"><span>${bad ? val(f.sample, 'rejected value') : val(f.valid, 'accepted value')}</span><span class="lgc-gg lgc-gg--${bad ? 'bad' : 'ok'}" aria-hidden="true">${bad ? '✕' : '✓'}</span></div>`
+            + (bad ? `<div class="lgc-ferr" role="alert"><span>${pbEmph(lgcStr(m.message || m.must || 'Refused'))}</span>${m.code ? `<code class="lgc-code">${pbEscape(m.code)}</code>` : ''}</div>`
+              : (m.must ? `<div class="lgc-fhelp">${pbEmph(lgcStr(m.must))}</div>` : '')) + '</div></div>';
+          field = `<div class="lgc-fpair">${card(false)}${card(true)}</div>`;
+        }
+        return lgcHead(b.title) + field + (items.length ? lgcInvariants(items) : '');
+      },
+      // The control disabled over its unmet checklist, then the same control enabled.
+      gate(b) {
+        const req = lgcArr(b.requires).map(x => x && typeof x === 'object' ? lgcStr(x.label || x.text || x.what) : lgcStr(x)).filter(Boolean);
+        const ctl = pbEscape(lgcStr(b.control || 'Continue'));
+        const card = on => `<div class="lgc-gc lgc-gc--${on ? 'on' : 'off'}"><div class="lgc-fhd"><span class="lgc-cap">${on ? 'All met' : 'Not met'}</span>${lgcBadge(on ? 'ok' : 'bad', on ? 'enabled' : 'disabled')}</div>`
+          + `<span class="lgc-pbtn${on ? '' : ' lgc-pbtn--off'}">${ctl}</span>`
+          + (!on && b.message ? `<div class="lgc-ghint">${pbEmph(lgcStr(b.message))}</div>` : '')
+          + `<ul class="lgc-ckl">${req.map(t => `<li><span class="lgc-gg lgc-gg--${on ? 'ok' : 'off'}" aria-hidden="true">${on ? '✓' : '○'}</span><span>${pbEmph(t)}</span></li>`).join('')}</ul></div>`;
+        const ng = lgcArr(b.notGated).map(x => x && typeof x === 'object' ? { what: lgcStr(x.what || x.label), why: lgcStr(x.why) } : { what: lgcStr(x), why: '' }).filter(x => x.what);
+        return lgcHead(b.title) + `<div class="lgc-fpair">${card(false)}${card(true)}</div>`
+          + (ng.length ? `<div class="lgc-ng"><div class="lgc-cap">Deliberately not gated</div><ul class="lgc-ckl lgc-ckl--mute">${ng.map(x => `<li><span class="lgc-gg lgc-gg--off" aria-hidden="true">–</span><span><b>${pbEmph(x.what)}</b>${x.why ? ` <span class="lgc-sub">${pbEmph(x.why)}</span>` : ''}</span></li>`).join('')}</ul></div>` : '');
+      },
       formula(b) {
         const terms = lgcArr(b.terms).map(t => t && typeof t === 'object'
           ? `<tr><td><code>${pbEscape(t.name || t.term || '')}</code></td><td>${pbEmph(lgcStr(t.means || t.meaning || ''))}</td></tr>`
           : `<tr><td colspan="2">${pbEmph(lgcStr(t))}</td></tr>`).join('');
         const ex = b.example;
-        const exHtml = ex == null ? '' : typeof ex === 'object'
-          ? `<div class="lgc-expr lgc-ex"><span class="lgc-exh">Worked example</span> ${ex.inputs ? Object.entries(ex.inputs).map(([k, v]) => `<code>${pbEscape(k)}</code> = ${pbEscape(v)}`).join(' · ') : ''}${ex.result != null ? ` → <b>${pbEmph(String(ex.result))}</b>` : ''}</div>`
-          : `<div class="lgc-expr lgc-ex"><span class="lgc-exh">Worked example</span> ${pbEmph(String(ex))}</div>`;
-        return lgcHead(b.title) + `<div class="lgc-expr">${pbEscape(b.expr || '')}</div>` + (terms ? lgcTable(['Term', 'Means'], terms) : '') + exHtml;
+        const exHtml = ex == null || ex === '' ? '' : typeof ex === 'object'
+          ? `<div class="lgc-fxw"><span class="lgc-cap">Worked example</span>${ex.inputs && typeof ex.inputs === 'object' ? `<div class="lgc-fxin">${Object.entries(ex.inputs).map(([k, v]) => `<code>${pbEscape(k)}</code><span>${pbEscape(lgcStr(v))}</span>`).join('')}</div>` : ''}${ex.result != null ? `<div class="lgc-fxres"><span class="lgc-fxar" aria-hidden="true">→</span>${pbEmph(String(ex.result))}</div>` : ''}</div>`
+          : `<div class="lgc-fxw"><span class="lgc-cap">Worked example</span><div>${pbEmph(String(ex))}</div></div>`;
+        const sp = lgcArr(b.split).filter(s => s && typeof s === 'object');
+        const num = s => { const n = parseFloat(lgcStr(s.value).replace(/[,\s]/g, '')); return isFinite(n) ? n : 0; };
+        const tot = sp.reduce((a, s) => a + Math.abs(num(s)), 0);
+        const cls = (s, i) => 'lgc-sg-' + (lgcTone(s.tone) || 'k' + (i % 3));
+        const bar = sp.length && tot > 0 ? `<div class="lgc-sgw"><div class="lgc-sgb" role="img" aria-label="${escapeHtmlAttr(sp.map(s => lgcStr(s.label) + ' ' + lgcStr(s.value)).join(', '))}">${sp.map((s, i) => Math.abs(num(s)) > 0
+            ? `<i class="${cls(s, i)}${num(s) < 0 ? ' lgc-sg--neg' : ''}" style="flex:${Math.abs(num(s))} 1 0" title="${escapeHtmlAttr(lgcStr(s.label) + ': ' + lgcStr(s.value))}"></i>` : '').join('')}</div>`
+          + `<div class="lgc-sgl">${sp.map((s, i) => `<div><i class="${cls(s, i)}${num(s) < 0 ? ' lgc-sg--neg' : ''}"></i><span>${pbEmph(lgcStr(s.label))}</span><b>${pbEscape(lgcStr(s.value))}</b><em>${Math.round(Math.abs(num(s)) / tot * 100)}%</em></div>`).join('')}</div></div>` : '';
+        return lgcHead(b.title) + `<div class="lgc-fxe"><code>${pbEscape(b.expr || '')}</code></div>` + bar + (terms ? lgcTable(['Term', 'Means'], terms) : '') + exHtml;
       },
-      steps(b) {
-        return lgcHead(b.title) + `<ol class="lgc-steps">${lgcArr(b.items).map((s, i) => `<li><span class="lgc-n">${i + 1}</span><span>${typeof s === 'string'
-          ? pbEmph(s) : `<b>${pbEmph(lgcStr(s.label))}</b>${s.detail ? ` <span class="lgc-sub">${pbEmph(s.detail)}</span>` : ''}`}</span></li>`).join('')}</ol>`;
-      },
-      effects(b) {
-        const writes = lgcArr(b.writes).map(w => `<li><code>store.${pbEscape(String(w).replace(/^store\./, ''))}</code></li>`).join('');
-        const ripple = lgcArr(b.ripple).map(x => `<li><b>${pbEmph(lgcStr(x.screen || x.on || ''))}</b> ${pbEmph(lgcStr(x.shows || x.what || ''))}</li>`).join('');
-        return lgcHead(b.title) + `<div class="lgc-g2">${writes ? `<div class="lgc-sc"><div class="lgc-sch">Writes</div><ul class="lgc-ul">${writes}</ul></div>` : ''}${ripple ? `<div class="lgc-sc"><div class="lgc-sch">Also changes</div><ul class="lgc-ul">${ripple}</ul></div>` : ''}</div>`;
-      },
-      note(b) { return lgcHead(b.title) + `<div class="lgc-note">${lgcProse(b.text)}</div>`; },
+      // Each value as a tile; where it came from is a badge, invented values stand out.
       params(b) {
-        const rows = lgcArr(b.items).map(p => `<tr><td>${pbEmph(lgcStr(p.name))}</td><td class="lgc-val">${pbEscape(p.value ?? '')}${p.unit ? ` <span class="lgc-unit">${pbEscape(p.unit)}</span>` : ''}</td><td>${pbEmph(lgcStr(p.note || ''))}</td></tr>`).join('');
-        return lgcHead(b.title || 'Parameters') + lgcTable(['Parameter', 'Value', 'Note'], rows);
+        const SRC = { sourced: ['ok', 'sourced'], assumed: ['info', 'assumed'], invented: ['warn', 'invented'] };
+        const tiles = lgcArr(b.items).filter(p => p && typeof p === 'object').map(p => {
+          const s = SRC[lgcStr(p.source).toLowerCase()];
+          return `<div class="lgc-pt${s && s[0] === 'warn' ? ' lgc-pt--warn' : ''}"${p.ref ? ` title="${escapeHtmlAttr('Source: ' + lgcStr(p.ref))}"` : ''}>`
+            + `<div class="lgc-ptop"><span class="lgc-pnm">${pbEmph(lgcStr(p.name))}</span>${s ? lgcBadge(s[0], s[1], p.ref ? 'Source: ' + lgcStr(p.ref) : '') : ''}</div>`
+            + `<div class="lgc-pnum">${pbEscape(lgcStr(p.value ?? ''))}${p.unit ? `<span class="lgc-unit">${pbEscape(lgcStr(p.unit))}</span>` : ''}</div>`
+            + (p.note ? `<div class="lgc-sub">${pbEmph(lgcStr(p.note))}</div>` : '')
+            + (p.ref ? `<div class="lgc-pref">Source: ${pbEmph(lgcStr(p.ref))}</div>` : '') + '</div>';
+        }).join('');
+        return lgcHead(b.title || 'Parameters') + `<div class="lgc-ptiles">${tiles}</div>`;
+      },
+      // A keymap: key names are keycaps, mouse words get a mouse.
+      inputs(b) {
+        const rows = lgcArr(b.rows).filter(r => r && typeof r === 'object');
+        const hasWhen = rows.some(r => r.when), hasNever = rows.some(r => r.never);
+        const body = rows.map(r => `<tr><td class="lgc-kmi">${lgcInputKeys(r.input)}</td>` + (hasWhen ? `<td>${pbEmph(lgcStr(r.when || ''))}</td>` : '')
+          + `<td>${pbEmph(lgcStr(r.does || ''))}</td>` + (hasNever ? `<td class="lgc-nvr">${r.never ? '✕ ' + pbEmph(lgcStr(r.never)) : ''}</td>` : '') + '</tr>').join('');
+        return lgcHead(b.title || 'Inputs') + lgcTable(['Input'].concat(hasWhen ? ['When'] : []).concat(['Does']).concat(hasNever ? ['Never'] : []), body, 'lgc-tkm');
       },
       // A value shown as itself: the input, and exactly what it renders as.
       examples(b) {
@@ -6488,7 +7172,300 @@
           + `<td><b>${pbEscape(x.p.name || '')}</b></td><td>${pbEmph(lgcStr(x.p.rule || ''))}${x.p.note ? `<div class="lgc-pn">${x.t === 'warn' ? '⚠ ' : ''}${pbEmph(x.p.note)}</div>` : ''}</td></tr>`).join('');
         return lgcHead(b.title || 'Anatomy') + `<div class="lgc-an">${sample}</div>` + lgcTable(['#', 'Part', 'Name', 'Rule'], rows, 'lgc-tan');
       },
+      // ── /blocks:values ──
+      // ── blocks:effects ──   (effects · edges)
+      effects(b) {
+        const writes = lgcArr(b.writes).map(w => lgcStr(w).replace(/^store\./, '')).filter(Boolean);
+        const ripple = lgcArr(b.ripple).map(x => ({ screen: lgcStr(x.screen || x.on || ''), shows: lgcStr(x.shows || x.what || '') })).filter(x => x.screen || x.shows);
+        const toasts = lgcArr(b.toast).map(lgcStr).filter(Boolean);
+        const toastHtml = toasts.length ? `<div class="lgx-toasts">${toasts.map(t => `<div class="lgx-tc"><div class="lgx-toast" role="status"><span class="lgx-tic" aria-hidden="true"></span><span>${pbEscape(t)}</span></div><div class="lgx-cap">toast</div></div>`).join('')}</div>` : '';
+        return lgcHead(b.title) + lgcEffectsGraph(b.action || b.title, writes, ripple, toasts.length > 0) + toastHtml;
+      },
+      edges(b) {
+        const rows = lgcArr(b.rows);
+        const st = x => { const v = lgcStr(x.status).toLowerCase(); return v === 'open' ? ['open', 'warn'] : v === 'accepted' ? ['accepted', 'n'] : ['covered', 'ok']; };
+        const cnt = { covered: 0, open: 0, accepted: 0 };
+        rows.forEach(x => { cnt[st(x)[0]]++; });
+        const bar = `<div class="lgx-sum" role="img" aria-label="${cnt.covered} covered, ${cnt.open} open, ${cnt.accepted} accepted"><span>${cnt.covered} covered · ${cnt.open} open · ${cnt.accepted} accepted</span>`
+          + `<span class="lgx-bar">${rows.map(x => `<i class="lgx-bar-${st(x)[1]}"></i>`).join('')}</span></div>`;
+        const cells = rows.map(x => {
+          const [label, tone] = st(x);
+          const body = (x.shows ? `<div class="lgx-msg">${pbEscape(lgcStr(x.shows))}</div>` : '<div class="lgx-none">Nothing shown</div>')
+            + (x.recovery ? lgcFrame.btn(x.recovery) : '<div class="lgx-none">No recovery action</div>');
+          return `<div class="lgx-cell">${lgcFrame({ title: lgcStr(x.case), body, w: 216, h: 168, tone: tone === 'n' ? '' : tone })}<div class="lgx-cap">${lgcBadge(tone, pbEscape(label))}</div></div>`;
+        }).join('');
+        return lgcHead(b.title) + bar + `<div class="lgx-grid">${cells}</div>`;
+      },
+      // ── /blocks:effects ──
+      note(b) { return lgcHead(b.title) + `<div class="lgc-note">${lgcProse(b.text)}</div>`; },
     };
+    // Helpers a block family needs OUTSIDE the object literal (a statechart, a shared layout function) go here.
+    // ── helpers:flow ──
+    // An SVG cannot wrap text: break it into lines of about `px` wide (~5.7px a character at the
+    // caption size), at most `max` lines, the last one cut with an ellipsis.
+    function lgcWrap(s, px, max) {
+      const per = Math.max(4, Math.floor(px / 5.7)), lines = [];
+      let cur = '', cut = false;
+      lgcStr(s).replace(/\s+/g, ' ').trim().split(' ').filter(Boolean).forEach(w => {
+        while (w.length > per) { if (cur) { lines.push(cur); cur = ''; } lines.push(w.slice(0, per)); w = w.slice(per); }
+        if (!cur) cur = w; else if ((cur + ' ' + w).length <= per) cur += ' ' + w; else { lines.push(cur); cur = w; }
+      });
+      if (cur) lines.push(cur);
+      if (max && lines.length > max) {
+        cut = true; lines.length = max;
+        const l = lines[max - 1]; lines[max - 1] = (l.length >= per ? l.slice(0, per - 1) : l) + '…';
+      }
+      return { lines, cut };
+    }
+    const lgcTx = (x, y, s, cls, anchor) => `<text x="${lgcRound(x)}" y="${lgcRound(y)}" text-anchor="${anchor || 'start'}" dominant-baseline="central" class="lgc-sv-t ${cls || ''}">${pbEscape(lgcStr(s))}</text>`;
+    // A small pill sitting on a node's edge (a marker such as "derived" or "partial").
+    const lgcTag = (x, y, s, tone) => {
+      const w = Math.round(lgcStr(s).length * 5.8 + 14), t = lgcSvTone(tone);
+      return `<rect x="${lgcRound(x)}" y="${lgcRound(y)}" width="${w}" height="16" rx="8" class="lgc-sv-elab${t ? ' lgc-sv-tag--' + t : ''}"/>`
+        + `<text x="${lgcRound(x + w / 2)}" y="${lgcRound(y + 8)}" text-anchor="middle" dominant-baseline="central" class="lgc-sv-etxt lgc-sv-t--sub${t ? ' lgc-sv-tt--' + t : ''}">${pbEscape(lgcStr(s))}</text>`;
+    };
+    const lgcTagW = s => Math.round(lgcStr(s).length * 5.8 + 14);
+    const LGC_KEY_TONE = { pending: 'info', ok: 'ok', partial: 'warn', fail: 'bad' };
+
+    // The lifecycle as a statechart. States run left → right in declared order. A forward move is a
+    // solid arrow; a state with several forward moves fans the others out to a second row; a move
+    // that skips ahead arcs over the top; a move back is dashed and routed underneath. Overlays are
+    // dashed bands behind the states they span. A state nothing reaches is flagged; a move to a state
+    // that is not declared is drawn to a dashed "?" node.
+    function lgcStatechart(r, unreachable) {
+      unreachable = lgcArr(unreachable);
+      const states = lgcArr(r.states).filter(s => s && s.key != null), idx = {};
+      states.forEach((s, i) => { idx[s.key] = i; });
+      const head = lgcHead('Lifecycle', r.stateField ? lgcBadge('k', `<code>${pbEscape(r.stateField)}</code>`) : '');
+      if (!states.length) return `<section class="lgc-sec lgc-life">${head}</section>`;
+      const seen = {}, trs = [];
+      lgcArr(r.transitions).forEach(t => {
+        if (!Array.isArray(t) || t.length < 2 || t[0] === t[1] || idx[t[0]] == null || seen[t[0] + '>' + t[1]]) return;
+        seen[t[0] + '>' + t[1]] = 1; trs.push([t[0], t[1]]);
+      });
+      const W = 136, GAP = 44, PITCH = W + GAP, SHIFT = 70, LM = 14, ROWGAP = 46, MW = 84, MH = 44;
+      const H = states.some(s => s.condition) ? 84 : 56;
+      // Which state fans out to which: the first forward target stays in the row.
+      const fwd = {}, second = {};
+      trs.forEach(t => { if (idx[t[1]] != null && idx[t[1]] > idx[t[0]]) (fwd[t[0]] = fwd[t[0]] || []).push(t[1]); });
+      Object.keys(fwd).forEach(k => {
+        const ts = fwd[k].slice().sort((a, b) => idx[a] - idx[b]);
+        ts.slice(1).forEach(x => { if (!second[x]) second[x] = ts[0]; });
+      });
+      let col = 0;
+      const pos = {}, under = {};
+      states.forEach(s => {
+        const p = second[s.key];
+        if (p && pos[p] && pos[p].row === 1) { const n = under[p] = (under[p] || 0) + 1; pos[s.key] = { col: pos[p].col, row: 1 + n }; }
+        else pos[s.key] = { col: col++, row: 1 };
+      });
+      // Bands first: how tall a margin the top needs, and how high skip arcs must rise.
+      const bandDefs = [];
+      lgcArr(r.overlays).forEach(o => {
+        const ks = lgcArr(o.over).filter(k => idx[k] != null);
+        if (!ks.length) return;
+        let level = 0;
+        bandDefs.forEach(b => { if (b.ks.some(k => ks.indexOf(k) !== -1)) level++; });
+        bandDefs.push({ o, ks, level });
+      });
+      const bandPad = bandDefs.reduce((m, b) => Math.max(m, 38 + 18 * b.level), 0);
+      const skips = trs.filter(t => idx[t[1]] != null && idx[t[1]] > idx[t[0]] && pos[t[0]].row === 1 && pos[t[1]].row === 1 && pos[t[1]].col - pos[t[0]].col > 1);
+      const skipLift = skips.length ? bandPad + 24 + 16 * (skips.length - 1) : 0;
+      const TOPM = 14 + Math.max(bandPad, skipLift);
+      const nodes = {};
+      states.forEach(s => {
+        const p = pos[s.key], x = LM + p.col * PITCH + (p.row > 1 ? SHIFT : 0), y = TOPM + (p.row - 1) * (H + ROWGAP);
+        nodes[s.key] = { x, y, cx: x + W / 2, cy: y + H / 2, row: p.row, col: p.col, b: y + H };
+      });
+      // Moves to a state nobody declared: a dashed "?" node under the source.
+      const miss = {}, missList = [];
+      const overlap = (x, y, w, h) => Object.keys(nodes).some(k => { const n = nodes[k]; return x < n.x + W + 8 && x + w + 8 > n.x && y < n.y + H + 8 && y + h + 8 > n.y; })
+        || missList.some(m => x < m.x + MW + 8 && x + w + 8 > m.x && y < m.y + MH + 8 && y + h + 8 > m.y);
+      trs.forEach(t => {
+        if (idx[t[1]] != null || miss[t[1]]) return;
+        const A = nodes[t[0]], rowY = TOPM + A.row * (H + ROWGAP);
+        let mx = A.cx + 30 - 20;
+        const my = rowY + (H - MH) / 2;
+        for (let g = 0; g < 12 && overlap(mx, my, MW, MH); g++) mx += MW + 16;
+        miss[t[1]] = { x: mx, y: my, cx: mx + MW / 2, cy: my + MH / 2, w: MW, h: MH, key: t[1] };
+        missList.push(miss[t[1]]);
+      });
+      let bottom = 0, right = 0;
+      Object.keys(nodes).forEach(k => { bottom = Math.max(bottom, nodes[k].b); right = Math.max(right, nodes[k].x + W); });
+      missList.forEach(m => { bottom = Math.max(bottom, m.y + m.h); right = Math.max(right, m.x + m.w); });
+      // Edges.
+      const edges = [], backs = [], outN = {}, inN = {};
+      const skipSorted = skips.slice().sort((a, b) => (pos[a[1]].col - pos[a[0]].col) - (pos[b[1]].col - pos[b[0]].col));
+      trs.forEach(t => {
+        const A = nodes[t[0]], B = nodes[t[1]];
+        if (!B) { // to a missing state
+          const m = miss[t[1]], px = A.cx + 30;
+          if (Math.abs(m.x + 20 - px) < 1) edges.push(lgcEdge({ from: [px, A.b], to: [px, m.y], tone: 'warn', dashed: true }));
+          else edges.push(lgcEdge({ from: [px, A.b], via: [[px, m.cy]], to: [m.x, m.cy], tone: 'warn', dashed: true }));
+          return;
+        }
+        if (idx[t[1]] < idx[t[0]]) { backs.push(t); return; }
+        if (A.row === B.row) {
+          if (A.row === 1 && B.col - A.col > 1) {
+            const lv = skipSorted.indexOf(t), y = A.y - (bandPad + 24 + 16 * lv) * 1.33;
+            edges.push(lgcEdge({ from: [A.cx, A.y], to: [B.cx, B.y], curve: true, via: [[A.cx, y], [B.cx, y]] }));
+          } else edges.push(lgcEdge({ from: [A.x + W, A.cy], to: [B.x, B.cy] }));
+        } else if (B.row > A.row) edges.push(lgcEdge({ from: [A.cx + 30, A.b], via: [[A.cx + 30, B.cy]], to: [B.x, B.cy] }));
+        else edges.push(lgcEdge({ from: [A.x + W, A.cy], via: [[B.cx + 12, A.cy]], to: [B.cx + 12, B.b] }));
+      });
+      backs.sort((a, b) => Math.abs(nodes[a[0]].col - nodes[a[1]].col) - Math.abs(nodes[b[0]].col - nodes[b[1]].col));
+      const backSvg = backs.map((t, lv) => {
+        const A = nodes[t[0]], B = nodes[t[1]], o = outN[t[0]] = (outN[t[0]] == null ? 0 : outN[t[0]] + 1), n = inN[t[1]] = (inN[t[1]] == null ? 0 : inN[t[1]] + 1);
+        const sx = A.cx - 8 - 12 * o, tx = B.cx - 36 - 12 * n, ly = bottom + 20 + 16 * lv;
+        return `<g class="lgc-sc-back" data-from="${escapeHtmlAttr(t[0])}" data-to="${escapeHtmlAttr(t[1])}">` + lgcEdge({ from: [sx, A.b], via: [[sx, ly], [tx, ly]], to: [tx, B.b], dashed: true }) + '</g>';
+      });
+      const laneBottom = bottom + 20 + 16 * Math.max(0, backs.length - 1) + (backs.length ? 14 : 0);
+      // Bands.
+      const bandSvg = bandDefs.map(b => {
+        const ns = b.ks.map(k => nodes[k]), px = 12 + 6 * b.level, pt = 38 + 18 * b.level;
+        const x1 = Math.min.apply(null, ns.map(n => n.x)) - px, x2 = Math.max.apply(null, ns.map(n => n.x + W)) + px;
+        const y1 = Math.min.apply(null, ns.map(n => n.y)) - pt, y2 = Math.max.apply(null, ns.map(n => n.b)) + 10;
+        const full = lgcStr(b.o.label || b.o.key) + (b.o.condition ? ' · ' + lgcStr(b.o.condition) : ''), shown = lgcFitText(full, x2 - x1 - 20);
+        return `<g class="lgc-sc-band" data-band="${escapeHtmlAttr(b.o.key || '')}">${shown !== full ? `<title>${pbEscape(full)}</title>` : ''}`
+          + lgcBand({ x: x1, y: y1, w: x2 - x1, h: y2 - y1, tone: b.o.tone })
+          + lgcTx(x1 + 10, y1 + 12, shown, 'lgc-sv-t2 lgc-sv-t--sub') + '</g>';
+      });
+      // Nodes.
+      const nodeSvg = states.map(s => {
+        const n = nodes[s.key], dead = unreachable.indexOf(s.key) !== -1;
+        const nd = lgcNode({ x: n.x, y: n.y, w: W, h: H, tone: dead ? 'warn' : '', dashed: dead });
+        const lab = lgcFitText(lgcStr(s.label || s.key), W - 16);
+        let t = `<title>${pbEscape(lgcStr(s.label || s.key))}</title>` + lgcTx(n.cx, n.y + 17, lab, 'lgc-sv-tb', 'middle')
+          + lgcTx(n.cx, n.y + 34, lgcFitText(s.key, W - 16), 'lgc-sv-tm lgc-sv-t2 lgc-sv-t--sub', 'middle');
+        if (s.condition) {
+          const w = lgcWrap(s.condition, W - 18, 2);
+          w.lines.forEach((l, i) => { t += lgcTx(n.cx, n.y + 52 + 13 * i, l, 'lgc-sv-t2 lgc-sv-t--sub', 'middle'); });
+        }
+        if (s.derived) t += lgcTag(n.x + W - lgcTagW('derived') - 6, n.y - 8, 'derived', 'info');
+        if (dead) t += lgcTag(n.x + 6, n.y - 8, 'unreachable', 'warn');
+        return `<g class="lgc-sc-node${dead ? ' lgc-sc-dead' : ''}" data-state="${escapeHtmlAttr(s.key)}">${nd.svg}${t}</g>`;
+      });
+      const missSvg = missList.map(m => {
+        const nd = lgcNode({ x: m.x, y: m.y, w: m.w, h: m.h, tone: 'warn', dashed: true, shape: 'pill' });
+        return `<g class="lgc-sc-node lgc-sc-miss" data-missing="${escapeHtmlAttr(m.key)}"><title>${pbEscape(lgcStr(m.key))}: no such state</title>${nd.svg}`
+          + lgcTx(m.cx, m.cy - 7, '? ' + lgcFitText(m.key, m.w - 30), 'lgc-sv-tb', 'middle') + lgcTx(m.cx, m.cy + 9, 'no such state', 'lgc-sv-t2 lgc-sv-t--sub', 'middle') + '</g>';
+      });
+      const w = right + LM, h = Math.max(bottom, laneBottom) + 14;
+      const svg = lgcSvg(w, h, 'Lifecycle of ' + lgcStr(r.stateField || r.title || 'state'), bandSvg.join('') + edges.join('') + backSvg.join('') + missSvg.join('') + nodeSvg.join(''));
+      const flagRows = states.filter(s => unreachable.indexOf(s.key) !== -1).map(s => `<div class="lgc-sc-fl"><b>${pbEmph(lgcStr(s.label || s.key))}</b> Nothing sets <code>${pbEscape(lgcStr(r.stateField))} = '${pbEscape(s.key)}'</code></div>`).join('');
+      const flags = flagRows ? `<div class="lgc-sc-flag">${flagRows}</div>` : '';
+      return `<section class="lgc-sec lgc-life">${head}<div class="lgc-sc-cv">${lgcScrollX(svg, w)}</div>${flags}</section>`;
+    }
+    // ── /helpers:flow ──
+    // ── helpers:tables ──
+    // A `when` condition as chips: a list is several chips, a scalar one.
+    function lgcCondChips(v) {
+      const list = Array.isArray(v) ? v : [v];
+      return list.map(x => `<span class="lgt-c">${pbEmph(lgcStr(x))}</span>`).join('');
+    }
+    // ── /helpers:tables ──
+    // ── helpers:values ──
+    // A small mouse (button filled = the one used), at least 16px wide.
+    const lgcMouse = right => `<svg class="lgc-mouse" width="16" height="22" viewBox="0 0 20 28" aria-hidden="true"><path d="${right ? 'M10 1.5 H14 A4.5 4.5 0 0 1 18.5 6 V12 H10 Z' : 'M10 1.5 H6 A4.5 4.5 0 0 0 1.5 6 V12 H10 Z'}" fill="currentColor"/><rect x="1.5" y="1.5" width="17" height="25" rx="8.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M1.5 12 H18.5 M10 1.5 V12" stroke="currentColor" stroke-width="1.8" fill="none"/></svg>`;
+    const LGC_KEYRE = /^(enter|return|esc|escape|tab|space|spacebar|shift|cmd|command|ctrl|control|alt|option|opt|meta|backspace|delete|del|home|end|page ?up|page ?down|arrow ?(up|down|left|right)|up|down|left|right|f\d{1,2}|[↑↓←→⌘⌥⌃⇧↵⎋⇥]|[a-z0-9/?.,;'`=\[\]\\-])$/i;
+    const LGC_MODRE = /^(shift|cmd|command|ctrl|control|alt|option|⌘)[-\s]+(.+)$/i;
+    // "Cmd+K", "Shift-click", "↑ / ↓", "Click a row": key names become keycaps, mouse words get a mouse.
+    function lgcInputKeys(input) {
+      const one = part => {
+        part = lgcStr(part).trim();
+        if (!part) return '';
+        if (LGC_KEYRE.test(part)) return lgcKey(part);
+        const mod = part.match(LGC_MODRE);
+        const rest = mod ? mod[2] : part;
+        if (/\b(double-click|right-click|click|drag)\b/i.test(rest))
+          return (mod ? lgcKey(mod[1]) + ' ' : '') + `<span class="lgc-mw">${lgcMouse(/right/i.test(rest))}${pbEscape(rest)}</span>`;
+        return pbEscape(part);
+      };
+      return lgcStr(input).split(/\s+(?:or|\/)\s+/i).map(alt => alt.split(/\s*\+\s*/).map(one).filter(Boolean).join('<span class="lgc-plus" aria-hidden="true">+</span>'))
+        .filter(Boolean).join('<span class="lgc-or">or</span>');
+    }
+    // ── /helpers:values ──
+    // ── helpers:effects ──
+    // action → store slices → screens, drawn as one SVG. Each column is bounded; the rest is "+N more".
+    function lgcEffectsGraph(action, writes, ripple, hasToast) {
+      const CAP = 8, ROW = 60;
+      const w = writes.slice(0, CAP), sc = ripple.slice(0, CAP);
+      const rows = Math.max(w.length, sc.length, 1);
+      const H = 34 + rows * ROW + (writes.length > CAP || ripple.length > CAP ? 22 : 0);
+      const midY = 34 + (rows * ROW) / 2;
+      const hd = (x, t) => lgcText({ x, y: 14, text: t, dim: true, small: true });
+      let nodes = '', edges = '';
+      const act = lgcNode({ x: 10, y: midY - 28, w: 190, h: 56, label: lgcStr(action) || 'This action', sub: 'what the user does', tone: 'info', strong: true });
+      nodes += act.svg;
+      const slot = (n, i) => 34 + (i + 0.5) * (rows * ROW / Math.max(n, 1));
+      const wn = w.map((t, i) => lgcNode({ x: 290, y: slot(w.length, i) - 22, w: 170, h: 44, label: 'store.' + t, tone: '' }));
+      const sn = sc.map((x, i) => lgcNode({ x: 540, y: slot(sc.length, i) - 26, w: 250, h: 52, label: x.screen || 'Screen', sub: x.shows, tone: 'ok' }));
+      wn.forEach(n => { nodes += n.svg; edges += lgcEdge({ from: act.right, to: n.left, tone: 'info', curve: true }); });
+      sn.forEach(n => { nodes += n.svg; });
+      if (wn.length && sn.length) {
+        const pairs = new Set();
+        sn.forEach((_, j) => pairs.add(Math.min(j, wn.length - 1) + ':' + j));
+        wn.forEach((_, i) => pairs.add(i + ':' + Math.min(i, sn.length - 1)));
+        pairs.forEach(k => { const [i, j] = k.split(':').map(Number); edges += lgcEdge({ from: wn[i].right, to: sn[j].left, tone: 'ok', curve: true }); });
+      } else if (!wn.length && sn.length) sn.forEach(n => { edges += lgcEdge({ from: act.right, to: n.left, tone: 'ok', curve: true }); });
+      let more = '';
+      if (writes.length > CAP) more += lgcText({ x: 290, y: H - 10, text: '+' + (writes.length - CAP) + ' more', dim: true, small: true });
+      if (ripple.length > CAP) more += lgcText({ x: 540, y: H - 10, text: '+' + (ripple.length - CAP) + ' more', dim: true, small: true });
+      let toastN = '';
+      if (hasToast) toastN = lgcText({ x: 10, y: midY + 44, text: 'also shows a toast (below)', dim: true, small: true });
+      const head = hd(10, 'Action') + hd(290, 'Store slices written') + hd(540, 'Screens that change');
+      return lgcScrollX(lgcSvg(800, H, 'The action writes ' + (writes.join(', ') || 'no store slice') + ' and changes ' + (ripple.map(x => x.screen).join(', ') || 'no other screen'),
+        head + edges + nodes + more + toastN), 800);
+    }
+    // Impact: handlers that write → store slices → readers, bounded to ~8 per column. A focused slice (or the
+    // slices a focused handler or surface touches) keeps its path lit; the rest dims.
+    function lgcImpactGraph(L, f, H, I) {
+      const S = L.slices || {};
+      const names = Object.keys(S);
+      if (!names.length) return '';
+      const CAP = 8, ROW = 40;
+      const fnOf = id => (I[id] ? [].concat(I[id].ownLogic || [], I[id].wires || [], I[id].readBy || []) : []);
+      let fs = [], fh = [];
+      if (f.type === 'slice' && S[f.id]) fs = [f.id];
+      else if (f.type === 'handler' && H[f.id]) { fh = [f.id]; fs = (H[f.id].slices || []).filter(x => S[x]); }
+      else if (f.type === 'item' && I[f.id]) { fh = fnOf(f.id).filter(n => H[n]); fs = [...new Set(fh.flatMap(n => (H[n].slices || []).filter(x => S[x])))]; }
+      const focus = new Set(fs), fhs = new Set(fh);
+      const deg = n => (S[n].writers || []).length + (S[n].readers || []).length;
+      const slices = names.slice().sort((a, b) => (focus.has(b) - focus.has(a)) || (deg(b) - deg(a))).slice(0, CAP);
+      const pick = key => {
+        const all = [...new Set(slices.flatMap(n => S[n][key] || []))];
+        const lit = new Set(fs.length && f.type === 'slice' ? fs.flatMap(n => S[n][key] || []) : fh);
+        all.sort((a, b) => (lit.has(b) - lit.has(a)));
+        return { all, shown: all.slice(0, CAP) };
+      };
+      const W = pick('writers'), R = pick('readers');
+      const rows = Math.max(W.shown.length, slices.length, R.shown.length, 1);
+      const more = (W.all.length > CAP || R.all.length > CAP || names.length > CAP) ? 20 : 0;
+      const Ht = 30 + rows * ROW + more;
+      const y = (n, i) => 30 + (i + 0.5) * (rows * ROW / Math.max(n, 1)) - 15;
+      const litH = h => !focus.size || fhs.has(h) || (f.type === 'slice' && [...focus].some(sl => (S[sl].writers || []).includes(h) || (S[sl].readers || []).includes(h)));
+      const g = (on, html) => `<g class="lgi-g${on ? '' : ' lgi-g--dim'}">${html}</g>`;
+      const wn = W.shown.map((n, i) => ({ id: n, nd: lgcNode({ x: 10, y: y(W.shown.length, i), w: 190, h: 30, label: n + '()', tone: 'info', strong: fhs.has(n) }) }));
+      const sn = slices.map((n, i) => ({ id: n, nd: lgcNode({ x: 280, y: y(slices.length, i), w: 160, h: 30, label: 'store.' + n, strong: focus.has(n) }) }));
+      const rn = R.shown.map((n, i) => ({ id: n, nd: lgcNode({ x: 520, y: y(R.shown.length, i), w: 190, h: 30, label: n + '()', tone: 'ok', strong: fhs.has(n) }) }));
+      const wi = {}; wn.forEach(o => { wi[o.id] = o.nd; });
+      const ri = {}; rn.forEach(o => { ri[o.id] = o.nd; });
+      let edges = '';
+      sn.forEach(o => {
+        const on = !focus.size || focus.has(o.id);
+        (S[o.id].writers || []).forEach(h => { if (wi[h]) edges += g(on && litH(h), lgcEdge({ from: wi[h].right, to: o.nd.left, tone: 'info', curve: true })); });
+        (S[o.id].readers || []).forEach(h => { if (ri[h]) edges += g(on && litH(h), lgcEdge({ from: o.nd.right, to: ri[h].left, tone: 'ok', curve: true })); });
+      });
+      const nodes = wn.map(o => g(litH(o.id), o.nd.svg)).join('') + sn.map(o => g(!focus.size || focus.has(o.id), o.nd.svg)).join('') + rn.map(o => g(litH(o.id), o.nd.svg)).join('');
+      const t = (x, s2) => lgcText({ x, y: 12, text: s2, dim: true, small: true });
+      let tail = '';
+      if (W.all.length > CAP) tail += lgcText({ x: 10, y: Ht - 8, text: '+' + (W.all.length - CAP) + ' more', dim: true, small: true });
+      if (names.length > CAP) tail += lgcText({ x: 280, y: Ht - 8, text: '+' + (names.length - CAP) + ' more', dim: true, small: true });
+      if (R.all.length > CAP) tail += lgcText({ x: 520, y: Ht - 8, text: '+' + (R.all.length - CAP) + ' more', dim: true, small: true });
+      const svg = lgcSvg(720, Ht, 'Who writes each shared data slice, and who reads it', t(10, 'Handlers that write') + t(280, 'Shared data') + t(520, 'Readers') + edges + nodes + tail);
+      return `<div class="lgi-graph${focus.size ? ' is-focus' : ''}"><div class="lgi-graph-h">${focus.size ? 'The highlighted path is what the pick touches.' : 'Who writes shared data, and who reads it.'}</div>${lgcScrollX(svg, 720)}</div>`;
+    }
+    // ── /helpers:effects ──
     function lgcBlock(b) {
       const fn = LGC_BLOCKS[b.type];
       let inner;
@@ -6502,12 +7479,15 @@
     // Invariants: numbered, one line each, "checked" or "not checked" — the detail (where it is
     // enforced, when it applies, its message) opens on demand. `quiet` = retired, no verdict.
     function lgcInvariants(inv, quiet) {
-      return `<div class="lgc-ivl">${inv.map((iv, i) => {
+      const done = inv.filter(iv => lgcBy(iv)).length;
+      const summary = quiet || !inv.length ? '' : `<div class="lgc-ivsum"><span class="lgc-ivmeter" aria-hidden="true">${inv.map(iv => `<i${lgcBy(iv) ? ' class="on"' : ''}></i>`).join('')}</span><span><b>${done} of ${inv.length}</b> checked</span></div>`;
+      return summary + `<div class="lgc-ivl">${inv.map((iv, i) => {
         const by = lgcBy(iv);
-        const st = quiet ? '' : by ? '<span class="lgc-ivok">✓ checked</span>' : '<span class="lgc-ivno">not checked</span>';
-        const det = [['When', iv.when ? pbEmph(pbList(iv.when)) : ''], ['Enforced by', by], ['Message', iv.message ? `“${pbEmph(iv.message)}”` : ''],
-          ['Code', iv.code ? `<code>${pbEscape(iv.code)}</code>` : '']].filter(x => x[1]);
-        const sum = `<span class="lgc-n">${i + 1}</span><span class="lgc-ivm">${pbEmph(lgcStr(iv.must))}</span>${st}`;
+        const st = quiet ? '' : by ? lgcBadge('ok', '✓ checked').replace('class="lgc-b', 'class="lgc-ivok lgc-b') : lgcBadge('warn', 'not checked').replace('class="lgc-b', 'class="lgc-ivno lgc-b');
+        const when = iv.when ? `<span class="lgc-chip lgc-ivwhen" title="${escapeHtmlAttr('When: ' + pbList(iv.when))}">${pbEscape(pbList(iv.when))}</span>` : '';
+        const meta = (iv.code ? `<code class="lgc-code">${pbEscape(lgcStr(iv.code))}</code>` : '') + (by ? `<span class="lgc-ivby">enforced by ${by}</span>` : '');
+        const det = [['Message', iv.message ? `“${pbEmph(iv.message)}”` : ''], ['When', iv.when ? pbEmph(pbList(iv.when)) : '']].filter(x => x[1]);
+        const sum = `<span class="lgc-n">${i + 1}</span><span class="lgc-ivm"><span class="lgc-ivt">${pbEmph(lgcStr(iv.must))}</span>${meta ? `<span class="lgc-ivmeta">${meta}</span>` : ''}</span><span class="lgc-ivside">${st}${when}</span>`;
         return det.length
           ? `<details class="lgc-iv"><summary class="lgc-ivs">${sum}<span class="lgc-chev" aria-hidden="true">▸</span></summary><div class="lgc-ivb">${det.map(x => `<div class="lgc-ivr"><span class="lgc-ivk">${x[0]}</span><span>${x[1]}</span></div>`).join('')}</div></details>`
           : `<div class="lgc-iv"><div class="lgc-ivs">${sum}</div></div>`;
@@ -6625,7 +7605,7 @@
       const invariants = lgcArr(r.invariants);
       const unchecked = invariants.filter(iv => !iv.enforcedBy && !iv.enforcedIn).length;
       const blocks = lgcArr(r.blocks).filter(b => b && typeof b === 'object');
-      const matrix = r.kind === 'matrix' || (r.rows && r.cols && r.cells) ? { rowLabel: r.rowLabel, rows: r.rows, cols: r.cols, cells: r.cells || {} } : null;
+      const matrix = r.kind === 'matrix' || (r.rows && r.cols && r.cells) ? { rowLabel: r.rowLabel, axis: r.axis, rows: r.rows, cols: r.cols, cells: r.cells || {} } : null;
       let gaps = 0;
       (matrix ? [matrix] : []).concat(blocks.filter(b => b.type === 'matrix')).forEach(m =>
         lgcArr(m.rows).forEach(row => lgcArr(m.cols).forEach(col => { if (lgcCell(m, row, col) == null) gaps++; })));
@@ -6653,69 +7633,443 @@
       return { d, title, supBy, supOn, sup, supersedes, loop, open, invariants, unchecked, blocks, matrix, states, unreachable, todo, reds };
     }
 
-    /* A rule's one section that is on its own — Values alone, or History alone — is drawn OPEN, under
-       its own heading, set off from the rule above it by one gap. (Two sections stay tabs.) */
-    const lgcLone = (key, label, html, flag) => `<section class="lgc-lone lgc-lone-${key}">${lgcHead(label, flag ? `<span class="lgc-tdot lgc-tdot-${flag}"></span>` : '')}<div class="lgc-p lgc-p-${key}">${html}</div></section>`;
+    /* A rule's visuals, stacked. The kind-level structure (a lifecycle, a kind-matrix, rule.invariants) and
+       every block, sorted by LGC_ORDER — flow, then tables, then values, then effects; `note` is prose and
+       lives in the drawer. A type this list does not know sorts last (and still draws). */
+    const LGC_ORDER = ['lifecycle', 'steps', 'nav', 'branches', 'async', 'states',
+      'cases', 'timeline', 'matrix', 'order', 'ladder', 'placement', 'scope',
+      'validation', 'gate', 'formula', 'params', 'inputs', 'invariants', 'swatches', 'anatomy', 'examples',
+      'effects', 'edges'];
+    const LGC_FAMILY = { lifecycle: 'Flow', steps: 'Flow', nav: 'Flow', branches: 'Flow', async: 'Flow', states: 'Flow',
+      cases: 'Tables', timeline: 'Tables', matrix: 'Tables', order: 'Tables', ladder: 'Tables', placement: 'Tables', scope: 'Tables',
+      validation: 'Values', gate: 'Values', formula: 'Values', params: 'Values', inputs: 'Values', invariants: 'Values', swatches: 'Values', anatomy: 'Values', examples: 'Values',
+      effects: 'Effects', edges: 'Effects' };
+    const LGC_FAMILIES = ['Flow', 'Tables', 'Values', 'Effects', 'Prose only'];
+    function lgcVisualList(r, st) {
+      st = st || pbRuleState(r);
+      const out = [];
+      if (st.states.length) out.push({ type: 'lifecycle', data: r });
+      if (st.matrix) out.push({ type: 'matrix', data: st.matrix, kind: true });
+      if (st.invariants.length) out.push({ type: 'invariants', data: st.invariants });
+      st.blocks.forEach(b => { if (b.type !== 'note') out.push({ type: b.type, data: b }); });
+      out.forEach((v, i) => { v.i = i; v.o = LGC_ORDER.indexOf(v.type); if (v.o < 0) v.o = LGC_ORDER.length; });
+      return out.sort((a, b) => a.o - b.o || a.i - b.i);
+    }
+    function lgcVisualHTML(v, r, st) {
+      try {
+        if (v.type === 'lifecycle') return typeof lgcStatechart === 'function' ? lgcStatechart(r, st.unreachable) : lgcLifecycle(r, st.unreachable);
+        if (v.kind) return `<section class="lgc-sec">${LGC_BLOCKS.matrix(v.data)}</section>`;
+        if (v.type === 'invariants') {
+          const inv = v.data;
+          return `<section class="lgc-sec lg-block lg-block--invariants">${lgcHead('Invariants')}${lgcInvariants(inv)}</section>`;
+        }
+        return lgcBlock(v.data);
+      } catch (e) { return `<section class="lgc-sec"><div class="lgc-err">This ${pbEscape(v.type)} visual could not be drawn (${pbEscape(e.message)}).</div></section>`; }
+    }
 
-    /* `o.bare` = the card is the BODY of a scan row, which already shows its title, status and kind:
-       it opens straight to content. Standalone (no `o`) it keeps its header — title and status badges
-       — and a superseded rule folds to it. */
+    /* The 20px glyph of a pattern: the row's first visual, drawn the same way everywhere. 24-unit grid. */
+    const LGC_GLYPH = {
+      statechart: '<rect x="2.5" y="10" width="5" height="6" rx="1.5"/><rect x="16.5" y="10" width="5" height="6" rx="1.5"/><path d="M7.5 13h9M14.5 11l2 2-2 2"/><path d="M5 10V6h14v4"/>',
+      stepper: '<circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/><path d="M7 12h3M14 12h3"/>',
+      nav: '<rect x="6.5" y="3" width="11" height="18" rx="2"/><path d="M6.5 17h11M10.5 17v4M13.5 17v4"/>',
+      branches: '<circle cx="12" cy="4.5" r="1.5"/><path d="M12 6v3M12 9l-6 5v6M12 9l6 5v6"/>',
+      async: '<path d="M3 7h10M3 17h14"/><path d="M13 4l3 3-3 3M17 14l3 3-3 3"/>',
+      states: '<rect x="3" y="4" width="7" height="7" rx="1.5"/><rect x="14" y="4" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>',
+      cases: '<path d="M4 6h16M4 12h16M4 18h16"/><path d="M8 3.5v5"/>',
+      timeline: '<path d="M3 12h18"/><path d="M7 8v8M12 9.5v5M17 8v8"/>',
+      matrix: '<rect x="3.5" y="3.5" width="17" height="17" rx="2"/><path d="M3.5 9.5h17M3.5 15h17M9.5 3.5v17M15 3.5v17"/>',
+      order: '<path d="M7 5v14M4 16l3 3 3-3"/><path d="M14 6h6M14 12h4.5M14 18h3"/>',
+      ladder: '<path d="M3.5 19h5v-5h5V9h7"/><path d="M17.5 6l3 3-3 3"/>',
+      placement: '<rect x="3.5" y="4.5" width="17" height="15" rx="2"/><path d="M3.5 10h17M12 10v9.5"/><path d="M7.5 14.5h.01M16.5 14.5h.01"/>',
+      scope: '<rect x="3" y="4" width="18" height="16" rx="2" stroke-dasharray="3 2.5"/><rect x="8" y="9" width="8" height="6" rx="1.5"/>',
+      validation: '<rect x="3" y="6.5" width="18" height="11" rx="2"/><path d="M8 12l2.5 2.5L16 9.5"/>',
+      gate: '<rect x="5" y="11" width="14" height="9.5" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>',
+      formula: '<path d="M4 8h6M7 5v6"/><path d="M14 8h6"/><path d="M4 16h6M14 14.5h6M14 18h6"/>',
+      params: '<path d="M4 7h16M4 17h16"/><circle cx="9" cy="7" r="2.2"/><circle cx="15" cy="17" r="2.2"/>',
+      inputs: '<rect x="3" y="6" width="18" height="12" rx="2"/><path d="M7 10h.01M11 10h.01M15 10h.01M8 14h8"/>',
+      invariants: '<path d="M3.5 6.5l1.5 1.5 2.5-3M3.5 12.5L5 14l2.5-3M3.5 18.5L5 20l2.5-3"/><path d="M11.5 6.5h9M11.5 12.5h9M11.5 18.5h9"/>',
+      swatches: '<circle cx="8.5" cy="9" r="4.5"/><circle cx="15.5" cy="9" r="4.5"/><circle cx="12" cy="15.5" r="4.5"/>',
+      anatomy: '<path d="M3.5 9h5M10.5 9h4M16.5 9h4"/><path d="M6 13v5M12.5 13v5M18.5 13v5"/>',
+      examples: '<path d="M3.5 8h6M3.5 16h6M14.5 8h6M14.5 16h6"/><path d="M11 8h2M11 16h2"/>',
+      effects: '<circle cx="12" cy="12" r="2"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="10" stroke-dasharray="2 3"/>',
+      edges: '<rect x="3" y="4" width="8" height="7" rx="1.5"/><rect x="13" y="4" width="8" height="7" rx="1.5"/><rect x="3" y="13" width="8" height="7" rx="1.5"/><path d="M15 16.5h4M17 14.5v4"/>',
+      decision: '<path d="M12 4v16M6 20h12M5 8h14"/><path d="M5 8l-2.5 6h5zM19 8l-2.5 6h5z"/>',
+      prose: '<path d="M4 7h16M4 12h16M4 17h10"/>',
+    };
+    const LGC_GLYPH_OF = { lifecycle: 'statechart', steps: 'stepper' };
+    const lgcGlyph = name => `<svg class="lgc-gl-svg" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${LGC_GLYPH[LGC_GLYPH_OF[name] || name] || LGC_GLYPH.prose}</svg>`;
+
+    // "4 states", "3 × 4", "0 of 9 checked": what the rule's first visual holds, in a few words.
+    function lgcPreview(r, st) {
+      st = st || pbRuleState(r);
+      const vis = lgcVisualList(r, st);
+      if (!vis.length) return 'prose only';
+      const v = vis[0], b = v.data || {}, n = a => lgcArr(a).length, pl = (k, one, many) => k + ' ' + (k === 1 ? one : many);
+      let t;
+      switch (v.type) {
+        case 'lifecycle': t = pl(n(r.states), 'state', 'states'); break;
+        case 'steps': t = pl(n(b.items), 'step', 'steps'); break;
+        case 'nav': t = pl(n(b.tabs), 'tab', 'tabs'); break;
+        case 'branches': t = pl(n(b.rows) + (b.else ? 1 : 0), 'branch', 'branches'); break;
+        case 'async': t = pl(n(b.outcomes), 'outcome', 'outcomes'); break;
+        case 'states': t = pl(n(b.items), 'state', 'states'); break;
+        case 'cases': t = pl(n(b.rows), 'case', 'cases'); break;
+        case 'timeline': t = pl(n(b.bands), 'band', 'bands'); break;
+        case 'matrix': t = n(b.rows) + ' × ' + n(b.cols); break;
+        case 'order': t = pl(n(b.keys), 'sort key', 'sort keys'); break;
+        case 'ladder': t = pl(n(b.items), 'try', 'tries'); break;
+        case 'placement': t = pl(n(b.surfaces), 'surface', 'surfaces'); break;
+        case 'scope': t = n(b.acts) + ' in · ' + n(b.untouched) + ' out'; break;
+        case 'validation': t = pl(n(b.items), 'check', 'checks'); break;
+        case 'gate': t = pl(n(b.requires), 'condition', 'conditions'); break;
+        case 'formula': t = 'formula'; break;
+        case 'params': t = pl(n(b.items), 'value', 'values'); break;
+        case 'inputs': t = pl(n(b.rows), 'input', 'inputs'); break;
+        case 'invariants': t = (v.data.length - st.unchecked) + ' of ' + v.data.length + ' checked'; break;
+        case 'swatches': t = pl(n(b.items), 'colour', 'colours'); break;
+        case 'anatomy': t = pl(n(b.parts), 'part', 'parts'); break;
+        case 'examples': t = pl(n(b.items), 'example', 'examples'); break;
+        case 'effects': t = pl(n(b.writes), 'write', 'writes'); break;
+        case 'edges': t = pl(n(b.rows), 'edge case', 'edge cases'); break;
+        default: t = lgcStr(v.type) || 'block';
+      }
+      return t + (vis.length > 1 ? ' +' + (vis.length - 1) : '');
+    }
+    /* What a Rules row shows and filters by: the first visual's glyph, a tiny preview, and every pattern family
+       the rule draws (a rule with a flow and a table is both). */
+    function lgcRowPattern(r, st) {
+      st = st || pbRuleState(r);
+      const vis = lgcVisualList(r, st);
+      const fams = [];
+      vis.forEach(v => { const f = LGC_FAMILY[v.type]; if (f && fams.indexOf(f) === -1) fams.push(f); });
+      if (!vis.length) fams.push('Prose only');
+      const glyph = vis.length ? vis[0].type : (r.decision && r.decision.chose ? 'decision' : 'prose');
+      return { glyph, preview: lgcPreview(r, st), fams };
+    }
+
+    /* A rule with no structure yet: one quiet line, what its prose looks like (from the shape scan), and the
+       command that writes the structure. */
+    function lgcNoVisual(r) {
+      const sh = lgcArr((((typeof window !== 'undefined' && window.PB_LOGIC) || {}).shapes || {})[r.id]).filter(s => s && s.type);
+      const seen = {};
+      const chips = sh.filter(s => !seen[s.type] && (seen[s.type] = 1)).map(s => `<span class="lgc-chip"${s.why ? ` title="${escapeHtmlAttr('Matched: ' + lgcStr(s.why))}"` : ''}>${pbEscape(s.type)}</span>`).join('');
+      return `<div class="lgc-nov"><span class="lgc-nov-t">Prose only — no visual yet</span>`
+        + (chips ? `<span class="lgc-nov-l">Looks like:</span><span class="lgc-nov-c">${chips}</span>` : '')
+        + `<span class="lgc-nov-cmd"><code>/pb:clarify</code></span></div>`;
+    }
+
+    /* The scenarios that name a rule — `s.rule === id`, or `s.rules` includes it — each with its verdict. */
+    function lgcRuleTests(r) {
+      const f = (typeof PB_DATA !== 'undefined' && PB_DATA && PB_DATA.flow) || {}, out = [];
+      (f.stories || []).forEach(s => (s.scenarios || []).forEach(sc => {
+        if (!pbScObj(sc)) return;
+        if (sc.rule === r.id || lgcArr(sc.rules).indexOf(r.id) !== -1) out.push({ sc, story: s.title || '', head: pbScHead(sc).head, v: pbScStatus(sc) });
+      }));
+      return out;
+    }
+    const lgcOptList = d => Array.isArray(d.options) ? d.options : (typeof d.options === 'string' ? d.options.split('|').map(x => x.trim()).filter(Boolean) : []);
+
+    /* The bar under the visuals: the Details button, then what the drawer holds, as quiet chips. */
+    function lgcDetailsBar(r, st, em) {
+      const d = st.d, chips = [];
+      if (d.chose) {
+        const norm = x => lgcStr(x).trim().replace(/[.\s]+$/, '').toLowerCase();
+        const lost = lgcOptList(d).filter(o => norm(o) !== norm(d.chose)).length;
+        const t = 'Decided · chose ' + lgcStr(d.chose).replace(/\s+/g, ' ').trim() + (lost ? ' over ' + lost : '');
+        chips.push(`<span class="lgc-qc lgc-qc--chose" title="${escapeHtmlAttr(t)}"><span class="pb-dot pb-dot--pass"></span><span class="lgc-qt">${pbEscape(t)}</span></span>`);
+      }
+      if (st.open.length) chips.push(`<span class="lgc-qc"><span class="pb-dot pb-dot--open"></span>${st.open.length} open</span>`);
+      else if (pbRuleOpen(r).assume) chips.push('<span class="lgc-qc"><span class="pb-dot pb-dot--open"></span>assumed</span>');
+      const nt = lgcRuleTests(r).length;
+      if (nt) chips.push(`<span class="lgc-qc">${nt} test${nt === 1 ? '' : 's'}</span>`);
+      if (st.sup) chips.push('<span class="lgc-qc"><span class="pb-dot pb-dot--hollow"></span>superseded</span>');
+      return `<div class="lgc-dbar"><button class="pb-btn pb-btn--sm lgc-dbtn${em ? ' pb-btn--solid' : ''}" type="button" data-rule="${escapeHtmlAttr(r.id || '')}" onclick="pbLogicDetails(this.dataset.rule)" aria-haspopup="dialog" title="Rule text, decision, open questions, history, tests and sources">Details</button>${chips.length ? `<span class="lgc-dch">${chips.join('')}</span>` : ''}</div>`;
+    }
+
+    /* =====================================================================
+       THE RULE CARD, variant B. Top to bottom: the lead (one line) · what is wrong (to-do rows) · the visual
+       stack · a details bar. Everything that is prose — the rule text, the decision, open questions, history,
+       tests, sources — is behind the one Details button, in a right-hand drawer (pbLogicDetails).
+       `o.bare` = the card is the BODY of a scan row, which already shows title, status and kind. Standalone
+       it keeps its header, and a superseded rule folds to it.
+       ===================================================================== */
     function pbLogicCard(r, n, o) {
       o = o || {};
       const st = pbRuleState(r);
-      const { d, title, supBy, supOn, sup, supersedes, loop, open, invariants, unchecked, blocks, matrix, states, unreachable, todo, reds } = st;
+      const { d, title, supBy, supOn, sup, todo, reds } = st;
       const status = sup
         ? lgcBadge('n', 'superseded' + (supBy ? ` → <code>${pbEscape(supBy)}</code>` : ''), supOn ? 'on ' + supOn : '')
         : todo.length ? lgcBadge(reds ? 'bad' : 'warn', todo.length + ' to resolve') : lgcBadge('ok', '✓ settled');
       const todoHtml = todo.length && !sup ? `<div class="lgc-pad"><ul class="lgc-todo">${todo.map(t => `<li class="lgc-todo-${t[0]}"><span class="lgc-tdi" aria-hidden="true">${t[0] === 'bad' ? '!' : '?'}</span><div><div class="lgc-tdw">${t[1]}</div><div class="lgc-tdf">${t[2]} ${t[3]}</div></div></li>`).join('')}</ul></div>` : '';
-
-      // The lead is the summary's first sentence; the rest of the summary opens the rule body.
+      const vis = lgcVisualList(r, st);
       const sumS = lgcSentences(r.summary);
-      let lead = sumS.length ? sumS[0] : lgcStr(d.chose);
-      let rule = sumS.length > 1 ? `<ul class="lgc-ul lgc-sum">${sumS.slice(1).map(x => `<li>${pbEmph(x)}</li>`).join('')}</ul>` : '';
-      if (states.length) rule += lgcLifecycle(r, unreachable);
-      if (matrix) rule += `<section class="lgc-sec">${LGC_BLOCKS.matrix(matrix)}</section>`;
-      if (invariants.length) rule += `<section class="lgc-sec">${lgcHead('Invariants', `<span class="lgc-hn">${invariants.length - unchecked} of ${invariants.length} checked</span>`)}${lgcInvariants(invariants)}</section>`;
-      blocks.forEach(b => { if (!LGC_VALUE_TYPES[b.type]) rule += lgcBlock(b); });
-      const values = blocks.filter(b => LGC_VALUE_TYPES[b.type]).map(lgcBlock).join('');
-      // A rule that is nothing but a decision shows the decision itself — question, what was weighed,
-      // the choice marked, why — not a closed History that holds it.
-      const decided = lgcDecided(r, d);
-      const decisionOnly = !rule && !values && !!decided.html;
-      if (decisionOnly) {
-        rule = `<section class="lgc-sec lgc-decided">${lgcHead('Decision', decided.meta ? `<span class="lgc-hn">${decided.meta}</span>` : '')}${decided.html}</section>`;
-        if (lead === lgcStr(d.chose)) lead = '';       // the marked choice says it
-      } else if (!rule && d.chose && lead !== d.chose) {
-        // A rule with no structure yet still states what was decided — a card is never only prose.
-        rule = `<section class="lgc-sec">${lgcHead('Rule')}<div class="lgc-chose">${pbEmph(lgcStr(d.chose))}</div></section>`;
-      }
-      const history = lgcHistory(r, d, { open, sup, supBy, supOn, loop, supersedes }, { skipDecided: decisionOnly });
-
-      const uid = 'lgc-' + n + '-' + lgcStr(r.id || 'rule').toLowerCase().replace(/[^a-z0-9]+/g, '-');
-      const tabs = [['values', 'Values', values, ''], ['history', 'History', history, open.length ? 'warn' : loop ? 'bad' : '']].filter(t => t[2]);
-      // Two sections (Values + History) are tabs. One alone is just drawn, open, below the rule.
-      const lone = tabs.length === 1 ? lgcLone(tabs[0][0], tabs[0][1], tabs[0][2], tabs[0][3]) : '';
-      const tabsHtml = tabs.length > 1 ? `<div class="lgc-tabs">${tabs.map((t, i) => `<input type="radio" class="lgc-r lgc-r-${t[0]}" name="${uid}" id="${uid}-${t[0]}"${i === 0 ? ' checked' : ''}>`).join('')}`
-        + `<div class="lgc-bar" role="tablist">${tabs.map(t => `<label class="lgc-l lgc-l-${t[0]}" for="${uid}-${t[0]}" role="tab">${t[1]}${t[3] ? `<span class="lgc-tdot lgc-tdot-${t[3]}"></span>` : ''}</label>`).join('')}</div>`
-        + tabs.map(t => `<div class="lgc-p lgc-p-${t[0]}" role="tabpanel">${t[2]}</div>`).join('') + '</div>' : '';
-      // The id the rule is cited by: shown wherever the card is, and copyable.
-      const rid = r.id ? `<div class="lgc-rid"><span>Rule id</span> <code>${pbEscape(r.id)}</code>`
-        + `<button class="pb-btn pb-btn--ghost pb-btn--sm" type="button" data-id="${escapeHtmlAttr(r.id)}" onclick="pbCopyRuleId(this)" title="Copy the rule id" aria-label="Copy rule id ${escapeHtmlAttr(r.id)}">${pbUiIcon('copy')}Copy</button></div>` : '';
-
+      // With a summary the lead is its first sentence. Without one, a rule that has visuals states what it chose;
+      // one with none says so in its Details bar instead of repeating it here.
+      const lead = sumS.length ? sumS[0] : (vis.length ? lgcStr(d.chose) : '');
+      const stack = vis.length
+        ? `<div class="lgc-vis">${vis.map(v => lgcVisualHTML(v, r, st)).join('')}</div>`
+        : `<div class="lgc-vis lgc-vis--none">${lgcNoVisual(r)}</div>`;
+      const dbar = lgcDetailsBar(r, st, !vis.length);
       const attrs = `id="rule-${pbEscape(r.id)}" data-rule="${escapeHtmlAttr(r.id || '')}"`;
       if (o.bare) {
-        // The row above carries the title, status and kind; the card starts at the point of it.
         const note = sup ? `<div class="lgc-supnote">${status}</div>` : '';
-        const body = note + (lead ? `<p class="lgc-lead">${pbEmph(lead)}</p>` : '') + todoHtml + (rule ? `<div class="lgc-rule">${rule}</div>` : '') + lone + tabsHtml + rid;
+        const body = note + (lead ? `<p class="lgc-lead">${pbEmph(lead)}</p>` : '') + todoHtml + stack + dbar;
         return `<article class="lg-card lgc lgc--bare${sup ? ' lg-card--sup' : ''}" ${attrs}>${body}</article>`;
       }
       const head = `<div class="lgc-tl"><h3 class="lgc-ti">${pbEmph(title)}</h3>${sup ? '<span class="lgc-show"></span>' : ''}</div>`
         + `<div class="lgc-bs">${status}<span class="lgc-meta">${r.kind ? lgcBadge('k', pbEscape(r.kind)) : ''}</span></div>`;
-      const body = (lead ? `<p class="lgc-lead">${pbEmph(lead)}</p>` : '') + todoHtml + (rule ? `<div class="lgc-rule">${rule}</div>` : '') + lone + tabsHtml + rid;
+      const body = (lead ? `<p class="lgc-lead">${pbEmph(lead)}</p>` : '') + todoHtml + stack + dbar;
       return sup
         ? `<details class="lg-card lgc lg-card--sup" ${attrs}><summary class="lgc-hd">${head}</summary>${body}</details>`
         : `<article class="lg-card lgc" ${attrs}><div class="lgc-hd">${head}</div>${body}</article>`;
     }
+
+    /* =====================================================================
+       THE DETAILS DRAWER — one shared #lgc-drawer, a right-hand dialog. Opened by the card's Details button
+       (pbLogicDetails), closed by Esc, the × button or the scrim; focus goes to the panel and comes back to
+       the button. It survives a re-render: renderMetaFlow calls pbLogicDetailsSync, which rebuilds its body for
+       the same rule (or closes it when that rule, or the Rules view, is gone).
+       Each section is built by a lgcRuleText / lgcDrawer* function in the `drawer:sections` region below. A
+       builder returns the section's CONTENT (the chrome adds the heading); '' omits the section; a builder
+       that is missing or throws degrades to nothing / an error line.
+       ===================================================================== */
+    let LGC_DRAWER_FROM = null;
+    const LGC_DRAWER_SECTIONS = [
+      ['text', 'Rule text', r => typeof lgcRuleText === 'function' ? lgcRuleText(r) : ''],
+      ['decision', 'Decision', r => typeof lgcDrawerDecision === 'function' ? lgcDrawerDecision(r) : ''],
+      ['open', 'Open questions', r => typeof lgcDrawerOpen === 'function' ? lgcDrawerOpen(r) : ''],
+      ['history', 'History', r => typeof lgcDrawerHistory === 'function' ? lgcDrawerHistory(r) : ''],
+      ['tests', 'Tests', r => typeof lgcDrawerTests === 'function' ? lgcDrawerTests(r) : ''],
+      ['sources', 'Sources', r => typeof lgcDrawerSources === 'function' ? lgcDrawerSources(r) : ''],
+    ];
+    function lgcDrawerBody(r) {
+      const html = LGC_DRAWER_SECTIONS.map(s => {
+        let inner = '';
+        try { inner = lgcStr(s[2](r)); } catch (e) { inner = `<div class="lgc-err">This section could not be drawn (${pbEscape(e.message)}).</div>`; }
+        return inner ? `<section class="lgc-dsec lgc-dsec--${s[0]}"><h3 class="lgc-dsh">${s[1]}</h3><div class="lgc-dsb">${inner}</div></section>` : '';
+      }).join('');
+      return html || '<p class="lgc-dim">Nothing is recorded for this rule yet.</p>';
+    }
+    function lgcDrawerFill(el, r) {
+      const st = pbRuleState(r);
+      const status = st.sup ? 'Superseded' : st.todo.length ? st.todo.length + ' to resolve' : 'Settled';
+      el.querySelector('.lgc-dti').textContent = st.title;
+      el.querySelector('.lgc-dsub').innerHTML = [r.id ? `<code>${pbEscape(r.id)}</code>` : '', r.kind ? pbEscape(r.kind) : '', pbEscape(status)].filter(Boolean).join(' · ');
+      el.querySelector('.lgc-dbody').innerHTML = lgcDrawerBody(r);
+    }
+    function lgcDrawerEl() {
+      let el = document.getElementById('lgc-drawer');
+      if (el) return el;
+      el = document.createElement('div');
+      el.id = 'lgc-drawer';
+      el.className = 'lgc-drawer';
+      el.setAttribute('aria-hidden', 'true');
+      el.innerHTML = '<div class="lgc-dscrim"></div>'
+        + '<aside class="lgc-dpanel" role="dialog" aria-modal="true" aria-labelledby="lgc-d-title" tabindex="-1">'
+        + '<header class="lgc-dhd"><div class="lgc-dhm"><h2 class="lgc-dti" id="lgc-d-title"></h2><div class="lgc-dsub"></div></div>'
+        + `<button class="pb-ib" type="button" aria-label="Close details" title="Close details" onclick="pbLogicDetailsClose()">${pbUiIcon('x', 'pb-ico--lg')}</button></header>`
+        + '<div class="lgc-dbody"></div></aside>';
+      el.querySelector('.lgc-dscrim').addEventListener('click', () => pbLogicDetailsClose());
+      document.body.appendChild(el);
+      return el;
+    }
+    function pbLogicDetails(id) {
+      const r = ((window.PB_LOGIC || {}).rules || []).find(x => x.id === id);
+      if (!r) return;
+      const el = lgcDrawerEl(), was = state.logicDetails === id && el.classList.contains('is-open');
+      const trigger = document.activeElement;
+      state.logicDetails = id;
+      if (!was && trigger && trigger !== document.body && trigger.closest && trigger.closest('.lgc-dbar')) LGC_DRAWER_FROM = trigger;
+      lgcDrawerFill(el, r);
+      el.classList.add('is-open');
+      el.setAttribute('aria-hidden', 'false');
+      el.querySelector('.lgc-dbody').scrollTop = 0;
+      el.querySelector('.lgc-dpanel').focus();
+    }
+    function pbLogicDetailsClose(quiet) {
+      const el = document.getElementById('lgc-drawer'), id = state.logicDetails;
+      state.logicDetails = null;
+      if (!el) return;
+      const wasOpen = el.classList.contains('is-open');
+      el.classList.remove('is-open');
+      el.setAttribute('aria-hidden', 'true');
+      if (!wasOpen || quiet === true) { LGC_DRAWER_FROM = null; return; }
+      let back = LGC_DRAWER_FROM && LGC_DRAWER_FROM.isConnected ? LGC_DRAWER_FROM : null;
+      if (!back && id) back = document.querySelector('.lgc-dbtn[data-rule="' + CSS.escape(id) + '"]');
+      LGC_DRAWER_FROM = null;
+      if (back) back.focus();
+    }
+    /* After any re-render: keep the drawer on the same rule, or close it when that rule is no longer on screen. */
+    function pbLogicDetailsSync() {
+      const id = state.logicDetails;
+      if (!id) return;
+      const r = ((window.PB_LOGIC || {}).rules || []).find(x => x.id === id), el = document.getElementById('lgc-drawer');
+      if (!r || !el || state.logicView !== 'rules') { pbLogicDetailsClose(true); return; }
+      const body = el.querySelector('.lgc-dbody'), top = body.scrollTop;
+      lgcDrawerFill(el, r);
+      body.scrollTop = top;
+    }
+    document.addEventListener('keydown', e => {
+      if (!state.logicDetails) return;
+      const el = document.getElementById('lgc-drawer');
+      if (!el || !el.classList.contains('is-open')) return;
+      if (e.key === 'Escape') {
+        if (typeof pbFilterPopIsOpen === 'function' && pbFilterPopIsOpen()) return;
+        e.preventDefault(); pbLogicDetailsClose();
+      } else if (e.key === 'Tab') {
+        // a modal keeps Tab inside itself
+        const f = Array.from(el.querySelectorAll('.lgc-dpanel button, .lgc-dpanel a[href], .lgc-dpanel [tabindex="0"], .lgc-dpanel summary, .lgc-dpanel input')).filter(x => x.offsetParent !== null);
+        const panel = el.querySelector('.lgc-dpanel');
+        if (!f.length) { e.preventDefault(); panel.focus(); return; }
+        const first = f[0], last = f[f.length - 1], cur = document.activeElement;
+        if (e.shiftKey && (cur === first || cur === panel)) { e.preventDefault(); last.focus(); }
+        else if (!e.shiftKey && cur === last) { e.preventDefault(); first.focus(); }
+        else if (!el.contains(cur)) { e.preventDefault(); first.focus(); }
+      }
+    });
+
+    // ── drawer:sections ──
+    // Each builder returns the section's content, '' to omit it. B7 (decision, open, history, tests, sources) and
+    // B4 (rule text) replace these defaults with richer versions.
+    // The rule's full prose: the whole summary, then its `note` blocks.
+    function lgcRuleText(r) {
+      const notes = lgcArr(r.blocks).filter(b => b && b.type === 'note').map(lgcBlock).join('');
+      const text = lgcStr(r.summary).trim();
+      const re = /\b(revised|amended|reinstated|superseded|updated|changed)\b(?:\s+(?:on|in|at))?\s+(\d{4}-\d{2}-\d{2})\s*[:\u2014\u2013\-,.]?\s*/gi;
+      const marks = [];
+      let m;
+      while ((m = re.exec(text))) marks.push({ at: m.index, end: re.lastIndex, kind: m[1], date: m[2] });
+      if (!marks.length) return (text ? `<div class="lgc-rt">${lgcProse(text)}</div>` : '') + notes;
+      const entries = marks.map((k, i) => ({ date: k.date, kind: k.kind.charAt(0).toUpperCase() + k.kind.slice(1).toLowerCase(), clause: text.slice(k.end, i + 1 < marks.length ? marks[i + 1].at : text.length).trim() }));
+      const base = text.slice(0, marks[0].at).trim();
+      const li = (head, tone, body) => `<li class="lgc-tl-i"><span class="lgc-tl-dot lgc-tl-dot--${tone}" aria-hidden="true"></span><div class="lgc-tl-h">${head}</div>${body ? `<div class="lgc-tl-b">${lgcProse(body)}</div>` : ''}</li>`;
+      return `<div class="lgc-rt"><ol class="lgc-tl" aria-label="Revisions, in the order written">`
+        + (base ? li(lgcBadge('n', 'Original'), 'n', base) : '')
+        + entries.map(x => li(`${lgcBadge('info', pbEscape(x.kind))} <time datetime="${escapeHtmlAttr(x.date)}">${pbEscape(x.date)}</time>`, 'info', x.clause)).join('')
+        + `</ol></div>` + notes;
+    }
+    // The decision as a compare: the question, the chosen option beside the ones passed over, then why, what it
+    // touches, when and by whom. Options may be an array, an `A | B` string, or only the rejected ones.
+    function lgcRejectedWhy(why, label) {
+      const l = lgcStr(label).trim().toLowerCase();
+      if (!why || l.length < 3) return '';
+      return lgcSentences(why).filter(s => s.toLowerCase().indexOf(l) !== -1).join(' ');
+    }
+    function lgcDrawerDecision(r) {
+      const d = r.decision || {};
+      const dd = lgcDecided(r, d);
+      if (!dd.html) return '';
+      const norm = x => lgcStr(x).trim().replace(/[.\s]+$/, '').toLowerCase();
+      const opts = lgcOptList(d).map(x => lgcStr(x).trim()).filter(Boolean);
+      const chose = lgcStr(d.chose).trim(), why = lgcStr(d.why).trim();
+      const rejected = opts.filter(o => !chose || norm(o) !== norm(chose));
+      const q = d.question ? `<div class="lgc-dq">${lgcProse(d.question)}</div>` : '<div class="lgc-dq lgc-dq--none">Question not recorded</div>';
+      let cmp = '';
+      if (chose || rejected.length) {
+        const yes = chose ? `<div class="lgc-co lgc-co--yes"><div class="lgc-coh"><span class="lgc-ck" aria-hidden="true">✓</span>${lgcBadge('ok', 'Chosen')}</div><div class="lgc-cot">${pbEmph(chose)}</div></div>` : '';
+        const no = rejected.map(o => {
+          const rs = lgcRejectedWhy(why, o);
+          return `<div class="lgc-co lgc-co--no"><div class="lgc-coh">${lgcBadge('n', chose ? 'Not chosen' : 'Considered')}</div><div class="lgc-cot">${pbEmph(o)}</div>${rs ? `<div class="lgc-cor"><b>Why not</b> ${pbEmph(rs)}</div>` : ''}</div>`;
+        }).join('');
+        cmp = `<div class="lgc-cmp${yes && no ? '' : ' lgc-cmp--one'}">${yes}${no ? `<div class="lgc-rej">${no}</div>` : ''}</div>`;
+      }
+      const assume = /\bASSUMPTION\b/.test(why) ? `<div class="lgc-dline">${lgcBadge('warn', 'Assumption', 'The why rests on an assumption no one has confirmed')}</div>` : '';
+      const aff = d.affects ? (Array.isArray(d.affects) ? d.affects : lgcStr(d.affects).split(/\s+·\s+/).filter(x => x.trim())) : [];
+      const rows = lgcDl([['Why', why ? lgcProse(why) : ''], ['Affects', aff.length ? lgcChips(aff) : '']]);
+      return q + cmp + assume + rows + (dd.meta ? `<div class="lgc-dmeta">Decided ${dd.meta}</div>` : '');
+    }
+    // What is still to resolve: each open question and an unconfirmed assumption, one row with a kind and a status chip.
+    // A question written as "(1) … (2) …" is one row per numbered part.
+    function lgcOpenParts(s) {
+      s = lgcStr(s).replace(/\s+/g, ' ').trim();
+      const bits = s.split(/\(\d+\)\s*/);
+      if (bits.length < 3) return [{ t: s }];
+      const out = [], lead = bits.shift().trim().replace(/[:;,\s]+$/, '');
+      if (lead) out.push({ t: lead, lead: true });
+      bits.forEach(b => { b = b.trim().replace(/[;,\s]+$/, ''); if (b) out.push({ t: b }); });
+      return out;
+    }
+    function lgcDrawerOpen(r) {
+      const o = pbRuleOpen(r), d = r.decision || {}, rows = [];
+      o.items.forEach(x => {
+        const obj = x && typeof x === 'object' ? x : null;
+        const text = obj ? lgcStr(obj.question || obj.text || obj.q || JSON.stringify(obj)) : lgcStr(x);
+        const status = obj ? lgcStr(obj.status || 'open').toLowerCase() : 'open';
+        lgcOpenParts(text).forEach(p => rows.push(p.lead ? `<li class="lgc-oq lgc-oq--lead"><span>${lgcProse(p.t)}</span></li>`
+          : `<li class="lgc-oq">${lgcBadge('k', 'question')}${lgcBadge(status === 'open' ? 'warn' : 'n', pbEscape(status))}<span>${lgcProse(p.t)}</span></li>`));
+      });
+      if (o.assume) {
+        const src = lgcSentences(lgcStr(d.why) + ' ' + lgcStr(r.summary)).find(s => /\bASSUMPTION\b/.test(s)) || 'The rule rests on an assumption no one has confirmed.';
+        rows.push(`<li class="lgc-oq">${lgcBadge('k', 'assumption')}${lgcBadge('warn', 'open')}<span>${lgcProse(src)}</span></li>`);
+      }
+      return rows.length ? `<ul class="lgc-oql">${rows.join('')}</ul>` : '';
+    }
+    // The rules this one replaced and was replaced by, as a short vertical chain; a loop is a red dashed edge back.
+    function lgcLineageSvg(r, st) {
+      const rules = (window.PB_LOGIC || {}).rules || [], find = id => rules.find(x => x.id === id) || null;
+      const older = st.supersedes || '', newer = st.supBy || '';
+      if (!older && !newer) return '';
+      const dOf = x => x ? lgcStr(x.supersededOn || (x.decision || {}).supersededOn || '') : '';
+      const born = x => x ? lgcStr((x.decision || {}).decidedOn || x.answeredOn || (x.decision || {}).answeredOn || '') : '';
+      const W = 220, H = 44, G = 36, X = 10, loop = !!st.loop;
+      const items = [];
+      if (older) items.push({ id: older, role: loop ? 'loop' : 'older' });
+      items.push({ id: r.id, role: 'cur' });
+      if (newer && !loop) items.push({ id: newer, role: 'newer' });
+      const nodes = items.map((it, i) => {
+        const y = 14 + i * (H + G), x = find(it.id);
+        const sub = it.role === 'cur' ? (st.sup ? 'superseded' : 'current') + (born(r) ? ' · ' + born(r) : '')
+          : it.role === 'newer' ? 'replaces this' + (born(x) ? ' · ' + born(x) : '')
+          : 'replaced by this' + (dOf(x) ? ' · ' + dOf(x) : '');
+        return lgcNode({ x: X, y, w: W, h: H, label: it.id, sub, strong: it.role === 'cur', dashed: it.role !== 'cur', tone: it.role === 'loop' ? 'bad' : '' });
+      });
+      let edges = '';
+      for (let i = 1; i < nodes.length; i++) {
+        const lab = i === 1 && older ? (dOf(find(older)) || born(r)) : (st.supOn || born(find(newer)));
+        edges += lgcEdge({ from: nodes[i - 1].bottom, to: nodes[i].top, label: lab || '' });
+      }
+      const hgt = 14 + items.length * H + (items.length - 1) * G + 14;
+      if (loop) edges += lgcEdge({ from: nodes[1].right, via: [[X + W + 44, nodes[1].cy], [X + W + 44, nodes[0].cy]], to: nodes[0].right, tone: 'bad', dashed: true, label: 'Lineage loop' });
+      const total = X + W + (loop ? 100 : 10);
+      const title = loop ? `Lineage loop between ${older} and ${r.id}` : 'Rule lineage: ' + items.map(x => x.id).join(' then ');
+      return lgcSvg(total, hgt, title, edges + nodes.map(n => n.svg).join(''));
+    }
+    // History, newest first; the decision has its own section, so it is not repeated here.
+    function lgcDrawerHistory(r) {
+      const st = pbRuleState(r);
+      const h = lgcHistory(r, st.d, { open: [], sup: st.sup, supBy: st.supBy, supOn: st.supOn, loop: st.loop, supersedes: st.supersedes }, { skipDecided: true });
+      let svg = '';
+      try { svg = lgcLineageSvg(r, st); } catch (e) { svg = ''; }
+      const chain = svg ? `<div class="lgc-lin">${lgcScrollX(svg, 0)}</div>` : '';
+      return h || chain ? `<div class="lgc-dp lgc-p-history">${chain}${h}</div>` : '';
+    }
+    // The scenarios that name this rule, each with its verdict glyph, its text and any per-role results.
+    function lgcRoleResults(lr) {
+      const ro = lr && lr.roles;
+      if (!ro || typeof ro !== 'object') return '';
+      const list = Array.isArray(ro) ? ro.map(x => x && typeof x === 'object' ? [x.role || x.id || x.name, x.status || x.result] : [x, ''])
+        : Object.keys(ro).map(k => [k, ro[k] && typeof ro[k] === 'object' ? (ro[k].status || ro[k].result) : ro[k]]);
+      const chips = list.filter(x => x[0]).map(x => {
+        const v = x[1] === true ? 'pass' : x[1] === false ? 'fail' : lgcStr(x[1]).trim().toLowerCase();
+        const k = PB_SC_VERDICT[v] ? v : 'untested', rn = pbRoleName(lgcStr(x[0]));
+        return `<span class="lgc-rr" title="${escapeHtmlAttr(rn + ': ' + PB_SC_VERDICT[k][1])}"><span class="lgc-tg lgc-tg-${k}" aria-hidden="true">${pbEscape(PB_SC_VERDICT[k][0])}</span>${pbEscape(rn)}</span>`;
+      });
+      return chips.length ? `<div class="lgc-rrs">${chips.join('')}</div>` : '';
+    }
+    function lgcDrawerTests(r) {
+      const ts = lgcRuleTests(r);
+      if (!ts.length) return '<p class="lgc-dim">No test names this rule</p>';
+      const n = k => ts.filter(t => t.v.st === k).length, pass = n('pass'), fail = n('fail'), rest = ts.length - pass - fail;
+      const sum = `<div class="lgc-tsum">${lgcBadge(pass ? 'ok' : 'n', pass + ' pass')}${lgcBadge(fail ? 'bad' : 'n', fail + ' fail')}${lgcBadge('n', rest + ' not run')}</div>`;
+      return sum + `<ul class="lgc-tl-list">${ts.map(t => `<li class="lgc-tst"><span class="lgc-tg lgc-tg-${t.v.st}" role="img" title="${escapeHtmlAttr(t.v.label)}" aria-label="${escapeHtmlAttr(t.v.label)}">${pbEscape(t.v.glyph)}</span><span class="lgc-tsb"><span>${pbEscape(t.head)}</span>${t.story ? ` <span class="lgc-dim">${pbEscape(t.story)}</span>` : ''}${lgcRoleResults(t.sc.lastResult)}</span></li>`).join('')}</ul>`;
+    }
+    // Where it lives: the id (copyable) and the code and screens linked to it. The origin stays in History.
+    function lgcDrawerSources(r) {
+      const lk = (type, list) => { const a = lgcArr(list); return a.length ? `<div class="lgc-chips">${a.map(x => `<span class="lgc-chip">${pbLgLink(type, x, type === 'handler' ? x + '()' : x)}</span>`).join('')}</div>` : ''; };
+      const rid = r.id ? `<div class="lgc-rid"><span>Rule id</span> <code>${pbEscape(r.id)}</code><button class="pb-btn pb-btn--ghost pb-btn--sm" type="button" data-id="${escapeHtmlAttr(r.id)}" onclick="pbCopyRuleId(this)" title="Copy the rule id" aria-label="Copy rule id ${escapeHtmlAttr(r.id)}">${pbUiIcon('copy')}Copy</button></div>` : '';
+      return rid + lgcDl([['Built by', lk('handler', r.implementedBy)], ['Read by', lk('handler', r.readers)], ['Shown on', lk('item', r.displayedIn)]]);
+    }
+    // ── /drawer:sections ──
 
     /* Copy the id a rule is cited by (the ID column may be hidden), and say so. The clipboard API can
        refuse (no focus, no permission); then the old textarea route does it. */
@@ -6770,7 +8124,7 @@
       if (f.type === 'handler' && H[f.id]) detail = pbRippleHandler(H[f.id], H, I, L);
       else if (f.type === 'slice' && (L.slices || {})[f.id]) detail = pbRippleSlice(f.id, L.slices[f.id], H);
       else if (f.type === 'item' && I[f.id]) detail = pbRippleItem(I[f.id], H, L);
-      return `<div class="lg-ripple">${list}<div class="lg-detail">${detail}</div></div>`;
+      return `<div class="lg-ripple">${list}<div class="lgi-col">${lgcImpactGraph(L, f, H, I)}<div class="lg-detail">${detail}</div></div></div>`;
     }
 
     function pbLgSec(title, body) {
@@ -7339,7 +8693,8 @@
           if (!keep) r.hidden = true;
           return keep;
         }).map(r => {
-          const facets = {}; ks.forEach(k => { facets[k] = r.getAttribute('data-fb-' + k); });
+          // a row may carry several values for one facet, joined with '|' (a rule's pattern families)
+          const facets = {}; ks.forEach(k => { const v = r.getAttribute('data-fb-' + k); facets[k] = k === 'pattern' && v ? v.split('|') : v; });
           return { el: r, text: r.getAttribute('data-fb-hay') || '', facets, quick: { archived: true } };
         });
       });
@@ -7417,6 +8772,9 @@
     function pbLogicFbar(rules) {
       const facts = rules.map(pbRuleFacts);
       const stat = pbCountBy(facts, x => x.status), kinds = pbCountBy(facts.filter(x => x.status !== 'Superseded'), x => x.kind);
+      // Pattern: the families of visual a rule draws (a rule with a flow and a table counts in both).
+      const pats = {};
+      rules.forEach((r, i) => { if (facts[i].status !== 'Superseded') lgcRowPattern(r).fams.forEach(f => { pats[f] = (pats[f] || 0) + 1; }); });
       // a superseded rule is history, not work: hidden behind "Show superseded", so Status lists the live states
       return pbFbarHTML('logic', {
         label: 'Filter rules', placeholder: 'Search rules', noun: 'rules', expandAll: true,
@@ -7424,6 +8782,7 @@
         facets: [
           { k: 'status', label: 'Status', opts: ['To resolve', 'Settled'].filter(v => stat[v]).map(v => ({ v, l: v, n: stat[v] })) },
           { k: 'kind', label: 'Kind', opts: Object.keys(kinds).sort((a, b) => kinds[b] - kinds[a] || a.localeCompare(b)).map(v => ({ v, l: v, n: kinds[v] })) },
+          { k: 'pattern', label: 'Pattern', opts: LGC_FAMILIES.filter(v => pats[v]).map(v => ({ v, l: v, n: pats[v] })) },
         ],
       });
     }
@@ -7655,6 +9014,8 @@
       const header = pbPageHeader({ title: 'UX Design', infoKey: 'flow' });
       const uxTabs = pbUxSubtabs();
       const view = pbUxView();
+      // the Logic details drawer belongs to the Rules view: anywhere else it closes
+      if (state.logicDetails && view !== 'logic') pbLogicDetailsClose(true);
 
       if (view === 'ia' || view === 'logic' || view === 'tests' || view === 'content') {
         // Tests owns its own height like IA does: the split's two columns scroll independently, so
@@ -7672,6 +9033,7 @@
             </div>
           </div>`;
         pbFbarApplyAll();
+        pbLogicDetailsSync();
         // The site map is a pan/zoom canvas like the flow and the ERD, so it needs the same init.
         // Dimensions ride on the stage rather than being recomputed here — the layout that knows
         // them is the only thing that should own them.

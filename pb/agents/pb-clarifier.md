@@ -32,9 +32,7 @@ does the last step of making them readable (`/pb:clarify` §1a and §2b; the mar
 - **Marks.** In `meta.userInsights.*` and `meta.overview.objectives` wrap the words a reader would underline:
   `**key claim**` (≤ about one per sentence), `==the one thing to remember==` (**at most once per field**),
   `{-a problem-}` and `{+an improvement+}`. **Never change the wording** — a mark wraps what is already there.
-- **Blocks.** When a rule's prose describes colours, steps, status mappings or concrete values, add the matching
-  `blocks[]` entry (`swatches` / `steps` / `cases` / `examples`) from facts **already in the rule or the
-  registry** — never invented — each with a `source` note naming where it came from.
+- **Blocks.** Never leave a rule decision-only when its prose has a shape: run `tools/logic_shape.py registry.json --rule <id> --json` and add each suggested `blocks[]` entry (any of the 23 types in `think-logic` §5) from facts **already in the rule or the registry** — never invented — each with a `source` note naming where it came from.
 
 ## Slice it owns
 - `memory/spec.md` — authored directly.

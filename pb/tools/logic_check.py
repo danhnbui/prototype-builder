@@ -65,6 +65,7 @@ CHECKS
   INFO    L-PROSE      a rule with no `blocks[]` whose summary runs past ~280 characters
                        or whose decision.why runs past ~600 — a pointer to the block
                        shapes, never a finding and never counted (a length is an opinion).
+  INFO    L-SHAPE      a rule whose prose reads like a block type it does not carry (logic_shape.py).
 
 `--explain <CODE>` prints a code's rationale and its known false-positive modes —
 required for every code above, so `tests/logic_check.py`'s corpus can quote it.
@@ -215,6 +216,12 @@ measured on, paragraphs that long were almost always one of the block shapes wri
 as sentences — a condition → outcome table, a scope list, a formula, a threshold.
 Never a finding and never counted toward the exit code: a long paragraph can be the
 right form, and a length is not a contradiction.""",
+    "L-SHAPE": """\
+L-SHAPE — INFORMATION ONLY. A rule whose prose reads like a block type it does not carry:
+a chain of states, numbered steps, sort keys, "disabled until", a role x action grid, a deadline
+band. `logic_shape.py` names the type(s) and the phrase that gave it away; a block draws what the
+sentence describes. Never a finding and never counted toward the exit code: the heuristics need
+two weak signals or one strong one, and a rule can be right to stay prose.""",
     "L-HAS-R4": """\
 L-HAS-R4 — the number of `:has()` rules per file. INFORMATION ONLY. This project
 uses `:has()` deliberately and heavily (dozens of rules per file in places, from
@@ -326,6 +333,10 @@ BLOCK_REQUIRES = {
     "params": ("items",), "effects": ("writes", "ripple"), "note": ("text",),
     # Values shown as themselves (v2.1.0): a colour per state, an identifier's parts, input → output.
     "swatches": ("items",), "anatomy": ("parts",), "examples": ("items",),
+    # Logic visuals: the flow, tables, values and effects shapes added beside them.
+    "states": ("items",), "nav": ("tabs",), "branches": ("rows",), "async": ("outcomes",),
+    "timeline": ("marks", "bands"), "order": ("keys",), "ladder": ("items",),
+    "gate": ("control", "requires"), "inputs": ("rows",), "edges": ("rows",),
 }
 PROSE_SUMMARY, PROSE_WHY = 280, 600
 
@@ -383,6 +394,28 @@ def check_prose(registry):
             out.append(Finding(INFO, "L-PROSE", f"rule={rule.get('id')!r}",
                                f"summary {len(summary)} / why {len(why)} chars with no blocks[] — "
                                f"if it is a table, a scope, a formula or a threshold, a block draws it"))
+    return out
+
+
+def check_shape(registry):
+    """L-SHAPE (INFO): prose that describes a block the rule does not carry."""
+    try:
+        import logic_shape
+        roles = logic_shape._role_names(registry) or None
+    except Exception:                                               # noqa: BLE001
+        return []
+    out = []
+    for rule in _rules(registry):
+        if rule.get("status") == "superseded":
+            continue
+        try:
+            found = logic_shape.suggest(rule, roles)
+        except Exception:                                           # noqa: BLE001
+            continue
+        if found:
+            types = ", ".join(f["type"] for f in found)
+            out.append(Finding(INFO, "L-SHAPE", f"rule={rule.get('id')!r}",
+                               f"reads like {types} ({found[0]['why']!r}) — give it structure with /pb:clarify"))
     return out
 
 
@@ -568,6 +601,7 @@ def run(project_dir, shell_path=None):
     findings += check_rule_refs(graph, registry)
     findings += check_blocks(registry)
     findings += check_prose(registry)
+    findings += check_shape(registry)
     findings += check_titles(registry)
     findings += check_has_rules(project_dir)
     findings += check_elements(graph, registry)
