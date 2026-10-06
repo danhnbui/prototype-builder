@@ -1,0 +1,1057 @@
+{
+ "_about": "Generic fixture for the Logic tab: one rule per block type and kind.",
+ "meta": {
+  "name": "Team Workspace (logic fixture)",
+  "schemaVersion": 13,
+  "platform": "web",
+  "device": "desktop",
+  "devices": [
+   "desktop"
+  ],
+  "responsive": false,
+  "roles": [
+   {
+    "id": "admin",
+    "name": "Admin",
+    "isAdmin": true
+   },
+   {
+    "id": "editor",
+    "name": "Editor"
+   },
+   {
+    "id": "viewer",
+    "name": "Viewer"
+   }
+  ],
+  "defaultRole": "editor"
+ },
+ "tokens": {
+  "brand": {
+   "$value": "#2f5bea",
+   "$type": "color"
+  },
+  "danger": {
+   "$value": "#b91c1c",
+   "$type": "color"
+  }
+ },
+ "components": [],
+ "screens": [
+  {
+   "id": "home",
+   "name": "Home",
+   "renderFn": "renderScreenHome",
+   "renderSrc": "render/screens/home.js",
+   "level": "page",
+   "roles": [
+    "admin",
+    "editor",
+    "viewer"
+   ]
+  },
+  {
+   "id": "orders",
+   "name": "Orders",
+   "renderFn": "renderScreenOrders",
+   "renderSrc": "render/screens/orders.js",
+   "level": "page",
+   "roles": [
+    "admin",
+    "editor"
+   ]
+  },
+  {
+   "id": "invoices",
+   "name": "Invoices",
+   "renderFn": "renderScreenInvoices",
+   "renderSrc": "render/screens/invoices.js",
+   "level": "page",
+   "roles": [
+    "admin"
+   ]
+  }
+ ],
+ "ia": {
+  "populated": true,
+  "rules": [
+   {
+    "id": "order-lifecycle",
+    "title": "An order moves Draft to Paid or Void",
+    "kind": "state-machine",
+    "summary": "An order is Draft until submitted, Approved once an Admin signs it off, then Paid. A submitted order can be sent back to Draft; an approved one can be voided.",
+    "stateField": "order.status",
+    "states": [
+     {
+      "key": "draft",
+      "label": "Draft",
+      "condition": "order.status === 'draft'"
+     },
+     {
+      "key": "submitted",
+      "label": "Submitted",
+      "condition": "order.status === 'submitted'"
+     },
+     {
+      "key": "approved",
+      "label": "Approved",
+      "condition": "order.status === 'approved'"
+     },
+     {
+      "key": "paid",
+      "label": "Paid",
+      "condition": "order.status === 'paid'"
+     },
+     {
+      "key": "void",
+      "label": "Void",
+      "condition": "order.status === 'void'"
+     }
+    ],
+    "transitions": [
+     [
+      "draft",
+      "submitted"
+     ],
+     [
+      "submitted",
+      "approved"
+     ],
+     [
+      "submitted",
+      "draft"
+     ],
+     [
+      "approved",
+      "paid"
+     ],
+     [
+      "approved",
+      "void"
+     ]
+    ],
+    "overlays": [
+     {
+      "key": "overdue",
+      "label": "Overdue",
+      "over": [
+       "approved"
+      ],
+      "condition": "today > order.dueOn"
+     }
+    ],
+    "decision": {
+     "question": "Can a submitted order go back to Draft?",
+     "options": [
+      "Yes, until approved",
+      "No, void and recreate"
+     ],
+     "chose": "Yes, until approved",
+     "why": "Editors fix typos without losing the order number.",
+     "affects": [
+      "Orders",
+      "Invoices"
+     ],
+     "decidedOn": "2026-09-10",
+     "answeredBy": "Product owner"
+    },
+    "implementedBy": [
+     "orders"
+    ],
+    "displayedIn": [
+     "orders"
+    ]
+   },
+   {
+    "id": "role-access",
+    "title": "What each role can do",
+    "kind": "matrix",
+    "summary": "Admin approves and voids; Editor creates and submits; Viewer reads.",
+    "axis": "role",
+    "rowLabel": "role",
+    "rows": [
+     "Admin",
+     "Editor",
+     "Viewer"
+    ],
+    "cols": [
+     "Create",
+     "Submit",
+     "Approve",
+     "Void"
+    ],
+    "cells": {
+     "Admin": {
+      "Create": true,
+      "Submit": true,
+      "Approve": true,
+      "Void": true
+     },
+     "Editor": {
+      "Create": true,
+      "Submit": true,
+      "Approve": false,
+      "Void": false
+     },
+     "Viewer": {
+      "Create": false,
+      "Submit": false,
+      "Approve": false,
+      "Void": false
+     }
+    },
+    "blocks": [
+     {
+      "type": "matrix",
+      "axis": "role",
+      "rowLabel": "role",
+      "rows": [
+       "Admin",
+       "Editor",
+       "Viewer"
+      ],
+      "cols": [
+       "Create",
+       "Approve"
+      ],
+      "cells": {
+       "Admin": {
+        "Create": true,
+        "Approve": true
+       },
+       "Editor": {
+        "Create": true,
+        "Approve": false
+       },
+       "Viewer": {
+        "Create": false,
+        "Approve": false
+       }
+      }
+     }
+    ],
+    "displayedIn": [
+     "orders"
+    ]
+   },
+   {
+    "id": "order-invariants",
+    "title": "Order totals stay consistent",
+    "kind": "constraint",
+    "summary": "Every order obeys these at all times.",
+    "invariants": [
+     {
+      "must": "The total equals the sum of its lines",
+      "enforcedBy": "orderTotal",
+      "when": "any line changes"
+     },
+     {
+      "must": "An approved order has at least one line",
+      "enforcedBy": "approveOrder"
+     },
+     {
+      "must": "A paid order is never edited",
+      "message": "Paid orders are read-only."
+     },
+     {
+      "must": "Order numbers are never reused"
+     }
+    ],
+    "implementedBy": [
+     "orders"
+    ]
+   },
+   {
+    "id": "checkout-steps",
+    "title": "Submitting an order takes four steps",
+    "kind": "decision",
+    "summary": "Review, confirm, send, receipt.",
+    "blocks": [
+     {
+      "type": "steps",
+      "items": [
+       {
+        "label": "Review lines",
+        "detail": "Totals recomputed"
+       },
+       {
+        "label": "Pick a workspace",
+        "guard": "Editor or Admin"
+       },
+       {
+        "label": "Confirm",
+        "back": "Review lines"
+       },
+       {
+        "label": "Send"
+       }
+      ],
+      "outcome": {
+       "label": "Order submitted",
+       "detail": "Status becomes Submitted"
+      }
+     }
+    ]
+   },
+   {
+    "id": "order-card-states",
+    "title": "How an order card looks per status",
+    "kind": "decision",
+    "summary": "Each status changes what the card shows.",
+    "blocks": [
+     {
+      "type": "states",
+      "component": "order-card",
+      "items": [
+       {
+        "key": "draft",
+        "label": "Draft",
+        "shows": "Edit button",
+        "tone": "info"
+       },
+       {
+        "key": "approved",
+        "label": "Approved",
+        "shows": "Pay button",
+        "tone": "ok"
+       },
+       {
+        "key": "void",
+        "label": "Void",
+        "shows": "Strikethrough total",
+        "tone": "bad"
+       }
+      ],
+      "interaction": [
+       "hover",
+       "focus",
+       "pressed"
+      ]
+     }
+    ]
+   },
+   {
+    "id": "app-nav",
+    "title": "Navigation across the workspace",
+    "kind": "decision",
+    "summary": "Three tabs; details push over the current tab.",
+    "blocks": [
+     {
+      "type": "nav",
+      "tabs": [
+       {
+        "key": "home",
+        "label": "Home"
+       },
+       {
+        "key": "orders",
+        "label": "Orders"
+       },
+       {
+        "key": "invoices",
+        "label": "Invoices"
+       }
+      ],
+      "pushed": [
+       "Order detail",
+       "Invoice detail"
+      ],
+      "reset": [
+       "Switching workspace"
+      ],
+      "note": "Back returns to the tab root."
+     }
+    ]
+   },
+   {
+    "id": "empty-home",
+    "title": "What Home shows",
+    "kind": "decision",
+    "summary": "Home adapts to the workspace.",
+    "blocks": [
+     {
+      "type": "branches",
+      "rows": [
+       {
+        "when": "the workspace has no orders",
+        "shows": "A first-order prompt",
+        "tone": "info"
+       },
+       {
+        "when": "an order is overdue",
+        "shows": "An overdue banner",
+        "tone": "warn"
+       }
+      ],
+      "else": {
+       "shows": "The recent orders list"
+      }
+     }
+    ]
+   },
+   {
+    "id": "order-save",
+    "title": "Saving an order",
+    "kind": "decision",
+    "summary": "Saving is optimistic.",
+    "blocks": [
+     {
+      "type": "async",
+      "order": [
+       "pending",
+       "ok"
+      ],
+      "outcomes": [
+       {
+        "key": "pending",
+        "label": "Saving",
+        "copy": "Saving order"
+       },
+       {
+        "key": "ok",
+        "label": "Saved",
+        "copy": "Order saved",
+        "tone": "ok"
+       },
+       {
+        "key": "partial",
+        "label": "Some lines failed",
+        "copy": "2 of 5 lines not saved",
+        "tone": "warn"
+       },
+       {
+        "key": "fail",
+        "label": "Failed",
+        "copy": "Could not save. Retry.",
+        "tone": "bad"
+       }
+      ],
+      "note": "Retry keeps the draft."
+     }
+    ]
+   },
+   {
+    "id": "shipping-fee",
+    "title": "Shipping fee by order total",
+    "kind": "decision",
+    "summary": "First matching row decides.",
+    "blocks": [
+     {
+      "type": "cases",
+      "rows": [
+       {
+        "when": "total >= 500",
+        "then": "Free",
+        "tone": "ok"
+       },
+       {
+        "when": "total >= 100",
+        "then": "5.00"
+       },
+       {
+        "when": "total < 100",
+        "then": "9.00",
+        "tone": "warn"
+       }
+      ],
+      "else": {
+       "then": "9.00"
+      }
+     }
+    ]
+   },
+   {
+    "id": "invoice-timeline",
+    "title": "Invoice due-date bands",
+    "kind": "decision",
+    "summary": "The invoice changes status around its due date.",
+    "blocks": [
+     {
+      "type": "timeline",
+      "marks": [
+       {
+        "key": "issued",
+        "label": "Issued"
+       },
+       {
+        "key": "due",
+        "label": "Due"
+       },
+       {
+        "key": "late",
+        "label": "Late fee"
+       }
+      ],
+      "bands": [
+       {
+        "to": "due",
+        "then": "Open",
+        "tone": "ok"
+       },
+       {
+        "from": "due",
+        "to": "late",
+        "then": "Overdue",
+        "tone": "warn",
+        "note": "Reminder sent"
+       },
+       {
+        "from": "late",
+        "then": "Fee applies",
+        "tone": "bad"
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "id": "order-sort",
+    "title": "Order list sort",
+    "kind": "decision",
+    "summary": "Newest orders are not always first.",
+    "blocks": [
+     {
+      "type": "order",
+      "keys": [
+       {
+        "by": "status",
+        "dir": "asc",
+        "values": [
+         "Overdue",
+         "Submitted",
+         "Draft"
+        ]
+       },
+       {
+        "by": "updated",
+        "dir": "desc"
+       }
+      ],
+      "tiebreak": "order number",
+      "never": [
+       "alphabetical by customer"
+      ]
+     }
+    ]
+   },
+   {
+    "id": "contact-ladder",
+    "title": "Which contact an invoice goes to",
+    "kind": "decision",
+    "summary": "Try the most specific address first.",
+    "blocks": [
+     {
+      "type": "ladder",
+      "items": [
+       {
+        "label": "Invoice contact"
+       },
+       {
+        "label": "Billing contact",
+        "detail": "Workspace setting"
+       },
+       {
+        "label": "Workspace owner"
+       }
+      ],
+      "fallback": "The signed-in Admin"
+     }
+    ]
+   },
+   {
+    "id": "surface-holds",
+    "title": "What each screen holds",
+    "kind": "decision",
+    "summary": "Money lives on Invoices.",
+    "blocks": [
+     {
+      "type": "placement",
+      "surfaces": [
+       {
+        "surface": "Home",
+        "holds": [
+         "Recent orders"
+        ],
+        "never": [
+         "totals"
+        ]
+       },
+       {
+        "surface": "Orders",
+        "holds": [
+         "Lines",
+         "Status"
+        ]
+       },
+       {
+        "surface": "Invoices",
+        "holds": [
+         "Totals",
+         "Due dates"
+        ]
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "id": "void-scope",
+    "title": "What voiding an order reaches",
+    "kind": "decision",
+    "summary": "Voiding is local to the order.",
+    "blocks": [
+     {
+      "type": "scope",
+      "unit": "one order",
+      "acts": [
+       "The order's status",
+       "Its open reminders"
+      ],
+      "untouched": [
+       "Paid invoices",
+       "Other orders in the workspace"
+      ]
+     }
+    ]
+   },
+   {
+    "id": "qty-validation",
+    "title": "Quantity field",
+    "kind": "decision",
+    "summary": "Quantity is a whole number from 1 to 99.",
+    "blocks": [
+     {
+      "type": "validation",
+      "field": {
+       "label": "Quantity",
+       "sample": "120"
+      },
+      "items": [
+       {
+        "must": "is a whole number between 1 and 99",
+        "code": "QTY_RANGE",
+        "message": "Enter a quantity from 1 to 99.",
+        "enforcedIn": "orders.js"
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "id": "submit-gate",
+    "title": "When Submit is available",
+    "kind": "decision",
+    "summary": "Submit stays off until the order is complete.",
+    "blocks": [
+     {
+      "type": "gate",
+      "control": "Submit",
+      "requires": [
+       "At least one line",
+       "A workspace is picked",
+       {
+        "label": "Every line has a quantity"
+       }
+      ],
+      "notGated": [
+       {
+        "what": "Save draft",
+        "why": "Never loses work"
+       }
+      ],
+      "message": "Finish the order to submit."
+     }
+    ]
+   },
+   {
+    "id": "order-total",
+    "title": "How the total is computed",
+    "kind": "decision",
+    "summary": "Tax applies after the discount.",
+    "blocks": [
+     {
+      "type": "formula",
+      "expr": "total = (sum of lines - discount) x (1 + tax)",
+      "terms": [
+       {
+        "name": "tax",
+        "means": "workspace tax rate"
+       }
+      ],
+      "example": {
+       "inputs": {
+        "lines": "200",
+        "discount": "20",
+        "tax": "10%"
+       },
+       "result": "198"
+      },
+      "split": [
+       {
+        "label": "Lines",
+        "value": 200
+       },
+       {
+        "label": "Discount",
+        "value": -20,
+        "tone": "ok"
+       },
+       {
+        "label": "Tax",
+        "value": 18,
+        "tone": "warn"
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "id": "order-limits",
+    "title": "Order limits",
+    "kind": "decision",
+    "summary": "Numbers the team agreed on.",
+    "blocks": [
+     {
+      "type": "params",
+      "items": [
+       {
+        "name": "max lines",
+        "value": 99,
+        "unit": "items",
+        "source": "sourced",
+        "ref": "Ops review"
+       },
+       {
+        "name": "reminder lead",
+        "value": 3,
+        "unit": "days",
+        "source": "assumed"
+       },
+       {
+        "name": "undo window",
+        "value": 10,
+        "unit": "s",
+        "source": "invented"
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "id": "keyboard-map",
+    "title": "Keyboard on the order list",
+    "kind": "decision",
+    "summary": "Power users never leave the keys.",
+    "blocks": [
+     {
+      "type": "inputs",
+      "rows": [
+       {
+        "input": "Enter",
+        "when": "a row is focused",
+        "does": "Opens the order"
+       },
+       {
+        "input": "Esc",
+        "does": "Closes the detail",
+        "never": "Discards edits"
+       },
+       {
+        "input": "Cmd+K",
+        "does": "Opens search"
+       },
+       {
+        "input": "Shift-click",
+        "when": "on a row",
+        "does": "Selects a range"
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "id": "approve-effects",
+    "title": "What approving does",
+    "kind": "decision",
+    "summary": "Approval ripples to other screens.",
+    "blocks": [
+     {
+      "type": "effects",
+      "writes": [
+       "orders",
+       "invoices"
+      ],
+      "ripple": [
+       {
+        "screen": "Home",
+        "shows": "The overdue banner clears"
+       },
+       {
+        "screen": "Invoices",
+        "shows": "A new invoice appears"
+       }
+      ],
+      "toast": [
+       "Order approved",
+       "Invoice created"
+      ]
+     }
+    ]
+   },
+   {
+    "id": "list-edges",
+    "title": "Order list edge cases",
+    "kind": "decision",
+    "summary": "What the list does when it cannot show orders.",
+    "blocks": [
+     {
+      "type": "edges",
+      "rows": [
+       {
+        "case": "No orders yet",
+        "shows": "Empty state with a create button",
+        "status": "covered"
+       },
+       {
+        "case": "Offline",
+        "shows": "Cached list",
+        "recovery": "Retries on reconnect",
+        "status": "open"
+       },
+       {
+        "case": "Search finds nothing",
+        "shows": "No results message",
+        "status": "accepted"
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "id": "order-copy",
+    "title": "Notes on wording",
+    "kind": "decision",
+    "summary": "Copy rules for the order list.",
+    "blocks": [
+     {
+      "type": "note",
+      "text": "Say **order**, never 'purchase'. Prose still renders."
+     }
+    ]
+   },
+   {
+    "id": "status-colours",
+    "title": "Status colours",
+    "kind": "decision",
+    "summary": "One colour per status.",
+    "blocks": [
+     {
+      "type": "swatches",
+      "items": [
+       {
+        "label": "Approved",
+        "meaning": "approved",
+        "token": "status-ok",
+        "value": "#198038"
+       },
+       {
+        "label": "Void",
+        "meaning": "voided",
+        "token": "status-void",
+        "value": "#B91C1C",
+        "soft": "#FEE2E2"
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "id": "order-number",
+    "title": "Order number format",
+    "kind": "decision",
+    "summary": "An order number has three parts.",
+    "blocks": [
+     {
+      "type": "anatomy",
+      "sample": "ORD-2026-0042",
+      "parts": [
+       {
+        "text": "ORD",
+        "name": "prefix",
+        "rule": "Fixed."
+       },
+       {
+        "text": "-2026-",
+        "name": "year",
+        "rule": "Year created."
+       },
+       {
+        "text": "0042",
+        "name": "sequence",
+        "rule": "Per workspace."
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "id": "money-format",
+    "title": "Money display",
+    "kind": "decision",
+    "summary": "Amounts show two decimals.",
+    "blocks": [
+     {
+      "type": "examples",
+      "items": [
+       {
+        "input": "1234.5",
+        "output": "1,234.50"
+       },
+       {
+        "input": "0",
+        "output": "0.00",
+        "note": "Zero is shown"
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "id": "approval-limits",
+    "title": "Approval limits by role",
+    "kind": "decision",
+    "summary": "Admins approve up to 10,000; above that two Admins sign.",
+    "supersedes": "legacy-approval",
+    "amendedOn": "2026-09-30",
+    "amendedBy": "Product owner",
+    "amendedWhy": "The limit was raised from 5,000.",
+    "decision": {
+     "question": "Who approves large orders?",
+     "options": [
+      "One Admin",
+      "Two Admins"
+     ],
+     "chose": "Two Admins",
+     "why": "A second signature cuts mistakes.",
+     "decidedOn": "2026-09-20"
+    },
+    "blocks": [
+     {
+      "type": "cases",
+      "rows": [
+       {
+        "when": "total <= 10000",
+        "then": "One Admin"
+       },
+       {
+        "when": "total > 10000",
+        "then": "Two Admins"
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "id": "legacy-approval",
+    "title": "Any Editor approves",
+    "kind": "decision",
+    "summary": "Editors used to approve their own orders.",
+    "status": "superseded",
+    "supersededBy": "approval-limits",
+    "supersededOn": "2026-09-20",
+    "decision": {
+     "chose": "Editors approve",
+     "why": "Early prototype shortcut."
+    }
+   },
+   {
+    "id": "invoice-currency",
+    "title": "Invoice currency",
+    "kind": "decision",
+    "summary": "Invoices use the workspace currency.",
+    "decision": {
+     "question": "Which currency is shown?",
+     "options": [
+      "Workspace",
+      "Customer"
+     ],
+     "chose": "Workspace",
+     "why": "ASSUMPTION: customers in one workspace share a currency.",
+     "stillOpen": [
+      "Do cross-border customers need their own currency?"
+     ]
+    },
+    "blocks": [
+     {
+      "type": "note",
+      "text": "Currency conversion is out of scope."
+     }
+    ]
+   },
+   {
+    "id": "reminder-flow",
+    "title": "Invoice reminders",
+    "kind": "decision",
+    "summary": "An invoice moves Draft → Sent → Overdue. A reminder goes out 3 days before the deadline and again 1 day after it passes."
+   }
+  ]
+ },
+ "flow": {
+  "populated": true,
+  "mermaid": "flowchart LR\n  A[Home] --> B[Orders]\n  B --> C[Invoices]",
+  "stories": [
+   {
+    "title": "Submit an order",
+    "priority": "P1",
+    "jtbd": "As an Editor I want to submit an order so an Admin can approve it.",
+    "path": "Home → Orders",
+    "scenarios": [
+     {
+      "text": "Submit stays disabled until the order has a line.",
+      "category": "function",
+      "rule": "submit-gate",
+      "lastResult": {
+       "status": "pass",
+       "ranAt": "2026-10-01T09:00:00Z"
+      }
+     },
+     {
+      "text": "A quantity of 120 shows the range message.",
+      "category": "function",
+      "rules": [
+       "qty-validation",
+       "order-invariants"
+      ],
+      "lastResult": {
+       "status": "fail",
+       "ranAt": "2026-10-01T09:00:00Z",
+       "detail": "editor: fail"
+      }
+     },
+     {
+      "text": "An unrelated scenario names no rule.",
+      "category": "ui"
+     }
+    ]
+   },
+   {
+    "title": "Approve an order",
+    "priority": "P2",
+    "jtbd": "As an Admin I want to approve an order so it can be paid.",
+    "path": "Orders",
+    "scenarios": [
+     {
+      "text": "Approving moves the order to Approved and clears the banner.",
+      "category": "function",
+      "rule": "order-lifecycle",
+      "lastResult": {
+       "status": "pass",
+       "ranAt": "2026-10-01T09:00:00Z"
+      }
+     }
+    ]
+   }
+  ],
+  "coverageWarnings": []
+ }
+}

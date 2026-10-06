@@ -205,6 +205,11 @@ def _invariants_md(items):
 
 
 def _matrix_md(b):
+    axis = ("- **Rows are roles.**", "") if b.get("axis") == "role" else ()
+    return list(axis) + _matrix_table(b)
+
+
+def _matrix_table(b):
     cols = b.get("cols") or []
     cells = b.get("cells") or {}
     mark = lambda v: "✓" if v is True else ("—" if v is False or v is None else _esc(v))  # noqa: E731
@@ -229,6 +234,8 @@ def _block_md(b):
                         + [_cell(e.get("then") if isinstance(e, dict) else e)])
         out += _table(head, rows)
     elif t == "scope":
+        if b.get("unit"):
+            out.append("- **Scoped to:** %s" % _esc(b["unit"]))
         out += ["- **%s:** %s" % (_esc(b.get("actsLabel") or "Acts on"), _join(b.get("acts"), fmt=_esc, sep="; ")),
                 "- **%s:** %s" % (_esc(b.get("untouchedLabel") or "Leaves untouched"), _join(b.get("untouched"), fmt=_esc, sep="; ")), ""]
     elif t == "placement":
@@ -238,6 +245,9 @@ def _block_md(b):
     elif t == "matrix":
         out += _matrix_md(b)
     elif t == "validation":
+        f = b.get("field")
+        if isinstance(f, dict) and (f.get("label") or f.get("sample")):
+            out.append("- **Field:** %s%s" % (_esc(f.get("label") or ""), (" (e.g. `%s`)" % _esc(f["sample"])) if f.get("sample") else ""))
         out += _invariants_md(b.get("items"))
     elif t == "formula":
         out += ["", "```", str(b.get("expr") or ""), "```"]
@@ -246,21 +256,38 @@ def _block_md(b):
         if ex:
             ins = ", ".join("%s = %s" % (k, v) for k, v in (ex.get("inputs") or {}).items())
             out.append("- *Example:* %s → **%s**" % (_esc(ins), _esc(ex.get("result"))))
+        if b.get("split"):
+            out.append("- *Split:* %s" % "; ".join("%s %s%s" % (_esc(x.get("label")), _esc(x.get("value")), (" (%s)" % _esc(x["tone"])) if x.get("tone") else "")
+                                                   for x in b["split"] if isinstance(x, dict)))
         out.append("")
     elif t == "steps":
         for n, x in enumerate(b.get("items") or [], 1):
-            out.append("%d. %s" % (n, _esc(x) if not isinstance(x, dict) else
-                                   "**%s**%s" % (_esc(x.get("label")), (" — " + _esc(x["detail"])) if x.get("detail") else "")))
+            if not isinstance(x, dict):
+                out.append("%d. %s" % (n, _esc(x)))
+                continue
+            line = "%d. **%s**%s" % (n, _esc(x.get("label")), (" — " + _esc(x["detail"])) if x.get("detail") else "")
+            if x.get("guard"):
+                line += " *(guard: %s)*" % _esc(x["guard"])
+            if x.get("back"):
+                line += " *(back to: %s)*" % _esc(x["back"])
+            out.append(line)
+        oc = b.get("outcome")
+        if isinstance(oc, dict) and oc.get("label"):
+            out.append("- **Outcome:** %s%s" % (_esc(oc["label"]), (" — " + _esc(oc["detail"])) if oc.get("detail") else ""))
         out.append("")
     elif t == "params":
         out += _table(["Parameter", "Value", "Note"],
-                      [[_esc(x.get("name")), "%s%s" % (_esc(x.get("value")), (" " + _esc(x["unit"])) if x.get("unit") else ""), _esc(x.get("note") or "")]
+                      [[_esc(x.get("name")), "%s%s" % (_esc(x.get("value")), (" " + _esc(x["unit"])) if x.get("unit") else ""),
+                        (_esc(x.get("note") or "") + ((" — *%s%s*" % (_esc(x["source"]), (": " + _esc(x["ref"])) if x.get("ref") else "")) if x.get("source") else ""))]
                        for x in b.get("items") or [] if isinstance(x, dict)])
     elif t == "effects":
         if b.get("writes"):
             out.append("- **Writes:** %s" % _join(["store." + str(w).replace("store.", "") for w in b["writes"]]))
         out += ["- **Also changes** %s — %s" % (_esc(x.get("screen") or x.get("on")), _esc(x.get("shows") or x.get("what")))
                 for x in b.get("ripple") or [] if isinstance(x, dict)]
+        toasts = b.get("toast")
+        for tt in ([toasts] if isinstance(toasts, str) else (toasts or [])):
+            out.append("- **Toast:** “%s”" % _esc(tt))
         out.append("")
     elif t == "swatches":
         out += _table(["State", "Means", "Token", "Value"],
@@ -278,6 +305,79 @@ def _block_md(b):
         out += _table(["Input", "Renders as", "Note"],
                       [[_esc(x.get("input") or ""), "`%s`" % _esc(x.get("output")), _esc(x.get("note") or "")]
                        for x in b.get("items") or [] if isinstance(x, dict)])
+    elif t == "states":
+        if b.get("component"):
+            out.append("- **Component:** %s" % _code(b["component"]))
+        out += _table(["State", "Shows", "Tone"],
+                      [[_esc(x.get("label") or x.get("key")), _esc(x.get("shows") or ""), _esc(x.get("tone") or "")]
+                       for x in b.get("items") or [] if isinstance(x, dict)])
+        if b.get("interaction"):
+            out += ["- **Interaction states:** %s" % _join(b["interaction"]), ""]
+    elif t == "nav":
+        out.append("- **Tabs, in order:** %s" % " · ".join(_esc(x.get("label") or x.get("key")) if isinstance(x, dict) else _esc(x)
+                                                         for x in b.get("tabs") or []))
+        if b.get("pushed"):
+            out.append("- **Pushed over a tab:** %s" % _join(b["pushed"], fmt=_esc, sep="; "))
+        if b.get("reset"):
+            out.append("- **Resets to the tab root:** %s" % _join(b["reset"], fmt=_esc, sep="; "))
+        if b.get("note"):
+            out.append("- %s" % _esc(b["note"]))
+        out.append("")
+    elif t == "branches":
+        out += _table(["When", "Shows", "Tone"],
+                      [[_cell(x.get("when")), _cell(x.get("shows")), _esc(x.get("tone") or "")]
+                       for x in b.get("rows") or [] if isinstance(x, dict)])
+        e = b.get("else")
+        if e:
+            out += ["- **Otherwise:** %s" % _cell(e.get("shows") if isinstance(e, dict) else e), ""]
+    elif t == "async":
+        if b.get("order"):
+            out.append("- **Order:** %s" % " → ".join(_esc(x) for x in b["order"]))
+        out += _table(["Outcome", "Label", "Copy"],
+                      [[_esc(x.get("key")), _esc(x.get("label") or ""), _cell(x.get("copy") or "")]
+                       for x in b.get("outcomes") or [] if isinstance(x, dict)])
+        if b.get("note"):
+            out += ["- %s" % _esc(b["note"]), ""]
+    elif t == "timeline":
+        marks = [x for x in b.get("marks") or [] if isinstance(x, dict)]
+        label = {x.get("key"): x.get("label") or x.get("key") for x in marks}
+        out.append("- **Marks, in time order:** %s" % " → ".join(_esc(x.get("label") or x.get("key")) for x in marks))
+        out += _table(["From", "To", "Then", "Note"],
+                      [[_esc(label.get(x.get("from"), x.get("from")) or "(open)"), _esc(label.get(x.get("to"), x.get("to")) or "(open)"),
+                        _esc(x.get("then") or "") + (" (%s)" % _esc(x["tone"]) if x.get("tone") else ""), _esc(x.get("note") or "")]
+                       for x in b.get("bands") or [] if isinstance(x, dict)])
+    elif t == "order":
+        for n, k in enumerate([k for k in b.get("keys") or [] if isinstance(k, dict)], 1):
+            vals = (" (%s)" % " > ".join(_esc(v) for v in k["values"])) if k.get("values") else ""
+            out.append("%d. **%s** %s%s" % (n, _esc(k.get("by")), _esc(k.get("dir") or "asc"), vals))
+        if b.get("tiebreak"):
+            out.append("- **Tie-break:** %s" % _esc(b["tiebreak"]))
+        if b.get("never"):
+            out.append("- **Never:** %s" % _join(b["never"], fmt=_esc, sep="; "))
+        out.append("")
+    elif t == "ladder":
+        for n, x in enumerate(b.get("items") or [], 1):
+            out.append("%d. %s" % (n, _esc(x) if not isinstance(x, dict) else
+                                   "**%s**%s" % (_esc(x.get("label")), (" — " + _esc(x["detail"])) if x.get("detail") else "")))
+        if b.get("fallback"):
+            out.append("- **Last resort:** %s" % _esc(b["fallback"]))
+        out.append("")
+    elif t == "gate":
+        out.append("- **%s** stays disabled until:" % _esc(b.get("control")))
+        out += ["  - %s" % _esc(x.get("label") if isinstance(x, dict) else x) for x in b.get("requires") or []]
+        out += ["- **Not gated:** %s%s" % (_esc(x.get("what")), (" — " + _esc(x["why"])) if x.get("why") else "")
+                for x in b.get("notGated") or [] if isinstance(x, dict)]
+        if b.get("message"):
+            out.append("- **Message when blocked:** “%s”" % _esc(b["message"]))
+        out.append("")
+    elif t == "inputs":
+        out += _table(["Input", "When", "Does", "Never"],
+                      [[_esc(x.get("input")), _cell(x.get("when") or ""), _cell(x.get("does")), _cell(x.get("never") or "")]
+                       for x in b.get("rows") or [] if isinstance(x, dict)])
+    elif t == "edges":
+        out += _table(["Case", "Shows", "Recovery", "Status"],
+                      [[_cell(x.get("case")), _cell(x.get("shows") or ""), _cell(x.get("recovery") or ""), _esc(x.get("status") or "")]
+                       for x in b.get("rows") or [] if isinstance(x, dict)])
     else:
         out += [_esc(b.get("text") or json.dumps(b, ensure_ascii=False)), ""]
     return out

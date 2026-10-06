@@ -2,6 +2,34 @@
 
 All notable changes to Product Builder. Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [2.3.0] — 2026-10-06
+
+*Additive, no schema change. On real projects, over a hundred rules carried no structure: they were written
+as `kind: "decision"` with prose only, so the Logic tab could show text and a decision log and nothing to
+look at. The tab now draws every rule as a stack of visuals, and authoring writes the structure those
+visuals need.*
+
+- **Every rule is a visual stack.** A Logic card shows the rule's shape in a fixed order — the lifecycle
+  statechart, then Flow, Tables, Values and Effects blocks — instead of prose. Rule text, the decision, open
+  questions, history, tests and sources moved behind one **Details** button that opens a right-side drawer
+  (Esc, the close button or a click outside closes it). The Values/History tabs are gone.
+- **Ten new block types:** `states`, `nav`, `branches`, `async` (flow) · `timeline`, `order`, `ladder`
+  (tables) · `gate`, `inputs` (values) · `edges` (effects). Existing blocks gained optional fields: `steps`
+  guards and return edges, `matrix` role dots, `scope` unit, `validation` field preview, `formula` split,
+  `params` provenance (sourced / assumed / invented), `effects` toast. The state-machine lifecycle is now an
+  SVG statechart.
+- **Rows show their pattern.** Each row in the Rules list has a pattern glyph and a short preview ("4 states",
+  "3 × 4", "prose only"), and the filter bar has a **Pattern** filter.
+- **A prose-only rule says so** and names what it looks like, from `PB_LOGIC.shapes`.
+- **`logic_shape.py` and `L-SHAPE`.** New `tools/logic_shape.py <registry.json> [--rule ID] [--json]` reads a
+  rule's prose and lists the block types it suggests but the rule lacks; `render.py` attaches the result to
+  the page and `logic_check.py` reports it as `L-SHAPE` (information only).
+- **Authoring writes structure.** `/pb:clarify` §2/§2b, `think-logic` §5, `pb-clarifier` and `/pb:build` no
+  longer leave a rule with a detectable shape decision-only: run the detector, author the suggested blocks
+  from facts already stated (never invented), and patch or create a rule's blocks when its logic changes.
+  `think-logic` §5 now documents all 23 block types and the state-machine fields (`stateField`, `states[]`,
+  `transitions[]`, `overlays[]`).
+
 ## [2.2.0] — 2026-10-05
 
 *A minor: everything is additive, no command is removed and no schema changes. pb used to start more than

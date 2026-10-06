@@ -196,10 +196,15 @@ For each contested UI decision, write one `ia.rules[]` entry:
   tab folds away. A rule written as one long paragraph is the failure this replaces.
 - **`options[]` carries what LOST.** That is the one thing a rule cannot say for itself, and the
   only reason this was ever a separate record. Never drop the losing branch.
-- **`kind`** is `decision` while the rule is only a decision. The moment it is expressible as a
-  `state-machine`, a `matrix` or a `constraint`, change the kind and add that kind's fields — the
-  decision block stays and keeps rendering. A decision that never grows into one of those is fine;
-  it is still a rule.
+- **`kind`** is `decision` only while the rule has no shape yet. The moment it is expressible as a
+  `state-machine` (`stateField`, `states[{key, label, condition?, derived?}]`, `transitions[[from, to]]`,
+  `overlays[{key, label, over[], condition?}]`), a `matrix` (`rows[]` × `cols[]`) or a `constraint`
+  (`invariants[{must, enforcedBy, when?, message?}]`), change the kind and add that kind's fields — the
+  decision block stays and keeps rendering.
+- **The decision is context, the blocks are the rule.** The Logic tab draws every rule as a stack of
+  visuals; the decision, history and tests sit behind a **Details** drawer. On real projects over a
+  hundred rules were written decision-only, so the tab had nothing to draw. A rule is never left
+  decision-only when its prose has a shape — §2b is the next step, not an option.
 - **Superseding** — set `decision.status: "superseded"` (and `supersededOn`) rather than deleting.
   The card dims and keeps its place. Do not write `[SUPERSEDED …]` into the title; that was the
   convention from before the field existed.
@@ -208,25 +213,47 @@ For each contested UI decision, write one `ia.rules[]` entry:
 
 ### 2b · Give the rule its shape — `blocks[]`
 
+After writing `decision{}`, **run the shape detector** on the rule:
+
+```
+python3 "${CLAUDE_PLUGIN_ROOT}/tools/logic_shape.py" registry.json --rule <id> --json
+```
+
+It returns `[{type, why}]` — the block types the rule's prose suggests and its structure lacks, with the
+matched phrase. Author each suggested block from facts **already stated** in the rule, the decision or the
+registry; if a suggestion is a false positive, skip it. Unknown values stay out of the block — never
+guess one to fill a field. Run it again after writing; an empty list is the goal (`logic_check.py` reports
+what is left as `L-SHAPE`).
+
 Read what you are about to write. If any part of it is one of these shapes, write that part as a
 block instead of a sentence. `think-logic` §Rule blocks has an example of each; the Logic tab draws
 each one as a component, and `rules.md` exports it as a table.
 
 | When the prose says… | Block | Fields |
 |---|---|---|
+| "first …, then …, then …" · "if it fails, go back to …" | `steps` | `items[{label, detail?, guard?, back?}]`, `outcome?` |
+| "while loading it shows …, when empty …" | `states` | `component?`, `items[{key, label, shows?, tone?}]`, `interaction?[]` |
+| "tabs are A, B, C; X pushes; a tab tap resets" | `nav` | `tabs[{key, label}]`, `pushed?[]`, `reset?[]` |
+| "show X when A, Y when B, otherwise Z" (what is displayed) | `branches` | `rows[{when, shows, tone?}]`, `else?{shows}` |
+| "pending, then success or failure, or partial" | `async` | `outcomes[{key: pending\|ok\|fail\|partial, label, copy?}]`, `order?[]` |
 | "if A → X; if B → Y; otherwise Z" · a status → label/colour map · empty / error branches | `cases` | `rows[{when, then, tone?}]`, `inputs?[]`, `else?` |
-| "acts on X only; Y is untouched" | `scope` | `acts[]`, `untouched[]` |
+| "before the start …, during …, within 48 h of the end …" | `timeline` | `marks[{key, label}]`, `bands[{from?, to?, then, tone?, note?}]` |
+| who may do what · which control is enabled in which state | `matrix` | `rowLabel`, `rows[]`, `cols[]`, `cells{row:{col: true\|false\|"label"}}`, `axis?: "role"` |
+| "sorted by A then B, newest first, never C" | `order` | `keys[{by, dir?, values?[]}]`, `tiebreak?`, `never?[]` |
+| "use X, otherwise Y, otherwise Z" | `ladder` | `items[{label, detail?}]`, `fallback?` |
 | "Home holds A and B; Profile shows no money" | `placement` | `surfaces[{surface, holds[], never?[]}]` |
-| who may do what · which control is enabled in which state | `matrix` | `rowLabel`, `rows[]`, `cols[]`, `cells{row:{col: true\|false\|"label"}}` |
-| a refusal and its message · an invariant · an error code | `validation` | `items[{must, enforcedBy?\|enforcedIn?, when?, message?, code?}]` |
-| a computed value, a rollup, money maths | `formula` | `expr`, `terms[{name, means}]`, `example?{inputs, result}` |
-| "first …, then …, then …" | `steps` | `items[{label, detail?}]` |
-| a threshold, a limit, a radius, a date | `params` | `items[{name, value, unit?, note?}]` |
-| what it writes and which other screens change | `effects` | `writes[]`, `ripple[{screen, shows}]` |
-| "assigned is green, unassigned is yellow" · whose money is which colour | `swatches` | `items[{label, meaning, value, token?, soft?, sample?}]` |
+| "acts on X only; Y is untouched" | `scope` | `acts[]`, `untouched[]`, `unit?` |
+| a refusal and its message · an error code | `validation` | `items[{must, enforcedBy?\|enforcedIn?, when?, message?, code?}]`, `field?{label, sample?}` |
+| "Submit is enabled only when …" | `gate` | `control`, `requires[]`, `notGated?[{what, why?}]`, `message?` |
+| a computed value, a rollup, money maths | `formula` | `expr`, `terms[{name, means}]`, `example?`, `split?[]` |
+| a threshold, a limit, a radius, a date | `params` | `items[{name, value, unit?, note?, source?: sourced\|assumed\|invented, ref?}]` |
+| "Enter confirms, Esc cancels" | `inputs` | `rows[{input, when?, does, never?}]` |
+| "assigned is green, unassigned is yellow" | `swatches` | `items[{label, meaning, value, token?, soft?, sample?}]` |
 | "the label is code · name" · how an id is built | `anatomy` | `sample?`, `parts[{text, name, rule, note?, tone?}]` |
 | "3862.66 shows as 3.862,66 ha" | `examples` | `items[{input?, output, note?}]` |
-| anything else | `note` | `text` |
+| what it writes and which other screens change | `effects` | `writes[]`, `ripple[{screen, shows}]`, `toast?` |
+| "if offline …, if the list is empty …" | `edges` | `rows[{case, shows?, recovery?, status?: covered\|open\|accepted}]` |
+| anything else | `note` | `text` (shown in the drawer, not the stack) |
 
 ```json
 { "id": "cycle-status", "title": "Cycle status", "kind": "decision",
@@ -252,9 +279,10 @@ Give each block a **`source`** — a short note naming where its facts came from
 `"this rule's why"`, `"screen map-editor"`); the renderer and `L-BLOCK` ignore the key, a reviewer reads it. If
 the facts are not there, leave the prose as prose and say so in the hand-back.
 
-Blocks are additive (no schema bump) and any rule kind may carry them, in any order.
-`logic_check.py` checks each block against the renderer (`L-BLOCK`), and notes an unstructured rule
-whose summary or why runs long (`L-PROSE`, information only).
+Blocks are additive (no schema bump) and any rule kind may carry them; the card stacks them in a fixed
+order whatever order they are written in. `logic_check.py` checks each block against the renderer
+(`L-BLOCK`), notes a rule with a detectable shape and no matching block (`L-SHAPE`, information only),
+and an unstructured rule whose summary or why runs long (`L-PROSE`, information only).
 
 ## 3 · Write the registry (fold the sync — no hook)
 - `meta.userInsights` = `{ quantitative, researchSummary, executiveSummary }` — with the §1a marks.

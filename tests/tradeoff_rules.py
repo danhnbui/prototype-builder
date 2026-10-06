@@ -173,15 +173,19 @@ def test_shell():
                 page.on("pageerror", lambda e: errs.append(str(e)))
                 page.on("console", lambda m: errs.append(m.text) if m.type == "error" else None)
                 open_logic(page, srv.url)
-                # The decision is the History tab's latest entry (v2.1.0 rule card) — read its text
-                # whether or not the tab is the one open.
-                body = page.eval_on_selector("#app", "e => e.textContent")
+                # The decision is context, not the rule: it sits behind the card's Details button, in the
+                # drawer's Decision section (logic visuals, v2.3) — open it and read it there.
+                rid = page.eval_on_selector(".lgc-dbar [data-rule]", "e => e.dataset.rule")
+                page.evaluate("id => pbLogicDetails(id)", rid)
+                page.wait_for_selector("#lgc-drawer .lgc-dsec--decision", timeout=5000)
+                body = page.eval_on_selector("#lgc-drawer", "e => e.textContent")
                 check("When do we validate?" in body, "the question renders")
-                won = page.eval_on_selector_all(".lgc-opts li.lgc-on", "e => e.map(x => x.textContent)")
-                lost = page.eval_on_selector_all(".lgc-opts li:not(.lgc-on)", "e => e.map(x => x.textContent)")
+                won = page.eval_on_selector_all("#lgc-drawer .lgc-co--yes", "e => e.map(x => x.textContent)")
+                lost = page.eval_on_selector_all("#lgc-drawer .lgc-co--no", "e => e.map(x => x.textContent)")
                 check(any("Inline" in x for x in won) and any("On submit" in x for x in lost),
                       "what won is shown beside what LOST — the part a rule cannot say for itself")
                 check("Catches errors before the user commits." in body, "and the why")
+                page.evaluate("pbLogicDetailsClose()")
                 sup = page.locator(".lg-card--sup")
                 srow = page.locator(".pb-scan-tr.is-dim")
                 check(sup.count() == 1 and "superseded" in sup.locator(".lgc-supnote").text_content()

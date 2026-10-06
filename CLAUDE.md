@@ -1,4 +1,4 @@
-# Product Builder v2.2.0 — router (read first)
+# Product Builder v2.3.0 — router (read first)
 
 Standalone, CLAUDE.md-native prototype builder. **No SpecKit** — no `extension.yml`,
 `preset.yml`, or `after_*` hooks. State lives in `registry.json`; commands are native
@@ -255,11 +255,13 @@ card that owns the CTA — no dead controls. (Replaces the old `meta-tag`/`meta-
   connectors anchored at node side-centers, nodes recolored by shape and **Yes/No branches drawn green/red**),
   filling **one viewport** — no W×H controls; **right** = **User stories | Test cases** from `flow.stories[]`.
   Hovering a story **highlights the flow path it satisfies** (matched nodes + edges, rest dimmed).
-  - **Logic** — one-line scan rows (id · title · status · kind) that are *disclosures*: **several open at once** (one
-    shared disclosure primitive; nothing closes a sibling), under a filter bar (search · Status · Kind, **Clear** right
-    after the last chip, "N of M") with Expand all / Collapse all. A card opens **straight to its content** — no
-    repeated header, a lone Values or History section already open, visual blocks (lifecycle, swatches, steps,
-    cases, examples) always visible. **One status rule** for row and card: "to resolve" counts assumptions.
+  - **Logic** — one-line scan rows (pattern glyph · id · title · status · kind · a tiny preview such as "4 states" or
+    "prose only") that are *disclosures*: **several open at once** (one shared disclosure primitive; nothing closes a
+    sibling), under a filter bar (search · Status · Kind · **Pattern** — Flow · Tables · Values · Effects · Prose only —
+    **Clear** right after the last chip, "N of M") with Expand all / Collapse all. A card is a **visual stack** in a fixed
+    order (lifecycle statechart, then Flow, Tables, Values, Effects blocks); a rule with none says *prose only* and names
+    what it looks like (`logic_shape.py`). Rule text, Decision, Open questions, History, Tests and Sources sit behind one
+    **Details** button, which opens a right-side drawer. **One status rule** for row and card: "to resolve" counts assumptions.
   - **Information Architecture** — vertical: the site map on top, the job list under it, and **one filter bar**
     (search · Role · Priority · Screens · the quick chip *Not handled*) that filters the jobs and **dims** the
     non-matching map nodes together. Roles are `meta.roles` plus any a job cites (an undeclared one is marked).
