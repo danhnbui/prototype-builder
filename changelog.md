@@ -2,7 +2,7 @@
 
 All notable changes to Product Builder. Format follows [Keep a Changelog](https://keepachangelog.com/).
 
-## [Unreleased]
+## [2.3.0] — 2026-10-06
 
 *Additive, no schema change. On real projects, over a hundred rules carried no structure: they were written
 as `kind: "decision"` with prose only, so the Logic tab could show text and a decision log and nothing to
