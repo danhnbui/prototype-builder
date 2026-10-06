@@ -1,0 +1,17 @@
+{
+  "_comment": "What to run instead of each retired /pb:* command. migration_guide.py check fails while a command that shipped in any release since v1.2.0 is gone and has no entry here.",
+  "build-check-design-system": "`/pb:build` — the DS-first check is §3a of the build loop, automatic",
+  "build-figma-handoff": "`/pb:handoff` → mode 3 (Figma)",
+  "check-drift": "`/pb:test --drift`",
+  "data": "`/pb:plan --data` (first authoring; `/pb:build` keeps the `erd` slice in sync after that)",
+  "flow": "`/pb:plan --flow` (first authoring; `/pb:build` keeps the `flow` slice in sync after that)",
+  "hand-off": "`/pb:handoff` → mode 1 (everything)",
+  "handoff-close": "`/pb:handoff` → mode 1 (everything)",
+  "handoff-dev": "`/pb:handoff` → mode 2 (engineering)",
+  "migrate": "`/pb:update-version`",
+  "preview-ds": "`/pb:preview`, then open the `/design-system` route",
+  "snapshot": "no command — `/pb:update-version` backs up `registry.json` before it writes (`--rollback` restores it); keep other history in git",
+  "sync-erd": "`/pb:plan --data`, or nothing: `/pb:build` reconciles the `erd` slice on every trio write",
+  "sync-flow": "`/pb:plan --flow`, or nothing: `/pb:build` reconciles the `flow` slice on every trio write",
+  "validate": "`/pb:handoff --tier=host`"
+}

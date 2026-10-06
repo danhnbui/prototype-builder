@@ -2,6 +2,18 @@
 
 All notable changes to Product Builder. Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [Unreleased]
+
+- **Every release ships a migration guide.** `docs/migrations/v<version>.md` is generated from the
+  git tags, `changelog.md`, `pb/migrations/` and `pb/commands/`. It covers the upgrade from any
+  earlier release: a row per starting version with the schema steps `/pb:update-version` will run,
+  the commands that are gone and the notes to read first, then the five-step upgrade, every schema
+  step, the retired commands with what to run instead, and the changelog. `bump_version.py auto`
+  writes it. The pipeline's bump-version job fails while it is missing or stale, and asks for a
+  hand-written `### Upgrading` changelog subsection when a release is a major, changes the schema
+  or removes a command. The draft GitHub Release puts the guide in its notes and attaches it as
+  `MIGRATION-vX.Y.Z.md`. The guide for v2.3.0 is included.
+
 ## [2.3.0] — 2026-10-06
 
 *Additive, no schema change. On real projects, over a hundred rules carried no structure: they were written

@@ -4,6 +4,11 @@ A pb prototype has **three version layers that must stay coherent**. Most "the u
 confusion is one layer moving without the others. This guide makes the layers explicit and gives the
 one correct upgrade order.
 
+> **Upgrading from any release?** Every release ships a migration guide in
+> **[migrations/](migrations/README.md)** — the schema steps, retired commands and hand-written notes
+> between the version you are on and that release. It is also attached to each GitHub Release as
+> `MIGRATION-vX.Y.Z.md`.
+>
 > **Coming from 1.x?** 2.0 renamed twelve commands and deleted the old names. Start with
 > **[upgrade-to-2.0.md](upgrade-to-2.0.md)** — the rename table plus the one command that moves your
 > registry — then come back here if a layer still looks stale.

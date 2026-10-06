@@ -15,7 +15,8 @@ plugin.json files disagreeing (tests/command_refs.py check 6) or a README naming
   README.md · CLAUDE.md           the "# Product Builder vX" title line
 
 changelog.md is hand-written and stays that way: a leading `## [Unreleased]` section is renamed to
-the new version and today's date; otherwise this warns that the release has no entry. DESIGN.md's
+the new version and today's date; otherwise this warns that the release has no entry. After stamping,
+it runs `migration_guide.py write` so docs/migrations/v<new>.md lands in the same commit. DESIGN.md's
 "Status: vX · last reviewed <date>" is deliberately NOT bumped — it records a review.
 
 The bump a change needs comes from the Conventional Commit subjects since the last vX.Y.Z tag:
@@ -215,6 +216,11 @@ def main():
 
     print(f"{current} -> {new}")
     stamp(current, new)
+    # The release's migration guide moves with the version (migration_guide.py check gates it).
+    r = subprocess.run([sys.executable, os.path.join(ROOT, ".github", "scripts", "migration_guide.py"),
+                        "write"], cwd=ROOT)
+    if r.returncode != 0:
+        sys.exit("::error::migration_guide.py write failed — fix it, then rerun it on its own")
 
 
 if __name__ == "__main__":
