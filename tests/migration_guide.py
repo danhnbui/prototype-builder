@@ -3,8 +3,8 @@
 migration_guide.py — the release's migration guide is derived correctly, and its gate bites.
 
 Builds a scratch git repo (never this one: its tags and changelog move every release) with three
-releases — v1.2.0 (schema 2, commands a b c), v1.3.0 (schema 3, `c` retired) — and a working tree at
-v2.0.0 (schema 4, `b` retired), then drives .github/scripts/migration_guide.py --root against it:
+releases — v1.2.0 (schema 2, commands build data check-drift), v1.3.0 (schema 3, check-drift
+retired) — and a working tree at v2.0.0 (schema 4, data retired), then drives .github/scripts/migration_guide.py --root against it:
 
   1. `check` fails before `write`: the guide is missing, the major has no `### Upgrading`, and a
      retired command has no replacement — each named.
@@ -112,7 +112,7 @@ LOG_13 = """# Changelog
 
 ### Removed
 
-- `/pb:c` — it was never used.
+- `/pb:check-drift` — it was never used.
 
 ## [1.2.0] — 2026-01-01
 
@@ -127,30 +127,30 @@ LOG_20 = """# Changelog
 
 """ + LOG_13.split("\n", 2)[2]
 
-UPGRADING = "### Upgrading\n\nRun `/pb:a` where you ran `/pb:b`.\n\n"
+UPGRADING = "### Upgrading\n\nRun `/pb:build` where you ran `/pb:data`.\n\n"
 
 
 def main():
     s = Scratch()
     try:
         s.git("init", "-q")
-        s.release("1.2.0", 2, ["a", "b", "c"], LOG_13.replace("## [1.3.0]", "## [0.0.0]"))
-        s.release("1.3.0", 3, ["a", "b"], LOG_13)
-        s.release("2.0.0", 4, ["a"], LOG_20, tag=False)
+        s.release("1.2.0", 2, ["build", "data", "check-drift"], LOG_13.replace("## [1.3.0]", "## [0.0.0]"))
+        s.release("1.3.0", 3, ["build", "data"], LOG_13)
+        s.release("2.0.0", 4, ["build"], LOG_20, tag=False)
 
         # 1 · the gate names everything missing
         rc, out = s.run("check")
         check(rc == 1, "check fails before the guide is written")
         check("docs/migrations/v2.0.0.md is missing" in out, "check names the missing guide")
         check("needs a `### Upgrading` subsection" in out and "it is a major" in out
-              and "schema moves 3 → 4" in out and "`/pb:b`" in out,
+              and "schema moves 3 → 4" in out and "`/pb:data`" in out,
               "check asks for `### Upgrading`, giving all three reasons")
-        check("no replacement for `/pb:b`, `/pb:c`" in out, "check names retired commands with no replacement")
+        check("no replacement for `/pb:check-drift`, `/pb:data`" in out, "check names retired commands with no replacement")
 
         # 2 · supplied, written, green
         s.write("changelog.md", LOG_20.replace(").\n\n", ").\n\n" + UPGRADING, 1))
         s.write("docs/migrations/retired-commands.json",
-                json.dumps({"b": "`/pb:a`", "c": "nothing — it is gone"}))
+                json.dumps({"data": "`/pb:build`", "check-drift": "nothing — it is gone"}))
         rc, out = s.run("write")
         check(rc == 0, "write succeeds")
         rc, out = s.run("check")
@@ -159,13 +159,13 @@ def main():
         # 3 · the guide says what history says
         g = s.read("docs/migrations/v2.0.0.md")
         check("**Kind** major over v1.3.0" in g, "states the kind of release")
-        check("| v1.3.0 | 3 → 4 | 1 (0002) | `/pb:b` |" in g, "v1.3.0 row: one schema step, `/pb:b` gone")
-        check("| v1.2.0 | 2 → 4 | 2 (0001–0002) | `/pb:b`, `/pb:c` |" in g, "v1.2.0 row: two steps, both commands gone")
-        check("| `/pb:c` | v1.3.0 | nothing — it is gone |" in g, "`/pb:c` retired at v1.3.0")
-        check("| `/pb:b` | v2.0.0 | `/pb:a` |" in g, "`/pb:b` retired at v2.0.0, with its replacement")
+        check("| v1.3.0 | 3 → 4 | 1 (0002) | `/pb:data` |" in g, "v1.3.0 row: one schema step, `/pb:data` gone")
+        check("| v1.2.0 | 2 → 4 | 2 (0001–0002) | `/pb:check-drift`, `/pb:data` |" in g, "v1.2.0 row: two steps, both commands gone")
+        check("| `/pb:check-drift` | v1.3.0 | nothing — it is gone |" in g, "`/pb:check-drift` retired at v1.3.0")
+        check("| `/pb:data` | v2.0.0 | `/pb:build` |" in g, "`/pb:data` retired at v2.0.0, with its replacement")
         check("| 0002 | 3 → 4 | v2.0.0 | schema 3 → 4: step 0002 |" in g, "schema step with describe() and its release")
-        check("#### Upgrading\n\nRun `/pb:a` where you ran `/pb:b`." in g, "carries this release's upgrade notes")
-        check("#### Removed\n\n- `/pb:c`" in g and "[v1.3.0](#notes-v130)" in g,
+        check("#### Upgrading\n\nRun `/pb:build` where you ran `/pb:data`." in g, "carries this release's upgrade notes")
+        check("#### Removed\n\n- `/pb:check-drift`" in g and "[v1.3.0](#notes-v130)" in g,
               "carries an earlier release's Removed notes, linked from the rows that cross it")
         check("## 7 · What changed in v2.0.0\n\n- The big one." in g, "ends with the release's changelog")
         check("[AGENTS.md](../../AGENTS.md)" in g, "root-relative changelog links are rebased to the guide's folder")
@@ -179,7 +179,7 @@ def main():
 
         # 5 · a plain patch needs no hand-written notes
         s.git("add", "-A"); s.git("commit", "-qm", "release: v2.0.0"); s.git("tag", "v2.0.0")
-        s.release("2.0.1", 4, ["a"], "# Changelog\n\n## [2.0.1] — 2026-02-02\n\n- Fixed.\n\n"
+        s.release("2.0.1", 4, ["build"], "# Changelog\n\n## [2.0.1] — 2026-02-02\n\n- Fixed.\n\n"
                   + s.read("changelog.md").split("\n", 2)[2], tag=False)
         s.run("write")
         rc, out = s.run("check")
