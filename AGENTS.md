@@ -35,6 +35,8 @@ This file is the *how you must work*, release-independent.
   3. Wire it into `pb/migrations/migrate_runner.py`.
   4. Prove it: run `/pb:update-version --apply` on a *copy* of an old project and confirm
      it migrates cleanly, then confirm rollback restores the backup.
+  5. Say what a user must do by hand in a `### Upgrading` subsection of the release's
+     changelog section. The release's migration guide carries it (§4).
 - Never remove or repurpose an existing field in place. Add, then deprecate later.
 
 ## 4. One release per branch, one PR, human merges
@@ -44,6 +46,12 @@ This file is the *how you must work*, release-independent.
 - Tests are green **before** the PR is opened.
 - Keep `CLAUDE.md`, `prototype-builder.md`, and `changelog.md` updated **in the same PR**
   as the code they describe.
+- A release PR carries its migration guide, `docs/migrations/v<version>.md`: how to reach
+  this release from any earlier one. `python3 .github/scripts/bump_version.py auto` writes it
+  with the bump (`.github/scripts/migration_guide.py write` regenerates it alone). The pipeline's
+  bump-version check fails while it is missing or stale, and asks for a `### Upgrading`
+  subsection when the release is a major, changes the schema, or removes a command. A retired
+  command needs a line in `docs/migrations/retired-commands.json` saying what to run instead.
 
 ## 5. Match pb conventions
 
