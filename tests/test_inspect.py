@@ -173,6 +173,56 @@ def run():
                 check("screen:login" in ftxt, f"non-tagged element still yields a path (got: {ftxt!r})")
                 page.keyboard.up("Alt")
 
+            # Pick mode: the bar's cursor button keeps inspect on with no ⌥, and a click copies the
+            # COMPONENT's name — and only copies: no navigation, no submit.
+            page.evaluate("() => setProtoScreen('login')")
+            page.wait_for_timeout(150)
+            page.evaluate("""() => { window.__copied = []; const o = copyCommandToClipboard;
+                copyCommandToClipboard = s => { window.__copied.push(s); return o(s); }; }""")
+            pick = page.locator(".pb-bar-end .meta-pick")
+            check(pick.count() == 1, "the bar carries one Pick button on the Prototype tab")
+            search_box, pick_box = page.locator(".meta-search").bounding_box(), pick.bounding_box()
+            check(pick_box and search_box and pick_box["x"] > search_box["x"], "Pick sits right after Search")
+            pick.click()
+            page.wait_for_timeout(80)
+            check(pick.get_attribute("aria-pressed") == "true", "Pick is pressed once clicked")
+            cmp_el = page.locator("#proto-frame [data-cmp]").first
+            check(cmp_el.count() == 1, "the golden's login renders at least one component root (data-cmp)")
+            cmp_id = cmp_el.get_attribute("data-cmp")
+            bx, by = center(cmp_el.bounding_box())
+            page.mouse.move(bx, by)
+            page.wait_for_timeout(100)
+            check(page.locator("#pb-inspect-label").is_visible(), "picking shows the label without holding ⌥")
+            before = page.evaluate("() => state.protoScreenId")
+            page.mouse.click(bx, by)
+            page.wait_for_timeout(150)
+            copied = page.evaluate("() => window.__copied")
+            want = page.evaluate("id => { const c = (PB_DATA.handoff.organisms || []).find(c => c.id === id)"
+                                 " || pbOrgById()[id]; return (c && c.name) || id; }", cmp_id)
+            check(copied[-1:] == [want], f"a pick-click copies the component name (want {want!r}, got {copied!r})")
+            check(page.evaluate("() => state.protoScreenId") == before, "a pick-click does not navigate")
+            # The submit with valid fields WOULD navigate on a normal click; picked, it only copies.
+            inp = page.locator('#proto-frame .field__input')
+            inp.nth(0).evaluate("(el) => el.value = 'ada@example.com'")
+            inp.nth(1).evaluate("(el) => el.value = 'hunter2hunter2'")
+            page.click('#proto-frame [data-action="submit"]')
+            page.wait_for_timeout(400)
+            check(page.evaluate("() => state.protoScreenId") == "login"
+                  and page.locator('.proto-toast').count() == 0,
+                  f"a pick-click on a valid submit neither submits nor navigates (copied {copied[-1:]!r} then "
+                  f"{page.evaluate('() => window.__copied')[-1:]!r})")
+            page.keyboard.press("Escape")
+            page.wait_for_timeout(60)
+            check(pick.get_attribute("aria-pressed") == "false"
+                  and not page.locator("#pb-inspect-label").is_visible(), "Esc ends pick mode and hides the label")
+            page.keyboard.press("i")
+            page.wait_for_timeout(60)
+            check(pick.get_attribute("aria-pressed") == "true", "I toggles pick mode on")
+            page.click(".meta-tab >> nth=1")
+            page.wait_for_timeout(150)
+            check(page.evaluate("() => pbPickOn") is False and page.locator(".meta-pick").count() == 0,
+                  "leaving the Prototype tab ends pick mode and drops the button")
+
             page.close()
         browser.close()
 

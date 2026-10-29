@@ -232,6 +232,8 @@ card that owns the CTA — no dead controls. (Replaces the old `meta-tag`/`meta-
   a **Structure tree** panel — the product's **pages, by name**, indented by their depth in the derived nav
   graph (flat when a project has none), each one a jump; it pushes the preview aside and stays until you
   close it. ⌥-click in the preview is the tool for *what is this element*, and it answers from the DOM.
+  **Pick** (the bar's cursor button after Search, or **I** under R's guards) keeps that on without ⌥: hover frames
+  the component, a click **copies its name** (and only copies — no nav, no submit), Esc or leaving the tab ends it.
   *Sandbox — the inspector.* A 20rem panel on the right, closed by default, opened by the bar's **hourglass** or by
   **S** (under exactly R's guards: never while typing, never with Cmd/Ctrl held, not on key-repeat). **Esc closes it
   unless it is pinned**; the **pin** docks it and **pushes the stage** aside (closing a pinned inspector unpins it).
