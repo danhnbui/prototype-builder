@@ -2268,7 +2268,8 @@
     .proto-role-item-desc { font: var(--font-weight-medium) var(--font-size-xs)/1.4 var(--font-body); color:var(--text-tertiary); }
     /* v1.5 — inspect overlay (⌥-hover): highlight box + name-path label, both fixed & click-through */
     .pb-inspect-box { position:fixed; z-index:1400; pointer-events:none; display:none;
-      border:2px solid var(--brand); border-radius:4px; background:var(--brand-soft); }
+      border:2px solid var(--brand); border-radius:4px;
+      background:color-mix(in srgb, var(--brand) 8%, transparent); }   /* a tint, never a cover: the element stays readable */
     .pb-inspect-label { position:fixed; z-index:1401; pointer-events:none; display:none; flex-direction:column; gap:var(--pb-s0);
       max-width:60vw; background:var(--pb-ink); color:var(--pb-on-ink); border-radius:6px; padding:calc(var(--pb-s1) + var(--pb-s0)) var(--pb-s2);
       font-family:ui-monospace, SFMono-Regular, Menlo, monospace; font-size:var(--font-size-xs); line-height:1.35;
