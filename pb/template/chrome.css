@@ -225,6 +225,9 @@
 /* open: the panel it controls is showing. A wash says so; hovering it again presses it. */
 .pb-bar-item[aria-expanded="true"] { color: var(--pb-ink); background: var(--pb-wash); }
 .pb-bar-item[aria-expanded="true"]:hover { background: var(--pb-press); }
+/* on: a mode it toggles is in effect. Same wash as open — both say "this is active now". */
+.pb-bar-item[aria-pressed="true"] { color: var(--pb-ink); background: var(--pb-wash); }
+.pb-bar-item[aria-pressed="true"]:hover { background: var(--pb-press); }
 .pb-bar-item svg { flex: none; width: var(--pb-ico-sm); height: var(--pb-ico-sm); stroke-width: var(--pb-stroke); }
 .pb-bar-item .pb-ico--lg { width: var(--pb-ico); height: var(--pb-ico); }
 .pb-bar-item .pb-kbd { margin-left: var(--pb-s1); }

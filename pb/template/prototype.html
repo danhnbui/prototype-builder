@@ -2268,13 +2268,16 @@
     .proto-role-item-desc { font: var(--font-weight-medium) var(--font-size-xs)/1.4 var(--font-body); color:var(--text-tertiary); }
     /* v1.5 — inspect overlay (⌥-hover): highlight box + name-path label, both fixed & click-through */
     .pb-inspect-box { position:fixed; z-index:1400; pointer-events:none; display:none;
-      border:2px solid var(--brand); border-radius:4px; background:var(--brand-soft); }
+      border:2px solid var(--brand); border-radius:4px;
+      background:color-mix(in srgb, var(--brand) 8%, transparent); }   /* a tint, never a cover: the element stays readable */
     .pb-inspect-label { position:fixed; z-index:1401; pointer-events:none; display:none; flex-direction:column; gap:var(--pb-s0);
       max-width:60vw; background:var(--pb-ink); color:var(--pb-on-ink); border-radius:6px; padding:calc(var(--pb-s1) + var(--pb-s0)) var(--pb-s2);
       font-family:ui-monospace, SFMono-Regular, Menlo, monospace; font-size:var(--font-size-xs); line-height:1.35;
       box-shadow:var(--pb-shadow); }
     .pb-inspect-label .pb-inspect-path { white-space:nowrap; }
     .pb-inspect-label .pb-inspect-hint { color:color-mix(in srgb, var(--pb-on-ink) 70%, transparent); white-space:normal; font-size:0.6875rem; }
+    /* Pick mode (the bar's cursor button, or I): every part of the preview says "click copies". */
+    body.pb-picking .proto-screen, body.pb-picking .proto-screen * { cursor:copy !important; }
     .proto-device-btn { display:inline-flex; align-items:center; justify-content:center; width:44px; height:32px;
       border:0; border-radius:0; background:transparent; color:var(--text-active-secondary);
       cursor:pointer; transition:background .12s, color .12s; }
@@ -3598,6 +3601,7 @@
       // them says which prototype it is) and opens the project's settings. Shared with the DS site
       // (runtime.js), so both sites carry the same thing in the same place.
       const onProto = state.metaView === 'prototype';
+      if (!onProto && pbPickOn) pbPickSet(false);   // pick mode belongs to the preview; leaving it ends it
       const isMac = /Mac|iPhone|iPad/.test((navigator.platform || '') + ' ' + (navigator.userAgent || ''));
       const kbd = isMac ? '⌘K' : 'Ctrl K';
       el.innerHTML = `<div class="pb-bar-start" id="pb-pj-host"></div><span class="pb-bar-vr" aria-hidden="true"></span>`
@@ -3611,6 +3615,9 @@
         + `<button class="meta-search pb-bar-item" type="button" onclick="pbOpenSearch()" aria-keyshortcuts="${isMac ? 'Meta+K' : 'Control+K'}"
                    aria-label="Search everything (${kbd})" title="Search rules, jobs, screens, components, test cases, terms and commands (${kbd})">`
         + `${pbUiIcon('search')}<span class="pb-bar-lb">Search</span><span class="pb-kbd" aria-hidden="true">${kbd}</span></button>`
+        + (onProto ? `<button class="meta-pick pb-bar-item" type="button" onclick="pbPickToggle()" aria-pressed="${pbPickOn}" aria-keyshortcuts="I"
+                   aria-label="Pick a component to copy its name" title="Pick (I) — click a component in the preview to copy its name">`
+          + `${pbUiIcon('cursor')}<span class="pb-bar-lb">Pick</span></button>` : '')
         + (onProto ? `<button class="meta-sandbox pb-bar-item" type="button" onclick="pbSandboxToggle(true)"
                    aria-expanded="${pbSandboxIsOpen()}" aria-controls="pb-insp" aria-keyshortcuts="S"
                    aria-label="Sandbox" title="Sandbox (S) — device, chrome, compare, role, scenarios">`
@@ -5619,17 +5626,19 @@
     document.addEventListener('keydown', function (e) {
       const k = String(e.key).toLowerCase();
       if (k === 'escape') {
+        if (pbPickOn && !e.defaultPrevented && !pbUiModalOpen()) { pbPickSet(false); return; }
         if (e.defaultPrevented || !pbSandboxIsOpen() || pbSandboxDocked() || pbUiModalOpen()) return;
         if (document.querySelector('.copy-popover:not(.pb-insp), .pb-pop:not([hidden]), .pb-menu:not([hidden])')) return;
         pbSandboxClose(true);
         return;
       }
-      if ((k !== 'r' && k !== 's') || e.metaKey || e.ctrlKey || e.altKey || e.repeat) return;
+      if ((k !== 'r' && k !== 's' && k !== 'i') || e.metaKey || e.ctrlKey || e.altKey || e.repeat) return;
       if (pbUiTyping(e.target)) return;
       if (state.metaView !== 'prototype') return;
       if (pbUiModalOpen()) return;
       e.preventDefault();
       if (k === 's') { pbSandboxToggle(true); return; }
+      if (k === 'i') { pbPickToggle(); return; }
       document.querySelectorAll('.copy-popover:not(.pb-insp), .copy-popover-backdrop').forEach(el => el.remove());
       pbSandboxReset();
     });
@@ -5793,10 +5802,53 @@
       var txt = (el.textContent || '').trim().replace(/\s+/g, ' ').slice(0, 32);
       return { path: 'screen:' + screenId + ' › ' + tag + cls, hint: txt ? '"' + txt + '"' : tag };
     }
+    // Pick mode — the bar's cursor button (or I) keeps inspect on without holding ⌥, and a click
+    // copies the hovered COMPONENT's name (not the path) so it pastes anywhere: a ticket, Figma,
+    // a chat. ⌥-click still copies the full reference. Esc, I again, or leaving the tab ends it.
+    var pbPickOn = false;
+    // The component under `el`: the innermost pbUse'd root (data-cmp), else a tagged registry
+    // element's component, else the part map's best match. null when nothing in the registry owns it.
+    function pbInspectComponent(el) {
+      if (!el || !el.closest) return null;
+      var comps = (PB_DATA.handoff && PB_DATA.handoff.organisms) || [];
+      var byId = function (id) {
+        var c = comps.find(function (c) { return c.id === id; }) || (typeof pbOrgById === 'function' ? pbOrgById()[id] : null);
+        return { id: id, name: (c && c.name) || id };
+      };
+      var root = el.closest('[data-cmp]');
+      if (root) { var c1 = byId(root.getAttribute('data-cmp')); c1.root = root; return c1; }
+      var tagged = el.closest('[data-handoff-el]');
+      if (tagged) {
+        var scr = ((PB_DATA.handoff && PB_DATA.handoff.screens) || []).find(function (s) { return s.id === state.protoScreenId; });
+        var elm = scr && (scr.elements || []).find(function (x) { return x.id === tagged.getAttribute('data-handoff-el'); });
+        if (elm && elm.orgId) { var c2 = byId(elm.orgId); c2.root = tagged; return c2; }
+      }
+      try {
+        var hit = pbInspectPart(el, comps);
+        if (hit) return { id: hit.comp.id, name: hit.comp.name || hit.comp.id, root: el.closest('[data-part="root"]') || el };
+      } catch (e) { /* no part map — nothing owns it */ }
+      return null;
+    }
+    function pbPickSet(on) {
+      pbPickOn = !!on && state.metaView === 'prototype';
+      document.body.classList.toggle('pb-picking', pbPickOn);
+      var b = document.querySelector('.meta-pick'); if (b) b.setAttribute('aria-pressed', String(pbPickOn));
+      if (pbPickOn && pbInspectLast) pbInspectShow(pbInspectLast); else if (!pbPickOn) pbInspectHide();
+    }
+    function pbPickToggle() { pbPickSet(!pbPickOn); }
+    function pbPickCopy(el) {
+      var c = pbInspectComponent(el);
+      if (!c) { var info = pbInspectName(el); copyCommandToClipboard(info.path); pbUiToast('No component here — copied the reference', { note: info.path }); return; }
+      copyCommandToClipboard(c.name);
+      pbUiToast('Copied “' + c.name + '”', { note: c.id });
+    }
     function pbInspectShow(el) {
       var frame = (el && el.closest && el.closest('.proto-screen')) || document.getElementById('proto-frame');
       if (!el || !frame || el === frame || !frame.contains(el)) { pbInspectHide(); return; }
       var info = pbInspectName(el);
+      // Picking frames the whole component it would copy, and names it the way it will paste.
+      var pick = pbPickOn ? pbInspectComponent(el) : null;
+      if (pick) { info = { path: pick.name, hint: pick.id + ' · click to copy the name' }; if (frame.contains(pick.root)) el = pick.root; }
       var r = el.getBoundingClientRect();
       var e = pbInspectEls();
       e.box.style.display = 'block';
@@ -5823,8 +5875,17 @@
       document.addEventListener('keydown', function (e) {
         if (e.key === 'Alt' && state.metaView === 'prototype' && pbInspectLast) pbInspectShow(pbInspectLast);
       });
-      document.addEventListener('keyup', function (e) { if (e.key === 'Alt') pbInspectHide(); });
+      document.addEventListener('keyup', function (e) { if (e.key === 'Alt' && !pbPickOn) pbInspectHide(); });
       window.addEventListener('scroll', pbInspectHide, true);
+      // While picking, the preview is not operated: capture on the document runs before every frame
+      // listener (nav, submit, Compare's replay), so a click copies and does nothing else, and a
+      // press never focuses a field. ⌥-click is left to the frame's own handler.
+      var swallow = function (e) {
+        if (!pbPickOn || e.altKey || !e.target || !e.target.closest || !e.target.closest('.proto-screen')) return;
+        e.preventDefault(); e.stopImmediatePropagation();
+        if (e.type === 'click') pbPickCopy(e.target);
+      };
+      ['pointerdown', 'mousedown', 'click'].forEach(function (t) { document.addEventListener(t, swallow, true); });
     }
     function wireProtoNav(frame) {
       frame = frame || document.getElementById('proto-frame');
@@ -5842,7 +5903,7 @@
       });
       frame.addEventListener('mousemove', function (e) {
         pbInspectLast = e.target;
-        if (e.altKey) pbInspectShow(e.target); else pbInspectHide();
+        if (e.altKey || pbPickOn) pbInspectShow(e.target); else pbInspectHide();
       });
       frame.addEventListener('mouseleave', function () { pbInspectLast = null; pbInspectHide(); });
     }
