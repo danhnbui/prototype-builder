@@ -14,6 +14,9 @@ navigation is wired declaratively in render bodies via `data-*` attributes the s
 - **Submit then go** — `data-action="submit"` validates the form; on success `data-go="<screen-id>"`.
 - **Auto-advance** — `data-redirect="<screen-id>"` + `data-redirect-ms="<n>"` (e.g. a success splash).
 - **Feedback** — `data-toast="<msg>"` confirms an action without leaving the screen.
+- **Back and subject** — `data-back` (optionally `="<screen-id>"` as a fallback), `data-nav-reset` on a screen
+  root to end the history there, `data-ctx` beside `data-nav` for what was tapped (read with `pbCtx()`).
+  `canon.md` § *The demo model*.
 Every target id must be a real `screens[].id`.
 
 ## Entry & exit

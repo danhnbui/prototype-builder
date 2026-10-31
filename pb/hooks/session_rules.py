@@ -45,6 +45,7 @@ def digest(plugin_root, project):
         "kill a preview (serve.py --stop); json.dump or a redirect into registry.json.",
         "After a change use the lowest check that answers it: none, lint_registry.py --exec, shot.py --no-png --eval,",
         "shot.py --selector, and every width only for a new screen. DevTools is not how pb looks.",
+        "Roles, permissions, demo entries: meta.permissions, meta.personas, meta.demo; bodies read pbCan(), not a role module.",
         "Structural work (new feature, flow, revamp): /pb:explore \"<goal>\". Point changes: /pb:build.",
     ]
     text = "\n".join(lines[:MAX_LINES])

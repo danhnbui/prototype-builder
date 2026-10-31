@@ -135,6 +135,8 @@ a middle one: it never counts toward a pass, and it is never softened to `yes` b
 | §3 functional | scenario carrying a `test{}` block | Running the steps from `test.start`, did **every** `expect[]` item hold? |
 | §3 freshness | scenario carrying a `lastResult` | Does `itemHash` for each named screen still equal the digest quoted in this item? |
 | §4 roles | gated screen or element | Did **exactly** the roles in its `roles[]` set reach it — no more, no fewer? |
+| §4 roles · `T-PERM` | role × capability, when `meta.permissions` exists | Does `pbCan` return what the matrix says, and does every `data-can` control follow it? |
+| §4 roles · `T-ENTRY` | entry in `meta.demo.entries` | Did it open with no console error? |
 | §5 server | screen, twice | Did it render with no console error? · Did every `data-nav`/`data-go`/`data-redirect` target it declares resolve to a real screen id? |
 | §6 security | scan class (secrets · PII · `</script>` · injection · external call) | Did the scan finish with **no** finding in this class? |
 | §7 drift | numbered principle | Is every screen, component and logic note free of any contradiction with this principle? |
@@ -275,6 +277,8 @@ Walks every screen per role, asserting gated screens and elements are visible on
 cannot tell you whether a role's flow works — and a role-gated write control carries no `data-roles`
 attribute at all, because the render body omits it entirely. Assert those with `present` / `absent`
 expects: they test **presence, not visibility**, so a CSS-hidden element still counts as present.
+With `meta.permissions` or `meta.demo.entries` the lane also runs `T-PERM` and `T-ENTRY`; a scenario may carry
+`test.entry` and `test.persona` (`canon.md` § *The demo model*).
 
 ## 5 · Server health
 ```

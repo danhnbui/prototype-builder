@@ -20,18 +20,9 @@ lintable and diffable. (A legacy inline `render` string still renders for backwa
 tokens are applied to the **product subtree** (`.pb-product`) at boot via `applyRegistryTokens` — never onto `:root`,
 which holds the tool's own `--pb-*` vocabulary (`pb/template/chrome.css`).
 
-**Responsive styles (`styleSrc`).** An inline `style=""` cannot hold a breakpoint, so a component or
-screen that changes across device sizes carries an optional `styleSrc` → `render/styles/<id>.css`.
-`render.py` emits `pb/template/product.css` (the size-class utilities) and then every sheet, components
-before screens, into one `<style id="pb-product-css">` in both sites and in the React scaffold. A sheet
-styles its own root class — `.c-<id>` for a component, `.s-<id>` for a screen — and uses
-**`@container pb-screen (min-width: …)`, never `@media`**: the device frames are `<div>`s in one
-document, so `@media` answers the browser window, not the frame. Size classes: **compact** < 600px
-(mobile) · **medium** 600–1023px (tablet) · **expanded** ≥ 1024px (laptop, monitor). Utilities:
-`r-compact` · `r-medium-up` · `r-expanded-up` · `r-below-expanded` (show only in that range) and
-`r-cols` (1 → 2 → 3 columns). Anything that changes across sizes lives in the sheet, not inline —
-an inline declaration beats the container rule. Lint: `R-STYLESRC` · `R-STYLE-MEDIA` · `R-STYLE-SCOPE`
-· `R-HEX`/`R-PX` · `R-RESPONSIVE` (see `meta.responsive`).
+**Responsive styles (`styleSrc`).** A component or screen that changes across device sizes carries an
+optional `styleSrc` → `render/styles/<id>.css`, written with `@container pb-screen`, never `@media`. The
+canonical text ships with the plugin: `pb/docs/canon.md` § *Responsive styles*.
 
 ### Top-level shape
 
@@ -42,6 +33,9 @@ an inline declaration beats the container rule. Lint: `R-STYLESRC` · `R-STYLE-M
 | `meta.device` | `'monitor'\|'laptop'\|'tablet'\|'mobile'` | Prototype | default device for the preview frame; set at `/pb:init`. Falls back to `'laptop'`. Legacy `'desktop'` → `'laptop'` |
 | `meta.devices` | `('monitor'\|'laptop'\|'tablet'\|'mobile')[]` | Prototype | the fixed sizes this project supports (`monitor 1920×1080 · laptop 1280×832 · tablet 834×1112 · mobile 429×926`) — unsupported sizes are disabled in the switcher. Optional; defaults to all four. Legacy `'desktop'` expands to `monitor`+`laptop` |
 | `meta.responsive` | `true\|false\|null` | Prototype · build · lint | whether the UI **adapts** across the `meta.devices` size classes — asked at `/pb:init` right after the device question. `true`: every screen answers at every listed size (container queries via `styleSrc` or the `r-*` utilities; `R-RESPONSIVE` warns per screen that nothing adapts). `false`: one layout — `meta.devices` is trimmed to `meta.device`. `null` (an older project): `/pb:build` asks once before its next screen/component write; lint stays silent on it. Additive, no schema bump |
+| `meta.permissions` | `{levels[], matrix{role→{capability→level}}}` | Prototype · lint · test | optional demo permission matrix, read by `pbCan()` and `data-can`; **not access control**. Written by `/pb:clarify`. `R-PERM` |
+| `meta.personas` | `{id, name, role?, scope?}[]` | Prototype · lint | optional named people per role (Sandbox → Person, `pbPersona()`); `scope` is plain data for the project's own rules. `R-PERM` |
+| `meta.demo` | `{seeds[], entries[]}` | Prototype · lint · test | optional demo entry points (screen · role · person · seed) and named data seeds; proposed by `/pb:plan`. `R-ENTRY` |
 | `meta.designSystem` | `{ name, designLink, codeLibrary, linked }` | design-system site | the linked design system — `name`, `designLink` (the project's Figma file), `codeLibrary` (folder path or repo URL). Seeded from the DS Lock at `/pb:init`. **Editable in the Project settings dialog**, saved through `POST /api/meta` on `/pb:preview` (read-only over `file://`): **`name` is required**; `designLink` is optional and, when set, must be a `figma.com/file/…` or `figma.com/design/…` link — except that a non-Figma link the project already carries is **kept with a warning** rather than blocking a save of the names. Hand-off, the Figma push and the drift check read it. Absent → Project settings shows it empty |
 | `meta.platform` | `'web'\|'ios'\|'android'\|'desktop'` | — | the DS/target platform; set at `/pb:init`. Defaults to `'web'`. Schema 5 (v1.6) |
 | `meta.dsSource` | `{ type, ref, clonedAt } \| null` | — | provenance of the cloned DS: `type ∈ figma\|code-library\|mcp\|common`, `ref` the literal URL/path/name, `clonedAt` ISO stamp. `null` until `/pb:pull-ds` clones. The full token/component snapshot lives in `design-system/<name>/.source.json`; `/pb:test --drift` §5 diffs the live source against it. Schema 5 (v1.6) |
@@ -279,27 +273,8 @@ prototype (System / Light / Dark); the demo stages stay light.
 
 ## Rich text
 
-Prose a person reads on a page — the Project Summary (`meta.overview.objectives`, principle bodies,
-`meta.userInsights.*`), an IA job's `gap` note, a component's design notes (`purpose`) — is rendered by
-`pbRichText(str)` in `runtime.js` (both shells). It **escapes first**, then reads a small set of marks, so an author
-(or `/pb:clarify`) can give a long text a hierarchy without markup of their own:
-
-| Mark | Renders as |
-|---|---|
-| `**bold**` | strong |
-| `*em*` or `_em_` | emphasis |
-| `==the one thing to remember==` | a highlight (`.pb-hl`) |
-| `{+an improvement+}` | positive, in the pass colour (`.pb-pos`) |
-| `{-a problem or risk-}` | negative, in the fail colour (`.pb-neg`) |
-| `` `code` `` | code, and opaque to every other mark |
-| a line starting `·` `•` `▪` `- ` `– ` or `* ` | a bullet list |
-| a line starting `1.` or `1)` | a numbered list (a different start number is kept) |
-| a blank line / a single newline | a paragraph / a line break |
-| a number with `%`, a currency or a unit, or a grouped number (`11,042`) | **bold**, automatically (`.pb-num`; `numbers:false` turns it off) |
-
-An unbalanced mark stays literal; `{inline:true}` returns the marks only, with no blocks. The colours are the tool's
-`--pb-pass` / `--pb-fail` tokens, so they follow the theme. The marks are authored, never inferred: the
-writer agents add them under the limits in `pb/commands/clarify.md`.
+The marks `pbRichText` reads (`**bold**`, `==highlight==`, `{+good+}`, `{-bad-}`, lists) ship with the plugin:
+`pb/docs/canon.md` § *Rich text*.
 
 ## Render-function inventory
 
@@ -358,6 +333,16 @@ one, may not re-word one, and may not overturn a `no` except by dispatching a fr
 both rows. **The chat gets the short form**: a header, one line per `no` or `blocked`, and the verdict
 `<N> items · <Y> held · <Z> failed · <B> blocked`. Held items are the count and the file, not 38 printed
 successes. Vocabulary: `sandbox-test`. Canonical rule: `pb/commands/test.md` §2a–§2b, §11.
+
+## Demo model — roles, permissions, people, entry points, data (v2.5)
+
+Optional `meta.permissions` (a capability matrix by role), `meta.personas` (named people per role) and
+`meta.demo` (`entries`: where and as whom a demo starts; `seeds`: named data sets), read through `pbRole()`,
+`pbCan()`, `pbSeed()` and `pbCtx()`, gated in markup by `data-can`, and driven from Sandbox → Conditions.
+**It is demo behaviour, not access control.** The full contract (registry shape, read API, events, markup,
+start and Reset rules, checks, and the names that must not change) is in `pb/docs/canon.md` § *The demo
+model*, which ships with the plugin; if the two disagree, the canon wins. Pinned by
+`tests/sandbox_demo_model.py`.
 
 ## Footprint — what pb starts, and what it leaves behind (v2.2)
 

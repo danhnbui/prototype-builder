@@ -13,7 +13,7 @@ classes the scenarios addressed, and the shared rules reached the project's buil
 The coordinator runs all of it; §5 writes it twice — a direction the user approves, then the plans.
 
 Provenance: the design kit's direction explorer and its foundations, decision-tree, interaction and
-responsive references — kept out of the DS layer by DESIGN.md, allowed at explore time only. **A locked
+responsive references — kept out of the DS layer by design, allowed at explore time only. **A locked
 DS always wins**: kit defaults (radius `inner = outer − gap`, 4/8 spacing, type caps) fill only its gaps.
 
 ## 1 · Read, don't ask

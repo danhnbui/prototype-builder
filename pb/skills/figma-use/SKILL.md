@@ -57,7 +57,7 @@ stop — that is the anti-pattern the whole bridge avoids.
 After the user pastes + Builds, verify by serializing the built frame back (plugin *Figma → Code*) and
 diffing against what you emitted. Assert: every intended element is an **INSTANCE** with a
 `mainComponent` (not a detached copy); every fill/spacing/radius that had a token ref is **bound to a
-variable** (needs the plugin patch in `docs/figma-bridge-plugin.md` for spacing/radius); auto-layout on
+variable** (needs the plugin patch in `${CLAUDE_PLUGIN_ROOT}/docs/figma-bridge-plugin.md` for spacing/radius); auto-layout on
 every frame; declared gaps are the only unresolved items. Any miss → report it; do not declare done.
 
 ## NEVER

@@ -19,7 +19,19 @@ like tests/e2e_smoke.py) and verifies prototype behaviour four ways:
                           sampling cannot tell you whether a role's flow actually works,
                           and a role-gated write control carries no data-roles attribute
                           at all (the render body omits it).
-  --server                Assert server health (GET / == 200, /__pb_events is an SSE
+                          DEMO MODEL (v2.5), each only when the project declares it:
+                          · meta.permissions — every role x capability x level through pbCan against
+                            the matrix computed here in Python (admin true · unnamed capability = the
+                            first level · unknown level false), and every [data-can] control on every
+                            screen the role can see, as first rendered (hide -> not visible, disable ->
+                            disabled, allowed -> neither). Mismatch = T-PERM.
+                          · meta.demo.entries — every entry opened through pbApplyEntry (its screen,
+                            role, person and seed active, no console error) and ?entry=<id> on a fresh
+                            load for the default entry and one other. Mismatch = T-ENTRY. Runs once,
+                            inside the roles mode, so `--all` runs it once in the shared browser.
+                          A scenario's test.entry / test.persona are applied (before test.start, in the
+                          shell's order: entry, role, persona, seed, start) by every mode that runs it.
+  --server               Assert server health (GET / == 200, /__pb_events is an SSE
                           stream), render every screen with zero console errors + a live
                           render fn, and statically verify every data-nav / data-go /
                           data-redirect target resolves to a real screen (reachability).
@@ -802,6 +814,11 @@ def _apply_seed(page, seed):
     """
     if not seed:
         return (True, "")
+    # A seed the project DECLARED (meta.demo.seeds) goes through the shell's own setter, as the Run
+    # section does. pbSetSeed answers false for any other id, which falls through to the project's seam.
+    if _eval(page, "(s) => (typeof pbSetSeed === 'function') ? pbSetSeed(s) === true : false", seed):
+        page.wait_for_timeout(120)
+        return (True, "")
     fn = _eval(page,
         "() => (typeof pbScenarioSwitch === 'function') ? 'pbScenarioSwitch'"
         " : (typeof pbApplyScenario === 'function') ? 'pbApplyScenario' : null")
@@ -810,6 +827,35 @@ def _apply_seed(page, seed):
                        f"(pbScenarioSwitch / pbApplyScenario) — seed NOT applied")
     _eval(page, "([f, s]) => window[f](s)", [fn, seed])
     page.wait_for_timeout(120)
+    return (True, "")
+
+
+def _first_line(exc):
+    return (str(exc).splitlines() or [type(exc).__name__])[0][:200]
+
+
+def _apply_entry(page, entry):
+    """Start the scenario from a declared entry point (`test.entry`) through the shell's pbApplyEntry.
+    Returns (ok, detail); an entry the project doesn't declare is a reason, never a crash."""
+    if not entry:
+        return (True, "")
+    if _eval(page, "() => typeof pbApplyEntry") != "function":
+        return (False, f"entry {entry!r} declared but the shell has no pbApplyEntry — entry NOT applied")
+    if _eval(page, "(id) => pbApplyEntry(id)", entry) is not True:
+        return (False, f"unknown entry {entry!r} — not in meta.demo.entries")
+    page.wait_for_timeout(60)
+    return (True, "")
+
+
+def _apply_persona(page, persona):
+    """Sign in as a person (`test.persona`) through pbSetPersona. Returns (ok, detail)."""
+    if not persona:
+        return (True, "")
+    if _eval(page, "() => typeof pbSetPersona") != "function":
+        return (False, f"persona {persona!r} declared but the shell has no pbSetPersona — persona NOT applied")
+    if _eval(page, "(id) => pbSetPersona(id)", persona) is not True:
+        return (False, f"unknown persona {persona!r} — not in meta.personas")
+    page.wait_for_timeout(60)
     return (True, "")
 
 
@@ -829,10 +875,41 @@ def _run_scenario(page, console_errors, test, role_id=None):
 def _run_scenario_body(page, console_errors, test, role_id=None):
     del console_errors[:]
     # Fresh sandbox + toast buffer before each scenario.
-    _eval(page, "() => { if (typeof pbResetSandbox === 'function') pbResetSandbox(); window.__pbToasts = []; }")
+    reset_js = "() => { if (typeof pbResetSandbox === 'function') pbResetSandbox(); window.__pbToasts = []; }"
+    try:
+        _eval(page, reset_js)
+    except Exception as e:                                           # noqa: BLE001
+        if isinstance(e, _Blocked) or type(e).__name__ == "TimeoutError":
+            raise
+        # The previous scenario left the page on an entry whose screen throws, and Reset returns to the
+        # active entry. Drop it so Reset goes to the default one, instead of failing every scenario after.
+        try:
+            _eval(page, "() => { if (typeof state !== 'undefined' && state) state.activeEntry = null; }")
+            _eval(page, reset_js)
+        except Exception as e2:                                      # noqa: BLE001
+            if isinstance(e2, _Blocked) or type(e2).__name__ == "TimeoutError":
+                raise
+            return ("fail", "the sandbox could not be reset: " + _first_line(e2))
+    # The order the shell's Run section uses: entry, role, persona, seed, start.
+    try:
+        ok, detail = _apply_entry(page, test.get("entry"))
+    except Exception as e:                                           # noqa: BLE001
+        if isinstance(e, _Blocked) or type(e).__name__ == "TimeoutError":
+            raise
+        return ("fail", f"starting from entry {test.get('entry')!r} threw: " + _first_line(e))
+    if not ok:
+        return ("blocked", detail)
     ok, detail = _apply_role(page, role_id)
     if not ok:
         return ("skip", detail)
+    try:
+        ok, detail = _apply_persona(page, test.get("persona"))
+    except Exception as e:                                           # noqa: BLE001
+        if isinstance(e, _Blocked) or type(e).__name__ == "TimeoutError":
+            raise
+        return ("fail", f"signing in as {test.get('persona')!r} threw: " + _first_line(e))
+    if not ok:
+        return ("blocked", detail)
     ok, detail = _apply_seed(page, test.get("seed"))
     if not ok:
         return ("fail", detail)
@@ -922,10 +999,15 @@ def _functional(reg_path, story_filter, sess):
             # D-27: honour test.roles — run the scenario once per declared role. The field is
             # already authored on real projects and was being discarded, so every scenario ran
             # as whatever role happened to be active and reported `pass` for an unknown one.
-            want = [r for r in (test.get("roles") or []) if isinstance(r, str)] or [fallback]
+            want = [r for r in (test.get("roles") or []) if isinstance(r, str)]
+            if not want:
+                # A scenario that starts from an entry runs AS that entry's role: the default role set on
+                # top of it would undo the entry. (`None` = set no role; the label below names the one in force.)
+                want = [None] if test.get("entry") else [fallback]
             per_role = []
-            for rid in want:
-                status, detail = _run_scenario(page, cerr, test, role_id=rid)
+            for want_rid in want:
+                rid = want_rid if want_rid is not None else _demo_role_label(reg, test, fallback)
+                status, detail = _run_scenario(page, cerr, test, role_id=want_rid)
                 per_role.append({"role": rid, "status": status, "detail": detail})
                 results.append({"story": story.get("title"), "scenario": title,
                                 "role": rid, "status": status, "detail": detail})
@@ -973,6 +1055,21 @@ def _functional(reg_path, story_filter, sess):
                   "scenarios": results, "findings": _findings_json(findings)}
 
 
+def _demo_role_label(reg, test, fallback=None):
+    """The role a scenario runs as when it sets none itself: the role of the entry it starts from, else of
+    the person it signs in as, else `fallback`. Only a label for the verdict — the shell decides the role."""
+    meta = reg.get("meta") or {}
+    ent = next((e for e in ((meta.get("demo") or {}).get("entries") or [])
+                if isinstance(e, dict) and e.get("id") == test.get("entry")), None) if test.get("entry") else None
+    if ent and ent.get("role"):
+        return ent["role"]
+    per = next((p for p in (meta.get("personas") or [])
+                if isinstance(p, dict) and p.get("id") == test.get("persona")), None) if test.get("persona") else None
+    if per and per.get("role"):
+        return per["role"]
+    return fallback
+
+
 def _default_role_id(reg, roles):
     m = reg.get("meta") or {}
     dr = m.get("defaultRole")
@@ -982,6 +1079,282 @@ def _default_role_id(reg, roles):
     if non_admin:
         return non_admin.get("id")
     return roles[0].get("id") if roles else None
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Demo model (v2.5) — the permission matrix, data-can controls and entry points.
+# Contract: prototype-builder.md -> "Demo model". Every check below runs only when the project
+# declares the thing it checks (meta.permissions · meta.demo.entries); a project without them
+# gets no new check, no new finding and no new line of output.
+# ─────────────────────────────────────────────────────────────────────────────
+_UNNAMED_CAP = "__pb_unnamed_capability__"      # no matrix row names it: the first level, by the contract
+_UNKNOWN_LEVEL = "__pb_unknown_level__"
+_PERM_MAX_FINDINGS = 25                          # per role and kind; the rest are counted, not listed
+
+
+def _perm_expected(reg, role_id, cap, min_level):
+    """What pbCan(cap, min_level) must answer for `role_id`, computed from the matrix in Python per the
+    contract: true with no permissions / roles / levels declared and for an isAdmin role; `min_level`
+    omitted (None) = the lowest level above the first; an unknown `min_level` is false; a capability a
+    role's row doesn't name is at the first level."""
+    meta = reg.get("meta") or {}
+    perms, roles = meta.get("permissions"), meta.get("roles") or []
+    levels = perms.get("levels") if isinstance(perms, dict) else None
+    if not isinstance(levels, list) or not levels or not roles:
+        return True
+    role = next((r for r in roles if isinstance(r, dict) and r.get("id") == role_id), None)
+    if role and role.get("isAdmin"):
+        return True
+    if min_level is None or min_level == "":
+        need = 1
+    else:
+        need = levels.index(min_level) if min_level in levels else -1
+    if need < 0 or need >= len(levels):
+        return False
+    row = (perms.get("matrix") or {}).get(role_id)
+    have = levels.index(row[cap]) if isinstance(row, dict) and cap in row and row[cap] in levels else 0
+    return have >= need
+
+
+def _perm_capabilities(reg):
+    """Every capability some matrix row names, in first-seen order."""
+    out = []
+    matrix = ((reg.get("meta") or {}).get("permissions") or {}).get("matrix") or {}
+    for row in (matrix.values() if isinstance(matrix, dict) else []):
+        for cap in (row.keys() if isinstance(row, dict) else []):
+            if cap not in out:
+                out.append(cap)
+    return out
+
+
+def _split_can(raw, levels):
+    """data-can="<capability>[:<level>]" -> (capability, level or None), split the way the shell splits it:
+    on the LAST colon, and only when what follows is a declared level."""
+    k = raw.rfind(":")
+    if k > 0 and raw[k + 1:] in levels:
+        return raw[:k], raw[k + 1:]
+    return raw, None
+
+
+_PERM_PROBE_JS = r"""(arg) => {
+  const out = [];
+  arg.caps.forEach(function (cap) {
+    out.push([cap, null, pbCan(cap)]);
+    arg.levels.concat([arg.unknown]).forEach(function (lv) { out.push([cap, lv, pbCan(cap, lv)]); });
+  });
+  return out;
+}"""
+
+_CAN_CONTROLS_JS = r"""() => {
+  const out = [];
+  document.querySelectorAll('.proto-screen [data-can]').forEach(function (el) {
+    const cs = getComputedStyle(el);
+    const roles = el.getAttribute('data-roles');
+    out.push({
+      raw: el.getAttribute('data-can') || '',
+      mode: el.getAttribute('data-can-mode') === 'disable' ? 'disable' : 'hide',
+      mark: el.getAttribute('data-pb-can'),
+      testid: el.getAttribute('data-testid'),
+      tag: el.tagName.toLowerCase(),
+      // not visible: no box at all, or hidden by any ancestor, or visibility:hidden
+      hidden: cs.display === 'none' || cs.visibility === 'hidden' || el.getClientRects().length === 0,
+      ownNone: cs.display === 'none',
+      disabled: el.hasAttribute('disabled') || el.getAttribute('aria-disabled') === 'true',
+      roles: roles === null ? null : roles.split(/\s+/).filter(Boolean)
+    });
+  });
+  return out;
+}"""
+
+_ENTRY_STATE_JS = r"""() => ({
+  screen: (typeof state !== 'undefined' && state) ? state.protoScreenId : null,
+  role: typeof pbRole === 'function' ? pbRole() : null,
+  person: (typeof pbPersona === 'function' && pbPersona()) ? pbPersona().id : null,
+  seed: typeof pbSeed === 'function' ? pbSeed() : null,
+  entry: (typeof pbEntry === 'function' && pbEntry()) ? pbEntry().id : null,
+  empty: !document.getElementById('proto-frame') || !(document.getElementById('proto-frame').textContent || '').trim()
+})"""
+
+
+def _real_errors(errs):
+    """Console errors that are the page's own. The one message forgiven is the integrity refusal of the
+    Mermaid CDN script when a test stubs the CDN with an empty body (tests/e2e_smoke.py:
+    real_console_error) — the stub's doing. With the live CDN it never occurs."""
+    return [e for e in errs if not ("integrity" in e and "mermaid" in e)]
+
+
+def _cap_findings(findings, where_prefix, role_id, kind_findings):
+    """Append kind_findings to findings, at most _PERM_MAX_FINDINGS, and say how many were left out."""
+    findings.extend(kind_findings[:_PERM_MAX_FINDINGS])
+    extra = len(kind_findings) - _PERM_MAX_FINDINGS
+    if extra > 0:
+        findings.append(Finding(ERROR, "T-PERM", f"role {role_id!r} {where_prefix}",
+                                f"…and {extra} more mismatch(es) of the same kind not listed"))
+
+
+def _perm_probe_findings(page, reg, rid):
+    """pbCan against the matrix for one role (already active): every capability in the matrix, plus one
+    nothing names, at every level, with the level omitted and with an unknown one.
+    Returns (probe count, [Finding])."""
+    perms = (reg.get("meta") or {}).get("permissions") or {}
+    levels = [lv for lv in (perms.get("levels") or []) if isinstance(lv, str)]
+    caps = [c for c in _perm_capabilities(reg) if isinstance(c, str)] + [_UNNAMED_CAP]
+    got = _eval(page, _PERM_PROBE_JS, {"caps": caps, "levels": levels, "unknown": _UNKNOWN_LEVEL})
+    bad = []
+    for cap, lv, answer in got:
+        exp = _perm_expected(reg, rid, cap, lv)
+        if answer is not exp:
+            shown_cap = "(a capability no row names)" if cap == _UNNAMED_CAP else cap
+            shown_lv = "(omitted)" if lv is None else ("(unknown level)" if lv == _UNKNOWN_LEVEL else lv)
+            bad.append(Finding(ERROR, "T-PERM",
+                               f"role {rid!r} capability {shown_cap!r} level {shown_lv!r}",
+                               f"pbCan returned {answer!r}, the matrix says {exp!r} (expected {exp!r}, got {answer!r})"))
+    out = []
+    _cap_findings(out, "pbCan", rid, bad)
+    return len(got), out
+
+
+def _perm_control_findings(page, reg, rid, sid):
+    """Every [data-can] control on the screen as first rendered, against the matrix, for the active role.
+    not allowed + hide -> not visible · not allowed + disable -> disabled · allowed -> neither (what the
+    shell took leaves a data-pb-can mark; a hide that data-roles explains is not counted).
+    Returns (control count, [Finding])."""
+    meta = reg.get("meta") or {}
+    levels = [lv for lv in ((meta.get("permissions") or {}).get("levels") or []) if isinstance(lv, str)]
+    admin = any(isinstance(r, dict) and r.get("id") == rid and r.get("isAdmin") for r in (meta.get("roles") or []))
+    controls = _eval(page, _CAN_CONTROLS_JS)
+    bad = []
+    for c in controls:
+        cap, lv = _split_can(c["raw"], levels)
+        allowed = _perm_expected(reg, rid, cap, lv)
+        name = "%s[%s]" % (c["tag"], c["testid"] and "data-testid=" + c["testid"] or "data-can=" + c["raw"])
+        want = got = None
+        if not allowed and c["mode"] == "hide":
+            if not c["hidden"]:
+                want, got = "not visible", "visible"
+        elif not allowed:
+            if not c["disabled"]:
+                want, got = "disabled", "enabled"
+        else:
+            by_roles = bool(c["roles"]) and not admin and rid not in c["roles"]
+            if c["mark"] == "hid" or (c["mode"] == "hide" and c["ownNone"] and not by_roles):
+                want, got = "neither hidden nor disabled", "hidden"
+            elif c["mark"] == "off":
+                want, got = "neither hidden nor disabled", "disabled"
+        if want:
+            bad.append(Finding(ERROR, "T-PERM", f"role {rid!r} screen {sid!r} control {name}",
+                               f"data-can={c['raw']!r} ({c['mode']} mode): the matrix gives {rid!r} "
+                               f"{'access' if allowed else 'no access'} to {cap!r}"
+                               f"{' at ' + repr(lv) if lv else ''}, so the control should be {want}, "
+                               f"but it is {got} (expected {want}, got {got})"))
+    out = []
+    _cap_findings(out, f"screen {sid!r} controls", rid, bad)
+    return len(controls), out
+
+
+def _entry_state_findings(entry, state, reg, where, via):
+    """Compare the shell's state with what an entry declares. `via` names how it was opened."""
+    meta = reg.get("meta") or {}
+    out = []
+
+    def bad(msg):
+        out.append(Finding(ERROR, "T-ENTRY", where, msg))
+    if state.get("entry") != entry.get("id"):
+        bad(f"{via}: the active entry is {state.get('entry')!r}, expected {entry.get('id')!r}")
+    want_screen = entry.get("screen")
+    if state.get("screen") != want_screen:
+        scr = next((s for s in (reg.get("screens") or []) if isinstance(s, dict) and s.get("id") == want_screen), None)
+        role = entry.get("role")
+        why = ""
+        if scr is None:
+            why = f" — screen {want_screen!r} is not in the registry"
+        elif scr.get("roles") and role not in scr["roles"]:
+            admin = any(isinstance(r, dict) and r.get("id") == role and r.get("isAdmin") for r in (meta.get("roles") or []))
+            if not admin:
+                why = (f" — role {role!r} cannot see {want_screen!r}, so the shell fell back to the permitted "
+                       f"screen (lint R-ENTRY should have caught this)")
+        bad(f"{via}: opened on screen {state.get('screen')!r}, expected {want_screen!r}{why}")
+    if entry.get("role") and (meta.get("roles") or []) and state.get("role") != entry["role"]:
+        bad(f"{via}: role {state.get('role')!r} is active, expected {entry['role']!r}")
+    if entry.get("persona") and state.get("person") != entry["persona"]:
+        bad(f"{via}: person {state.get('person')!r} is active, expected {entry['persona']!r}")
+    if entry.get("seed") and state.get("seed") != entry["seed"]:
+        bad(f"{via}: seed {state.get('seed')!r} is active, expected {entry['seed']!r}")
+    if state.get("empty"):
+        bad(f"{via}: the screen rendered nothing")
+    return out
+
+
+def _entry_findings(page, cerr, browser, base_url, reg):
+    """Open every declared entry through pbApplyEntry on `page`, then load `?entry=<id>` fresh for the
+    default entry and one other. Returns ([Finding], the JSON block for the entries check)."""
+    import urllib.parse
+    entries, seen = [], set()
+    for e in (((reg.get("meta") or {}).get("demo") or {}).get("entries") or []):
+        if isinstance(e, dict) and e.get("id") is not None and e.get("id") not in seen:
+            seen.add(e["id"])                       # the shell keeps the first of a duplicate id
+            entries.append(e)
+    findings, applied, fresh = [], [], []
+    dflt = next((e for e in entries if e.get("default")), entries[0] if entries else None)
+
+    for e in entries:
+        where = f"entry {e['id']!r}"
+        # pbApplyEntry sets screen, role, person, seed and a clean history itself, so an entry opened after
+        # another (or after a broken one) starts from the same state as one opened first: no reset between.
+        try:
+            del cerr[:]
+            ok = _eval(page, "(id) => (typeof pbApplyEntry === 'function') ? pbApplyEntry(id) : null", e["id"])
+        except Exception as exc:                                    # noqa: BLE001 — a body that throws on this entry
+            findings.append(Finding(ERROR, "T-ENTRY", where,
+                                    "opening the entry threw: " + (str(exc).splitlines() or [type(exc).__name__])[0][:200]))
+            applied.append({"id": e["id"], "ok": False})
+            continue
+        page.wait_for_timeout(80)
+        if ok is not True:
+            findings.append(Finding(ERROR, "T-ENTRY", where,
+                                    "pbApplyEntry is missing in the shell" if ok is None
+                                    else "pbApplyEntry refused a declared entry (returned false)"))
+            applied.append({"id": e["id"], "ok": False})
+            continue
+        n0 = len(findings)
+        findings.extend(_entry_state_findings(e, _eval(page, _ENTRY_STATE_JS), reg, where, "opened by pbApplyEntry"))
+        errs = _real_errors(cerr)
+        if errs:
+            findings.append(Finding(ERROR, "T-ENTRY", where, f"console error(s) opening the entry: {errs[:3]}"))
+        applied.append({"id": e["id"], "ok": len(findings) == n0})
+
+    loads = []
+    if dflt is not None:
+        loads.append(dflt)
+        other = next((e for e in entries if e is not dflt), None)
+        if other is not None:
+            loads.append(other)
+    for e in loads:
+        where = f"entry {e['id']!r}"
+        # Not _prep_page: a page that will not load with THIS entry is a finding about the entry, not "cannot run".
+        page2, cerr2 = browser.new_page(), []
+        page2.on("console", lambda m, buf=cerr2: buf.append(m.text) if m.type == "error" else None)
+        page2.on("pageerror", lambda x, buf=cerr2: buf.append(str(x)))
+        try:
+            try:
+                page2.goto(base_url + "?entry=" + urllib.parse.quote(str(e["id"]), safe=""), wait_until="domcontentloaded")
+                page2.wait_for_selector("#proto-frame", timeout=10000)
+            except Exception as exc:                                # noqa: BLE001
+                findings.append(Finding(ERROR, "T-ENTRY", where,
+                                        "?entry= on a fresh load: the page did not load (%s); console error(s): %s"
+                                        % (_first_line(exc), _real_errors(cerr2)[:3])))
+                fresh.append({"id": e["id"], "default": e is dflt, "ok": False})
+                continue
+            page2.wait_for_timeout(120)
+            n0 = len(findings)
+            findings.extend(_entry_state_findings(e, _eval(page2, _ENTRY_STATE_JS), reg, where, "?entry= on a fresh load"))
+            errs = _real_errors(cerr2)
+            if errs:
+                findings.append(Finding(ERROR, "T-ENTRY", where, f"console error(s) loading ?entry=: {errs[:3]}"))
+            fresh.append({"id": e["id"], "default": e is dflt, "ok": len(findings) == n0})
+        finally:
+            page2.close()
+    return findings, {"entries": len(entries), "opened": applied, "freshLoads": fresh}
 
 
 def run_roles(reg_path, json_out, attach=None, isolated=False):
@@ -994,13 +1367,21 @@ def run_roles(reg_path, json_out, attach=None, isolated=False):
 def _roles(reg_path, sess):
     """--roles as a function: (exit code, the JSON this mode writes)."""
     reg = _load_json(reg_path)
-    roles = ((reg.get("meta") or {}).get("roles")) or []
-    if not roles:
+    meta = reg.get("meta") or {}
+    roles = meta.get("roles") or []
+    # The demo-model checks (v2.5) apply only to a project that declares the thing they check.
+    perms = meta.get("permissions")
+    has_perms = (isinstance(perms, dict) and isinstance(perms.get("matrix"), dict) and bool(roles)
+                 and isinstance(perms.get("levels"), list) and bool(perms.get("levels")))
+    has_entries = any(isinstance(e, dict) and e.get("id") is not None
+                      for e in ((meta.get("demo") or {}).get("entries") or []))
+    if not roles and not has_entries:
         return (_verdict([], "test_run.py --roles", f"no meta.roles — role gating not applicable — {reg_path}"),
                 {"mode": "roles", "note": "no meta.roles"})
 
     screens = reg.get("screens") or []
     findings, checked, ran = [], [], []
+    perm_stats, entry_block = None, None
     with sess as srv:
         browser, page, cerr = srv.open_page()
         if page.evaluate("() => typeof setProtoRole") != "function":
@@ -1008,11 +1389,33 @@ def _roles(reg_path, sess):
                 WARN, "T-ROLE-SEAM", "shell",
                 "setProtoRole seam not found — cannot verify role gating"))
         else:
+            can_seam = has_perms and page.evaluate("() => typeof pbCan") == "function"
+            if has_perms and not can_seam:
+                findings.append(Finding(WARN, "T-PERM", "shell",
+                                        "pbCan seam not found — cannot verify the permission matrix"))
+            if can_seam:
+                perm_stats = {"roles": len(roles), "capabilities": len(_perm_capabilities(reg)),
+                              "levels": len(perms["levels"]), "probes": 0, "controls": 0, "views": 0,
+                              "mismatches": 0, "ms": 0}
+            perm_secs = 0.0                  # time spent in the added checks only, not in the navigation they share
             for role in roles:
                 rid = role.get("id")
                 admin = bool(role.get("isAdmin"))
+                if can_seam:
+                    # the same start for every role: nothing the previous role did carries over
+                    page.evaluate("() => { if (typeof pbResetSandbox === 'function') pbResetSandbox(); }")
                 page.evaluate("(id) => setProtoRole(id)", rid)
                 page.wait_for_timeout(60)
+                if can_seam:
+                    t0 = time.perf_counter()
+                    try:
+                        n, pf = _perm_probe_findings(page, reg, rid)
+                        perm_stats["probes"] += n
+                        findings.extend(pf)
+                    except Exception as exc:                        # noqa: BLE001 — a pbCan that throws
+                        findings.append(Finding(ERROR, "T-PERM", f"role {rid!r} pbCan",
+                                                "pbCan could not be asked: " + (str(exc).splitlines() or [type(exc).__name__])[0][:200]))
+                    perm_secs += time.perf_counter() - t0
                 for s in screens:
                     if not isinstance(s, dict):
                         continue
@@ -1031,6 +1434,18 @@ def _roles(reg_path, sess):
                         findings.append(Finding(
                             ERROR, "T-ROLE-SCREEN", f"role {rid!r} screen {sid!r}",
                             "screen gated to other roles is reachable (leak)"))
+                    if shown and can_seam:
+                        t0 = time.perf_counter()
+                        try:
+                            n, cf = _perm_control_findings(page, reg, rid, sid)
+                            perm_stats["controls"] += n
+                            perm_stats["views"] += 1
+                            findings.extend(cf)
+                        except Exception as exc:                    # noqa: BLE001
+                            findings.append(Finding(ERROR, "T-PERM", f"role {rid!r} screen {sid!r}",
+                                                    "data-can controls could not be read: "
+                                                    + (str(exc).splitlines() or [type(exc).__name__])[0][:200]))
+                        perm_secs += time.perf_counter() - t0
                     if shown:
                         g = page.evaluate(_GATE_JS, {"rid": rid, "admin": admin})
                         if (not admin) and g["leaks"] > 0:
@@ -1050,22 +1465,55 @@ def _roles(reg_path, sess):
             # that. `present`/`absent` expects are what a scenario uses to assert it.
             for (story, sc, test) in _iter_test_scenarios(reg, None):
                 title = sc.get("text") or story.get("title") or "(scenario)"
-                want = [r for r in (test.get("roles") or []) if isinstance(r, str)] \
-                    or [r.get("id") for r in roles]
-                for rid in want:
-                    status, detail = _run_scenario(page, cerr, test, role_id=rid)
+                want = [r for r in (test.get("roles") or []) if isinstance(r, str)]
+                if not want:
+                    # A scenario that names its own start (an entry, a person) runs once, as that role;
+                    # once per role would set the role over the very thing it starts from.
+                    want = [None] if (test.get("entry") or test.get("persona")) else [r.get("id") for r in roles]
+                for want_rid in want:
+                    rid = want_rid if want_rid is not None else _demo_role_label(reg, test)
+                    status, detail = _run_scenario(page, cerr, test, role_id=want_rid)
                     ran.append({"scenario": title, "role": rid, "status": status})
                     if status == "fail":
                         findings.append(Finding(
                             ERROR, "T-ROLE-FUNC",
                             f"scenario {title!r} as role {rid!r}", detail))
+                    elif status == "blocked" and (test.get("entry") or test.get("persona")):
+                        findings.append(Finding(
+                            WARN, "T-ROLE-FUNC",
+                            f"scenario {title!r} as role {rid!r}", "blocked: " + detail))
+
+            if can_seam:
+                perm_stats["mismatches"] = sum(1 for f in findings if f.code == "T-PERM")
+                perm_stats["ms"] = int(perm_secs * 1000)
+            if has_entries:
+                t0 = time.perf_counter()
+                ent_findings, entry_block = _entry_findings(page, cerr, browser, srv.url, reg)
+                findings.extend(ent_findings)
+                entry_block["mismatches"] = len(ent_findings)
+                entry_block["ms"] = int((time.perf_counter() - t0) * 1000)
         browser.close()
+
+    # One summary line for each new check, printed only when it ran.
+    if perm_stats is not None:
+        print("permissions: %d role(s) x %d capability(ies) x %d level(s) = %d pbCan answer(s), "
+              "%d data-can control(s) on %d screen view(s) checked against the matrix — %d mismatch(es)"
+              % (perm_stats["roles"], perm_stats["capabilities"], perm_stats["levels"], perm_stats["probes"],
+                 perm_stats["controls"], perm_stats["views"], perm_stats["mismatches"]))
+    if entry_block is not None:
+        print("entries: %d entry(ies) opened, %d fresh ?entry= load(s) — %d mismatch(es)"
+              % (entry_block["entries"], len(entry_block["freshLoads"]), entry_block["mismatches"]))
 
     code = _verdict(findings, "test_run.py --roles",
                     f"role gating verified across {len(roles)} role(s); "
                     f"{len(ran)} scenario run(s) — {reg_path}")
-    return code, {"mode": "roles", "roles": len(roles), "checked": checked,
-                  "scenarios": ran, "findings": _findings_json(findings)}
+    payload = {"mode": "roles", "roles": len(roles), "checked": checked,
+               "scenarios": ran, "findings": _findings_json(findings)}
+    if perm_stats is not None:                      # additive: present only when the check ran
+        payload["permissions"] = perm_stats
+    if entry_block is not None:
+        payload["entries"] = entry_block
+    return code, payload
 
 
 def _check_health(url):

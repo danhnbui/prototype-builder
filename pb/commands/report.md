@@ -15,7 +15,7 @@ report is the one file written.
 
 > Why a tool and not a read-through: the logs this was built for run 3,000 to 10,000 lines, out of
 > date order, beside 40 backup folders. Counting that by eye is slow and comes out different each
-> time (DESIGN.md I-6 (c)). Interpreting the counts is not arithmetic, so that part stays here.
+> time. Interpreting the counts is not arithmetic, so that part stays here.
 
 ## 0 · Flags
 
@@ -47,7 +47,7 @@ It writes ten sections, always in this order, each one `(none)` when empty:
 | 3 Commands, flags, skills | every `/pb:*` and flag named in `memory/`, retired and unknown names, skills never assigned in `tasks.md`, degrade and gate notices, command chains | Which names or flags did people reach for that pb does not have? |
 | 4 Explore | rounds, options, scores, unscored cells, leftover `render/_candidates/`, decisions that name a rejection | Did exploring produce a pick, or another round? |
 | 5 Backups | `memory/backups/` count and size, the `pre-*` cadence | How often did a write feel risky enough to snapshot first? |
-| 6 Performance | render stages timed in process against DESIGN.md's budgets, registry size by key, `lint_registry.py --strict` counts | Is the loop still fast at this project's size? |
+| 6 Performance | render stages timed in process against pb's render budgets, registry size by key, `lint_registry.py --strict` counts | Is the loop still fast at this project's size? |
 | 7 Tests | runnable vs prose scenarios, last results, stale and undated verdicts | Are the verdicts evidence, or old? |
 | 8 Sessions | runs per command, typed vs invoked, run sequences, human turns between builds, compactions, interrupts, `touch registry.json` rituals, plugin tool runs | Which jobs took several commands, or a ritual? |
 | 9 Hygiene | candidate headers left after a promote, comment-dated layers in bodies | What does a promote or a long edit leave behind? |

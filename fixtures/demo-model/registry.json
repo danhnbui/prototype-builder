@@ -1,0 +1,473 @@
+{
+  "_about": "Demo-model fixture: three roles, a permission matrix, personas, two entry points and two data seeds over a small request flow. Synthetic. Drives tests/sandbox_demo_model.py and the R-ENTRY / R-PERM lint checks.",
+  "meta": {
+    "name": "Request desk (demo model)",
+    "schemaVersion": 9,
+    "entry": "prd",
+    "platform": "web",
+    "shell": "app",
+    "dsSource": null,
+    "outputTier": "host",
+    "exportTarget": null,
+    "device": "laptop",
+    "devices": [
+      "laptop"
+    ],
+    "responsive": false,
+    "roles": [
+      {
+        "id": "requester",
+        "name": "Requester"
+      },
+      {
+        "id": "reviewer",
+        "name": "Reviewer"
+      },
+      {
+        "id": "admin",
+        "name": "Admin",
+        "isAdmin": true
+      }
+    ],
+    "defaultRole": "requester",
+    "permissions": {
+      "levels": [
+        "none",
+        "view",
+        "request",
+        "approve",
+        "apply"
+      ],
+      "matrix": {
+        "requester": {
+          "request": "request",
+          "report": "none"
+        },
+        "reviewer": {
+          "request": "approve",
+          "report": "view"
+        }
+      }
+    },
+    "personas": [
+      {
+        "id": "requester-a",
+        "name": "Requester A",
+        "role": "requester",
+        "scope": {
+          "region": "north"
+        }
+      },
+      {
+        "id": "requester-b",
+        "name": "Requester B",
+        "role": "requester",
+        "scope": {
+          "region": "south"
+        }
+      },
+      {
+        "id": "reviewer-a",
+        "name": "Reviewer A",
+        "role": "reviewer",
+        "scope": {
+          "region": "north"
+        }
+      }
+    ],
+    "demo": {
+      "seeds": [
+        {
+          "id": "empty",
+          "name": "No requests"
+        },
+        {
+          "id": "two-open",
+          "name": "Two open requests"
+        }
+      ],
+      "entries": [
+        {
+          "id": "first-run",
+          "name": "First run, whole flow",
+          "screen": "welcome",
+          "role": "requester",
+          "persona": "requester-a",
+          "seed": "empty",
+          "default": true
+        },
+        {
+          "id": "review",
+          "name": "Review queue",
+          "screen": "requests",
+          "role": "reviewer",
+          "persona": "reviewer-a",
+          "seed": "two-open"
+        }
+      ]
+    },
+    "designSystem": {
+      "name": "demo",
+      "designLink": null,
+      "codeLibrary": null,
+      "linked": false
+    },
+    "overview": {
+      "objectives": "A small flow that exercises the Sandbox demo model.",
+      "principles": []
+    },
+    "userInsights": {
+      "quantitative": null,
+      "researchSummary": null,
+      "executiveSummary": null
+    }
+  },
+  "tokens": {
+    "brand": {
+      "$value": "#4f46e5",
+      "$type": "color"
+    },
+    "on-brand": {
+      "$value": "#ffffff",
+      "$type": "color"
+    },
+    "danger": {
+      "$value": "#dc2626",
+      "$type": "color"
+    },
+    "surface": {
+      "$value": "#ffffff",
+      "$type": "color"
+    },
+    "text-muted": {
+      "$value": "#5e6873",
+      "$type": "color"
+    },
+    "radius-small": {
+      "$value": "8px",
+      "$type": "dimension"
+    },
+    "radius-medium": {
+      "$value": "16px",
+      "$type": "dimension"
+    },
+    "border-width": {
+      "$value": "1px",
+      "$type": "dimension"
+    },
+    "space-1": {
+      "$value": "4px",
+      "$type": "dimension"
+    },
+    "space-2": {
+      "$value": "8px",
+      "$type": "dimension"
+    },
+    "space-3": {
+      "$value": "12px",
+      "$type": "dimension"
+    },
+    "space-4": {
+      "$value": "16px",
+      "$type": "dimension"
+    },
+    "space-5": {
+      "$value": "20px",
+      "$type": "dimension"
+    },
+    "space-6": {
+      "$value": "24px",
+      "$type": "dimension"
+    },
+    "space-8": {
+      "$value": "32px",
+      "$type": "dimension"
+    },
+    "size-control": {
+      "$value": "44px",
+      "$type": "dimension"
+    },
+    "size-field": {
+      "$value": "42px",
+      "$type": "dimension"
+    },
+    "text-sm": {
+      "$value": "14px",
+      "$type": "dimension"
+    },
+    "text-lg": {
+      "$value": "18px",
+      "$type": "dimension"
+    },
+    "text-xl": {
+      "$value": "22px",
+      "$type": "dimension"
+    },
+    "text-2xl": {
+      "$value": "26px",
+      "$type": "dimension"
+    },
+    "w-card": {
+      "$value": "360px",
+      "$type": "dimension"
+    }
+  },
+  "components": [
+    {
+      "id": "heading",
+      "name": "Heading",
+      "renderFn": "renderCmpHeading",
+      "scope": "global",
+      "level": "atom",
+      "properties": [
+        {
+          "id": "text",
+          "type": "string",
+          "default": "Heading"
+        },
+        {
+          "id": "level",
+          "type": "enum",
+          "default": "1",
+          "options": [
+            {
+              "label": "H1",
+              "value": "1"
+            },
+            {
+              "label": "H2",
+              "value": "2"
+            }
+          ]
+        }
+      ],
+      "anatomy": "A section or screen title.",
+      "spec": "Heading font; H1 is 2xl, H2 is lg.",
+      "code": {
+        "lang": "html",
+        "snippet": "<h1>Title</h1>"
+      },
+      "uiLogic": [],
+      "renderSrc": "render/components/heading.js"
+    },
+    {
+      "id": "demo-action",
+      "name": "Demo action",
+      "renderFn": "renderCmpDemoAction",
+      "renderSrc": "render/components/demo-action.js",
+      "scope": "local",
+      "level": "atom",
+      "properties": [
+        {
+          "id": "label",
+          "type": "string",
+          "default": ""
+        },
+        {
+          "id": "nav",
+          "type": "string",
+          "default": ""
+        },
+        {
+          "id": "ctx",
+          "type": "string",
+          "default": ""
+        },
+        {
+          "id": "can",
+          "type": "string",
+          "default": ""
+        },
+        {
+          "id": "canMode",
+          "type": "string",
+          "default": ""
+        },
+        {
+          "id": "back",
+          "type": "string",
+          "default": ""
+        },
+        {
+          "id": "roles",
+          "type": "string",
+          "default": ""
+        },
+        {
+          "id": "testId",
+          "type": "string",
+          "default": ""
+        }
+      ]
+    }
+  ],
+  "runtime": [],
+  "screens": [
+    {
+      "id": "welcome",
+      "name": "Welcome",
+      "renderFn": "renderScreenWelcome",
+      "renderSrc": "render/screens/welcome.js",
+      "level": "screen",
+      "layout": {
+        "type": "stack"
+      },
+      "elements": [
+        {
+          "id": "heading",
+          "label": "heading",
+          "orgId": "heading",
+          "tokens": [],
+          "state": "default",
+          "props": {}
+        },
+        {
+          "id": "demo-action",
+          "label": "demo-action",
+          "orgId": "demo-action",
+          "tokens": [],
+          "state": "default",
+          "props": {}
+        }
+      ]
+    },
+    {
+      "id": "requests",
+      "name": "Requests",
+      "renderFn": "renderScreenRequests",
+      "renderSrc": "render/screens/requests.js",
+      "level": "screen",
+      "layout": {
+        "type": "stack"
+      },
+      "elements": [
+        {
+          "id": "heading",
+          "label": "heading",
+          "orgId": "heading",
+          "tokens": [],
+          "state": "default",
+          "props": {}
+        },
+        {
+          "id": "demo-action",
+          "label": "demo-action",
+          "orgId": "demo-action",
+          "tokens": [],
+          "state": "default",
+          "props": {}
+        }
+      ]
+    },
+    {
+      "id": "detail",
+      "name": "Request detail",
+      "renderFn": "renderScreenDetail",
+      "renderSrc": "render/screens/detail.js",
+      "level": "screen",
+      "layout": {
+        "type": "stack"
+      },
+      "elements": [
+        {
+          "id": "heading",
+          "label": "heading",
+          "orgId": "heading",
+          "tokens": [],
+          "state": "default",
+          "props": {}
+        },
+        {
+          "id": "demo-action",
+          "label": "demo-action",
+          "orgId": "demo-action",
+          "tokens": [],
+          "state": "default",
+          "props": {}
+        }
+      ]
+    },
+    {
+      "id": "done",
+      "name": "Approved",
+      "renderFn": "renderScreenDone",
+      "renderSrc": "render/screens/done.js",
+      "level": "screen",
+      "layout": {
+        "type": "stack"
+      },
+      "elements": [
+        {
+          "id": "heading",
+          "label": "heading",
+          "orgId": "heading",
+          "tokens": [],
+          "state": "default",
+          "props": {}
+        },
+        {
+          "id": "demo-action",
+          "label": "demo-action",
+          "orgId": "demo-action",
+          "tokens": [],
+          "state": "default",
+          "props": {}
+        }
+      ]
+    }
+  ],
+  "flow": {
+    "populated": true,
+    "mermaid": "flowchart TD\n  welcome --> requests\n  requests --> detail\n  detail --> done\n  done --> requests",
+    "stories": [
+      {
+        "id": "review-flow",
+        "title": "A reviewer approves a request",
+        "scenarios": [
+          {
+            "id": "approve-from-queue",
+            "text": "Starting from the review queue, a reviewer opens R-1 and approves it",
+            "category": "happy",
+            "test": {
+              "entry": "review",
+              "steps": [
+                {
+                  "target": "[data-testid=row-R-1]",
+                  "do": "click"
+                },
+                {
+                  "target": "[data-testid=approve]",
+                  "do": "click"
+                }
+              ],
+              "expect": [
+                {
+                  "screen": "done"
+                }
+              ]
+            }
+          },
+          {
+            "id": "requester-cannot-approve",
+            "text": "A requester sees Approve disabled",
+            "category": "permission",
+            "test": {
+              "entry": "first-run",
+              "persona": "requester-b",
+              "start": "detail",
+              "steps": [],
+              "expect": [
+                {
+                  "no-console-error": true
+                }
+              ]
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "erd": {
+    "populated": false
+  }
+}

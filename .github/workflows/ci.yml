@@ -24,7 +24,7 @@ env:
   # Browser-only: each exits 2 (a clean skip) without Playwright. unit defers them; e2e runs them.
   BROWSER_ONLY: >-
     e2e_smoke test_inspect test_sandbox verbs_browser sandbox_shell
-    chrome_states handler_escape ia_view responsive spec_measure ui_primitives
+    chrome_states handler_escape ia_view responsive spec_measure ui_primitives sandbox_demo_model
   # A stdlib half that passes in unit with the browser half skipped; e2e runs them again, whole.
   BROWSER_HALF: >-
     chrome_foundation logic_blocks r5_ds_site tc_shapes tradeoff_rules test_run_reuse shot_tool

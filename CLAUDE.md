@@ -1,4 +1,4 @@
-# Product Builder v2.4.0 — router (read first)
+# Product Builder v2.5.0 — router (read first)
 
 Standalone, CLAUDE.md-native prototype builder. **No SpecKit** — no `extension.yml`,
 `preset.yml`, or `after_*` hooks. State lives in `registry.json`; commands are native
@@ -43,7 +43,7 @@ the playbook, [prototype-builder.md](prototype-builder.md) (authored in Phase 2)
   rows and nothing else; §11 reconciles every id back against the plan, cannot drop one, and cannot
   overturn a `no` (it dispatches a fresh agent and shows both). `--no-delegate` self-grades and says so.
   The reason: the context that authored a design reads its own intent and scores the intent.
-- **Roles** (all additive/optional): `meta.roles[]` + `meta.defaultRole` + `screens[].roles[]` + element `data-roles` gate the Prototype tab; the role switcher (Sandbox → Conditions) and **Reset** (the Sandbox footer, or R) stay available (kept visible to viewers even in a `--people` hand-off — only authoring controls hide); an `isAdmin` role bypasses gating.
+- **Roles** (all additive/optional): `meta.roles[]` + `meta.defaultRole` + `screens[].roles[]` + element `data-roles` gate the Prototype tab; the role switcher (Sandbox → Conditions) and **Reset** (the Sandbox footer, or R) stay available (kept visible to viewers even in a `--people` hand-off — only authoring controls hide); an `isAdmin` role bypasses gating. Optional `meta.permissions` (a capability matrix, read by `pbCan()` and `data-can`), `meta.personas` and `meta.demo` (entry points and data seeds) add Person and Data rows; **demo behaviour, not access control** — `pb/docs/canon.md` § *The demo model*.
 
 ## The operating rules live in the plugin canon (`pb/docs/canon.md`)
 
@@ -63,6 +63,7 @@ reach real projects. Edit them there, not here. One-line pointers:
   previews, `--allow-host`, `/pb:clean`; the NEVER rules) — `pb/docs/canon.md` § *pb bounds its own footprint*.
 - **Checking a change** (the five-level ladder: trust the reload, `lint_registry.py --exec`,
   `shot.py --no-png`, one look, a full look) — `pb/docs/canon.md` § *Checking a change*.
+- **Demo model** (roles, permissions, people, entry points, data seeds; `pbCan()`, `data-can`, Reset) — `pb/docs/canon.md` § *The demo model*.
 - **Schema compatibility** (the write-path check) — `pb/docs/canon.md` § *Schema compatibility*.
 
 Three hooks in `pb/hooks/` (`hooks.json`) put the key rules in front of the model in any pb project:
@@ -126,13 +127,13 @@ card that owns the CTA — no dead controls. (Replaces the old `meta-tag`/`meta-
   *Sandbox — the inspector.* A 20rem panel on the right, closed by default, opened by the bar's **hourglass** or by
   **S** (under exactly R's guards: never while typing, never with Cmd/Ctrl held, not on key-repeat). **Esc closes it
   unless it is pinned**; the **pin** docks it and **pushes the stage** aside (closing a pinned inspector unpins it).
-  Three flat sections: **Conditions** (device · chrome · Compare · Structure tree · role — the controls above) ·
+  Three flat sections: **Conditions** (start-from entry · device · chrome · Compare · Structure tree · role · person · data seed · project rows · a read-only *This role can* list — the controls above; rows with nothing to show aren't drawn) ·
   **Run** · **Explore**. **Run** is collapsible — **closed by default** — and grouped by story: each group and each scenario is a multi-open
   disclosure with a pass / fail / not-run tally, plus *Run all* and Collapse all. A scenario runs **in the page** — the
   stage moves to its start screen and each step ticks pass / fail / blocked in place. A scenario whose `test` is
   prose or a string is **listed but not runnable** (blocked: run `/pb:test`, the one place a verdict is recorded, and
   the only writer of `lastResult`). **Explore** is disabled, with its reason and `/pb:explore <id>`, until a round
-  is open. **Reset session** sits in the footer, last, after everything it resets.
+  is open. **Reset session** sits in the footer, last, after everything it resets; with entries declared it returns to the active entry (screen, role, person, seed), as declared rather than to a `?role=` override.
   *The bar.* The **project button** at the left (initials square + short name + chevron; initials only below 600px)
   opens a menu: **Project settings…** · theme · version. **Project settings** edits the project name, the
   **design-system name (required)**, the **Figma file (optional — a figma.com file/design link)** and the **theme**
@@ -152,7 +153,7 @@ card that owns the CTA — no dead controls. (Replaces the old `meta-tag`/`meta-
     **Clear** right after the last chip, "N of M") with Expand all / Collapse all. A card is a **visual stack** in a fixed
     order (lifecycle statechart, then Flow, Tables, Values, Effects blocks); a rule with none says *prose only* and names
     what it looks like (`logic_shape.py`). Rule text, Decision, Open questions, History, Tests and Sources sit behind one
-    **Details** button, which opens a right-side drawer. **One status rule** for row and card: "to resolve" counts assumptions.
+    **Details** button, which opens a right-side drawer. **One status rule** for row and card: "to resolve" counts assumptions. A project with `meta.permissions` also shows a **Permissions** table in the Rules view (and lands on Rules when it has a matrix and no rules).
   - **Information Architecture** — vertical: the site map on top, the job list under it, and **one filter bar**
     (search · Role · Priority · Screens · the quick chip *Not handled*) that filters the jobs and **dims** the
     non-matching map nodes together. Roles are `meta.roles` plus any a job cites (an undeclared one is marked).

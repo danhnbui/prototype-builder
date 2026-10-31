@@ -2,6 +2,45 @@
 
 All notable changes to Product Builder. Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [2.5.0] — 2026-10-31
+
+*Additive, no schema change. Projects with real role or flow needs kept hand-building the same layer, because
+the shell's state was private and a render body takes no arguments. The Sandbox can now demo a whole flow the
+way a real product works, and everything here is optional: a project declaring none of it behaves as before.*
+
+- **Entry points.** `meta.demo.entries` names where a demo starts, with its screen, role, person and data.
+  **Start from** in Sandbox → Conditions picks one, the default entry opens first, and Reset returns to it.
+  `?entry=<id>&role=<id>` opens a ready-to-demo state from a link.
+- **Permissions.** `meta.permissions` is a role-by-capability matrix with ordered levels. `pbCan(capability, level)`
+  answers it inside a body, `data-can` hides or disables a control, and UX Design → Logic shows the table.
+- **People and data.** `meta.personas` puts several people in one role, and `meta.demo.seeds` picks the data a
+  demo starts from. Sandbox gains **Person**, **Data** and a read-only **This role can**.
+- **A body can read the demo state.** `pbRole()`, `pbPersona()`, `pbSeed()`, `pbEntry()` and `pbCtx()`, with safe
+  defaults on the design-system site. `pb:rolechange`, `pb:personachange`, `pb:seedchange`, `pb:entrychange` and
+  `pb:reset` fire before the re-render, so the first frame after a switch is already right.
+- **Whole-flow navigation.** `data-ctx` beside `data-nav` carries what was tapped, so a detail screen shows it.
+  `data-back` is a real back that restores the subject, and `data-nav-reset` marks a screen you can't go back
+  through.
+- **`pbSandboxRow`** adds a project's own row to the Sandbox without rewiring its DOM.
+- **`/pb:test` checks it.** `--roles` compares every role and capability with the matrix, every `data-can` control
+  on every screen and every entry point (`T-PERM`, `T-ENTRY`). Scenarios can start from `test.entry` and
+  `test.persona`. Lint adds `R-ENTRY` and `R-PERM`.
+- **Authoring and hand-off.** `/pb:clarify` captures the matrix when a project has several roles, and `/pb:plan`
+  proposes entries and seeds. `rules.md` carries the table and says plainly that it is demo behaviour, not access
+  control.
+- **The rest of the repo-only citations are gone.** The demo model, rich text marks, responsive styles and the
+  Figma plugin patch now ship under `pb/docs/`, and `tests/skill_refs_lint.py` fails on any shipped citation of a
+  document that doesn't ship.
+
+### Upgrading
+
+No schema step and no registry change. **Permissions here are client-side demo behaviour, not access control:**
+`?role=admin` lets anyone see that role, so don't copy `pbCan` into a production build as a security check.
+Project modules that already handle roles, accounts, `data-ctx` or `data-nav-reset` keep working beside this; move
+to the built-ins at your own pace. A project running its own forked copy of the shell (`serve.py --shell ...`) gets
+none of the Sandbox rows until it re-bases on this shell. Names beginning `pb` belong to the tool, so a project
+module shouldn't define its own.
+
 ## [2.4.0] — 2026-10-31
 
 *Additive, no schema change. A field audit of real projects found the code sound and its rules out of

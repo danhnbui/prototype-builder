@@ -29,7 +29,7 @@ Capture — from the user, research, or stated assumptions:
 - `executiveSummary` — the one-paragraph takeaway.
 
 ### 1a · Emphasis marks — a long text needs a hierarchy
-The Project Summary renders its prose with `pbRichText` (`prototype-builder.md` → *Rich text*), so what you
+The Project Summary renders its prose with `pbRichText` (`${CLAUDE_PLUGIN_ROOT}/docs/canon.md` § *Rich text*), so what you
 write in `meta.userInsights.*` and `meta.overview.objectives` (and a principle's `body`) can carry marks.
 Numbers are already bolded for you (`11,042`, `38%`, `12 ha`); add the marks a reader would underline:
 
@@ -85,6 +85,13 @@ serves, any job still at feature or goal altitude, and the open questions. Ask f
   reads the jobs from the registry. Note the approval for §4's entry.
 - **Edit** → apply, re-present, ask again. An edit re-opens the gate.
 - **Reject** → back to §1b. Nothing is written.
+
+## 1b2 · Permissions and people (more than one role)
+With one role in `meta.roles`, skip this. Otherwise, once the jobs are approved, ask a few at a time:
+which **capabilities** differ between roles (the verbs the jobs name: submit, approve, export), the
+**levels** from none upward, and each role's row. Then name one or two **people** worth demoing per role.
+On the user's confirmation write `meta.permissions` and `meta.personas` (shape and rules:
+`canon.md` § *The demo model*). It is demo behaviour, not access control. No gate of its own.
 
 ## 1c · Information Architecture — N groupings of the approved jobs
 Skipped by `--skip-ia`. With an IA already promoted (`ia.layers[]` set), first ask: **re-group or

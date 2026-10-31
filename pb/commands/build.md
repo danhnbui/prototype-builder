@@ -212,7 +212,7 @@ into just that entry and rewrites the file, so no other slice enters context. Ch
   `c-<id>` (component) or `s-<id>` (screen) on its root element, the sheet styles that class with
   `@container pb-screen (min-width: …)` — **never `@media`**, which answers the browser window, not the
   device frame. Anything that changes across sizes goes in the sheet, never inline (an inline
-  declaration beats the container rule). Tokens only. Contract: `prototype-builder.md` → *Responsive styles*.
+  declaration beats the container rule). Tokens only. Contract: `${CLAUDE_PLUGIN_ROOT}/docs/canon.md` § *Responsive styles*.
 
 **Do not touch `prototype.html`. Do not re-render.** State what slice changed and stop (unless `--render`).
 
@@ -235,6 +235,9 @@ attributes in screen/component `render` bodies; the shell's runtime handles them
   everything is back. Narrow it with `data-preserve="value scroll"`, and give it a stable `id` or
   `data-preserve-key` so it can be found again. **Do not pass a list of element ids to a re-render
   helper** — the element declares itself, which is what keeps it in step with the markup.
+- Roles and state: `data-can="<capability>[:<level>]"` gates by capability, `data-ctx` beside `data-nav`
+  carries the subject (`pbCtx()`), `data-back` and `data-nav-reset` handle back, and `pbSandboxRow` adds a
+  Sandbox control — don't rewire the DOM or write a role module (`canon.md` § *The demo model*).
 
 Two more rules:
 - **Interactive components MUST declare a `state` property** (`properties[]` entry `id:'state'`, options

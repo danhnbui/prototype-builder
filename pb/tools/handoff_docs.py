@@ -434,6 +434,53 @@ def _rule_md(r):
     return out
 
 
+def _demo_model_md(reg):
+    """Permissions (prototype), personas and entry points, when meta declares them. Nothing at all
+    otherwise, so a project without them renders byte-for-byte as before."""
+    meta = reg.get("meta") or {}
+    perm = meta.get("permissions") if isinstance(meta.get("permissions"), dict) else None
+    personas = [x for x in (meta.get("personas") or []) if isinstance(x, dict)]
+    demo = meta.get("demo") if isinstance(meta.get("demo"), dict) else {}
+    entries = [x for x in (demo.get("entries") or []) if isinstance(x, dict)]
+    out = []
+    matrix = (perm or {}).get("matrix")
+    if isinstance(matrix, dict) and matrix:
+        levels = [str(x) for x in (perm.get("levels") or [])]
+        first = levels[0] if levels else "none"
+        declared = [r.get("id") for r in (meta.get("roles") or []) if isinstance(r, dict) and r.get("id")]
+        roles = [r for r in declared if r in matrix] + sorted(r for r in matrix if r not in declared)
+        caps = []
+        for r in roles:
+            row = matrix[r] if isinstance(matrix[r], dict) else {}
+            caps += [c for c in row if c not in caps]
+        out.append(_h(2, "Permissions (prototype)"))
+        out.append("This matrix describes the prototype's demo behaviour. It runs in the browser and is "
+                   "not access control; implement permissions on the server.")
+        if levels:
+            out.append("")
+            out.append("Levels, lowest to highest: %s." % _join(levels))
+        rows = []
+        for c in caps:
+            cells = []
+            for r in roles:
+                row = matrix[r] if isinstance(matrix[r], dict) else {}
+                cells.append(_code(row.get(c) or first))
+            rows.append([_code(c)] + cells)
+        out += _table(["Capability"] + roles, rows)
+    if personas:
+        out.append(_h(2, "People in the demo (%d)" % len(personas)))
+        out += _table(["Person", "Name", "Role"],
+                      [[_code(x.get("id")), _esc(x.get("name")), _code(x.get("role"))]
+                       for x in personas])
+    if entries:
+        out.append(_h(2, "Demo entry points (%d)" % len(entries)))
+        out += _table(["Entry", "Name", "Screen", "Role", "Person", "Data"],
+                      [[_code(x.get("id")), _esc(x.get("name")), _code(x.get("screen")),
+                        _code(x.get("role")), _code(x.get("persona")), _code(x.get("seed"))]
+                       for x in entries])
+    return out
+
+
 def build_rules_md(reg, graph, has_constitution=False):
     """What the product declares about itself — authored, never derived."""
     name = (reg.get("meta") or {}).get("name") or "(unnamed project)"
@@ -482,6 +529,8 @@ def build_rules_md(reg, graph, has_constitution=False):
                                                  _esc(lyr.get("purpose") or lyr.get("kind") or "")))
             else:
                 out.append("| %s | — |" % _esc(lyr))
+
+    out += _demo_model_md(reg)
 
     out.append(_h(2, "The locks"))
     out.append("The Stack Lock and Design System Lock — the two constraints every change is "

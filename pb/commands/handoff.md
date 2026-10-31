@@ -198,7 +198,7 @@ tell them: `cd handoff-dev/scaffold && npm install && npm run dev`.
 ### 2.3 · `--tier=hardened` — ⛔ NOT AVAILABLE
 Idiomatic per-component JSX, MCP-resolved against the real DS, repo-matched, reviewed. **Deferred** — it
 needs a resolved **G-B** decision (does the target repo adopt AntD or stay Tailwind-only), the
-`pb-full-picture.md` export contracts, and the DS MCP resolution path. **STOP** and say so; offer
+export contracts for this tier, which aren't written yet, and the DS MCP resolution path. **STOP** and say so; offer
 `scaffold`. Do **not** fake an idiomatic export.
 
 ---

@@ -43,7 +43,9 @@ If nothing resolves, the step **fails** with a clear "target not found" detail �
   toasts, history) never leaks between tests. Then set `state.protoScreenId = test.start`.
 - **Roles (`--roles`).** Run each scenario once per `meta.roles`: `setProtoRole(id)`, then assert role-gated
   screens (`screens[].roles`) and elements (`data-roles`) are visible only to permitted roles — a role with
-  `isAdmin:true` bypasses all gating. A screen the active role can't see must not be reachable.
+  `isAdmin:true` bypasses all gating. A screen the active role can't see must not be reachable. With `meta.permissions` or `meta.demo.entries`
+  it also runs `T-PERM` (every role × capability through `pbCan`, every `data-can` control) and `T-ENTRY`
+  (every entry opens with no console error); scenarios may set `test.entry` and `test.persona`.
 - **Security (`--security`).** A static scan of the registry + render bodies (secrets, `</script>`
   page-killers, unescaped injection, external network calls) — a finding is an error, not a warning.
 

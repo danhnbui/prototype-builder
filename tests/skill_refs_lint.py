@@ -17,8 +17,9 @@ Portability guard (refit plan T4.4), widened in v2.1.0 after users found `think-
       retired name in a doc is allowed only where the line says it is retired.
   S4  (WARN) a skill description's "loaded by /pb:X" names a command that does not load it —
       directly, or through an agent that wraps that command.
-  S5  nothing under pb/commands, pb/agents, pb/skills cites CLAUDE.md or AGENTS.md (they do not
-      ship; the canon is pb/docs/canon.md) except handoff.md's recipient-file lines, and every
+  S5  nothing under pb/commands, pb/agents, pb/skills cites a repo-only document (CLAUDE.md,
+      AGENTS.md, DESIGN.md, prototype-builder.md, docs/*: they do not ship; the canon is
+      pb/docs/canon.md) except handoff.md's recipient-file lines, and every
       `canon.md` § *<name>* citation resolves to a real heading in pb/docs/canon.md.
 
 Usage:  python3 tests/skill_refs_lint.py
@@ -169,7 +170,8 @@ def check_s4(warnings):
 CANON = os.path.join(ROOT, "pb", "docs", "canon.md")
 # What a shipped file may say about a repo-only document: nothing. The one exception is
 # handoff.md, whose AGENTS.md is the file /pb:handoff writes for the RECIPIENT (handoff/AGENTS.md).
-REPO_ONLY = re.compile(r"CLAUDE\.md|AGENTS\.md")
+REPO_ONLY = re.compile(r"CLAUDE\.md|AGENTS\.md|DESIGN\.md|prototype-builder\.md|pb-full-picture\.md"
+                       r"|(?<!\}/)\bdocs/[\w.-]+\.md")
 RECIPIENT_FILES = {"handoff.md": re.compile(r"AGENTS\.md")}
 CANON_CITE = re.compile(r"canon\.md`\s*§\s*\*([^*]+)\*")
 
@@ -203,7 +205,7 @@ def check_s5(errors):
         exempt = RECIPIENT_FILES.get(os.path.basename(path)) if "commands" in path else None
         for n, line in enumerate(read(path).splitlines(), 1):
             if REPO_ONLY.search(line) and not (exempt and exempt.search(line) and "CLAUDE.md" not in line):
-                errors.append(f"S5 {rel}:{n} → cites CLAUDE.md/AGENTS.md, which does not ship with the "
+                errors.append(f"S5 {rel}:{n} → cites a repo-only document, which does not ship with the "
                               f"plugin; cite `${{CLAUDE_PLUGIN_ROOT}}/docs/canon.md` § *<section>*")
             for name in CANON_CITE.findall(line):
                 cites += 1

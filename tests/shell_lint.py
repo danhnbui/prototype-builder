@@ -105,6 +105,44 @@ def sri_checks():
           is not None, "Mermaid is pinned to an exact version with a sha384 integrity")
 
 
+# What real projects call or read (AGENTS.md section 2; prototype-builder.md -> Demo model -> "What must not
+# change"). A project's own module wraps some of these by assigning window.setProtoRole = ... after load, so a
+# name that stops being a window property, or whose signature changes, breaks a project that never opted in to
+# anything. Static on purpose: tests/sandbox_demo_model.py proves the behaviour; this proves the names survive
+# a refactor that no browser test happens to touch.
+PINNED_FUNCTIONS = ("renderPrototype", "setProtoScreen", "setProtoRole", "pbResetSandbox", "pbSetStep", "pbPreserve",
+                    "pbResolveDefaultRole", "pbApplyRoleGating", "pbNavAllowed", "pbProtoSubmit")
+PINNED_WINDOW = ("setProtoRole", "pbResetSandbox")       # assigned and re-assigned on window by project modules
+PINNED_STATE = ("protoScreenId", "activeRole", "protoHistory", "metaView")
+PINNED_HOOKS = ("proto-frame", "proto-screen", "proto-pair")
+
+
+def pinned_checks(shell, runtime):
+    """The shared runtime is injected into the shell, so a name may be defined in either file."""
+    both = shell + "\n" + runtime
+    for name in PINNED_FUNCTIONS:
+        defined = re.search(r"\bfunction\s+%s\s*\(|\b(?:window\.)?%s\s*=\s*(?:async\s+)?(?:function|\()" % (name, name), both)
+        check(defined is not None, "must-not-break: %s() is still defined" % name)
+    for name in PINNED_WINDOW:
+        check(re.search(r"\bwindow\.%s\s*=" % name, shell) is not None, "must-not-break: %s is still assigned on window" % name)
+    check(re.search(r"function\s+setProtoScreen\s*\(\s*id\s*,\s*fromBack\s*\)", shell) is not None,
+          "must-not-break: setProtoScreen keeps its (id, fromBack) signature")
+    check(re.search(r"\bwindow\.pbScenarioSwitch\b", shell) is not None,
+          "must-not-break: the shell still calls window.pbScenarioSwitch (a project defines it; the Run and a seed change use it)")
+    check(re.search(r"\bconst\s+PB_REGISTRY\s*=", shell) is not None and re.search(r"\bconst\s+PB_DATA\s*=", shell) is not None,
+          "must-not-break: PB_REGISTRY and PB_DATA are still declared")
+    state_lit = re.search(r"\bconst\s+state\s*=\s*\{(.*?)\n    \};", shell, re.S)
+    check(state_lit is not None, "must-not-break: the state object is still declared")
+    for field in PINNED_STATE:
+        check(state_lit is not None and re.search(r"(?m)^\s+%s\s*:" % field, state_lit.group(1)) is not None
+              or re.search(r"\bstate\.%s\b" % field, shell) is not None, "must-not-break: state.%s is still there" % field)
+    check(state_lit is not None and re.search(r"(?m)^\s+protoHistory\s*:\s*\[\]", state_lit.group(1)) is not None,
+          "must-not-break: state.protoHistory is still a plain array (of screen ids)")
+    for hook in PINNED_HOOKS:
+        check(re.search(r"class=\"[^\"]*\b%s\b" % hook, shell) is not None or ("'" + hook + "'") in shell or ('"' + hook + '"') in shell
+              or re.search(r"id=\"%s\"" % hook, shell) is not None, "must-not-break: the .%s hook is still emitted" % hook)
+
+
 def main():
     src = open(SHELL, encoding="utf-8").read()
 
@@ -127,6 +165,8 @@ def main():
     # T3.4 — no v0.4 'cp template.html' authoring instruction
     check("cp template.html" not in src,
           "no v0.4 'cp template.html' instruction in the header")
+
+    pinned_checks(src, open(os.path.join(TPL, "runtime.js"), encoding="utf-8").read())
 
     sri_checks()
 

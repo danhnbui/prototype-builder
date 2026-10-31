@@ -151,6 +151,19 @@ device frames are `<div>`s in one document, so even a real `@media` rule answere
 - **Looked at.** `think-layout` §5 screenshots every listed size; the expanded frame must not be the
   compact layout stretched.
 
+### Responsive styles
+
+An inline `style=""` cannot hold a breakpoint, so a component or screen that changes across device sizes
+carries an optional `styleSrc` → `render/styles/<id>.css`. `render.py` emits `template/product.css` (the
+size-class utilities) and then every sheet, components before screens, into one
+`<style id="pb-product-css">` in both sites and in the React scaffold. A sheet styles its own root class,
+`.c-<id>` for a component and `.s-<id>` for a screen, and uses **`@container pb-screen (min-width: …)`,
+never `@media`**: the device frames are `<div>`s in one document, so `@media` answers the browser window,
+not the frame. Utilities: `r-compact` · `r-medium-up` · `r-expanded-up` · `r-below-expanded` (show only in
+that range) and `r-cols` (1 → 2 → 3 columns). Anything that changes across sizes lives in the sheet, not
+inline: an inline declaration beats the container rule. Lint: `R-STYLESRC` · `R-STYLE-MEDIA` ·
+`R-STYLE-SCOPE` · `R-HEX`/`R-PX` · `R-RESPONSIVE` (see `meta.responsive`).
+
 `/pb:init`, `/pb:build`, `think-layout` and `design-component-build` reference this section rather
 than re-stating it.
 
@@ -264,3 +277,138 @@ this check before patching `registry.json`:
 
 Write-path commands reference this section rather than re-stating it.
 Read-only commands (`/pb:test --drift`, `/pb:preview`) and exits do **not** carry this check.
+
+## Rich text
+
+Prose a person reads on a page (the Project Summary's `meta.overview.objectives`, principle bodies and
+`meta.userInsights.*`, an IA job's `gap` note, a component's design notes in `purpose`) is rendered by
+`pbRichText(str)` in `runtime.js` (both shells). It **escapes first**, then reads a small set of marks, so an
+author (or `/pb:clarify`) can give a long text a hierarchy without markup of their own:
+
+| Mark | Renders as |
+|---|---|
+| `**bold**` | strong |
+| `*em*` or `_em_` | emphasis |
+| `==the one thing to remember==` | a highlight (`.pb-hl`) |
+| `{+an improvement+}` | positive, in the pass colour (`.pb-pos`) |
+| `{-a problem or risk-}` | negative, in the fail colour (`.pb-neg`) |
+| `` `code` `` | code, and opaque to every other mark |
+| a line starting `·` `•` `▪` `- ` `– ` or `* ` | a bullet list |
+| a line starting `1.` or `1)` | a numbered list (a different start number is kept) |
+| a blank line / a single newline | a paragraph / a line break |
+| a number with `%`, a currency or a unit, or a grouped number (`11,042`) | **bold**, automatically (`.pb-num`; `numbers:false` turns it off) |
+
+An unbalanced mark stays literal; `{inline:true}` returns the marks only, with no blocks. The colours are the
+tool's `--pb-pass` / `--pb-fail` tokens, so they follow the theme. The marks are authored, never inferred: the
+writer agents add them under the limits in `/pb:clarify`.
+
+## The demo model
+
+Roles, permissions, people, entry points and data seeds for a prototype. All of it is optional: a project
+that declares none behaves as before, and a project's own role or account module keeps working beside it.
+**It is demo behaviour, not access control.** It runs in the browser, and `?role=admin` shows anyone that
+role. A hand-off says so, and the real permissions belong on the server.
+
+### Registry (`meta`, additive, no schema change)
+
+```json
+"permissions": {
+  "levels": ["none", "view", "request", "approve", "apply"],
+  "matrix": { "<role id>": { "<capability>": "<level>" } }
+},
+"personas": [ { "id": "reviewer-a", "name": "Reviewer A", "role": "<role id>", "scope": { } } ],
+"demo": {
+  "seeds": [ "empty", { "id": "two-open", "name": "Two open requests" } ],
+  "entries": [
+    { "id": "first-run", "name": "First run, whole flow", "screen": "<screen id>",
+      "role": "<role id>", "persona": "<persona id>", "seed": "<seed id>", "default": true, "note": "" }
+  ]
+}
+```
+
+- `levels` runs lowest to highest; the first means no access. A capability a role's row doesn't name, or a
+  level the matrix doesn't declare, counts as the first level. `scope` is plain data for the project's own
+  rules; pb never reads it.
+- In an entry only `id`, `name` and `screen` are required. At most one entry has `default: true`; with
+  entries but no default, the first entry is the default.
+- A persona with no `role` fits any role.
+
+### What a body or a project module can read (`window`)
+
+| Call | Returns | With nothing declared, or on the design-system site |
+|---|---|---|
+| `pbRole()` | the active role id | `null` |
+| `pbPersona()` | the active persona object | `null` |
+| `pbCan(capability, minLevel)` | `true` when the active role's level is at least `minLevel`; omitted means the lowest level above the first | `true` |
+| `pbSeed()` | the active seed id | `null` |
+| `pbEntry()` | the active entry object | `null` |
+| `pbCtx()` | the `data-ctx` of the click that opened this screen | `null` |
+| `pbBack()` | goes back; a no-op with no history | no-op |
+| `pbApplyEntry(id)` · `pbSetPersona(id)` · `pbSetSeed(id)` | set it; each returns `true` or `false` | `false` |
+| `pbSandboxRow({id, label, options, get, set})` | adds a select row to Sandbox → Conditions; callable while a runtime module loads; `options` is `[{value, label}]` or a function returning it; `set(value)` is followed by a repaint; a row with the same id replaces the earlier one | no-op |
+
+`pbCan` is `true` for an `isAdmin` role before any other check (an unknown `minLevel` included) and when
+`meta.roles` is absent. Otherwise an unknown `minLevel` is `false`, and `pbCan('x', '<first level>')` is
+`true` for everyone. Names beginning `pb` are the tool's; a project module shouldn't define its own.
+A body reads these; it doesn't write its own role module.
+
+Setting a person from another role (`pbSetPersona(id)`, `?persona=`) switches to that person's role, and
+when `?role=` and `?persona=` disagree the persona wins.
+
+**Events** fire on `window` **before** the re-render, so a body sees the new value on the first frame, and
+only on a real change: `pb:rolechange` `{role}` and `pb:seedchange` `{seed}` carry ids; `pb:personachange`
+`{persona}` and `pb:entrychange` `{entry}` carry the objects the getters return. `pb:reset` always fires,
+with `{entry: null}` when no entries are declared.
+
+### Markup
+
+- **`data-can="<capability>[:<level>]"`** gates a control by capability, with `data-can-mode="hide"`
+  (default) or `"disable"`, which also sets `disabled`, `aria-disabled` and a `title` naming what's missing.
+  It re-evaluates on every render, in every Compare frame. The value splits only when the tail is a declared
+  level. `data-roles` keeps its meaning and can sit beside it.
+- **`data-ctx="<subject>"`** on the `data-nav` element says what was tapped (it is read nowhere else). Going
+  back restores the subject of the screen you return to; a `data-nav` without `data-ctx` clears it.
+- **`data-back`** is a real back. `data-back="<screen id>"` names where to go when there is no history.
+- **`data-nav-reset`** on a screen's root empties the history as that screen is left, by any departure
+  including back: you can't go back through it. The first screen after it falls through to its own
+  `data-back` value.
+
+### Sandbox → Conditions
+
+In order: **Start from** (entries) · Device · Chrome · Compare · Structure tree · Role · **Person** (only
+that role's personas) · **Data** (seeds) · project rows from `pbSandboxRow` · **This role can** (read-only,
+capability and level). A row with nothing to show isn't drawn. In Logic, the Permissions table shows in the
+Rules view, and a project with a matrix and no rules lands on Rules.
+
+- **Start:** `?entry=` wins, then the default entry, then the older rule (`screens[0]`,
+  `meta.defaultRole`). `?role=` and `?persona=` apply on top, and `?role=` works with no demo model
+  declared. An unknown value is ignored with a console warning, never an error.
+- **Seeds:** an entry with no seed gets the first declared seed. With seeds but no entries, Reset goes back
+  to the first seed. Applying an entry and Reset always call `pbScenarioSwitch(seed)`, so a project can
+  re-seed.
+- **Picking an entry** applies its screen, role, person and seed, and clears history and subject.
+- **Reset** (the button or R) returns to the entry as declared, not to a `?role=` override. With no entries
+  it behaves exactly as before.
+- **Changing role** keeps the person if they belong to the new role, otherwise picks that role's first
+  person, or none. An entry whose role can't see its screen falls through to the permitted-screen rule.
+
+### Checks
+
+- `lint_registry.py`: **`R-ENTRY`** (unknown screen, role, persona or seed; more than one default; an entry
+  role the screen doesn't allow; duplicate ids) and **`R-PERM`** (a matrix naming an undeclared role or
+  level; a persona naming an undeclared role; a `data-can` or `pbCan()` capability no matrix row names).
+  WARN, ERROR under `--strict`.
+- `/pb:test` roles lane (`test_run.py --roles`): **`T-PERM`** (every role × capability against the matrix
+  through `pbCan`, every `data-can` control on every screen) and **`T-ENTRY`** (every entry opened with no
+  console error). Scenarios may carry `test.entry` and `test.persona`, applied before `test.start`.
+
+### What must not change
+
+Real project modules call these, so they keep their names and meaning: `renderPrototype`,
+`setProtoScreen(id, fromBack)`, `setProtoRole`, `pbResetSandbox`, `pbSetStep`, `pbPreserve`,
+`pbResolveDefaultRole`, `pbApplyRoleGating`, `pbNavAllowed`, `pbProtoSubmit`, `pbScenarioSwitch`, `PB_DATA`,
+`PB_REGISTRY`, `state.protoScreenId`, `state.activeRole`, `state.protoHistory` (an array of screen ids),
+`state.metaView`, and the `proto-frame`, `proto-screen`, `proto-pair` hooks.
+
+Data scope rules and approval routing stay project logic; personas carry `scope` so those rules have what
+they need.

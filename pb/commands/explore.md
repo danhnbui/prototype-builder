@@ -293,7 +293,7 @@ Dispatch the plan in dependency waves. `/pb:orchestrate` already gates each wave
 
 ## B8 · Update the documents
 **Only now.** `ia.rules` (logic rules) · `memory/prd.md` · `memory/spec.md` · `logic/**` contracts · an
-entry in `memory/decisions.md` recording both gate approvals · `DESIGN.md` when an invariant moved.
+entry in `memory/decisions.md` recording both gate approvals · the project's design-invariants file, if it has one, when an invariant moved.
 
 ## NEVER
 - NEVER hand-write a Playwright script to look at an option — `shot.py` does it, through the browser

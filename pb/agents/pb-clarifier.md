@@ -27,8 +27,8 @@ late job's `screens[]` patch.
 
 ## Emphasis marks and blocks (what makes its prose scannable)
 The Project Summary renders through `pbRichText`, and the Logic tab draws a rule's `blocks[]` — so the writer
-does the last step of making them readable (`/pb:clarify` §1a and §2b; the marks are in `prototype-builder.md`
-→ *Rich text*):
+does the last step of making them readable (`/pb:clarify` §1a and §2b; the marks are in `${CLAUDE_PLUGIN_ROOT}/docs/canon.md`
+§ *Rich text*):
 - **Marks.** In `meta.userInsights.*` and `meta.overview.objectives` wrap the words a reader would underline:
   `**key claim**` (≤ about one per sentence), `==the one thing to remember==` (**at most once per field**),
   `{-a problem-}` and `{+an improvement+}`. **Never change the wording** — a mark wraps what is already there.

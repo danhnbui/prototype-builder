@@ -111,6 +111,42 @@ print("6 · a pipe in authored prose cannot break a table")
 check(HD._esc("a | b") == "a \\| b", "pipes are escaped")
 check("\n" not in HD._esc("a\nb"), "newlines are flattened")
 
+print("7 · the demo model: documented when declared, byte-identical when not")
+SENT = ("This matrix describes the prototype's demo behaviour. It runs in the browser and is not "
+        "access control; implement permissions on the server.")
+check("Permissions (prototype)" not in rules and SENT not in rules and "demo" not in rules.lower().replace("demo behaviour", ""),
+      "no meta.permissions: nothing about it in rules.md")
+d2 = tempfile.mkdtemp(prefix="pb-handoff-docs-perm-")
+reg2 = fixture(d2)
+reg2["meta"]["roles"] = [{"id": "approver", "name": "Approver"}, {"id": "requester", "name": "Requester"}]
+reg2["meta"]["permissions"] = {"levels": ["none", "view", "approve"],
+                               "matrix": {"requester": {"request": "view"},
+                                          "approver": {"request": "view", "decision": "approve"}}}
+reg2["meta"]["personas"] = [{"id": "ana", "name": "Ana", "role": "approver"}]
+reg2["meta"]["demo"] = {"seeds": ["empty"], "entries": [{"id": "start", "name": "Start", "screen": "home",
+                                                          "role": "requester", "seed": "empty"}]}
+with open(os.path.join(d2, "registry.json"), "w", encoding="utf-8") as f:
+    json.dump(reg2, f, indent=2, ensure_ascii=False)
+oa, ob = os.path.join(d2, "oa"), os.path.join(d2, "ob")
+HD.write_docs(d2, oa)
+HD.write_docs(d2, ob)
+rp = open(os.path.join(oa, "rules.md"), encoding="utf-8").read()
+check(SENT in rp, "meta.permissions: the not-access-control sentence appears in rules.md")
+check("| Capability | approver | requester |" in rp and "| `decision` | `approve` | `none` |" in rp,
+      "the matrix renders in declared role order, an unnamed capability at the first level")
+check("People in the demo (1)" in rp and "Demo entry points (1)" in rp, "personas and entries are listed")
+check(open(os.path.join(oa, "rules.md"), "rb").read() == open(os.path.join(ob, "rules.md"), "rb").read(),
+      "and the output is still byte-identical across runs")
+# same project with the three fields removed == the original fixture's rules.md
+for k in ("permissions", "personas", "demo"):
+    reg2["meta"].pop(k)
+with open(os.path.join(d2, "registry.json"), "w", encoding="utf-8") as f:
+    json.dump(reg2, f, indent=2, ensure_ascii=False)
+oc = os.path.join(d2, "oc")
+HD.write_docs(d2, oc)
+check(open(os.path.join(oc, "rules.md"), encoding="utf-8").read() == rules,
+      "absent fields: rules.md is byte-identical to a project that never had them")
+
 print()
 if fails:
     print("FAIL — %d regression(s)" % len(fails))
