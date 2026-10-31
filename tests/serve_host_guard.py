@@ -190,8 +190,13 @@ def main():
     for path in ("/api/meta", "/__pb_explore/x/scores", "/nowhere"):
         st, h, body = a.req("POST", path, host="evil.example",
                             headers={"Origin": "http://evil.example", "Content-Type": "application/json"}, body='{"a":1}')
-        check(st == 403 and "--allow-host" in body and h.get("connection", "").lower() == "close",
-              "POST %s with a foreign Host → 403 naming the flag, and the connection is closed (%s)" % (path, st))
+        try:
+            said = json.loads(body)
+        except ValueError:
+            said = {}
+        check(st == 403 and said.get("ok") is False and "--allow-host evil.example" in said.get("error", "")
+              and h.get("connection", "").lower() == "close",
+              "POST %s with a foreign Host → 403, the sentence naming the flag in the {ok, error} the page reads, connection closed (%s)" % (path, st))
     st, _h, body = a.get("/__pb_health")
     idle1 = json.loads(body)["idleSeconds"]
     check(idle1 >= 2 and idle1 >= idle0 + 2,
@@ -344,6 +349,7 @@ def main():
 
     class Fake:
         hosts = frozenset(serve.LOOPBACK_HOSTS)
+        command = "GET"
 
         def __init__(self, peer, *host_values):
             self.client_address = (peer, 50000)

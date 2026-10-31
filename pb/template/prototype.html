@@ -44,10 +44,7 @@
   })();</script>
   <title>Prototype Builder</title>
 
-  <!-- Fonts (swap these to your brand fonts) -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <!-- Fonts: Inter is self-hosted (pb/template/fonts.css, injected at the chrome marker below); no font is fetched. -->
 
   <style>
     /*__PB_CHROME__*/
@@ -1968,6 +1965,10 @@
       width: 0; height: 0; margin: 0;
     }
     .flow-stage-erd .mermaid { background: transparent; display: block; }
+    /* Mermaid could not load (offline, blocked, or the integrity check failed): say so in the canvas. */
+    .flow-viewport.is-unavailable { cursor: default; }
+    .pb-diagram-fail { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding: 24px; text-align: center; }
+    .pb-diagram-fail p { margin: 0; max-width: 420px; }
     .flow-stage-erd svg { display: block; }
     /* the cardinality marker's "zero" ring is drawn white by Mermaid; on a dark paper that is a solid dot, so it takes the entity fill */
     .flow-stage-erd svg marker circle { fill: var(--pb-erd-fill); }
@@ -3448,7 +3449,7 @@
 
   <!-- Mermaid CDN — used by the ERD tab. Keep this even if you don't ship ERD;
        it's a small script and lets agents toggle it on at any time. -->
-  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.8/dist/mermaid.min.js" integrity="sha384-N3QqR/7q+xm3BGX+CBbNI8AUmRRqcsDzToy+0z1NLDI0QmTKW8zvwLvqulJgk3dP" crossorigin="anonymous"></script>
   <!-- Third-party scripts a project DECLARES in registry.runtime[] (entries with a `url`).
        render.py replaces this marker; an empty runtime[] leaves it exactly as it is. -->
   <!--__PB_RUNTIME_DEPS__-->
@@ -9134,7 +9135,9 @@
       // strips intrinsic widths, measures the natural content size of the stage, and
       // hands off to initCanvas('flow', W, H) so the user gets pan + zoom over every
       // flow at once. Falls back to the legacy buildFlowSvg() init for pre-v0.3.9 templates.
-      if (populated && window.mermaid && document.querySelector('#flow-stage .mermaid')) {
+      if (populated && !window.mermaid && document.querySelector('#flow-stage .mermaid')) {
+        pbDiagramsUnavailable('flow-viewport');
+      } else if (populated && window.mermaid && document.querySelector('#flow-stage .mermaid')) {
         mermaid.initialize(pbMermaidConfig('flow'));
         mermaid.run({ querySelector: '#flow-stage .mermaid' }).then(function () {
           var stage = document.getElementById('flow-stage');
@@ -9177,10 +9180,20 @@
               initCanvas('flow', W, H);
             });
           });
-        }).catch(function(){ /* silent */ });
+        }).catch(function(){ pbDiagramsUnavailable('flow-viewport'); });
       } else if (populated && document.getElementById('flow-canvas')) {
         initCanvas('flow', 1200, 380);
       }
+    }
+
+    /* Mermaid is the one script fetched from the internet. If it is missing (offline, blocked) or
+       refused (integrity mismatch) or throws, the canvas says so instead of staying blank. */
+    function pbDiagramsUnavailable(viewportId) {
+      var vp = document.getElementById(viewportId);
+      if (!vp) return;
+      vp.classList.add('is-unavailable');
+      vp.innerHTML = '<div class="pb-diagram-fail" role="status"><p class="empty-state-body">'
+        + 'Diagrams couldn\u2019t load. Mermaid is fetched from the internet, so check your connection.</p></div>';
     }
 
     function renderFlowPopulated() {
@@ -11095,7 +11108,9 @@
           </div>
         </div>`;
 
-      if (state.erdView !== 'table' && e.mermaid && window.mermaid) {
+      if (state.erdView !== 'table' && e.mermaid && !window.mermaid) {
+        pbDiagramsUnavailable('erd-viewport');
+      } else if (state.erdView !== 'table' && e.mermaid && window.mermaid) {
         mermaid.initialize(pbMermaidConfig('erd'));
         mermaid.run({ querySelector: '#erd-diagram' }).then(function () {
           var stage = document.getElementById('erd-stage');
@@ -11125,7 +11140,7 @@
               initCanvas('erd', W, H);
             });
           });
-        }).catch(function(){ /* silent */ });
+        }).catch(function(){ pbDiagramsUnavailable('erd-viewport'); });
       }
     }
 

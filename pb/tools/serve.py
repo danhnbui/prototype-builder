@@ -728,7 +728,10 @@ class Handler(BaseHTTPRequestHandler):
             shown = re.sub(r"[^A-Za-z0-9._:\[\]-]", "?", name or hosts[0])[:80]
             msg = ("pb-preview: refused unknown Host %s. To preview from another device or through a tunnel, "
                    "start the server with --allow-host %s." % (shown, shown))
-        self._send(msg.encode("utf-8"), ctype="text/plain; charset=utf-8", status=403, close=True)
+        if self.command == "POST":    # every POST route is a JSON API whose page reads {ok, error}: give it the sentence in that shape
+            self._json({"ok": False, "error": msg}, status=403, close=True)
+        else:
+            self._send(msg.encode("utf-8"), ctype="text/plain; charset=utf-8", status=403, close=True)
         return True
 
     def _write(self, data):

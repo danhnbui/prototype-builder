@@ -486,11 +486,11 @@ def shared_runtime(text):
 _CHROME_MARK = "/*__PB_CHROME__*/"
 
 
-def load_chrome_css():
-    """chrome.css minus its file header (the header addresses whoever edits chrome.css, and
-    shipping it inside every rendered artifact says nothing to the reader of that file).
-    Missing file → "" so a stripped-down install still renders."""
-    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "template", "chrome.css")
+def _template_css(name):
+    """A stylesheet from pb/template/ minus its file header (the header addresses whoever edits
+    the file, and shipping it inside every rendered artifact says nothing to its reader).
+    Missing file -> "" so a stripped-down install still renders."""
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "template", name)
     try:
         text = open(path, encoding="utf-8").read()
     except OSError:
@@ -500,6 +500,12 @@ def load_chrome_css():
         if end >= 0:
             text = text[end + 2:]
     return text.strip("\n")
+
+
+def load_chrome_css():
+    """chrome.css + fonts.css (the self-hosted Inter, so a render loads no third-party font),
+    each minus its file header. A missing file contributes "" and the fallback font shows."""
+    return "\n".join(p for p in (_template_css("chrome.css"), _template_css("fonts.css")) if p)
 
 
 def inject_chrome(shell):

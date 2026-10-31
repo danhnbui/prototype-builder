@@ -61,6 +61,10 @@ sys.path.insert(0, os.path.join(ROOT, "pb", "tools"))
 import explore  # noqa: E402
 import serve    # noqa: E402
 
+# cmd_link starts a managed preview, and a managed start may stop the longest-idle one in its folder.
+# Give this run its own folder, so a test can never stop a preview someone is using.
+os.environ["PB_PREVIEW_DIR"] = tempfile.mkdtemp(prefix="pb-explore-tool-previews-")
+
 SHELL = os.path.join(ROOT, "pb", "template", "prototype.html")
 COMPARE = os.path.join(ROOT, "pb", "template", "explore-compare.html")
 RUNTIME = os.path.join(ROOT, "pb", "template", "runtime.js")

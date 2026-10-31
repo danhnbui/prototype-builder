@@ -200,7 +200,8 @@ def run():
         _offline(page)
         errors = []
         page.on("pageerror", lambda e: errors.append(str(e)))
-        page.on("console", lambda m: errors.append(m.text) if m.type == "error" else None)
+        from e2e_smoke import real_console_error
+        page.on("console", lambda m: errors.append(m.text) if real_console_error(m) else None)
 
         with Server(registry) as srv:
             # domcontentloaded, not networkidle: serve.py holds an SSE reload stream open, so
