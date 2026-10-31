@@ -211,7 +211,7 @@ def host_warning(bind_host, hosts):
 def stable_port(reg_path):
     """The port a project gets when --port is not given: PORT_BASE + a hash of its registry's real path,
     so a project keeps its URL across restarts and two projects rarely want the same one."""
-    digest = hashlib.sha1(os.fsencode(os.path.realpath(reg_path))).hexdigest()
+    digest = hashlib.sha256(os.fsencode(os.path.realpath(reg_path))).hexdigest()
     return PORT_BASE + int(digest, 16) % PORT_SPAN
 
 

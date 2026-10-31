@@ -26,7 +26,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SCAN = os.path.join(ROOT, "pb", "tools", "security_scan.py")
 BAD = os.path.join(ROOT, "fixtures", "security_bad", "registry.json")
 GOLDEN = os.path.join(ROOT, "fixtures", "golden", "registry.json")
-LEAKED_SECRET = "sk-abc123DEF456ghi789JKL012mno345"  # the literal seeded in the bad fixture
+LEAKED_VALUE = "sk-abc123DEF456ghi789JKL012mno345"  # the literal seeded in the bad fixture
 
 _spec = importlib.util.spec_from_file_location("security_scan", SCAN)
 ss = importlib.util.module_from_spec(_spec)
@@ -63,7 +63,7 @@ HEX40 = "9f86d081884c7d65" + "9a2feaa0c55ad015a3bf4f1b"
 JWT = ("eyJ" + "hbGciOiJIUzI1NiJ9" + "." + "eyJ" + "zdWIiOiJ1MTIzNDU2In0" + "." + "dBjftJeZ4CVPmB92K27uhbUJU1p1r")
 assert len(B36) == 36 and len(B20) == 20 and len(RND40) == 40 and len(HEX40) == 40
 
-SECRET_CASES = [
+SHAPE_CASES = [
     # (label, text before the secret, the secret, text after it, the words the message must carry)
     ("GitHub classic ghp_", "t = ", "ghp_" + B36, "", "GitHub token"),
     ("GitHub gho_", "t = ", "gho_" + B36, "", "GitHub token"),
@@ -198,7 +198,7 @@ def main():
     check(p.returncode == 2, f"seeded-secret fixture -> exit 2 (got {p.returncode})")
     check("R-SEC-KEY" in out, "flags the hardcoded API key (R-SEC-KEY)")
     check("R-SEC-EMAIL" in out or "R-SEC-PII" in out, "flags the real-looking email / PII")
-    check(LEAKED_SECRET not in out, "masks the secret in output (never re-leaks the literal)")
+    check(LEAKED_VALUE not in out, "masks the secret in output (never re-leaks the literal)")
 
     p = run(GOLDEN)
     check(p.returncode == 0,
@@ -221,7 +221,7 @@ def main():
     check(ss.scan({"meta": {}}, ".") == [], "scan(reg, base_dir) still takes a registry dict")
 
     print("\nsecret detectors (R-SEC-KEY, ERROR, masked):")
-    for label, before, lit, after, words in SECRET_CASES:
+    for label, before, lit, after, words in SHAPE_CASES:
         fs = findings(before + lit + after)
         errs = [f for f in fs if f[0] == ss.ERROR and f[1] == "R-SEC-KEY"]
         check(any(words in f[3] for f in errs), f"fires: {label}")
@@ -278,21 +278,21 @@ def main():
           "a real token next to a data: URI still fires")
 
     print("\nwhat scan() reads beyond the render bodies:")
-    secret = "ghp_" + B36
+    fake_value = "ghp_" + B36
     cases = [
-        ("runtime[].src", {"runtime/seed.js": "const k = '" + secret + "';"},
+        ("runtime[].src", {"runtime/seed.js": "const k = '" + fake_value + "';"},
          {"runtime": [{"id": "seed", "src": "runtime/seed.js"}]}, "runtime/seed.js"),
-        ("styleSrc", {"render/styles/a.css": "/* " + secret + " */"},
+        ("styleSrc", {"render/styles/a.css": "/* " + fake_value + " */"},
          {"components": [{"id": "a", "level": "atom", "styleSrc": "render/styles/a.css"}]},
          "render/styles/a.css"),
-        ("specSrc", {"spec/components/a.json": json.dumps({"usage": {"note": secret}})},
+        ("specSrc", {"spec/components/a.json": json.dumps({"usage": {"note": fake_value}})},
          {"components": [{"id": "a", "level": "atom", "specSrc": "spec/components/a.json"}]},
          "spec/components/a.json"),
-        ("logicSrc", {"logic/screens/s.json": json.dumps({"notes": [{"text": secret}]})},
+        ("logicSrc", {"logic/screens/s.json": json.dumps({"notes": [{"text": fake_value}]})},
          {"screens": [{"id": "s", "logicSrc": "logic/screens/s.json"}]}, "logic/screens/s.json"),
-        ("render/_candidates", {"render/_candidates/r1/a/slot1.js": "return '" + secret + "';"},
+        ("render/_candidates", {"render/_candidates/r1/a/slot1.js": "return '" + fake_value + "';"},
          {}, "render/_candidates/r1/a/slot1.js"),
-        ("renderSrc (as before)", {"render/components/a.js": "return '" + secret + "';"},
+        ("renderSrc (as before)", {"render/components/a.js": "return '" + fake_value + "';"},
          {"components": [{"id": "a", "level": "atom", "renderSrc": "render/components/a.js"}]},
          "render/components/a.js"),
     ]
@@ -314,30 +314,30 @@ def main():
 
     print("\n--dir <folder>:")
     d = project({
-        "notes.md": "token " + secret,
-        "prototype.html": "<p>" + secret + "</p>",
-        "design-system.html": "<p>" + secret + "</p>",
-        "pb/tools/x.js": "const k = '" + secret + "';",
-        "node_modules/a/index.js": "const k = '" + secret + "';",
-        ".git/config.json": json.dumps({"k": secret}),
+        "notes.md": "token " + fake_value,
+        "prototype.html": "<p>" + fake_value + "</p>",
+        "design-system.html": "<p>" + fake_value + "</p>",
+        "pb/tools/x.js": "const k = '" + fake_value + "';",
+        "node_modules/a/index.js": "const k = '" + fake_value + "';",
+        ".git/config.json": json.dumps({"k": fake_value}),
         "deep/a.txt": "ok",
     })
     p = run("--dir", d)
     err = [ln for ln in p.stdout.splitlines() if ln.startswith("ERROR")]
     check(p.returncode == 2, f"a folder holding a secret -> exit 2 (got {p.returncode})")
     check(len(err) == 1 and "notes.md" in err[0], f"only notes.md is reported ({len(err)} error line(s))")
-    check(secret not in p.stdout + p.stderr, "the secret is masked in --dir output")
+    check(fake_value not in p.stdout + p.stderr, "the secret is masked in --dir output")
     check(re.match(r"^ERROR \[R-SEC-KEY\] notes\.md: ", err[0]) is not None, "--dir keeps the line format")
     for name in ("sub/config.json", ".env", ".env.local", "prod.env", "a.yml", "b.yaml", "c.css", "d.js",
                  "e.md", "f.txt", "g.html"):
-        d = project({name: json.dumps({"k": secret}) if name.endswith(".json") else "KEY=" + secret})
+        d = project({name: json.dumps({"k": fake_value}) if name.endswith(".json") else "KEY=" + fake_value})
         os.remove(os.path.join(d, "registry.json"))
         check(run("--dir", d).returncode == 2, f"--dir reads {name}")
     d = project({"clean.md": "# hello"})
     check(run("--dir", d).returncode == 0, "a clean folder -> exit 0")
     d = project({"people.md": "call +84 912 345 678"})
     check(run("--dir", d).returncode == 1, "a folder with only PII -> exit 1")
-    d = project({"blob.json": "\0\0" + secret, "pic.png": secret})
+    d = project({"blob.json": "\0\0" + fake_value, "pic.png": fake_value})
     check(run("--dir", d).returncode == 0, "a binary file (NUL bytes) and a non-text extension are skipped")
     d = project({"big.txt": "a" * (5 * 1024 * 1024 + 1)})
     p = run("--dir", d)
@@ -346,7 +346,7 @@ def main():
     d = project({"ok.md": "x"})
     check(run("--dir", os.path.join(d, "missing")).returncode == 2, "a folder that does not exist -> exit 2")
     check(run("--dir").returncode != 0, "--dir without a folder -> usage, non-zero")
-    d = project({"sub/pb/keep.md": "t " + secret})
+    d = project({"sub/pb/keep.md": "t " + fake_value})
     check(run("--dir", d).returncode == 0, "a pb/ folder below the root is skipped")
     pb_root = os.path.join(d, "sub", "pb")
     check(run("--dir", pb_root).returncode == 2, "...but pb/ named as the root itself is scanned")
