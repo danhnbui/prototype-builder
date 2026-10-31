@@ -97,7 +97,7 @@ with tempfile.TemporaryDirectory() as out:
 
 print("4 · hardened tier is gated, not faked")
 hd = open(os.path.join(ROOT, "pb", "commands", "handoff.md"), encoding="utf-8").read()
-check("NOT AVAILABLE" in hd and "pb-full-picture" in hd,
+check("NOT AVAILABLE" in hd and "**STOP**" in hd and "Do **not** fake" in hd,
       "/pb:handoff mode 2 defers the hardened tier until its inputs exist")
 
 print()
