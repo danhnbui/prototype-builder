@@ -468,6 +468,34 @@ _OBJ_FIELD = re.compile(r"([A-Za-z_]\w*)\s*:\s*(['\"])((?:(?!\2).)*)\2")
 
 # ───────────────────────── registry / owner index ─────────────────────────────────
 
+def resolve_project_dir(arg, tool='logic_extract'):
+    """The project folder for what the caller passed: a folder, or a path to its registry.json
+    (the registry-taking tools all accept either). A registry that is not there is a one-line
+    exit, never a traceback. logic_check.py reuses this."""
+    arg = arg or '.'
+    if os.path.isdir(arg):
+        folder = arg
+    elif os.path.isfile(arg) or arg.endswith('.json'):
+        if os.path.basename(arg) != 'registry.json':
+            sys.exit('%s: %s is not a registry.json' % (tool, arg))
+        folder = os.path.dirname(arg) or '.'
+    else:
+        sys.exit('%s: no registry at %s' % (tool, arg))
+    if not os.path.isfile(os.path.join(folder, 'registry.json')):
+        sys.exit('%s: no registry at %s' % (tool, arg))
+    return folder
+
+
+def pop_registry_flag(args):
+    """Split `--registry <path>` out of an argv list; returns (path or None, the rest)."""
+    if '--registry' in args:
+        i = args.index('--registry')
+        if i + 1 >= len(args):
+            sys.exit('--registry needs a path')
+        return args[i + 1], args[:i] + args[i + 2:]
+    return None, args
+
+
 def _load_registry(project_dir):
     with open(os.path.join(project_dir, 'registry.json'), encoding='utf-8') as f:
         return json.load(f)
@@ -1252,16 +1280,20 @@ def main():
         i = args.index('--shell')
         shell_path = args[i + 1]
         args = args[:i] + args[i + 2:]
+    reg_flag, args = pop_registry_flag(args)
     write_mode = '--contracts' in args
     dry_run = '--dry-run' in args
     args = [a for a in args if a not in ('--contracts', '--dry-run')]
+    if reg_flag is not None:
+        args = args + [reg_flag]
     if len(args) != 1:
-        sys.exit('usage: logic_extract.py <project-dir> [--shell <prototype.html>] [--out <file>]\n'
-                 '       logic_extract.py <project-dir> --contracts [--dry-run]')
-    graph = extract(args[0], shell_path=shell_path)
+        sys.exit('usage: logic_extract.py <project-dir | registry.json | --registry PATH> [--shell <prototype.html>] [--out <file>]\n'
+                 '       logic_extract.py <project-dir | registry.json> --contracts [--dry-run]')
+    project_dir = resolve_project_dir(args[0])
+    graph = extract(project_dir, shell_path=shell_path)
     if write_mode:
         try:
-            written, pointed, unchanged = write_contracts(args[0], graph, dry_run=dry_run)
+            written, pointed, unchanged = write_contracts(project_dir, graph, dry_run=dry_run)
         except pbslice.RegistryLocked as e:
             print('logic_extract: %s' % e, file=sys.stderr)
             return 1

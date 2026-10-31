@@ -87,9 +87,11 @@ A prototype shows controls and data, not explanation. Each rule is checkable in 
   the full text stays reachable — an ellipsis that hides what a title is for is a defect.
 
 ## 5 · Look at it
-Before hand-back, render — in memory through `/pb:preview`, or `render.py` — screenshot the target at
-**every** `meta.devices` width (one per size class at minimum; just `meta.device` when
-`meta.responsive` is `false`), and check:
+For a **new or restructured** screen, before hand-back, render — in memory through `/pb:preview`, or
+`render.py` — screenshot the target at **every** `meta.devices` width (one per size class at minimum; just
+`meta.device` when `meta.responsive` is `false`), and check. A smaller change takes the lowest level that
+answers the question (`${CLAUDE_PLUGIN_ROOT}/docs/canon.md` § *Checking a change*): a fact is
+`shot.py --no-png --eval`, one spot is `--selector` at one width, and the reply says what was not looked at.
 - **Nothing clipped or overflowing.** Run this check against every element (on one real project
   three of four defects in one pass were overflow, none visible in the source):
   `el.scrollWidth - el.clientWidth > 1 && (overflow hidden || text-overflow ellipsis)` — and no element
@@ -118,4 +120,4 @@ Markup goes to `design-component-build`; state logic to `think-logic`.
 - **Tokens only** — every size, space, radius and colour; add a local token before inlining a value.
 - **Component-first** — every region is a DS component id (reuse → variant → local), composed by `pbUse`.
 - **The density caps hold** — 2 lines, 6 words per element, one primary action, real content only.
-- **Measured beats described** — a screen nobody screenshotted at both widths is not done.
+- **Measured beats described** — a new or restructured screen nobody screenshotted at both widths is not done.

@@ -15,6 +15,12 @@
         "hooks": [
           { "type": "command", "command": "python3", "args": ["-S", "-B", "${CLAUDE_PLUGIN_ROOT}/hooks/bash_advice.py"], "timeout": 3 }
         ]
+      },
+      {
+        "matcher": "mcp__.*(chrome-devtools|claude-in-chrome).*",
+        "hooks": [
+          { "type": "command", "command": "python3", "args": ["-S", "-B", "${CLAUDE_PLUGIN_ROOT}/hooks/browser_advice.py"], "timeout": 3 }
+        ]
       }
     ]
   }

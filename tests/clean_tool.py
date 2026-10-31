@@ -22,6 +22,11 @@ properties, each on a project built in a temp copy of fixtures/golden:
      as a link and its target survives
   9. the registry is found as ./registry.json, as a project folder, and under .prototype/ (adopt-in-place);
      no registry is exit 2; --json is valid JSON with the same facts
+ 10. .pb-patches/ (task folders; BRIEF*.md at its top never deleted), memory/decisions.md against the
+     500 KB threshold, .claude/worktrees/ (report only): rows in the dry run; bare --apply touches none
+     of them; --keep-patches N keeps the newest N; --rotate-decisions runs the real decisions_rotate.py
+     (no-op under the threshold, lossless over it, a failed check reported with exit 1); a symlinked
+     task folder is refused; worktrees survive every flag
 
 Pure stdlib, no browser. Usage: python3 tests/clean_tool.py · Exit 0/1.
 """
@@ -30,6 +35,7 @@ import hashlib
 import importlib.util
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -369,6 +375,175 @@ try:
     write(os.path.join(proj9, ".preview", "server.json"), json.dumps({"url": "http://example.invalid/", "pid": 1}))
     rc, out, err = run(os.path.join(proj9, "registry.json"), "--json")
     check(rc == 0 and json.loads(out)["found"]["server"]["running"] is False, "a non-loopback record is never probed")
+
+    # ── 10 ───────────────────────────────────────────────────────────────────────
+    print("10 · .pb-patches/, the decisions log, worktrees")
+    import decisions_rotate as DR  # noqa: E402
+    check(C.DECISIONS_KB == DR.DEFAULT_THRESHOLD_KB, "the 500 KB threshold clean.py shows is decisions_rotate.py's own")
+
+    def with_patches(base):
+        proj, outside = build(base)
+        pp = os.path.join(proj, ".pb-patches")
+        for i in range(1, 6):
+            t = os.path.join(pp, "T-%d" % i)
+            write(os.path.join(t, "patch.json"), "{}" * 100)
+            write(os.path.join(t, "check", "lint.txt"), "ok\n" * 50)
+            write(os.path.join(t, "files", "a.js"), "// x\n" * 200)
+            write(os.path.join(t, "shots", "s.png"), "p" * 2000)
+            write(os.path.join(t, "REPORT.md"), "# report\n")
+            touch_tree(os.path.join(t, "check"), BASE + i * DAY)
+            touch_tree(t, BASE + i * DAY)
+        write(os.path.join(pp, "BRIEF-a.md"), "brief a\n", BASE)
+        write(os.path.join(pp, "BRIEF-b.md"), "brief b\n", BASE + DAY)
+        write(os.path.join(pp, "notes.txt"), "loose\n", BASE)
+        write(os.path.join(proj, ".claude", "worktrees", "wt-one", "src", "a.txt"), "w" * 4000)
+        write(os.path.join(proj, ".claude", "worktrees", "wt-two", "b.txt"), "w" * 1000)
+        return proj, outside
+
+    def log_text(n, pad, years):
+        head = "# Decisions — t\n\n> the house note\n\n"
+        return head + "".join("## %s-%02d-01 — d%d\n- **Decision:** x\n%s\n" % (years[i % len(years)], 1 + i % 12, i, "y\n" * pad)
+                              for i in range(n))
+
+    proj10, outside10 = with_patches(os.path.join(tmp, "t10"))
+    reg10 = os.path.join(proj10, "registry.json")
+    write(os.path.join(proj10, "memory", "decisions.md"), log_text(10, 100, ["2026"]))      # ~ 2 KB, well under
+    before10 = tree_hash(proj10)
+    rc, out, err = run(reg10)
+    check(rc == 0 and tree_hash(proj10) == before10, "a dry run changes nothing")
+    for label in (".pb-patches/", "memory/decisions.md", ".claude/worktrees/", "memory/.pb-backups/"):
+        check(label in out, "the table has a row for %s" % label)
+    rc, out, err = run(reg10, "--json")
+    f = json.loads(out)["found"]
+    check(f["patches"]["count"] == 5 and f["patches"]["bytes"] > 0 and f["patches"]["loose"]["files"] == 3,
+          "--json: 5 task folders with a size, 3 loose files at the top of .pb-patches/")
+    check(f["decisions"]["exists"] and f["decisions"]["thresholdKb"] == 500 and f["decisions"]["over"] is False,
+          "--json: the decisions log, its size and the 500 KB threshold")
+    check(f["worktrees"]["count"] == 2 and f["worktrees"]["bytes"] == 5000, "--json: 2 worktrees, 5000 bytes")
+    rc, out, err = run(reg10, "--keep-patches", "2", "--rotate-decisions")
+    check(rc == 0 and tree_hash(proj10) == before10 and "would delete" in out,
+          "--keep-patches / --rotate-decisions without --apply is a preview: it says what it would do, changes nothing")
+
+    # bare --apply: none of these three
+    state10 = lambda: (tree_hash(os.path.join(proj10, ".pb-patches")),  # noqa: E731
+                       tree_hash(os.path.join(proj10, ".claude")),
+                       open(os.path.join(proj10, "memory", "decisions.md"), "rb").read(),
+                       sorted(os.listdir(os.path.join(proj10, "memory"))))
+    s_before = state10()
+    rc, out, err = run(reg10, "--apply")
+    check(rc == 0 and state10() == s_before, "bare --apply leaves .pb-patches/, the decisions log and the worktrees alone")
+    check(not os.path.exists(os.path.join(proj10, "render", "_candidates", "ghost")), "…while still doing the always-safe set")
+
+    # --keep-patches 2
+    rc, out, err = run(reg10, "--apply", "--keep-patches", "2")
+    check(rc == 0, "--keep-patches 2: exit 0 (rc=%d)" % rc)
+    check(names(os.path.join(proj10, ".pb-patches")) == ["BRIEF-a.md", "BRIEF-b.md", "T-4", "T-5", "notes.txt"],
+          "the newest 2 task folders stay, the older 3 are gone, every top-level file stays (%s)"
+          % names(os.path.join(proj10, ".pb-patches")))
+    check(open(os.path.join(proj10, ".pb-patches", "T-5", "REPORT.md")).read() == "# report\n", "a kept task folder is intact")
+    rc, out, err = run(reg10, "--apply", "--keep-patches", "2")
+    check(rc == 0 and "freed 0 B" in out, "a second run has nothing left to delete")
+    rc, out, err = run(reg10, "--apply", "--keep-patches", "9")
+    check(rc == 0 and len(names(os.path.join(proj10, ".pb-patches"))) == 5, "N larger than the folders there deletes nothing")
+
+    # worktrees survive everything
+    wt_hash = tree_hash(os.path.join(proj10, ".claude"))
+    rc, out, err = run(reg10, "--apply", "--keep-patches", "1", "--keep-backups", "1", "--keep-closed", "1", "--rotate-decisions")
+    check(rc == 0 and tree_hash(os.path.join(proj10, ".claude")) == wt_hash and
+          names(os.path.join(proj10, ".claude", "worktrees")) == ["wt-one", "wt-two"],
+          "the worktrees are never deleted, under every flag at once")
+    check(names(os.path.join(proj10, ".pb-patches")) == ["BRIEF-a.md", "BRIEF-b.md", "T-5", "notes.txt"],
+          "--keep-patches 1 keeps exactly the newest folder and the BRIEF files")
+
+    # --rotate-decisions: under the threshold = success and no change
+    dec = os.path.join(proj10, "memory", "decisions.md")
+    dec_before = open(dec, "rb").read()
+    rc, out, err = run(reg10, "--apply", "--rotate-decisions")
+    check(rc == 0 and open(dec, "rb").read() == dec_before, "--rotate-decisions under the threshold: exit 0, the log unchanged")
+    check("nothing to do" in out, "…and decisions_rotate.py's own 'nothing to do' is shown")
+    check(not [n for n in os.listdir(os.path.join(proj10, "memory")) if n.startswith("decisions-")], "…no sibling was written")
+
+    # over the threshold: real rotation through the real tool
+    big = log_text(16, 20000, ["2025", "2026"])             # 16 entries x ~40 KB = ~640 KB
+    write(dec, big)
+    fam_before = DR.split_entries(big)[1]
+    rc, out, err = run(reg10, "--rotate-decisions")
+    check(rc == 0 and open(dec, encoding="utf-8").read() == big and "OVER" in out and "would rotate" in out,
+          "over the threshold, without --apply: the row says OVER and 'would rotate', the log is untouched")
+    rc, out, err = run(reg10, "--apply")
+    check(rc == 0 and open(dec, encoding="utf-8").read() == big, "bare --apply never rotates, even over the threshold")
+    rc, out, err = run(reg10, "--apply", "--rotate-decisions")
+    check(rc == 0, "--apply --rotate-decisions over the threshold: exit 0 (rc=%d)" % rc)
+    check(os.path.getsize(dec) <= 500 * 1024, "the live log is now under 500 KB (%d bytes)" % os.path.getsize(dec))
+    sibs = sorted(n for n in os.listdir(os.path.join(proj10, "memory")) if re.fullmatch(r"decisions-[^.]+\.md", n))
+    check(sibs != [], "the older entries moved into a dated sibling (%s)" % sibs)
+    fam_after = []
+    for n in ["decisions.md"] + sibs:
+        fam_after += DR.split_entries(open(os.path.join(proj10, "memory", n), encoding="utf-8").read())[1]
+    check(sorted(fam_after) == sorted(fam_before), "every entry is still there, byte for byte (%d before, %d after)"
+          % (len(fam_before), len(fam_after)))
+    check("verified lossless" in out and "decisions_rotate.py says" in out, "the tool's own verdict is printed")
+    check(any(n.startswith("decisions.") for n in os.listdir(os.path.join(proj10, "memory", ".pb-backups"))),
+          "decisions_rotate.py's backup of the original is in memory/.pb-backups/ — which the table now lists")
+    rc, out, err = run(reg10, "--json")
+    check(json.loads(out)["found"]["backups"]["memory/.pb-backups"]["count"] >= 1, "--json counts that backup")
+    rc, out, err = run(reg10, "--apply", "--rotate-decisions", "--json")
+    d10 = json.loads(out)
+    check(rc == 0 and d10["rotated"] and d10["rotated"][0]["rotated"] is False and d10["refused"] == [],
+          "a second --rotate-decisions is 'nothing to do' and still exit 0")
+
+    # a failed rotation: reported, exit 1, the original stays (the tool's own abort is simulated by a stub)
+    import contextlib  # noqa: E402
+    import io  # noqa: E402
+    stub = os.path.join(tmp, "rotate_stub.py")
+    write(stub, "import sys\nprint('decisions_rotate: ABORTED — 3 entries before, 2 after. Restored every file')\nsys.exit(2)\n")
+    write(dec, big)
+    real_tool = C.ROTATE_TOOL
+    C.ROTATE_TOOL = stub
+    try:
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            rc = C.main([reg10, "--apply", "--rotate-decisions"])
+    finally:
+        C.ROTATE_TOOL = real_tool
+    check(rc == 1 and "REFUSED" in buf.getvalue() and "ABORTED" in buf.getvalue() and "the original stays" in buf.getvalue(),
+          "a rotation that fails its lossless check is reported with the tool's words, and exits 1")
+    check(open(dec, encoding="utf-8").read() == big, "…and the original is untouched")
+
+    # a symlinked task folder is refused
+    proj10b, outside10b = with_patches(os.path.join(tmp, "t10b"))
+    out_hash10 = tree_hash(outside10b)
+    pp = os.path.join(proj10b, ".pb-patches")
+    os.symlink(outside10b, os.path.join(pp, "T-0-evil"))                       # the OLDEST: first in line to be deleted
+    os.utime(os.path.join(pp, "T-0-evil"), (BASE - DAY, BASE - DAY), follow_symlinks=False)
+    os.symlink(os.path.join(proj10b, "registry.json"), os.path.join(pp, "T-0-inner"))   # a link that stays inside
+    os.utime(os.path.join(pp, "T-0-inner"), (BASE - DAY, BASE - DAY), follow_symlinks=False)
+    os.makedirs(os.path.join(proj10b, "elsewhere"))
+    os.symlink(os.path.join(proj10b, "elsewhere"), os.path.join(pp, "T-0-inside-dir"))
+    os.utime(os.path.join(pp, "T-0-inside-dir"), (BASE - DAY, BASE - DAY), follow_symlinks=False)
+    reg_hash10 = hashlib.sha256(open(os.path.join(proj10b, "registry.json"), "rb").read()).hexdigest()
+    rc, out, err = run(os.path.join(proj10b, "registry.json"), "--apply", "--keep-patches", "2")
+    check(rc == 1 and "REFUSED" in out and "symlink" in out, "a symlinked task folder is REFUSED, exit 1 (rc=%d)" % rc)
+    check(tree_hash(outside10b) == out_hash10 and os.path.exists(os.path.join(outside10b, "precious.txt")),
+          "the folder it led to survives")
+    check(os.path.islink(os.path.join(pp, "T-0-evil")) and os.path.islink(os.path.join(pp, "T-0-inside-dir")),
+          "both task-folder links were left in place — a link to somewhere inside is refused too")
+    check(os.path.exists(os.path.join(proj10b, "elsewhere")) and
+          hashlib.sha256(open(os.path.join(proj10b, "registry.json"), "rb").read()).hexdigest() == reg_hash10,
+          "nothing the links lead to was touched")
+    check(names(pp) == ["BRIEF-a.md", "BRIEF-b.md", "T-0-evil", "T-0-inner", "T-0-inside-dir", "T-4", "T-5", "notes.txt"],
+          "the real older task folders went, the newest 2 and the top-level files stayed (%s)" % names(pp))
+    # .pb-patches itself a symlink: not listed, not entered
+    proj10c, outside10c = build(os.path.join(tmp, "t10c"))
+    os.symlink(outside10c, os.path.join(proj10c, ".pb-patches"))
+    out_hash10c = tree_hash(outside10c)
+    rc, out, err = run(os.path.join(proj10c, "registry.json"), "--apply", "--keep-patches", "1", "--json")
+    d10c = json.loads(out)
+    check(rc == 0 and d10c["found"]["patches"]["link"] is True and d10c["found"]["patches"]["count"] == 0
+          and tree_hash(outside10c) == out_hash10c, "a .pb-patches that is itself a symlink is not listed and nothing behind it is touched")
+    # a keep flag below 1 is still a usage error
+    rc, out, err = run(reg10, "--apply", "--keep-patches", "0")
+    check(rc == 2 and "at least 1" in err, "--keep-patches 0 is a usage error, exit 2")
 finally:
     shutil.rmtree(tmp, ignore_errors=True)
 

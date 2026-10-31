@@ -11,6 +11,8 @@ name with a keep flag. Stdlib only.
   clean.py [registry.json] --apply                       only the always-safe set (below)
   clean.py [registry.json] --apply --keep-backups 10     also keep the newest 10 backups in EACH place
   clean.py [registry.json] --apply --keep-closed 5       also keep the newest 5 closed explore rounds
+  clean.py [registry.json] --apply --keep-patches 10     also keep the newest 10 .pb-patches/ task folders
+  clean.py [registry.json] --apply --rotate-decisions    also run decisions_rotate.py on memory/decisions.md
   clean.py [registry.json] --json                        the same facts, machine-readable
 
 A dry run is the default. A keep flag without --apply is a preview: it lists what it WOULD delete and
@@ -27,14 +29,28 @@ It NEVER deletes a backup or a closed round on its own.
 
 The keep flags are the only way pb ever deletes a backup or a closed round, and N must be >= 1:
   --keep-backups N   keeps the newest N by modification time in memory/backups/ AND the newest N in
-                     .pb-backups/ (N in each place, not N in total). A `registry.<v>.<ts>.json` and
-                     its `spec.<v>.<ts>/` snapshot are one backup — they restore together.
+                     .pb-backups/ AND the newest N in memory/.pb-backups/ (the copies
+                     decisions_rotate.py takes) — N in each place, not N in total. A
+                     `registry.<v>.<ts>.json` and its `spec.<v>.<ts>/` snapshot are one backup — they
+                     restore together.
   --keep-closed N    keeps the newest N closed explore rounds. A round is its manifest
                      `_closed/<name>.json`, its `<name>.brief.md` and its `<name>/` folder, deleted
                      together. The newest PROMOTED information-architecture round of each id is
                      never deleted and does not count toward N — /pb:plan reads its stable
                      `_closed/<ia-id>/` folder. A folder with no manifest of the same name
                      (`<ia-id>-superseded-<stamp>/`) is never deleted either.
+  --keep-patches N   keeps the newest N task folders in `.pb-patches/` (what /pb:orchestrate writes:
+                     `<TASK-ID>/{patch.json,check/,files/,shots/,REPORT.md}`), by modification time,
+                     and deletes the rest. Files at the top of `.pb-patches/` (`BRIEF*.md`) are never
+                     deleted. A task folder that is a symlink is refused, whatever it leads to.
+
+One more flag does not delete, it moves:
+  --rotate-decisions runs decisions_rotate.py on memory/decisions.md (whole entries, by date, verified
+                     lossless; its own threshold is 500 KB). Under the threshold it says "nothing to do"
+                     and that is success; a failed lossless check is reported, exit 1, and the original
+                     stays. The row shows the log's size against that threshold either way.
+
+Report only: `.claude/worktrees/*` (count and size). Never deleted here, by any flag.
 
 Never touched, by any flag: an OPEN round (memory/explore/<target>.json, its folder, its candidates)
 and the running preview server (stop it with `serve.py --stop`). Every path is checked to resolve to
@@ -42,7 +58,8 @@ somewhere inside the project folder immediately before it is deleted; a symlink 
 is refused, and nothing outside is ever followed or removed.
 
 Exit: 0 ok (a dry run, or everything asked for was done) · 1 at least one path was refused or could
-not be removed (the rest was still done) · 2 usage (a keep flag below 1, no registry.json).
+not be removed, or a rotation failed (the rest was still done) · 2 usage (a keep flag below 1, no
+registry.json).
 """
 import argparse
 import datetime
@@ -51,6 +68,7 @@ import os
 import re
 import shutil
 import stat
+import subprocess
 import sys
 import urllib.parse
 
@@ -66,7 +84,13 @@ CANDIDATES_DIR = os.path.join("render", "_candidates")
 SERVER_FILE = os.path.join(".preview", "server.json")
 SERVER_LOG = os.path.join(".preview", "server.log")
 SHOTS_DIR = os.path.join(".preview", "shots")
-BACKUP_PLACES = (os.path.join("memory", "backups"), ".pb-backups")
+# memory/.pb-backups/ is where decisions_rotate.py keeps the copy it takes before it moves anything.
+BACKUP_PLACES = (os.path.join("memory", "backups"), ".pb-backups", os.path.join("memory", ".pb-backups"))
+PATCHES_DIR = ".pb-patches"
+DECISIONS_FILE = os.path.join("memory", "decisions.md")
+DECISIONS_KB = 500            # decisions_rotate.DEFAULT_THRESHOLD_KB; tests/clean_tool.py asserts they match
+ROTATE_TOOL = os.path.join(HERE, "decisions_rotate.py")
+WORKTREES_DIR = os.path.join(".claude", "worktrees")
 LOG_MAX = 1024 * 1024
 LOG_KEEP = 256 * 1024
 STALE_DAYS = 3
@@ -268,6 +292,66 @@ def preview_status(base_dir, reg_path, timeout=2):
     return out
 
 
+def patch_tasks(base_dir):
+    """`.pb-patches/` (written by /pb:orchestrate): the task folders newest first, and the loose files at
+    its top (BRIEF*.md …), which are counted in the size but are never a candidate for deletion.
+    → {path, link, tasks: [{name, path, mtime, bytes, files, link}], count, bytes, loose: {files, bytes}}.
+    A `.pb-patches` that is itself a symlink is reported and never listed or entered."""
+    root = os.path.join(base_dir, PATCHES_DIR)
+    out = {"path": root, "link": os.path.islink(root), "tasks": [], "count": 0, "bytes": 0,
+           "loose": {"files": 0, "bytes": 0}}
+    if out["link"] or not os.path.isdir(root):
+        return out
+    for name in sorted(os.listdir(root)):
+        p = os.path.join(root, name)
+        is_link = os.path.islink(p)
+        if is_link or os.path.isdir(p):
+            if is_link and not os.path.isdir(p):          # a link to a file or to nothing: just a loose entry
+                out["loose"]["files"] += 1
+                out["loose"]["bytes"] += _lsize(p)[0]
+                continue
+            size, files = _lsize(p)
+            out["tasks"].append({"name": name, "path": p, "mtime": _mtime(p), "bytes": size,
+                                 "files": files, "link": is_link})
+        else:
+            out["loose"]["files"] += 1
+            out["loose"]["bytes"] += _lsize(p)[0]
+    out["tasks"].sort(key=lambda t: (t["mtime"], t["name"]), reverse=True)
+    out["count"] = len(out["tasks"])
+    out["bytes"] = sum(t["bytes"] for t in out["tasks"]) + out["loose"]["bytes"]
+    return out
+
+
+def decisions_log(base_dir):
+    """memory/decisions.md against decisions_rotate.py's threshold: {path, exists, bytes, kb, thresholdKb,
+    over, siblings}. `siblings` are the already-rotated `decisions-*.md` files beside it."""
+    path = os.path.join(base_dir, DECISIONS_FILE)
+    exists = os.path.isfile(path)
+    size = os.lstat(path).st_size if exists else 0
+    mem = os.path.dirname(path)
+    sibs = [f for f in os.listdir(mem) if re.fullmatch(r"decisions-[^.]+\.md", f)] if os.path.isdir(mem) else []
+    return {"path": path, "exists": exists, "bytes": size, "kb": size / 1024.0, "thresholdKb": DECISIONS_KB,
+            "over": size > DECISIONS_KB * 1024, "siblings": len(sibs)}
+
+
+def worktrees(base_dir):
+    """`.claude/worktrees/*` — report only. Looked for beside the registry and, in an adopt-in-place
+    project (`<repo>/.prototype/`), at the repo root. → {places, entries: [{name, bytes}], count, bytes}."""
+    places = [os.path.join(base_dir, WORKTREES_DIR)]
+    if os.path.basename(base_dir) == ".prototype":
+        places.append(os.path.join(os.path.dirname(base_dir), WORKTREES_DIR))
+    seen, entries = set(), []
+    for root in places:
+        if os.path.islink(root) or not os.path.isdir(root) or os.path.realpath(root) in seen:
+            continue
+        seen.add(os.path.realpath(root))
+        for name in sorted(os.listdir(root)):
+            p = os.path.join(root, name)
+            if os.path.isdir(p) or os.path.islink(p):
+                entries.append({"name": name, "path": p, "bytes": _lsize(p)[0]})
+    return {"entries": entries, "count": len(entries), "bytes": sum(e["bytes"] for e in entries)}
+
+
 def scan(base_dir, reg_path=None, probe=True):
     """Everything pb has piled up under `base_dir`, measured and never changed."""
     reg_path = reg_path or os.path.join(base_dir, "registry.json")
@@ -293,15 +377,19 @@ def scan(base_dir, reg_path=None, probe=True):
         "candidates": {"orphans": orphans, "bytes": sum(o["bytes"] for o in orphans), "inUse": in_use},
         "serverLog": {"path": log, "bytes": log_bytes, "trim": log_bytes > LOG_MAX},
         "shots": {"path": shots, "files": shot_files, "bytes": shot_bytes},
+        "patches": patch_tasks(base_dir),
+        "decisions": decisions_log(base_dir),
+        "worktrees": worktrees(base_dir),
         "server": preview_status(base_dir, reg_path) if probe else {"running": None},
     }
 
 
 # ── planning ─────────────────────────────────────────────────────────────────────
 
-def plan(data, keep_closed=None, keep_backups=None):
+def plan(data, keep_closed=None, keep_backups=None, keep_patches=None, rotate_decisions=False):
     """What would be done: [{cat, label, kind, paths: [(path, bytes)], bytes}]. A pure function of the
-    scan — it never lists an open round, a pinned IA round, an unpaired closed folder or an in-use candidate."""
+    scan — it never lists an open round, a pinned IA round, an unpaired closed folder or an in-use candidate,
+    a loose file in .pb-patches/, or a worktree. kind is delete | trim | rotate."""
     acts = []
     for o in data["candidates"]["orphans"]:
         acts.append({"cat": "candidates", "label": o["target"], "kind": "delete",
@@ -322,6 +410,14 @@ def plan(data, keep_closed=None, keep_backups=None):
             for g in info["entries"][keep_backups:]:
                 acts.append({"cat": "backups:" + place, "label": g["name"], "kind": "delete",
                              "paths": g["paths"], "bytes": g["bytes"]})
+    if keep_patches is not None:
+        for t in data["patches"]["tasks"][keep_patches:]:
+            acts.append({"cat": "patches", "label": t["name"], "kind": "delete", "noLinks": True,
+                         "paths": [(t["path"], t["bytes"])], "bytes": t["bytes"]})
+    if rotate_decisions and data["decisions"]["exists"]:
+        d = data["decisions"]
+        acts.append({"cat": "decisions", "label": DECISIONS_FILE.replace(os.sep, "/"), "kind": "rotate",
+                     "paths": [(d["path"], d["bytes"])], "bytes": 0})
     return acts
 
 
@@ -379,11 +475,42 @@ def _trim_log(path, root):
         return 0, str(e.strerror or e)
 
 
+def _rotate_decisions(path, root):
+    """Run decisions_rotate.py --apply on the log → (ok, why, output, rotated). A real invocation: its
+    exit code is the answer. 0 is success, "under the threshold, nothing to do" included; 2 means it
+    aborted (a failed lossless check restores the original itself) and is reported, never swallowed."""
+    if not _inside(path, root):
+        return False, "resolves outside the project", "", False
+    before = os.lstat(path).st_size
+    try:
+        p = subprocess.run([sys.executable, "-B", ROTATE_TOOL, path, "--apply"],
+                           capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=300)
+    except (OSError, subprocess.TimeoutExpired) as e:
+        return False, "decisions_rotate.py could not run (%s)" % (getattr(e, "strerror", None) or e), "", False
+    out = (p.stdout + p.stderr).strip()
+    if p.returncode != 0:
+        last = (out.splitlines() or ["no output"])[-1]
+        return False, "rotation failed (exit %d) — the original stays: %s" % (p.returncode, last.strip()), out, False
+    moved = before - os.lstat(path).st_size
+    return True, "", out, moved > 0
+
+
 def apply_actions(base_dir, acts):
-    """Do the plan. → {removed: [{cat,label,path,bytes,kind}], refused: [{path,why}], freedBytes}"""
+    """Do the plan. → {removed: [{cat,label,path,bytes,kind}], refused: [{cat,path,why}], freedBytes,
+    rotated: [{path, rotated, movedBytes, output}]}"""
     root = os.path.realpath(base_dir)
-    removed, refused, freed = [], [], 0
+    removed, refused, freed, rotated = [], [], 0, []
     for a in acts:
+        if a["kind"] == "rotate":
+            for path, size in a["paths"]:
+                ok, why, out, did = _rotate_decisions(path, root)
+                if ok:
+                    rotated.append({"path": _rel(base_dir, path), "rotated": did,
+                                    "movedBytes": size - os.lstat(path).st_size if did else 0, "output": out})
+                else:
+                    refused.append({"cat": a["cat"], "path": _rel(base_dir, path), "why": why})
+                    rotated.append({"path": _rel(base_dir, path), "rotated": False, "movedBytes": 0, "output": out})
+            continue
         if a["kind"] == "delete" and len(a["paths"]) > 1:
             # a round / a backup pair goes whole or not at all: one path that leaves the project keeps the rest
             bad = [p for p, _b in a["paths"] if not _inside(p, root)]
@@ -395,6 +522,9 @@ def apply_actions(base_dir, acts):
                 continue
         for path, size in a["paths"]:
             rel = _rel(base_dir, path)
+            if a.get("noLinks") and os.path.islink(path):
+                refused.append({"cat": a["cat"], "path": rel, "why": "is a symlink — never followed or removed here"})
+                continue
             if a["kind"] == "trim":
                 gone, why = _trim_log(path, root)
                 ok = not why
@@ -415,12 +545,12 @@ def apply_actions(base_dir, acts):
             os.rmdir(cand)
         except OSError:
             pass
-    return {"removed": removed, "refused": refused, "freedBytes": freed}
+    return {"removed": removed, "refused": refused, "freedBytes": freed, "rotated": rotated}
 
 
 # ── reporting ────────────────────────────────────────────────────────────────────
 
-def rows(data, acts, keep_closed, keep_backups, result=None):
+def rows(data, acts, keep_closed, keep_backups, result=None, keep_patches=None, rotate_decisions=False):
     """The table, as data: [{what, count, bytes, action, detail}]. `result` is apply_actions' answer, or None for a dry run."""
     done = result is not None
     gone_by_cat, refused_cats = {}, {}
@@ -465,6 +595,49 @@ def rows(data, acts, keep_closed, keep_backups, result=None):
                 + ", keeping the newest %d here" % keep_backups
         out.append({"what": place + "/", "count": info["count"], "bytes": info["bytes"], "action": action,
                     "detail": [g["name"] for g in info["entries"]]})
+    pt = data["patches"]
+    if pt["link"]:
+        action = "is a symlink — not listed, never touched"
+    elif keep_patches is None:
+        action = "kept — --apply --keep-patches N deletes all but the newest N task folders"
+        if pt["loose"]["files"]:
+            action += " (the %d file(s) at its top stay)" % pt["loose"]["files"]
+    else:
+        n_del = sum(1 for a in acts if a["cat"] == "patches")
+        action = (verb("patches", n_del, "deleted", "would delete") or "nothing older than the newest %d" % keep_patches) \
+            + ", keeping the newest %d" % keep_patches
+        if pt["loose"]["files"]:
+            action += " (the %d file(s) at its top stay)" % pt["loose"]["files"]
+    out.append({"what": PATCHES_DIR + "/ task folders", "count": pt["count"], "bytes": pt["bytes"], "action": action,
+                "detail": [t["name"] + (" (symlink)" if t["link"] else "") for t in pt["tasks"]]})
+    dl = data["decisions"]
+    dname = DECISIONS_FILE.replace(os.sep, "/")
+    if not dl["exists"]:
+        action = "none"
+    else:
+        share = "%.0f KB of %d KB" % (dl["kb"], dl["thresholdKb"])
+        sib = " (+%d rotated)" % dl["siblings"] if dl["siblings"] else ""
+        rot = [r for r in (result or {}).get("rotated", [])]
+        if done and rot:
+            if refused_cats.get("decisions"):
+                action = "%s — rotation FAILED, the original stays (see below)" % share
+            elif rot[0]["rotated"]:
+                action = "%s — rotated: %s moved into decisions-<year>.md, verified lossless" % (share, fmt_bytes(rot[0]["movedBytes"]))
+            else:
+                action = "%s — under the threshold, nothing to do" % share
+        elif rotate_decisions:
+            action = ("%s — OVER the threshold, would rotate (lossless, by date)" if dl["over"]
+                      else "%s — under the threshold, rotating would do nothing") % share
+        elif dl["over"]:
+            action = "%s — OVER the threshold; --apply --rotate-decisions moves old entries out, losslessly" % share
+        else:
+            action = "%s — under the threshold; --apply --rotate-decisions only acts past it" % share
+        action += sib
+    out.append({"what": dname, "count": None, "bytes": dl["bytes"] if dl["exists"] else None, "action": action, "detail": []})
+    wt = data["worktrees"]
+    out.append({"what": WORKTREES_DIR.replace(os.sep, "/") + "/", "count": wt["count"], "bytes": wt["bytes"],
+                "action": "report only — never deleted here" + ("; each is a git worktree: remove it with git, if you want it gone" if wt["count"] else ""),
+                "detail": [e["name"] for e in wt["entries"]]})
     log = data["serverLog"]
     if log["trim"]:
         action = ("trimmed to the last %d KB" % (LOG_KEEP // 1024)) if done and not refused_cats.get("serverLog") \
@@ -504,7 +677,7 @@ def _fmt_row(r, w):
     return "  %-*s %5s %9s   %s" % (w, r["what"], count, size, r["action"])
 
 
-def print_table(table, header, applied, result, acts, keep_closed, keep_backups, base_dir):
+def print_table(table, header, applied, result, acts, keep_closed, keep_backups, base_dir, keep_patches=None):
     print(header)
     print()
     w = max(len(r["what"]) for r in table)
@@ -512,13 +685,16 @@ def print_table(table, header, applied, result, acts, keep_closed, keep_backups,
     for r in table:
         print(_fmt_row(r, w))
     if keep_backups is not None:
-        print("\n  --keep-backups %d keeps the newest %d in memory/backups/ AND the newest %d in .pb-backups/ "
-              "(per place, not in total; a registry backup and its spec snapshot count as one)"
-              % (keep_backups, keep_backups, keep_backups))
+        print("\n  --keep-backups %d keeps the newest %d in memory/backups/ AND the newest %d in .pb-backups/ AND the newest %d "
+              "in memory/.pb-backups/ (per place, not in total; a registry backup and its spec snapshot count as one)"
+              % (keep_backups, keep_backups, keep_backups, keep_backups))
     if keep_closed is not None:
         print("\n  --keep-closed %d keeps the newest %d closed rounds (manifest + brief + folder go together); "
               "the newest promoted IA round of each id is pinned and not counted"
               % (keep_closed, keep_closed))
+    if keep_patches is not None:
+        print("\n  --keep-patches %d keeps the newest %d task folders in .pb-patches/ by modification time; "
+              "files at the top of .pb-patches/ (BRIEF*.md) are never deleted" % (keep_patches, keep_patches))
     if not applied:
         print("\n(Dry run — nothing was changed. %s)" % (
             "Pass --apply to do the above." if acts else "There is nothing to remove with the flags given."))
@@ -526,6 +702,10 @@ def print_table(table, header, applied, result, acts, keep_closed, keep_backups,
     print()
     for r in result["removed"]:
         print("  removed  %-9s %s  (%s)" % (r["kind"] == "trim" and "trimmed" or "deleted", r["path"], fmt_bytes(r["bytes"])))
+    for r in result.get("rotated", []):
+        print("  rotate   %s — decisions_rotate.py says:" % r["path"])
+        for line in (r["output"] or "(no output)").splitlines():
+            print("             " + line)
     for r in result["refused"]:
         print("  REFUSED  %s — %s" % (r["path"], r["why"]))
     print("\n✓ freed %s across %d path(s)%s" % (
@@ -577,6 +757,13 @@ def _jsonable(data):
                        "inUse": data["candidates"]["inUse"], "bytes": data["candidates"]["bytes"]},
         "serverLog": {"bytes": data["serverLog"]["bytes"], "trim": data["serverLog"]["trim"]},
         "shots": {"files": data["shots"]["files"], "bytes": data["shots"]["bytes"]},
+        "patches": {"count": data["patches"]["count"], "bytes": data["patches"]["bytes"], "link": data["patches"]["link"],
+                    "loose": data["patches"]["loose"],
+                    "tasks": [{"name": t["name"], "bytes": t["bytes"], "files": t["files"], "link": t["link"]}
+                              for t in data["patches"]["tasks"]]},
+        "decisions": {k: data["decisions"][k] for k in ("exists", "bytes", "thresholdKb", "over", "siblings")},
+        "worktrees": {"count": data["worktrees"]["count"], "bytes": data["worktrees"]["bytes"],
+                      "entries": [{"name": e["name"], "bytes": e["bytes"]} for e in data["worktrees"]["entries"]]},
         "server": data["server"],
     }
 
@@ -588,7 +775,9 @@ def main(argv=None):
     ap.add_argument("registry", nargs="?", help="registry.json or a project folder (default ./registry.json, then ./.prototype/registry.json)")
     ap.add_argument("--apply", action="store_true", help="do it (default is a dry run)")
     ap.add_argument("--keep-closed", type=_keep, metavar="N", help="keep the newest N closed explore rounds, delete the rest (N >= 1; needs --apply to delete)")
-    ap.add_argument("--keep-backups", type=_keep, metavar="N", help="keep the newest N backups in memory/backups/ AND in .pb-backups/, delete the rest (N >= 1; needs --apply to delete)")
+    ap.add_argument("--keep-backups", type=_keep, metavar="N", help="keep the newest N backups in memory/backups/, in .pb-backups/ AND in memory/.pb-backups/, delete the rest (N >= 1; needs --apply to delete)")
+    ap.add_argument("--keep-patches", type=_keep, metavar="N", help="keep the newest N task folders in .pb-patches/ (top-level files stay), delete the rest (N >= 1; needs --apply to delete)")
+    ap.add_argument("--rotate-decisions", action="store_true", help="run decisions_rotate.py on memory/decisions.md (lossless; a no-op under its 500 KB threshold; needs --apply to run)")
     ap.add_argument("--json", action="store_true", help="machine-readable output")
     args = ap.parse_args(argv)           # a bad --keep-* value exits 2 here
 
@@ -599,24 +788,27 @@ def main(argv=None):
     base_dir = os.path.dirname(reg)
 
     data = scan(base_dir, reg)
-    acts = plan(data, args.keep_closed, args.keep_backups)
+    acts = plan(data, args.keep_closed, args.keep_backups, args.keep_patches, args.rotate_decisions)
     result = apply_actions(base_dir, acts) if args.apply else None
-    table = rows(data, acts, args.keep_closed, args.keep_backups, result)
+    table = rows(data, acts, args.keep_closed, args.keep_backups, result, args.keep_patches, args.rotate_decisions)
     code = 1 if result and result["refused"] else 0
 
     if args.json:
         doc = {"root": base_dir, "apply": bool(args.apply), "keepClosed": args.keep_closed,
-               "keepBackups": args.keep_backups, "found": _jsonable(data),
+               "keepBackups": args.keep_backups, "keepPatches": args.keep_patches,
+               "rotateDecisions": bool(args.rotate_decisions), "found": _jsonable(data),
                "table": [{k: v for k, v in r.items() if k != "detail"} for r in table],
                "planned": [{"cat": a["cat"], "label": a["label"], "kind": a["kind"], "bytes": a["bytes"],
                             "paths": [_rel(base_dir, p) for p, _b in a["paths"]]} for a in acts],
                "removed": result["removed"] if result else [], "refused": result["refused"] if result else [],
+               "rotated": result["rotated"] if result else [],
                "freedBytes": result["freedBytes"] if result else 0, "exit": code}
         print(json.dumps(doc, ensure_ascii=False, indent=2))
         return code
 
     header = "clean.py — %s%s" % (base_dir, "" if args.apply else "   (dry run)")
-    print_table(table, header, bool(args.apply), result, acts, args.keep_closed, args.keep_backups, base_dir)
+    print_table(table, header, bool(args.apply), result, acts, args.keep_closed, args.keep_backups, base_dir,
+                args.keep_patches)
     return code
 
 

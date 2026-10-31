@@ -149,7 +149,99 @@ def _offline(page):
     page.route("**/*", _handle)
 
 
+class _FakePage:
+    """Just enough of a Playwright page for test_run._run_scenario: `evaluate` answers the shell's seams,
+    and once `navigating` is set it raises what Chromium raises when the page moves on mid-call."""
+    def __init__(self, navigating=False):
+        self.navigating, self.calls = navigating, 0
+
+    def evaluate(self, expr, arg=None):
+        self.calls += 1
+        if self.navigating:
+            raise Exception("Page.evaluate: Execution context was destroyed, most likely because of a navigation")
+        if isinstance(expr, str) and "typeof setProtoRole" in expr:
+            return "function"
+        if isinstance(arg, dict) and "do" in arg:
+            return {"ok": True}
+        if isinstance(expr, str) and "protoScreenId" in expr:
+            return "login"
+        return None
+
+    def wait_for_load_state(self, *a, **k):
+        pass
+
+    def wait_for_timeout(self, ms):
+        pass
+
+
+def navigation_race():
+    """test_run survives a page that navigates under it: the scenario is `blocked` with the reason, never a
+    traceback, and the run goes on to the next scenario."""
+    sys.path.insert(0, TOOLS)
+    import importlib
+    tr = importlib.import_module("test_run")
+    print("test_run._eval / _run_scenario against a page that navigates (unit):")
+    flaky = _FakePage()
+    n = {"left": 2}
+    real = flaky.evaluate
+
+    def flap(expr, arg=None):
+        if n["left"] > 0:
+            n["left"] -= 1
+            raise Exception("Page.evaluate: Execution context was destroyed, most likely because of a navigation")
+        return real(expr, arg)
+    flaky.evaluate = flap
+    check(tr._eval(flaky, "() => typeof setProtoRole") == "function", "two navigation races are waited out and retried")
+    gone = _FakePage(navigating=True)
+    try:
+        tr._eval(gone, "() => 1", retries=2)
+        check(False, "an exhausted retry raises _Blocked")
+    except tr._Blocked as e:
+        check(gone.calls == 3 and "navigat" in str(e), f"retries are bounded (3 calls) and the reason is kept ({e})")
+    other = _FakePage()
+    other.evaluate = lambda *a, **k: (_ for _ in ()).throw(ValueError("not a race"))
+    try:
+        tr._eval(other, "() => 1")
+        check(False, "another error propagates")
+    except ValueError:
+        check(True, "any other error propagates unchanged")
+    cerr = []
+    test = {"start": "login", "steps": [{"do": "submit", "target": "x"}], "expect": [{"screen": "login"}]}
+    st1, detail = tr._run_scenario(_FakePage(navigating=True), cerr, test, role_id=None)
+    st2, _ = tr._run_scenario(_FakePage(), cerr, test, role_id=None)
+    check(st1 == "blocked" and "navigat" in detail, f"a scenario on a navigating page is blocked with the reason ({st1}: {detail})")
+    check(st2 == "pass", f"…and the next scenario still runs and passes ({st2})")
+
+
+def navigation_run(sync_playwright):
+    """The real thing: a seed that reloads the page. The scenario is `blocked` (lastResult.status), the
+    others still pass, and there is no traceback."""
+    print("test_run.py --functional (a scenario that navigates mid-run is blocked, the run continues):")
+    with tempfile.TemporaryDirectory() as tmp:
+        reg_path = copy_golden(tmp)
+        os.makedirs(os.path.join(tmp, "runtime"))
+        with open(os.path.join(tmp, "runtime", "nav.js"), "w", encoding="utf-8") as f:
+            f.write("window.pbScenarioSwitch = function () { location.reload(); return new Promise(function () {}); };\n")
+        reg = load(reg_path)
+        reg["runtime"] = (reg.get("runtime") or []) + [{"id": "nav-race", "src": "runtime/nav.js", "why": "test: a seed that reloads"}]
+        story = reg["flow"]["stories"][0]
+        story["scenarios"].insert(0, {"text": "Seeding reloads the page.", "category": "function",
+                                      "test": {"start": "login", "seed": "reload", "steps": [],
+                                               "expect": [{"screen": "login"}]}})
+        dump(reg, reg_path)
+        r = run_tool(TEST_RUN, reg_path, "--functional")
+        out = r.stdout + r.stderr
+        check("Traceback" not in out, f"no traceback on a navigating scenario\n{out[-600:]}")
+        scen = list(iter_test_scenarios(load(reg_path)))
+        statuses = [(sc.get("lastResult") or {}).get("status") for sc in scen]
+        check(statuses[0] == "blocked", f"the navigating scenario is recorded blocked ({statuses})")
+        check(len(statuses) >= 2 and all(s == "pass" for s in statuses[1:]),
+              f"the scenarios after it still ran and passed ({statuses})")
+        check(r.returncode == 1, f"a blocked scenario is a warning, exit 1 (rc={r.returncode})")
+
+
 def run():
+    navigation_race()
     # ── dependency gates (skip cleanly, exit 2) ──────────────────────────────
     try:
         from playwright.sync_api import sync_playwright
@@ -177,6 +269,8 @@ def run():
         check(all((sc.get("lastResult") or {}).get("ranAt") and
                    (sc.get("lastResult") or {}).get("detail") for sc in scen),
               "each lastResult carries a detail + ranAt")
+
+    navigation_run(sync_playwright)
 
     # ── 1b · the verdicts are saved under the registry lock, after the run, on a fresh read ──
     # What is asserted is WHERE the write happens, not whether the scenarios pass (section 1 does that),

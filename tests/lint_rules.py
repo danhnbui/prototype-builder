@@ -318,6 +318,170 @@ check(_tokenref("return '<i style=\"gap:var(--nope-not-a-token)\"></i>';") == []
       "producers is worse than no check")
 L._SHELL_PROPS_CACHE[:] = _saved
 
+# ── R-RETIRED · meta.others / meta.tradeoffs (D-33) ───────────────────────────────────
+print("R-RETIRED — advisory, never an error, never the reason for an exit code")
+GOLDEN_REG = os.path.join(ROOT, "fixtures", "golden", "registry.json")
+
+
+_DANGER = {"danger": {"$value": "#d92d20", "$type": "color"}}      # the runtime-required token: keeps the base registry warning-free
+
+
+def _retired_reg(**meta_extra):
+    return {"meta": dict({"name": "t"}, **meta_extra), "tokens": dict(_DANGER), "screens": [], "components": []}
+
+
+def _findings(reg, strict=False):
+    return [f for f in L.check(reg, strict=strict) if f.code == "R-RETIRED"]
+
+
+for strict in (False, True):
+    tag = "--strict" if strict else "default"
+    got = _findings(_retired_reg(others={"live": [1, 2]}, tradeoffs=[{"title": "x"}]), strict)
+    check(sorted(f.where for f in got) == ["meta.others", "meta.tradeoffs"] and all(f.severity == "WARN" for f in got),
+          "%s: both fields fire, as WARN (never promoted to ERROR)" % tag)
+    check(all("still works" in f.msg and f.where in f.msg for f in got) and
+          any("runtime module" in f.msg for f in got if f.where == "meta.others") and
+          any("ia.rules[]" in f.msg for f in got if f.where == "meta.tradeoffs"),
+          "%s: the message names the field, says it still works, and where to move the data" % tag)
+    check(_findings(_retired_reg(others=None, tradeoffs=[]), strict) == [] and
+          _findings(_retired_reg(others={}, tradeoffs=""), strict) == [] and
+          _findings(_retired_reg(), strict) == [],
+          "%s: absent, null, [] , {} and '' are not data — nothing fires" % tag)
+
+with tempfile.TemporaryDirectory() as d:
+    clean_p = write(d, _retired_reg(others=None, tradeoffs=[]))
+    for flags in ((), ("--strict",)):
+        r = run(*flags, clean_p)
+        check(r.returncode == 0 and "R-RETIRED" not in r.stdout, "a clean registry %s: exit 0, no finding" % (" ".join(flags) or "(default)"))
+    for flags in ((), ("--strict",)):
+        with tempfile.TemporaryDirectory() as d2:
+            p2 = write(d2, _retired_reg(others={"live": "data"}, tradeoffs=[{"title": "t"}]))
+            r = run(*flags, p2)
+            label = " ".join(flags) or "(default)"
+            check("WARN [R-RETIRED]" in r.stdout and "ERROR [R-RETIRED]" not in r.stdout,
+                  "%s: printed as WARN" % label)
+            check(r.returncode == 0, "%s: the SAME exit code as the clean registry — 0, the rule alone raises nothing (rc=%d)"
+                  % (label, r.returncode))
+            check("advisory" in r.stdout and "0 warning" not in r.stdout.replace("advisory", ""),
+                  "%s: the summary says the findings are advisory" % label)
+    # …but a real warning beside it still exits 1, and still counts only itself
+    with tempfile.TemporaryDirectory() as d3:
+        reg3 = {"meta": {"name": "t", "others": {"live": 1}}, "tokens": dict(_DANGER), "screens": [],
+                "components": [cmp_("hexy", level="atom")]}
+        p3 = write(d3, reg3, {"hexy": "function renderCmpHexy(props) {\n  return '<i style=\"color:#ff0000\"></i>';\n}\n"})
+        r = run(p3)
+        check(r.returncode == 1 and "WARN [R-HEX]" in r.stdout and "1 warning(s) (1 advisory" in r.stdout,
+              "a genuine WARN next to it still exits 1, and the count is its own (rc=%d)" % r.returncode)
+r = run("--strict", GOLDEN_REG)
+check(r.returncode == 0 and "WARN [R-RETIRED] meta.tradeoffs" in r.stdout,
+      "the CI command (--strict fixtures/golden/registry.json) still exits 0 although the golden keeps a trade-off in the retired field")
+
+# ── --exec · the context a body runs in cannot reach the host ─────────────────────────
+print("--exec — a body is somebody else's code")
+import shutil  # noqa: E402
+
+# The harness as it was before the hardening: `console` is a HOST object inside a context built from a host literal.
+_OLD_HARNESS = r"""
+'use strict';
+const vm = require('vm');
+const job = JSON.parse(require('fs').readFileSync(0, 'utf8'));
+const msg = (e) => String((e && e.message) || e).split('\n')[0].slice(0, 160);
+const quiet = { log() {}, info() {}, warn() {}, error() {}, debug() {} };
+const ctx = vm.createContext({ console: quiet });
+const run = (code, name) => vm.runInContext(code, ctx, { timeout: job.ms, filename: name });
+const notes = [];
+run(job.prelude + '\nvar PB_REGISTRY = ' + job.registry + ';', 'pb-exec-prelude.js');
+try { run(job.runtime, 'runtime.js'); } catch (e) { notes.push(['runtime.js', msg(e)]); }
+run(job.stubs, 'pb-exec-stubs.js');
+for (const m of job.modules) { try { run(m.js, m.src); } catch (e) { notes.push([m.src, msg(e)]); } }
+const results = [];
+for (const b of job.bodies) {
+  const r = { key: b.key, runs: [] };
+  try { run(b.js, b.src); } catch (e) { r.compile = msg(e); results.push(r); continue; }
+  for (const p of b.runs) {
+    try {
+      const out = run('window[' + JSON.stringify(b.fn) + '](JSON.parse(' + JSON.stringify(p.props) + '))', b.src);
+      r.runs.push({ label: p.label, type: out === null ? 'null' : typeof out,
+                    empty: typeof out === 'string' && !out.trim() });
+    } catch (e) { r.runs.push({ label: p.label, error: msg(e) }); }
+  }
+  results.push(r);
+}
+process.stdout.write(JSON.stringify({ notes, results }));
+"""
+
+# Each probe asks the host a question and returns a NUMBER when the host answered `object` (the escape),
+# so the result is visible through R-EXEC's own vocabulary: "returned number, not a string".
+_ESC = "var t = %s;\n  return t === 'object' ? 42 : '<i>' + t + '</i>';"
+EXEC_BODIES = {
+    "esc-console": _ESC % "console.log.constructor('return typeof process')()",
+    "esc-this": _ESC % "this.constructor.constructor('return typeof process')()",
+    "esc-error": _ESC % "console.error.constructor('return typeof process')()",
+    "esc-eval": _ESC % "(0, eval)('typeof process')",
+    "esc-newfn": _ESC % "new Function('return typeof process')()",
+    "normal-log": "console.log('a'); console.warn('b'); console.info('c'); console.debug('d'); console.error('e');\n"
+                  "  return '<div>' + typeof console.log + '</div>';",
+    "normal-plain": "props = props || {};\n  return '<div>' + pbEscape(props.label || 'ok') + pbUse('x', {}) + '</div>';",
+    "normal-throw": "return props.rows.map(function (r) { return r; }).join('');",
+}
+
+
+def _exec_findings(harness=None):
+    with tempfile.TemporaryDirectory() as d:
+        bodies, comps = {}, []
+        for cid, inner in EXEC_BODIES.items():
+            fn = "renderCmp" + "".join(w.title() for w in cid.split("-"))
+            bodies[cid] = "function %s(props) {\n  %s\n}\n" % (fn, inner)
+            comps.append(cmp_(cid, level="atom"))
+        reg = {"meta": {"name": "t"}, "tokens": {}, "screens": [], "components": comps}
+        write(d, reg, bodies)
+        saved = L._EXEC_HARNESS
+        if harness:
+            L._EXEC_HARNESS = harness
+        try:
+            found, notes = L.check_exec(reg, d)
+        finally:
+            L._EXEC_HARNESS = saved
+    return {re.search(r"id='([^']+)'", f.where).group(1) if re.search(r"id='([^']+)'", f.where) else f.where: f.msg
+            for f in found}, notes
+
+
+import re  # noqa: E402
+
+if not shutil.which("node"):
+    print("  - node not on PATH: the --exec escape test was NOT run (skipped, not passed)")
+else:
+    old, _n = _exec_findings(_OLD_HARNESS)
+    new, _n = _exec_findings()
+    PROBES = ("esc-console", "esc-this", "esc-error")
+    check(all("returned number" in old.get(k, "") for k in PROBES),
+          "NEGATIVE CONTROL — the old harness lets a body reach `process` (console.log.constructor, "
+          "this.constructor.constructor, console.error.constructor): %s" % {k: old.get(k, "")[:28] for k in PROBES})
+    check(all("returned number" not in new.get(k, "") for k in EXEC_BODIES),
+          "the hardened harness: no body gets `object` back from `typeof process`")
+    check(all("Code generation from strings disallowed" in new.get(k, "") for k in PROBES + ("esc-eval", "esc-newfn")),
+          "console.log.constructor(…), this.constructor.constructor(…), eval and new Function all throw an EvalError, "
+          "reported as R-EXEC: %s" % {k: new.get(k, "")[:40] for k in ("esc-this", "esc-eval")})
+    check("--exec runs a body with eval" in new.get("esc-newfn", ""),
+          "…and the finding says why (the gate switches eval / new Function off), so a body that needs them is not a mystery")
+    check("normal-log" not in new and "normal-plain" not in new,
+          "normal bodies — console.log/warn/info/debug/error, pbEscape, pbUse — still run clean")
+    check("normal-throw" in new and "Cannot read properties of undefined" in new["normal-throw"],
+          "a body that really throws still reports its own message: %s" % new.get("normal-throw", "")[:60])
+    check(set(k for k in new if k.startswith("normal")) == {"normal-throw"} and
+          set(k for k in old if k.startswith("normal")) == {"normal-throw"},
+          "old and new agree on every normal body")
+
+    # the same through the CLI, on a folder whose name has glob syntax in it
+    with tempfile.TemporaryDirectory() as d:
+        proj = os.path.join(d, "proj [x]")
+        os.makedirs(proj)
+        bodies = {"esc-this": "function renderCmpEscThis(props) {\n  %s\n}\n" % (_ESC % "this.constructor.constructor('return typeof process')()")}
+        p = write(proj, {"meta": {"name": "t"}, "tokens": {}, "screens": [], "components": [cmp_("esc-this", level="atom")]}, bodies)
+        r = run("--exec", p)
+        check(r.returncode == 2 and "[R-EXEC]" in r.stdout and "Code generation" in r.stdout and "Traceback" not in r.stderr,
+              "CLI: an escape attempt is an R-EXEC finding (exit 2), not a crash")
+
 print()
 if _fails:
     print("FAIL — %d check(s):" % len(_fails))

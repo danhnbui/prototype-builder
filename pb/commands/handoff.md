@@ -23,6 +23,7 @@ $ARGUMENTS
 | `--screen=<id>` | all in scope | Mode 3: restrict the screens push |
 | `--bridge` | false | Mode 3: emit node JSON to paste, instead of writing through the MCP |
 | `--batch` | refuse >1 screen / >5 components | Mode 3: allow a large push |
+| `--accept-findings` | false | All modes: continue past a security-scan **error** (exit 2) without asking; the override is recorded in the output (§1b) |
 | `--dry-run` | false | Mode 3: run every gate, show the plan, emit nothing |
 | `--force` | false | Mode 3: skip the no-op hash check |
 | `--rematch` | false | Mode 3: re-prompt DS matches for already-bound components |
@@ -51,6 +52,28 @@ stale render.
 **DS-drift pre-flight (advisory, never blocks).** If `meta.dsSource` is set, re-resolve the source and
 run `clone_ds.py --drift`. On drift, say the hand-off's tokens may lag the live DS — then continue.
 They may be shipping intentionally.
+
+## 1b · Security gate (fail-closed — every mode, before anything is delivered)
+A hand-off sends the registry, its render bodies and its mock data off this machine; this is the one place
+`security_scan.py` runs for that. Findings are printed already masked.
+```
+python3 "${CLAUDE_PLUGIN_ROOT}/tools/security_scan.py" registry.json
+```
+Modes 1 and 2 also scan what was written, once the output folder exists (it skips `prototype.html`,
+`design-system.html`, any `pb/`, `.git/` and `node_modules/`, so a vendored plugin is not scanned):
+```
+python3 "${CLAUDE_PLUGIN_ROOT}/tools/security_scan.py" --dir handoff        # mode 1 (or --out)
+python3 "${CLAUDE_PLUGIN_ROOT}/tools/security_scan.py" --dir handoff-dev    # mode 2 (or --out)
+```
+- **Exit 2 (errors) → STOP.** Show the findings and ask the user whether to continue. Continue only on
+  `--accept-findings` or the user's explicit yes in this conversation; silence is not a yes. Then record the
+  override: print it in the Report (the finding codes and counts, and who accepted), and in modes 1 and 2 write
+  a `## Security scan override` section into the hand-off's own docs — `AGENTS.md` in mode 1, `rules.md` in mode 2
+  (re-add it after a regeneration, since `handoff_docs.py` rewrites that file).
+- **Exit 1 (warnings only) → continue.** Show the count and say the prototype may contain mock personal data
+  (emails, phone numbers) that the recipient will see.
+- **Exit 0 → continue**, silently.
+- Mode 3 scans the registry only, before G-FP1 writes anything; nothing is folder-scanned there.
 
 ---
 
@@ -103,6 +126,9 @@ Render `${CLAUDE_PLUGIN_ROOT}/template/AGENTS.template.md` to `handoff/AGENTS.md
 `full` / `people` / `context`. Append: the plugin travels with the folder, the exact install line, and
 that `/pb:init --import bundle` is the first command to run.
 
+### 1.5 · Scan the folder
+Run the `--dir` scan from §1b on `handoff/` now that it is complete, and apply its exit-code rule.
+
 ---
 
 # Mode 2 · For engineering
@@ -128,7 +154,8 @@ handoff-dev/
    this one. It reads the derived logic graph plus the authored half of each contract (`writes[]`,
    `affordances[].why`) and never writes back to `logic/`.
 3. Copy `memory/constitution.md` to `handoff-dev/constitution.md`.
-4. **Ask whether they also want runnable source.** If not, stop here — a scaffold nobody asked for is
+4. Run the `--dir handoff-dev` scan from §1b and apply its exit-code rule before going further.
+5. **Ask whether they also want runnable source.** If not, stop here — a scaffold nobody asked for is
    the most expensive file in the folder.
 
 > **`design-system.html` IS the component usage doc.** Per component it already carries a live clickable
@@ -292,13 +319,16 @@ are variable-bound, every element resolved to a real instance, and token coverag
 ---
 
 ## Report
-State the mode, the output path, the file count and the total size. Mode 1: say the plugin is vendored
+State the mode, the output path, the file count and the total size, and the security scan result
+(clean, N warnings, or the accepted override and its codes). Mode 1: say the plugin is vendored
 and what it added. Mode 2: say whether a runnable tier was built. Mode 3: say which frames were created
 and whether anything fell back to the bridge.
 
 ## NEVER
 - NEVER hand off a stale render — `--render` first, every mode.
 - NEVER hand off a registry with an `ERROR` finding (NS6, fail-closed).
+- NEVER deliver past a `security_scan.py` exit 2 without `--accept-findings` or the user's explicit yes,
+  and never without recording that override in the output.
 - NEVER ship a mode-1 `prototype.html` with authoring CTAs visible — set `config.viewOnly`.
 - NEVER set `config.viewOnly` in mode 2 — engineers need the authoring surface.
 - NEVER omit `constitution.md` / `decisions*.md` from a mode-1 bundle, and **never narrow that glob to

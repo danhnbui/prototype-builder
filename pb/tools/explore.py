@@ -1241,7 +1241,7 @@ def _ours(base, reg_path):
 
 def _claimed_port(base_dir, reg_path):
     """The port this project's own launch.json entry (preview_register.py) gives its preview — so a
-    server started here keeps the URL the project already uses, instead of taking the default 8000
+    server started here keeps the URL the project already uses, instead of a port
     another project may have claimed. None when there is no such entry or the port is busy."""
     try:
         with open(os.path.join(base_dir, ".claude", "launch.json"), encoding="utf-8") as f:

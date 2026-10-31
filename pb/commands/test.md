@@ -325,7 +325,7 @@ is the product here, not the detection.
 
 ## 9 · Shell coherence (advisory)
 Catches the silent stale render: `prototype.html` left rendered by an older plugin shell than the one now
-installed. Read `prototype.html` beside `registry.json`, parse `<!-- pb-shell v(\S+) ·`, and compare
+installed. Do **not** read `prototype.html` — it is 1 MB or more rendered. The stamp is the comment `render.py` puts on the line right after `<!DOCTYPE html>`, so read only the head: `head -c 4096 prototype.html | grep -m1 -o '<!-- pb-shell v[^>]*-->'` (no output = no stamp). Parse `<!-- pb-shell v(\S+) ·` from that line and compare
 against `${CLAUDE_PLUGIN_ROOT}/.claude-plugin/plugin.json`. Report exactly one line:
 - **Match** → `✅ Shell coherent — prototype.html rendered by pb vX.Y.Z (current).`
 - **Mismatch** → `⚠ Shell drift: prototype.html rendered by pb vX.Y.Z; current plugin is vA.B.C — re-render (/pb:build --render) or restart /pb:preview.`

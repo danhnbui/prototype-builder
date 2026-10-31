@@ -154,6 +154,34 @@ device frames are `<div>`s in one document, so even a real `@media` rule answere
 `/pb:init`, `/pb:build`, `think-layout` and `design-component-build` reference this section rather
 than re-stating it.
 
+## Checking a change
+
+After a change, use the lowest level that answers the question. A browser is level 2 and up; most
+changes never need it. Measured over one month on five real projects: 8,632 UI-check calls, about 28 hours
+of waiting and about 17% of spend; check rounds ran a median of 4 calls, p90 21, max 75; Chrome DevTools made
+2,750 calls though pb never asks for it; evals outnumbered screenshots 2 to 1, so many checks wanted a fact,
+not a picture. A rule that said only "don't open Chrome for every change" changed nothing, so each level
+names its tool.
+
+| Level | When | Check |
+|---|---|---|
+| 0. Trust the reload | Copy, token value, prop default, spacing | Nothing, or lint. The preview reloads in the user's tab. The reply says what changed and that it wasn't looked at. |
+| 1. Code check | Any render body or logic edit | `lint_registry.py --exec` (runs every body in node; about 0.4 s on the largest real project) |
+| 2. Page facts | Is the text there, is it hidden for this role, any console errors, any overflow | `shot.py --no-png --eval ... --console`, one width |
+| 3. One look | A visual change in one place | `shot.py --selector ...`, one width, read one image |
+| 4. Full look | A new or restructured screen, and before saying a structural change is finished | Every width in `meta.devices`. A subagent looks and returns a verdict, so images stay out of the main thread. |
+
+- **The levels follow the trio classifier** that already decides the gate: a non-trio tweak is level 0 or 1,
+  a trio point edit is level 1 to 3, structural work is level 4. A new or restructured screen is never
+  signed off below level 4.
+- **Check once per batch of edits**, not after each edit.
+- **Every image read stays in context** for the rest of the session, about 1.5k tokens each, and is
+  re-read on every later call. `shot.py` takes 4.7 s at the median and 17 s at p90; level 1 takes under a second.
+- **Chrome DevTools is for what `shot.py` cannot do** (network or performance debugging), or when the user
+  asks for it. It is not how pb looks at a render.
+- **A multi-step build belongs in a `pb-builder` subagent**, which starts at about 11k tokens of context
+  against a long session's 184k median, so its looks and retries cost far less.
+
 ## pb bounds its own footprint (v2.2)
 
 On three real projects in one morning, tests booted their own server and browser 156 of 183 times,
@@ -177,9 +205,15 @@ bounds what it starts and shows what accumulates:
   ```
   python3 "${CLAUDE_PLUGIN_ROOT}/tools/shot.py" registry.json --screen <id> [--viewport WxH]... [--role <id>] [--console]
   python3 "${CLAUDE_PLUGIN_ROOT}/tools/shot.py" registry.json --path /explore/<id>/<slot>
+  python3 "${CLAUDE_PLUGIN_ROOT}/tools/shot.py" registry.json --screen <id> --no-png --eval "<JS>" --console
+  python3 "${CLAUDE_PLUGIN_ROOT}/tools/shot.py" registry.json --screen <id> --step click:<CSS> --step fill:<CSS>=<VALUE> --step press:<KEY> --step wait-for:<CSS> --step shot:<NAME>
   ```
   Defaults: 1440x900 and 390x844. `--selector`, `--click`, `--wait-for`, `--eval` and `--full-page` cover
-  what a throwaway script was written for. Exit `3` = cannot run (no Playwright) — *blocked*, not passed.
+  what a throwaway script was written for. **`--no-png`** takes no image and prints what `--eval` and
+  `--console` return: a fact costs a few tokens, a picture about 1.5k that stays in context. **`--step`**
+  (repeatable) runs click, fill, press, wait, wait-for, eval and shot in the order given, once per
+  viewport, so a flow that needs several moves is one call. Exit `3` = cannot run (no Playwright) —
+  *blocked*, not passed. Which of these to reach for: § *Checking a change*.
 - **One way to start a preview: `serve.py registry.json --ensure`.** It is idempotent and detached — it
   prints the URL whether it started a server or found this project's running one, so calling it twice is
   harmless and it is also how a stopped preview is restarted. `/pb:preview` and `explore.py link` use it.
@@ -197,8 +231,9 @@ bounds what it starts and shows what accumulates:
 - **Growth is visible and prunable.** The health report (`lint_registry.py --report`, part of `/pb:test`)
   has a `resources` block that ranks backups, open and closed explore rounds, `server.log` and an
   oversized registry key; `/pb:clean` shows the same piles and prunes them. **Nothing is deleted without an
-  explicit keep flag** — `/pb:clean --apply --keep-backups N` / `--keep-closed N` are the only way pb ever
-  deletes a backup or a closed round.
+  explicit keep flag** — `/pb:clean --apply --keep-backups N` / `--keep-closed N` / `--keep-patches N` are the
+  only way pb ever deletes a backup, a closed round or a stored patch, and `--rotate-decisions` is the only
+  way `decisions.md` is split.
 
 The rules agents follow:
 
@@ -209,7 +244,7 @@ The rules agents follow:
   `serve.py --stop` stops it; it also exits by itself after 8 idle hours.
 - **NEVER write `registry.json` by hand** (`json.dump`, `open(…, 'w')`, a redirect) — `slice.py set`.
 
-**Hooks put the key rules in front of the model.** The plugin's `hooks/` folder runs two small scripts
+**Hooks put the key rules in front of the model.** The plugin's `hooks/` folder runs three small scripts
 in any pb project (a folder with `registry.json` and a `render/` folder or `memory/constitution.md`, in the
 working directory or under `.prototype/`): `session_rules.py` prints a short digest of these rules at session
 start, and `bash_advice.py` adds one line of advice before a shell command that matches a rule above. They

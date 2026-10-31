@@ -380,6 +380,34 @@ def _launch(p):
         sys.exit(2)
 
 
+class _Blocked(Exception):
+    """The page could not be asked (it kept navigating, or never loaded): the scenario is `blocked`."""
+
+
+_NAV_RACE = ("execution context was destroyed", "navigation", "frame was detached")
+_NOARG = object()
+
+
+def _eval(page, expr, arg=_NOARG, retries=3, again=True):
+    """page.evaluate that survives a navigation race: on "Execution context was destroyed" (the page
+    moved on mid-call) wait for the new document and ask again, up to `retries` times, then raise
+    _Blocked with the reason. `again=False` (a step that already ACTED — asking twice would act twice)
+    waits for the load and raises _Blocked at once. Any other error propagates unchanged."""
+    for i in range(retries + 1):
+        try:
+            return page.evaluate(expr) if arg is _NOARG else page.evaluate(expr, arg)
+        except Exception as e:                                       # noqa: BLE001
+            msg = str(e)
+            if not any(k in msg.lower() for k in _NAV_RACE):
+                raise
+            try:
+                page.wait_for_load_state("domcontentloaded", timeout=5000)
+            except Exception:                                        # noqa: BLE001
+                pass
+            if not again or i == retries:
+                raise _Blocked("page navigated during the check (%s)" % (msg.splitlines()[0][:120] if msg else "navigation"))
+
+
 def _prep_page(opener, url):
     """Open `url` on a new page of `opener` (a browser or a browser context), wait for the Prototype
     tab, wire an error buffer. Returns (page, console_errors)."""
@@ -387,8 +415,11 @@ def _prep_page(opener, url):
     console_errors = []
     page.on("console", lambda m: console_errors.append(m.text) if m.type == "error" else None)
     page.on("pageerror", lambda e: console_errors.append(str(e)))
-    page.goto(url, wait_until="domcontentloaded")
-    page.wait_for_selector("#proto-frame", timeout=10000)
+    try:
+        page.goto(url, wait_until="domcontentloaded")
+        page.wait_for_selector("#proto-frame", timeout=10000)
+    except Exception as e:                                           # noqa: BLE001 — a clean exit, not a traceback
+        _cannot_run("%s did not load (%s)" % (url, (str(e).splitlines() or [type(e).__name__])[0][:160]))
     return page, console_errors
 
 
@@ -693,13 +724,13 @@ def _check_expect(page, exp, console_errors):
     if not isinstance(exp, dict):
         return (False, f"malformed expect: {exp!r}")
     if "screen" in exp:
-        cur = page.evaluate("() => (typeof state!=='undefined' && state) ? state.protoScreenId : null")
+        cur = _eval(page, "() => (typeof state!=='undefined' && state) ? state.protoScreenId : null")
         return (cur == exp["screen"], f"protoScreenId={cur!r}, expected {exp['screen']!r}")
     if "text" in exp:
-        txt = page.evaluate("() => { const f=document.getElementById('proto-frame'); return f ? f.textContent : ''; }")
+        txt = _eval(page, "() => { const f=document.getElementById('proto-frame'); return f ? f.textContent : ''; }")
         return (exp["text"] in (txt or ""), f"text {exp['text']!r} not found in #proto-frame")
     if "errors" in exp:
-        n = page.evaluate(_COUNT_ERR_JS)
+        n = _eval(page, _COUNT_ERR_JS)
         spec = exp["errors"] or {}
         if "count" in spec:
             return (n == spec["count"], f"visible error count {n} != {spec['count']}")
@@ -707,7 +738,7 @@ def _check_expect(page, exp, console_errors):
             return (n >= spec["min"], f"visible error count {n} < min {spec['min']}")
         return (False, "errors expect needs 'min' or 'count'")
     if "toast" in exp:
-        toasts = page.evaluate("() => window.__pbToasts || []") or []
+        toasts = _eval(page, "() => window.__pbToasts || []") or []
         want = exp["toast"]
         hit = any(want in (t or "") for t in toasts)
         return (hit, f"toast {want!r} not observed (saw {toasts})")
@@ -726,10 +757,12 @@ def _check_expect(page, exp, console_errors):
         if key in exp:
             sel = exp[key]
             try:
-                n = page.evaluate(
+                n = _eval(page,
                     "(s) => { const f=document.getElementById('proto-frame');"
                     " if (!f) return -1; try { return f.querySelectorAll(s).length; }"
                     " catch (e) { return -2; } }", sel)
+            except _Blocked:
+                raise
             except Exception as e:                                    # noqa: BLE001
                 return (False, f"{key} {sel!r}: page evaluate failed: {e}")
             if n == -1:
@@ -753,9 +786,9 @@ def _apply_role(page, role_id):
     """
     if role_id is None:
         return (True, "")
-    if page.evaluate("() => typeof setProtoRole") != "function":
+    if _eval(page, "() => typeof setProtoRole") != "function":
         return (False, "setProtoRole seam not found — cannot run per-role")
-    page.evaluate("(id) => setProtoRole(id)", role_id)
+    _eval(page, "(id) => setProtoRole(id)", role_id)
     page.wait_for_timeout(60)
     return (True, "")
 
@@ -769,22 +802,34 @@ def _apply_seed(page, seed):
     """
     if not seed:
         return (True, "")
-    fn = page.evaluate(
+    fn = _eval(page,
         "() => (typeof pbScenarioSwitch === 'function') ? 'pbScenarioSwitch'"
         " : (typeof pbApplyScenario === 'function') ? 'pbApplyScenario' : null")
     if not fn:
         return (False, f"seed {seed!r} declared but the shell exposes no scenario seam "
                        f"(pbScenarioSwitch / pbApplyScenario) — seed NOT applied")
-    page.evaluate("([f, s]) => window[f](s)", [fn, seed])
+    _eval(page, "([f, s]) => window[f](s)", [fn, seed])
     page.wait_for_timeout(120)
     return (True, "")
 
 
 def _run_scenario(page, console_errors, test, role_id=None):
-    """Drive one scenario's test block; return (status, detail)."""
+    """Drive one scenario's test block; return (status, detail). A page that keeps navigating under the
+    check, or will not answer, is `blocked` with the reason — the run goes on to the next scenario."""
+    try:
+        return _run_scenario_body(page, console_errors, test, role_id)
+    except _Blocked as e:
+        return ("blocked", str(e))
+    except Exception as e:                                           # noqa: BLE001
+        if type(e).__name__ == "TimeoutError":
+            return ("blocked", "timed out: " + (str(e).splitlines() or ["timeout"])[0][:160])
+        raise
+
+
+def _run_scenario_body(page, console_errors, test, role_id=None):
     del console_errors[:]
     # Fresh sandbox + toast buffer before each scenario.
-    page.evaluate("() => { if (typeof pbResetSandbox === 'function') pbResetSandbox(); window.__pbToasts = []; }")
+    _eval(page, "() => { if (typeof pbResetSandbox === 'function') pbResetSandbox(); window.__pbToasts = []; }")
     ok, detail = _apply_role(page, role_id)
     if not ok:
         return ("skip", detail)
@@ -793,12 +838,12 @@ def _run_scenario(page, console_errors, test, role_id=None):
         return ("fail", detail)
     start = test.get("start")
     if start:
-        page.evaluate("(id) => { if (typeof setProtoScreen === 'function') setProtoScreen(id); }", start)
+        _eval(page, "(id) => { if (typeof setProtoScreen === 'function') setProtoScreen(id); }", start)
         page.wait_for_timeout(60)
     for step in (test.get("steps") or []):
         if not isinstance(step, dict) or not step.get("do"):
             return ("fail", f"malformed step: {step!r}")
-        res = page.evaluate(_STEP_JS, step)
+        res = _eval(page, _STEP_JS, step, again=False)
         if not res.get("ok"):
             return ("fail", f"step {step!r} failed: {res.get('detail')}")
         page.wait_for_timeout(120)
@@ -869,7 +914,7 @@ def _functional(reg_path, story_filter, sess):
     verdicts = {}                       # scenario key -> (test that ran, lastResult); saved after the run
     with sess as srv:
         browser, page, cerr = srv.open_page()
-        page.evaluate(_TOAST_OBS_JS)
+        _eval(page, _TOAST_OBS_JS)
         roles = (reg.get("meta") or {}).get("roles") or []
         fallback = _default_role_id(reg, roles)
         for (story, sc, test) in tests:
@@ -889,9 +934,15 @@ def _functional(reg_path, story_filter, sess):
                         ERROR, "T-FUNC",
                         f"flow.stories[{story.get('title')!r}] scenario {title!r} "
                         f"as role {rid!r}", detail))
+                elif status == "blocked":
+                    findings.append(Finding(
+                        WARN, "T-FUNC",
+                        f"flow.stories[{story.get('title')!r}] scenario {title!r} "
+                        f"as role {rid!r}", "blocked: " + detail))
             # lastResult records WHICH role produced the verdict; a scenario is only `pass`
             # when every declared role passes.
             worst = ("fail" if any(r["status"] == "fail" for r in per_role)
+                     else "blocked" if any(r["status"] == "blocked" for r in per_role)
                      else "skip" if any(r["status"] == "skip" for r in per_role) else "pass")
             verdicts[key_of[id(sc)]] = (test, {
                 "status": worst, "ranAt": _now_z(),

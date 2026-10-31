@@ -2,7 +2,7 @@
 name: pb-clarifier
 description: Use to turn a PRD or feature brief into a structured spec, the Project Summary tab, the jobs each role needs done, the information architecture that places them and the rules behind its contested UI decisions — objective, prototype-shaped user stories, user insights, ia.jobs[] (gated at G-JTBD), N scored groupings of those jobs with one promoted (gated at G-IA), and one ia.rules[] entry per decision. Wraps /pb:specify and /pb:clarify at the front of a Product Builder project.
 tools: Read, Grep, Glob, Write
-model: inherit
+model: sonnet
 ---
 
 # pb-clarifier

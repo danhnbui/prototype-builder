@@ -2,7 +2,7 @@
 name: pb-tester
 description: Use to run the prototype's functional, server, and role/auth-enforcement tests against the rendered sandbox and record per-scenario results, or to answer a slice of a /pb:test plan as yes/no/blocked rows with evidence. Wraps /pb:test via test_run.py; read-only on the registry except for writing test results. Dispatched on sonnet with no design context, so its verdicts are independent of whoever authored the design.
 tools: Read, Bash, Grep, Glob
-model: inherit
+model: sonnet
 ---
 
 # pb-tester

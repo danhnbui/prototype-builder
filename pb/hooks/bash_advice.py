@@ -44,7 +44,8 @@ def advise(cmd):
     out = []
     if PLAYWRIGHT.search(cmd) and not RUNS_PB_BROWSER.search(cmd) and not READ_ONLY.match(cmd):
         out.append("a hand-written Playwright script is not how pb looks at a render: use "
-                   "`shot.py registry.json --screen <id>` (or `test_run.py` to test).")
+                   "`shot.py registry.json --screen <id>`, with `--step click:<CSS>` / `fill:<CSS>=<VALUE>` / "
+                   "`press:<KEY>` for a flow (or `test_run.py` to test).")
     if IDLE_EXIT_OFF.search(cmd):
         out.append("`--idle-exit 0` makes a preview that never exits: leave the default "
                    "(8 h idle) and start it with `serve.py registry.json --ensure`.")

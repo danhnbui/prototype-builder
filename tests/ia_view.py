@@ -152,8 +152,10 @@ def vertical(pg, w, h, label):
       return seq.map((e, i) => !e ? 'missing:' + i : i === 0 ? true : !!(seq[i - 1].compareDocumentPosition(e) & Node.DOCUMENT_POSITION_FOLLOWING)); }""")
     check(all(o is True for o in order), f"{label}: search → Role → Priority → Screens → Not handled ({order})")
     canvas = pg.evaluate("!!document.getElementById('iamap-stage')")
+    # This project names a nav hub (build_project), so it MUST derive a site map; a missing
+    # canvas is a failure, never a quiet pass.
+    check(canvas, f"{label}: the site map canvas is derived and rendered")
     if not canvas:
-        print(f"  – {label}: this project derives no site map, so the canvas checks are skipped")
         return
     if w < 720:
         info = pg.evaluate("""() => { const v = document.querySelector('.ia-canvas .flow-viewport'), c = getComputedStyle(v);
@@ -177,6 +179,7 @@ def filtering(pg, ctx):
     r1, r2, screens, jobs = ctx["r1"], ctx["r2"], ctx["screens"], ctx["jobs"]
     keys = lambda: pg.evaluate(VIS)  # noqa: E731
     canvas = pg.evaluate("!!document.getElementById('iamap-stage')")
+    check(canvas, "filtering: the site map canvas is derived and rendered")
     dimmed = lambda: pg.evaluate("[...document.querySelectorAll('.ia-node[data-screen].is-dim')].map(n => n.getAttribute('data-screen'))")  # noqa: E731
     nodes = pg.evaluate("[...document.querySelectorAll('.ia-node[data-screen]')].map(n => n.getAttribute('data-screen'))")
 
@@ -280,8 +283,9 @@ def dimming(pg):
     pg.evaluate(GO_IA)
     pg.wait_for_selector(".ia-scroll")
     pg.wait_for_timeout(250)
-    if not pg.evaluate("!!document.getElementById('iamap-stage')"):
-        print("  – this project derives no site map, so the dimming checks are skipped")
+    has_map = pg.evaluate("!!document.getElementById('iamap-stage')")
+    check(has_map, "dimming: the site map canvas is derived and rendered")
+    if not has_map:
         return
     pg.click('.pb-fbar [data-pb-quick="unhandled"]')           # nothing is placed on a screen → every node dims
     pg.wait_for_timeout(150)
@@ -308,8 +312,9 @@ def wheel(pg):
     pg.evaluate(GO_IA)
     pg.wait_for_selector(".ia-scroll")
     pg.wait_for_timeout(400)
-    if not pg.evaluate("!!document.getElementById('iamap-stage')"):
-        print("  – this project derives no site map, so the wheel checks are skipped")
+    has_map = pg.evaluate("!!document.getElementById('iamap-stage')")
+    check(has_map, "wheel: the site map canvas is derived and rendered")
+    if not has_map:
         return
     pg.evaluate("document.getElementById('ia-scroll').scrollTop = 0")
     over = pg.evaluate("document.getElementById('ia-scroll').scrollHeight > document.getElementById('ia-scroll').clientHeight")

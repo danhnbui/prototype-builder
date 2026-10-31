@@ -2,7 +2,7 @@
 name: pb-flow
 description: Use to generate or update the UX Design / Flow tab — a Mermaid wireflow plus a numbered user-story test checklist with categorized scenarios. Wraps /pb:plan --flow; authors the flow slice. /pb:build reconciles it on trio writes.
 tools: Read, Edit, Write, Bash, Grep, Glob
-model: inherit
+model: sonnet
 ---
 
 # pb-flow

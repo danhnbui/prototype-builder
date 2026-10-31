@@ -43,6 +43,8 @@ def digest(plugin_root, project):
         "- %s get|set <kind> <id>   read or patch the registry" % os.path.join(tools, "slice.py"),
         "NEVER: a hand-written Playwright script; serve.py with & / nohup / --idle-exit 0;",
         "kill a preview (serve.py --stop); json.dump or a redirect into registry.json.",
+        "After a change use the lowest check that answers it: none, lint_registry.py --exec, shot.py --no-png --eval,",
+        "shot.py --selector, and every width only for a new screen. DevTools is not how pb looks.",
         "Structural work (new feature, flow, revamp): /pb:explore \"<goal>\". Point changes: /pb:build.",
     ]
     text = "\n".join(lines[:MAX_LINES])

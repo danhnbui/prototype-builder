@@ -34,6 +34,9 @@ Rules (severity · default → under --strict):
   R-COMPOSE-TEXT R-COMPOSE-MATCH(composed, not declared) R-LEVEL-ORDER(composes nothing)
   R-NEST-HINT R-PROPTYPE R-RENDERSRC(both set) R-DTCG-TYPE(legacy shape)
   R-TOKENREF R-DANGER R-FLOW R-ERD                                          WARN · always
+  R-RETIRED                          meta.others / meta.tradeoffs holds data (retired, D-33,
+                                     but it still works). ADVISORY: a WARN in every mode,
+                                     never promoted by --strict, never raises the exit code
   R-EXEC (--exec only)               a body throws, returns a non-string or '' when run
                                      with {} and once per `state` option   ERROR · always
   R-NEST-FIGMA (--figma only)        a declared nested global has no Figma instance  ERROR
@@ -47,12 +50,16 @@ Usage:  python3 lint_registry.py [--strict] [--exec] [--report] [--sync-elements
                 pbUse is stubbed so each body is judged alone. Opt-in. No node on PATH →
                 one line saying no body was executed (skipped, not passed) and the static
                 verdict alone; node is an isolated exception to the stdlib-only core.
+                A body is somebody else's code, so it runs in a context that reaches no host
+                object and has eval / new Function switched off; a body that needs them
+                reports as R-EXEC ("Code generation from strings disallowed").
 --report        rank, never gate: a histogram by code, the items carrying the most, the
                 shape metrics, and a "fix first" list. ALWAYS exits 0 — at 87 findings on a
                 real project a flat list is unreadable, and the ordering is the product.
                 Thresholds from an optional memory/doctor.json beside the registry. Also a
                 `resources` block — the registry's largest keys, backups, open and closed explore
-                rounds, .preview/server.log, the preview server — ranked with the command that fixes it.
+                rounds, .pb-patches/, .claude/worktrees/ (report only), .preview/server.log, the
+                preview server — ranked with the command that fixes it.
 --sync-elements APPEND a screens[].elements[] entry per composed-but-undeclared component.
                 Append-only and idempotent; never edits, reorders or removes an entry. Takes the
                 registry lock (exit 2 with a message naming the holder if it is held) and writes
@@ -205,6 +212,28 @@ _CSS_COMMENT = re.compile(r"/\*.*?\*/", re.S)
 _CSS_PRELUDE = re.compile(r"([^{};]+)\{")
 _R_UTIL = re.compile(r"(?<![\w-])r-(?:compact|medium-up|expanded-up|below-expanded|cols)(?![\w-])")
 _ADAPTS = re.compile(r"@container\b")
+
+
+# ── retired fields (D-33) ──────────────────────────────────────────────────────────────────
+# `meta.tradeoffs` (collapsed into ia.rules[] by migration 0010) and `meta.others` (its sub-tab
+# is gone) are retired but never removed: AGENTS.md §3 says add, then deprecate. A project may keep
+# live data in them — one reads `meta.others` from its own runtime module — so the finding says
+# it still works and where to move the data. It is advisory in every mode: a WARN that --strict does
+# not promote and that does not raise the exit code (see ADVISORY_CODES).
+RETIRED_META = {
+    "tradeoffs": "a trade-off is a rule — move each one to ia.rules[] with its decision{} (UX Design → Logic)",
+    "others": "it has no schema, writer or check — move the data to a runtime module (registry.runtime[] → "
+              "runtime/*.js) or to the slice that owns it",
+}
+
+
+def _check_retired(add, meta):
+    for field, where_to in RETIRED_META.items():
+        if not meta.get(field):          # absent, null, "", [], {}, 0, false: nothing to move
+            continue
+        add(WARN, "R-RETIRED", f"meta.{field}",
+            f"meta.{field} holds data — the field is retired (D-33) but still works, and nothing here "
+            f"removes it. When convenient: {where_to}")
 
 
 def _size_classes(meta):
@@ -851,6 +880,7 @@ def check(reg, strict=False, base_dir=None):
 
     _check_styles(add, reg.get("meta") if isinstance(reg.get("meta"), dict) else {},
                   components, screens, comp_by_id, base_dir, hex_px_sev, strict)
+    _check_retired(add, reg.get("meta") if isinstance(reg.get("meta"), dict) else {})
 
     # ── tokens: W3C DTCG $type validity + legacy-shape + runtime-required presence ──
     # tokens is a DTCG document (flat or nested-with-aliases). Validate each token's $type
@@ -964,15 +994,52 @@ var setTimeout = function () { return 0; }, clearTimeout = __pbNoop, setInterval
 _EXEC_STUBS = r"""
 pbUse = function (id) { return '<pb-use data-id="' + pbEscape(id) + '"></pb-use>'; };
 """
+# A body is somebody else's code (a bundle from another person can be linted), so the context it
+# runs in must not reach the host. Three things hold that, each tested in tests/lint_rules.py:
+#   * the context's global is made from `Object.create(null)` and handed nothing. A global built from
+#     `{}` (or from `{ console }`) inherits the HOST's Object.prototype, so `this.constructor.constructor`
+#     is the host's Function and `…('return process')()` returns `process`; `quiet` as a host object
+#     did the same through `console.log.constructor`.
+#   * `console` is built INSIDE the context, so no host function or object is reachable from a body.
+#   * `codeGeneration: { strings: false, wasm: false }` — eval, new Function and the Function
+#     constructor throw an EvalError, so a body cannot make code the harness did not wrap. A body that
+#     needs them reports as an R-EXEC finding saying so (it does not crash the run).
+# What leaves the context is a JSON STRING built in the context (the result's type, or a message),
+# parsed here — never an object whose getter could run while the host reads it.
+_EXEC_SANDBOX = r"""
+var console = { log: function () {}, info: function () {}, warn: function () {}, error: function () {}, debug: function () {} };
+var __pbJSON = JSON, __pbString = String;
+var __pbCall = function (fn, propsJson) {
+  var f, out;
+  try { f = this[fn]; } catch (e) { f = undefined; }
+  if (typeof f !== 'function') return __pbJSON.stringify({ error: __pbString(fn) + ' is not a function' });
+  try { out = f.call(this, __pbJSON.parse(propsJson)); }
+  catch (e) {
+    var m;
+    try { m = __pbString((e && e.message) || e); } catch (_) { m = 'threw a value that cannot be printed'; }
+    return __pbJSON.stringify({ error: m.split('\n')[0].slice(0, 160) });
+  }
+  return __pbJSON.stringify({ type: out === null ? 'null' : typeof out,
+                              empty: typeof out === 'string' && !out.trim() });
+};
+"""
 _EXEC_HARNESS = r"""
 'use strict';
 const vm = require('vm');
+const util = require('util');
 const job = JSON.parse(require('fs').readFileSync(0, 'utf8'));
-const msg = (e) => String((e && e.message) || e).split('\n')[0].slice(0, 160);
-const quiet = { log() {}, info() {}, warn() {}, error() {}, debug() {} };
-const ctx = vm.createContext({ console: quiet });
+// A thrown value is read without running any code of its own: a data property only, never a getter or a Proxy trap.
+const msg = (e) => {
+  if (typeof e === 'string') return e.split('\n')[0].slice(0, 160);
+  if (e === null || typeof e !== 'object' || util.types.isProxy(e)) return 'threw a value that is not an Error';
+  const d = Object.getOwnPropertyDescriptor(e, 'message');
+  return d && typeof d.value === 'string' ? d.value.split('\n')[0].slice(0, 160) : 'threw a value that is not an Error';
+};
+const ctx = vm.createContext(Object.create(null),
+  { codeGeneration: { strings: false, wasm: false }, microtaskMode: 'afterEvaluate' });
 const run = (code, name) => vm.runInContext(code, ctx, { timeout: job.ms, filename: name });
 const notes = [];
+run(job.sandbox, 'pb-exec-sandbox.js');
 run(job.prelude + '\nvar PB_REGISTRY = ' + job.registry + ';', 'pb-exec-prelude.js');
 try { run(job.runtime, 'runtime.js'); } catch (e) { notes.push(['runtime.js', msg(e)]); }
 run(job.stubs, 'pb-exec-stubs.js');
@@ -983,9 +1050,9 @@ for (const b of job.bodies) {
   try { run(b.js, b.src); } catch (e) { r.compile = msg(e); results.push(r); continue; }
   for (const p of b.runs) {
     try {
-      const out = run('window[' + JSON.stringify(b.fn) + '](JSON.parse(' + JSON.stringify(p.props) + '))', b.src);
-      r.runs.push({ label: p.label, type: out === null ? 'null' : typeof out,
-                    empty: typeof out === 'string' && !out.trim() });
+      const out = JSON.parse(run('__pbCall(' + JSON.stringify(b.fn) + ',' + JSON.stringify(p.props) + ')', b.src));
+      r.runs.push(out.error ? { label: p.label, error: out.error }
+                            : { label: p.label, type: out.type, empty: out.empty });
     } catch (e) { r.runs.push({ label: p.label, error: msg(e) }); }
   }
   results.push(r);
@@ -1056,7 +1123,7 @@ def check_exec(reg, base_dir, node=None, ms=2000):
                            for c in reg.get("components") or [] if isinstance(c, dict)],
             "screens": [{k: s.get(k) for k in ("id", "renderFn", "roles")}
                         for s in reg.get("screens") or [] if isinstance(s, dict)]}
-    job = {"ms": ms, "prelude": _EXEC_PRELUDE, "stubs": _EXEC_STUBS, "modules": modules,
+    job = {"ms": ms, "sandbox": _EXEC_SANDBOX, "prelude": _EXEC_PRELUDE, "stubs": _EXEC_STUBS, "modules": modules,
            "runtime": _render.load_shared_runtime(), "bodies": bodies,
            "registry": json.dumps(slim, ensure_ascii=False).replace("</", "<\\/")}
     budget = 30 + sum(len(b["runs"]) for b in bodies) * ms / 1000.0
@@ -1104,6 +1171,10 @@ def check_exec(reg, base_dir, node=None, ms=2000):
             hint = (" — the file opens with a comment, then declares `function …`: render.py wraps it "
                     "as a function BODY, so the named function is declared and never called. "
                     "Write the body as bare statements")
+        if any("Code generation from strings" in b for b in bad):
+            hint += (" — --exec runs a body with eval, new Function and the Function constructor switched "
+                     "off (a body is somebody else's code and must not reach the host). Build the value "
+                     "without generating code; this is the gate's rule, not necessarily a defect in the page")
         add(ERROR, "R-EXEC", where, "; ".join(bad) + hint)
     return findings, notes
 
@@ -1212,16 +1283,25 @@ def _load_json(path):
         sys.exit(2)
 
 
+# Advisory codes are printed like any other finding but never move the exit code (and --strict does
+# not promote them): a project that keeps live data in a retired field must stay green in CI.
+ADVISORY_CODES = frozenset({"R-RETIRED"})
+
+
 def _report(findings, label, ok_msg):
-    """Print findings, then exit 0 (clean) / 1 (warnings) / 2 (any error)."""
-    errors = [f for f in findings if f.severity == ERROR]
-    warns = [f for f in findings if f.severity == WARN]
+    """Print findings, then exit 0 (clean) / 1 (warnings) / 2 (any error). Advisory findings are
+    printed and counted apart; on their own they exit 0."""
+    gating = [f for f in findings if f.code not in ADVISORY_CODES]
+    advisory = len(findings) - len(gating)
+    errors = [f for f in gating if f.severity == ERROR]
+    warns = [f for f in gating if f.severity == WARN]
     for f in findings:
         print(f.line())
-    if not findings:
-        print(f"✓ {label}: {ok_msg}")
+    note = f" ({advisory} advisory, not counted)" if advisory else ""
+    if not gating:
+        print(f"✓ {label}: {ok_msg}{note}")
         sys.exit(0)
-    print(f"{label}: {len(errors)} error(s), {len(warns)} warning(s)")
+    print(f"{label}: {len(errors)} error(s), {len(warns)} warning(s){note}")
     sys.exit(2 if errors else 1)
 
 
@@ -1311,8 +1391,8 @@ def _resources(reg, path, base_dir, th, flag):
     n_back = sum(v["count"] for v in places.values())
     b_bytes = sum(v["bytes"] for v in places.values())
     over_b = n_back > _th(th, "backups_count", 20) or b_bytes / mb > _th(th, "backups_mb", 50)
-    print(f"  backups             {n_back:5d} ({places['memory/backups']['count']} in memory/backups/ · "
-          f"{places['.pb-backups']['count']} in .pb-backups/)  {b_bytes / mb:.1f} MB{flag(over_b)}")
+    where = " · ".join(f"{v['count']} in {k}/" for k, v in places.items())
+    print(f"  backups             {n_back:5d} ({where})  {b_bytes / mb:.1f} MB{flag(over_b)}")
     if over_b:
         rank.append(f"{n_back} backups, {b_bytes / mb:.0f} MB — nothing prunes them on its own; keep the newest 10 in each place: "
                     f"clean.py --apply --keep-backups 10 (run `clean.py` first to see what it would delete)")
@@ -1334,6 +1414,17 @@ def _resources(reg, path, base_dir, th, flag):
     if over_c:
         rank.append(f"closed explore rounds take {c['bytes'] / mb:.0f} MB in {c['count']} round(s) — keep the newest 5: "
                     f"clean.py --apply --keep-closed 5")
+
+    pt = data["patches"]
+    over_p = pt["bytes"] / mb > _th(th, "patches_mb", 50) or pt["count"] > _th(th, "patches_count", 30)
+    print(f"  .pb-patches         {pt['count']:5d} task folder(s)  {pt['bytes'] / mb:.1f} MB{flag(over_p)}")
+    if over_p:
+        rank.append(f".pb-patches/ holds {pt['count']} task folder(s), {pt['bytes'] / mb:.0f} MB — /pb:orchestrate writes one per task and "
+                    f"nothing prunes them; keep the newest 10: clean.py --apply --keep-patches 10 (run `clean.py` first)")
+
+    wt = data["worktrees"]
+    if wt["count"]:
+        print(f"  worktrees           {wt['count']:5d} in .claude/worktrees/  {wt['bytes'] / mb:.1f} MB  (report only — clean.py never deletes them)")
 
     log_kb = data["serverLog"]["bytes"] / 1024
     over_l = log_kb > _th(th, "server_log_kb", 1024)
@@ -1375,6 +1466,7 @@ def report(reg, path, base_dir, findings):
           "slice_kb": 20, "decisions_kb": 500,
           # the resources block (clean.py's pile): how much a project may accumulate before it is ranked
           "backups_mb": 50, "backups_count": 20, "explore_open_days": 3, "explore_closed_mb": 50,
+          "patches_mb": 50, "patches_count": 30,
           "server_log_kb": 1024, "registry_key_share": 0.35, "preview_idle_min": 60}
     cfg = os.path.join(base_dir or ".", "memory", "doctor.json")
     if os.path.isfile(cfg):
@@ -1492,8 +1584,8 @@ def report(reg, path, base_dir, findings):
         rank.append(f"{len(high)} body/bodies over {th['body_lines_high']} lines — use slice.py --no-prose to keep context small")
     if d_kb > th["decisions_kb"]:
         rank.append(f"decisions log at {d_kb:.0f} KB — rotate it: "
-                    f"decisions_rotate.py memory/decisions.md --apply "
-                    f"(whole entries, by date, verified lossless)")
+                    f"clean.py --apply --rotate-decisions (or decisions_rotate.py memory/decisions.md --apply; "
+                    f"whole entries, by date, verified lossless)")
     rank.extend(res_rank)
     for i, r in enumerate(rank, 1):
         print(f"  {i}. {r}")

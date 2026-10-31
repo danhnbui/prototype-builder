@@ -13,6 +13,9 @@ written only in a command file never reached a free-form session. Checked here, 
   H3  bash_advice.py: table-driven positives (each names the right tool) and negatives
       (normal commands, `json.load`, `json.dumps`, `slice.py` writes, `shot.py`); silent in a
       non-pb folder; output is valid JSON, never carries `permissionDecision`, exit 0.
+  H5  browser_advice.py: names shot.py --no-png --eval and --selector inside a pb project, silent
+      outside; speaks on the first call of a session and every 25th, not between; a broken counter
+      folder is silent with exit 0; no permissionDecision; hooks.json matches the MCP tool names.
   H4  bad stdin, empty stdin, a missing command and a non-object payload print nothing and exit 0.
 
 Usage:  python3 tests/hook_advice.py
@@ -28,8 +31,10 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 HOOKS = os.path.join(ROOT, "pb", "hooks")
 SESSION = os.path.join(HOOKS, "session_rules.py")
 BASH = os.path.join(HOOKS, "bash_advice.py")
+BROWSER = os.path.join(HOOKS, "browser_advice.py")
 
 FAILS = []
+TMP_FOR_HOOKS = tempfile.mkdtemp(prefix="pb-hook-test-")   # the counter files live here, not in the real temp folder
 
 
 def check(cond, msg):
@@ -40,6 +45,7 @@ def check(cond, msg):
 
 def run(script, stdin="", cwd=None, env_extra=None):
     env = dict(os.environ)
+    env["TMPDIR"] = TMP_FOR_HOOKS
     env.pop("CLAUDE_PLUGIN_ROOT", None)
     env.update(env_extra or {})
     p = subprocess.run([sys.executable, "-S", "-B", script], input=stdin, cwd=cwd, env=env,
@@ -85,6 +91,12 @@ if cfg:
     check(bool(ss) and ss[0].get("matcher") == "startup|resume|clear|compact",
           "SessionStart matcher is startup|resume|clear|compact")
     check(bool(pt) and pt[0].get("matcher") == "Bash", "PreToolUse matcher is Bash")
+    import re as _re
+    mcp = [g.get("matcher") for g in pt if g.get("matcher", "").startswith("mcp__")]
+    check(bool(mcp) and all(_re.match(mcp[0] + "$", t) for t in (
+        "mcp__chrome-devtools__take_screenshot", "mcp__plugin_x_chrome-devtools__click",
+        "mcp__claude-in-chrome__navigate")) and not _re.match(mcp[0] + "$", "mcp__posthog__exec"),
+        "browser matcher fits the DevTools and claude-in-chrome tools only")
     named = []
     for group in ss + pt:
         for h in group.get("hooks", []):
@@ -93,7 +105,9 @@ if cfg:
             for a in h.get("args", []):
                 if a.startswith("${CLAUDE_PLUGIN_ROOT}/"):
                     named.append(a.replace("${CLAUDE_PLUGIN_ROOT}/", ""))
-    check(len(named) == 2, "hooks.json names exactly two scripts (%s)" % ", ".join(named))
+    check(len(named) == 3, "hooks.json names exactly three scripts (%s)" % ", ".join(named))
+    check(any(g.get("matcher") == "mcp__.*(chrome-devtools|claude-in-chrome).*" for g in pt),
+          "PreToolUse has the browser MCP matcher")
     for rel in named:
         check(os.path.isfile(os.path.join(ROOT, "pb", rel)), "named script exists: pb/" + rel)
 
@@ -208,6 +222,46 @@ with tempfile.TemporaryDirectory() as tmp:
     code, out, err = run(BASH, json.dumps({"cwd": inner, "tool_input": {"command": "pkill -f serve.py"}}), cwd=plain)
     check(code == 0 and hook_json(out)[0] is not None, ".prototype/ inside the payload cwd counts as a pb project")
 
+    # ------------------------------------------------------------ H5
+    print("H5 · browser_advice.py")
+
+    def call(sid, cwd_payload, extra_env=None):
+        payload = {"cwd": cwd_payload, "session_id": sid, "tool_name": "mcp__chrome-devtools__take_screenshot",
+                   "tool_input": {}}
+        return run(BROWSER, json.dumps(payload), cwd=plain, env_extra=extra_env)
+
+    spoke = []
+    for i in range(1, 52):
+        code, out, err = call("sess-a", pb_dir)
+        ctx, event = hook_json(out)
+        if code != 0 or (out and ctx is None):
+            check(False, "call %d: exit 0 and valid JSON" % i)
+        if ctx:
+            spoke.append(i)
+            if i == 1:
+                check(event == "PreToolUse", "  hookEventName is PreToolUse")
+                check("--no-png --eval" in ctx and "--selector" in ctx and "network or performance" in ctx
+                      and "user asked" in ctx, "  names --no-png --eval, --selector and when DevTools fits")
+                check("\n" not in ctx and len(ctx) < 600, "  one short line")
+                check("permissionDecision" not in out and "decision" not in json.loads(out),
+                      "  no permission decision")
+    check(spoke == [1, 25, 50], "speaks on calls 1, 25 and 50 only (%s)" % spoke)
+    code, out, err = call("sess-b", pb_dir)
+    check(hook_json(out)[0] is not None, "a new session speaks on its first call")
+    code, out, err = call("sess-b", inner)
+    check(code == 0 and out == "", "a second call in that session is silent (.prototype/ counts as a project)")
+    code, out, err = call("sess-c", plain)
+    check(code == 0 and out == "", "silent outside a pb project")
+    broken = os.path.join(tmp, "broken-tmp")      # a temp folder whose per-user counter folder is a file
+    os.makedirs(broken)
+    with open(os.path.join(broken, "pb-hooks-%s" % os.getuid()), "w", encoding="utf-8") as f:
+        f.write("x")
+    code, out, err = call("sess-d", pb_dir, {"TMPDIR": broken})
+    check(code == 0 and out == "", "a broken counter folder: silent, exit 0")
+    for stdin in ("", "not json", "[]", "{}", '{"cwd": 5}'):
+        code, out, err = run(BROWSER, stdin, cwd=plain)
+        check(code == 0 and out == "", "browser_advice silent, exit 0 on %r" % stdin)
+
     # ------------------------------------------------------------ H4
     print("H4 · bad input never breaks anything")
     bad = ["", "not json", "[]", "null", "{}", '{"tool_input": null}', '{"tool_input": {"command": 7}}',
@@ -216,6 +270,8 @@ with tempfile.TemporaryDirectory() as tmp:
         code, out, err = run(BASH, stdin, cwd=plain if stdin != bad[-1] else plain)
         check(code == 0 and out == "", "bash_advice silent, exit 0 on %r" % stdin[:40])
 
+import shutil
+shutil.rmtree(TMP_FOR_HOOKS, ignore_errors=True)
 print()
 if FAILS:
     print("FAILED: %d check(s)" % len(FAILS))

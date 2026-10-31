@@ -295,6 +295,41 @@ try:
     check(rc == 0 and fix_first(out), "--report exits 0 with things ranked")
     r = subprocess.run([sys.executable, LINT, os.path.join(p, "registry.json")], capture_output=True, text=True)
     check(r.returncode == 0 and "── resources" not in r.stdout, "without --report the lint run is unchanged (exit %d, no resources block)" % r.returncode)
+
+    # ── 7 ────────────────────────────────────────────────────────────────────────
+    print("7 · .pb-patches/, worktrees and the decisions log, from the same scan clean.py uses")
+    p = project(tmp, "patches")
+    rc, out, _ = report(p)
+    check(any(ln.strip().startswith(".pb-patches") and "0 task folder" in ln for ln in out.splitlines()),
+          "a project with no .pb-patches/ still gets a row (zero), nothing ranked")
+    check(not any(w in ln for ln in fix_first(out) for w in ("keep-patches", "worktree")), "…and nothing from it is ranked")
+    check(not any(ln.strip().startswith("worktrees") for ln in out.splitlines()), "no worktrees row when there are none")
+    for i in range(31):
+        write(os.path.join(p, ".pb-patches", "T-%02d" % i, "patch.json"), "{}")
+    write(os.path.join(p, ".pb-patches", "BRIEF-1.md"), "brief")
+    rc, out, _ = report(p)
+    check(rc == 0 and ranked(out, "clean.py --apply --keep-patches 10") and "31 task folder" in " ".join(fix_first(out)),
+          "31 task folders > 30 → ranked with `clean.py --apply --keep-patches 10`")
+    p = project(tmp, "patches-mb")
+    doctor(p, patches_mb=0.001, patches_count=1000)
+    write(os.path.join(p, ".pb-patches", "T-1", "files", "a.bin"), "x" * 4096)
+    rc, out, _ = report(p)
+    check(rc == 0 and ranked(out, "keep-patches"), "patches_mb is a threshold memory/doctor.json can lower")
+    p = project(tmp, "patches-quiet")
+    doctor(p, patches_mb=0.001, patches_count=1000)
+    write(os.path.join(p, ".pb-patches", "T-1", "files", "a.bin"), "x" * 100)
+    rc, out, _ = report(p)
+    check(rc == 0 and not ranked(out, "keep-patches"), "a small .pb-patches/ under both thresholds is not ranked")
+    write(os.path.join(p, ".claude", "worktrees", "wt-one", "a.txt"), "w" * 2048)
+    rc, out, _ = report(p)
+    check(any(ln.strip().startswith("worktrees") and "1 in .claude/worktrees/" in ln and "report only" in ln for ln in out.splitlines()),
+          "worktrees: a count and a size, labelled report only")
+    check(not any("worktree" in ln for ln in fix_first(out)), "…and never ranked")
+    p = project(tmp, "decisions-big")
+    write(os.path.join(p, "memory", "decisions.md"), "# d\n\n" + "## 2026-01-01 — x\n" + "y\n" * 300000)
+    rc, out, _ = report(p)
+    check(rc == 0 and ranked(out, "clean.py --apply --rotate-decisions"),
+          "a decisions log past 500 KB is ranked with `clean.py --apply --rotate-decisions`")
 finally:
     shutil.rmtree(tmp, ignore_errors=True)
 

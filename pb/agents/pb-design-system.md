@@ -2,7 +2,7 @@
 name: pb-design-system
 description: Use when a component is added or changed to decide reuse vs extend-with-a-variant vs build-local, and to manage design tokens under the naming contract. Wraps /pb:build as the DS-first gate for pb-builder.
 tools: Read, Edit, Write, Bash, Grep, Glob
-model: inherit
+model: sonnet
 ---
 
 # pb-design-system

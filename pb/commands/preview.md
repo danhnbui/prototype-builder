@@ -32,8 +32,10 @@ you. (An in-app preview pane is optional; see the macOS note.)
   instead of a background task, `&` or `nohup`.
 - `--port <N>` — bind a specific port. Without it each project gets a **stable default port derived from
   its path**, so the URL survives restarts; `--port` wins.
+- `--host <addr>` — the interface to bind (default `127.0.0.1`, this machine only).
 - `--allow-host <name>` — the server refuses any `Host` header it does not know, on every route. To preview
-  from another device or through a tunnel, name the host here (repeatable).
+  from another device or through a tunnel, name the host here (repeatable). See *From a phone or through a
+  tunnel* below.
 - `--write` — *also* write **both** `prototype.html` and `design-system.html` to disk on every change
   (a watch-mode `/pb:build --render`). The written files are clean — the live-reload script is injected
   into the served pages only.
@@ -60,6 +62,17 @@ with nothing holding its handle, which is how previews became orphans. Report th
 managed previews run per user (`PB_PREVIEW_MAX`, `0` = no cap): starting another stops the longest-idle one
 that has no open tab, never one with a tab open. (`explore.py link <id>` starts one the same way when an exploration
 needs it; `test_run.py` and `shot.py` boot one only for their own run.)
+
+**From a phone or through a tunnel.** The default bind is loopback, so only this machine can reach it. For
+another device, restart with the interface and the name that device (or the tunnel) will put in the URL:
+```
+python3 "${CLAUDE_PLUGIN_ROOT}/tools/serve.py" registry.json --ensure --host 0.0.0.0 --allow-host my-mac.local
+```
+`--allow-host` takes a bare name (no port, scheme or wildcard) and may be repeated. This exposes the live
+prototype, the design-system site and every `/explore` page to anyone on that network (or holding the tunnel
+URL) who can reach the port; it does not expose the registry file, `memory/` or dot-folders, and the Project
+settings save (`POST /api/meta`) and explore scoring stay loopback-only. Use it on a network you trust, and
+stop it afterwards with `serve.py registry.json --stop`.
 
 ## 2 · Iterate
 Leave it running. Each `/pb:build` (no `--render` needed) re-renders and reloads every open tab. A save

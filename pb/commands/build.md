@@ -88,10 +88,13 @@ The **trio** = a **screen**, a **component**, or **logic** (states, validation, 
    variant → local, then the naming contract. Invoke skills as needed: `think-layout` (layout),
    `think-logic` (state/rules), `design-component-build` (a new custom component).
    For a new or restructured screen or component, `think-layout` §2–§3 (a component chosen per region,
-   the density budget) and §5 (render it and look at both widths) are not optional — a layout handed
+   the density budget) and §5 (render it and look at every listed width) are not optional — a layout handed
    back without them is unfinished, and §5 with no browser is reported blocked, never passed. Look with
    `shot.py` — `python3 "${CLAUDE_PLUGIN_ROOT}/tools/shot.py" registry.json --screen <id> [--viewport WxH]…` —
    never a hand-written Playwright script (`${CLAUDE_PLUGIN_ROOT}/docs/canon.md` § *pb bounds its own footprint*).
+   That full look is for a new or restructured screen; a smaller change takes the lowest level that
+   answers the question, checked once per batch, and the reply says when it was not looked at
+   (`${CLAUDE_PLUGIN_ROOT}/docs/canon.md` § *Checking a change*).
    With **`meta.responsive: true`**, `think-layout` §4 *Responsive* is part of that: each size class
    in `meta.devices` gets its own answer (navigation, columns, table → cards, dialog → sheet), written
    as container queries in the item's `styleSrc` sheet or with the `r-*` utilities, and §5 looks at

@@ -19,9 +19,17 @@ Kinds:
   components | screens — a list of entries keyed by `id`; <id> selects one entry.
   tokens | meta        — a nested dict; <id> is a **dotted key path** (e.g. `meta.name`,
                          `tokens.brand`, `tokens.color.bg`).
+  ia                   — same dotted-key form (`ia.rules`, `ia.jobs`, `ia.layers`).
   flow | erd           — same dotted-key form (`flow.mermaid`, `erd.table`). D-29: the
                          auto-sync in /pb:build reads `flow mermaid` (~15 lines) to place a
                          node without dragging every story's scenarios[] into context.
+
+A path segment that lands on a LIST selects the element whose `id` equals it, so one entry of a
+list slice is reachable: `get ia rules.<id>` · `set ia jobs.<id>` · `get flow stories.<id>` ·
+`get content terms.<id>`. A list without ids can be indexed by a numeric segment (`items.0`). `set`
+on such a path merges the patch into that element and touches no other element. A missing element
+is an error — unless the patch carries the same `id`, which appends it. A missing list is never
+created (`ia.rules`, `ia.jobs`, `ia.layers`, `flow.stories`, `content.terms`, `content.strings`).
 
 Projection (D-17, `get` only — never `set`/`list`; shapes what's PRINTED, never writes):
   --no-prose        — drop logicNotes/uiLogic/anatomy/spec/usage from the printed slice.
@@ -64,7 +72,7 @@ into it.
 Usage:
   python3 slice.py get  <kind> <id> [--registry PATH] [--no-prose] [--fields a,b,c]
   python3 slice.py set  <kind> <id> [--registry PATH] [--patch FILE]   # patch from FILE or stdin
-  python3 slice.py list <kind>      [--registry PATH]
+  python3 slice.py list <kind> [path] [--registry PATH]   # no path: top-level keys; a list path: its ids
 
 Exit: 0 on success; non-zero with a message on error (unknown kind, missing id/key,
 unknown --fields name, bad JSON).
@@ -87,7 +95,9 @@ except ImportError:          # Windows: no advisory lock; the atomic replace sti
 LIST_KINDS = ("components", "screens")   # id-keyed lists
 # D-29: flow/erd joined the dict kinds so /pb:build's auto-sync can read `flow mermaid`
 # (~15 lines) without pulling every story's scenarios[] into context.
-DICT_KINDS = ("tokens", "meta", "flow", "erd", "content")   # dotted-key dicts
+DICT_KINDS = ("tokens", "meta", "flow", "erd", "content", "ia")   # dotted-key dicts
+# Lists a `set` must never create by accident (a missing one is an error, not a new `{}`).
+LIST_PATHS = {"ia": ("jobs", "rules", "layers"), "flow": ("stories",), "content": ("terms", "strings")}
 KINDS = LIST_KINDS + DICT_KINDS
 
 # D-17: the prose keys --no-prose drops. Schema-11 may move these out of registry.json
@@ -242,14 +252,32 @@ def _find_entry(reg, kind, ident):
     sys.exit(f"slice: no {kind[:-1]} with id {ident!r}")
 
 
+def _list_index(node, seg):
+    """Index of the element of list `node` that segment `seg` names — the element whose `id` is
+    `seg`, else (numeric `seg`, no element carries ids) the position — or None."""
+    for i, el in enumerate(node):
+        if isinstance(el, dict) and el.get("id") == seg:
+            return i
+    if seg.isdigit() and not any(isinstance(el, dict) and "id" in el for el in node) and int(seg) < len(node):
+        return int(seg)
+    return None
+
+
 def _dotted_get(reg, kind, key):
-    """Resolve a dotted key path under a DICT_KIND. Exit if any segment is missing."""
+    """Resolve a dotted key path under a DICT_KIND. A segment on a list selects the element by
+    id (or position). Exit if any segment is missing."""
     node = reg.get(kind, {})
     trail = kind
     for seg in key.split("."):
-        if not isinstance(node, dict) or seg not in node:
+        if isinstance(node, list):
+            i = _list_index(node, seg)
+            if i is None:
+                sys.exit(f"slice: no element {seg!r} in {trail} (by id)")
+            node = node[i]
+        elif not isinstance(node, dict) or seg not in node:
             sys.exit(f"slice: no key {trail}.{seg!r}")
-        node = node[seg]
+        else:
+            node = node[seg]
         trail += "." + seg
     return node
 
@@ -335,25 +363,62 @@ def _apply_set(args, patch):
         else:
             sys.exit("slice: a component/screen patch must be a JSON object")
     else:
-        # DICT_KIND dotted set: merge dicts, otherwise replace the leaf.
+        # DICT_KIND dotted set: merge dicts, otherwise replace the leaf. A segment on a list
+        # selects an element by id; the last one merges into it (or appends, see the docstring).
         parts = args.id.split(".")
         parent = reg.setdefault(args.kind, {})
+        trail = args.kind
         for seg in parts[:-1]:
-            parent = parent.setdefault(seg, {})
-            if not isinstance(parent, dict):
-                sys.exit(f"slice: {args.kind}.{seg} is not an object")
+            if isinstance(parent, list):
+                i = _list_index(parent, seg)
+                if i is None:
+                    sys.exit(f"slice: no element {seg!r} in {trail} (by id)")
+                parent = parent[i]
+            else:
+                if seg not in parent and seg in LIST_PATHS.get(trail, ()):
+                    sys.exit(f"slice: no list {trail}.{seg} to set into")
+                parent = parent.setdefault(seg, {})
+            trail += "." + seg
+            if not isinstance(parent, (dict, list)):
+                sys.exit(f"slice: {trail} is not an object")
         leaf = parts[-1]
-        before = json.dumps(parent.get(leaf), sort_keys=True)
-        if patch is None:
-            changed, keys = False, "—"
-        elif isinstance(patch, dict) and isinstance(parent.get(leaf), dict):
-            _deep_merge(parent[leaf], patch)
-            changed = json.dumps(parent[leaf], sort_keys=True) != before
-            keys = leaf
+        if isinstance(parent, list):
+            i = _list_index(parent, leaf)
+            if patch is not None and not isinstance(patch, dict):
+                sys.exit("slice: a list-element patch must be a JSON object")
+            if i is None:
+                if isinstance(patch, dict) and patch.get("id") == leaf:
+                    parent.append(patch)
+                    changed, keys = True, leaf
+                elif patch is None:
+                    sys.exit(f"slice: no element {leaf!r} in {trail} (by id)")
+                else:
+                    sys.exit(f"slice: no element {leaf!r} in {trail}; to append one, the patch must carry \"id\": {leaf!r}")
+            else:
+                el = parent[i]
+                if patch is None:
+                    changed, keys = False, "—"
+                elif not isinstance(el, dict):
+                    sys.exit(f"slice: {trail}.{leaf} is not an object")
+                else:
+                    before = json.dumps(el, sort_keys=True)
+                    _deep_merge(el, patch)
+                    changed = json.dumps(el, sort_keys=True) != before
+                    keys = ", ".join(patch.keys()) if patch else "—"
         else:
-            parent[leaf] = patch
-            changed = json.dumps(parent.get(leaf), sort_keys=True) != before
-            keys = leaf
+            if leaf in LIST_PATHS.get(trail, ()) and leaf not in parent:
+                sys.exit(f"slice: no list {trail}.{leaf} to create")
+            before = json.dumps(parent.get(leaf), sort_keys=True)
+            if patch is None:
+                changed, keys = False, "—"
+            elif isinstance(patch, dict) and isinstance(parent.get(leaf), dict):
+                _deep_merge(parent[leaf], patch)
+                changed = json.dumps(parent[leaf], sort_keys=True) != before
+                keys = leaf
+            else:
+                parent[leaf] = patch
+                changed = json.dumps(parent.get(leaf), sort_keys=True) != before
+                keys = leaf
 
     _write(args.registry, reg)
     target = args.id if args.kind in DICT_KINDS else f"{args.kind[:-1]} {args.id}"
@@ -390,10 +455,24 @@ def cmd_list(args):
             if isinstance(node, dict):
                 for k, v in node.items():
                     walk(v, f"{trail}.{k}" if trail else k)
-        walk(reg.get("tokens", {}), "")
-    else:  # meta | flow | erd — a plain dict: its top-level keys
-        for k in reg.get(args.kind, {}):
-            print(k)
+        walk(_dotted_get(reg, "tokens", args.path) if args.path else reg.get("tokens", {}), args.path or "")
+    else:  # meta | flow | erd | content | ia — a plain dict: its top-level keys
+        node = _dotted_get(reg, args.kind, args.path) if args.path else reg.get(args.kind, {})
+        if isinstance(node, list):
+            for el in node:
+                if isinstance(el, dict) and "id" in el:
+                    bits = [str(el["id"])]
+                    label = el.get("title") or el.get("name")
+                    if label:
+                        bits.append(str(label))
+                    print("  ".join(bits))
+                else:
+                    print(json.dumps(el, ensure_ascii=False)[:80])
+        elif isinstance(node, dict):
+            for k in node:
+                print(k)
+        else:
+            sys.exit(f"slice: {args.kind}.{args.path} is not a list or an object")
 
 
 def main():
@@ -403,7 +482,7 @@ def main():
     def add_common(sp, with_id=True):
         sp.add_argument("kind", choices=KINDS)
         if with_id:
-            sp.add_argument("id", help="entry id (components/screens) or dotted key (tokens/meta/flow/erd)")
+            sp.add_argument("id", help="entry id (components/screens) or dotted key (tokens/meta/flow/erd/content/ia); a list segment is an element id")
         sp.add_argument("--registry", default="registry.json", help="path to registry.json")
 
     g = sub.add_parser("get", help="print one slice as JSON")
@@ -422,6 +501,7 @@ def main():
 
     l = sub.add_parser("list", help="enumerate ids/keys for a kind")
     add_common(l, with_id=False)
+    l.add_argument("path", nargs="?", help="optional dotted path: a list shows its ids, an object its keys")
     l.set_defaults(func=cmd_list)
 
     args = p.parse_args()

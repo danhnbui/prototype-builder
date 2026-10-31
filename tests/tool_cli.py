@@ -91,6 +91,53 @@ with tempfile.TemporaryDirectory() as d:
     check(r.returncode == 0 and sorted(os.listdir(d)) == ["registry.json"],
           "lint (plain, --report) and logic_extract (--dry-run, or --contracts with nothing to point) take no lock and leave none behind")
 
+print("logic_extract.py · logic_check.py · migrate_runner.py — a folder, a registry path, or --registry")
+MIGRATE = os.path.join(ROOT, "pb", "migrations", "migrate_runner.py")
+with tempfile.TemporaryDirectory() as d, tempfile.TemporaryDirectory() as elsewhere:
+    proj = os.path.join(d, "proj")
+    os.mkdir(proj)
+    reg = os.path.join(proj, "registry.json")
+    json.dump(json.load(open(TEMPLATE)), open(reg, "w"))
+
+    def sh(argv, cwd=elsewhere):
+        return subprocess.run([sys.executable] + argv, capture_output=True, text=True, cwd=cwd)
+
+    for label, tool in (("logic_extract.py", "logic_extract.py"), ("logic_check.py", "logic_check.py")):
+        script = os.path.join(TOOLS, tool)
+        rcs = {}
+        for form, argv in (("positional folder", [script, proj]), ("positional file", [script, reg]),
+                           ("--registry file", [script, "--registry", reg]), ("--registry folder", [script, "--registry", proj])):
+            r = sh(argv)
+            rcs[form] = r.returncode
+            check(r.returncode in (0, 1) and "Traceback" not in r.stderr, "%s with a %s works (exit %d)" % (label, form, r.returncode))
+        check(len(set(rcs.values())) == 1, "%s: all four forms agree" % label)
+        for form, argv in (("a missing registry path", [script, os.path.join(d, "nope.json")]),
+                           ("a missing --registry", [script, "--registry", os.path.join(d, "nope.json")]),
+                           ("a folder with no registry", [script, elsewhere])):
+            r = sh(argv)
+            err = (r.stdout + r.stderr).strip()
+            check(r.returncode != 0 and "Traceback" not in err and len(err.splitlines()) == 1,
+                  "%s on %s: one line, non-zero, no traceback" % (label, form))
+    check(sh([os.path.join(TOOLS, "logic_extract.py"), reg, "--contracts", "--dry-run"]).returncode == 0,
+          "logic_extract <registry.json> --contracts --dry-run works")
+    r = sh([os.path.join(TOOLS, "logic_check.py"), "--freeze", "capture", os.path.join(d, "f.json"), reg])
+    check(r.returncode == 0 and "Traceback" not in r.stderr, "logic_check --freeze capture accepts a registry path")
+
+    # migrate_runner: a dry run is the default and writes nothing; the cwd's registry.json is not what it reads
+    bytes_before = open(reg, "rb").read()
+    listing = sorted(os.listdir(proj))
+    outs = {}
+    for form, argv in (("positional file", [MIGRATE, reg]), ("positional folder", [MIGRATE, proj]), ("--registry", [MIGRATE, "--registry", reg])):
+        r = sh(argv)
+        outs[form] = r.stdout
+        check(r.returncode == 0 and "Registry not found" not in r.stdout and "Traceback" not in r.stderr, "migrate_runner with a %s dry-runs that registry (exit %d)" % (form, r.returncode))
+    check(len(set(outs.values())) == 1, "…and the three forms print the same plan")
+    check(open(reg, "rb").read() == bytes_before and sorted(os.listdir(proj)) == listing and os.listdir(elsewhere) == [],
+          "…and write nothing: the registry is byte-identical, no backup, no lock, nothing in the cwd")
+    r = sh([MIGRATE, os.path.join(d, "nope.json")])
+    check(r.returncode != 0 and "Traceback" not in r.stderr and len((r.stdout + r.stderr).strip().splitlines()) == 1,
+          "migrate_runner <missing path>: one line, non-zero, not a silent look at ./registry.json")
+
 print("test_run.py — lastResult verdicts are saved under the registry lock, on a fresh read, never during the run (L3)")
 import copy  # noqa: E402
 import importlib  # noqa: E402
