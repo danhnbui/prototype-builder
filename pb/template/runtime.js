@@ -2102,3 +2102,25 @@
       if (document.fonts && document.fonts.ready) document.fonts.ready.then(pbSpecRedrawAll);
       pbSpecScan(document);
     }
+
+    /* DEMO MODEL — safe defaults (v2.5). The prototype shell swaps in the real functions once its state exists;
+     * here and on the design-system site they answer "nothing declared", so a body never throws. A function a
+     * project already defined is left alone (the shell checks __pbDefault). pbRole pbPersona pbSeed pbEntry
+     * pbCtx -> null · pbCan -> true · pbBack no-op · pbSandboxRow(spec) queues on window.pbSandboxRows, so a
+     * module can call it while it loads, before the shell has state. */
+    (function () {
+      var nil = function () { return null; };
+      var D = {
+        pbRole: nil, pbPersona: nil, pbSeed: nil, pbEntry: nil, pbCtx: nil,
+        pbCan: function () { return true; },
+        pbBack: function () {},
+        pbSandboxRow: function (spec) {
+          if (spec && typeof spec === 'object') (window.pbSandboxRows = window.pbSandboxRows || []).push(spec);
+        }
+      };
+      Object.keys(D).forEach(function (k) {
+        if (typeof window[k] === 'function') return;
+        D[k].__pbDefault = true;
+        window[k] = D[k];
+      });
+    })();

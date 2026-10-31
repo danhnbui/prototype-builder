@@ -37,6 +37,14 @@ Rules (severity · default → under --strict):
   R-RETIRED                          meta.others / meta.tradeoffs holds data (retired, D-33,
                                      but it still works). ADVISORY: a WARN in every mode,
                                      never promoted by --strict, never raises the exit code
+  R-ENTRY                            meta.demo only: an entry names an unknown screen / role /
+                                     persona / seed, lacks id / name / screen, repeats an id,
+                                     is a second default, pairs a persona with another role, or
+                                     starts a role on a screen that role cannot see   WARN → ERROR
+  R-PERM                             meta.permissions / meta.personas only: bad levels, a matrix
+                                     naming an undeclared role or level, a bad persona; with
+                                     permissions, a literal data-can / pbCan() capability or level
+                                     the matrix does not declare                      WARN → ERROR
   R-EXEC (--exec only)               a body throws, returns a non-string or '' when run
                                      with {} and once per `state` option   ERROR · always
   R-NEST-FIGMA (--figma only)        a declared nested global has no Figma instance  ERROR
@@ -234,6 +242,222 @@ def _check_retired(add, meta):
         add(WARN, "R-RETIRED", f"meta.{field}",
             f"meta.{field} holds data — the field is retired (D-33) but still works, and nothing here "
             f"removes it. When convenient: {where_to}")
+
+
+# ── the demo model (v2.5): meta.permissions · meta.personas · meta.demo ───────────────────
+# All three are optional and none is declared by a project that predates v2.5, so every check
+# below starts from "is the field there" and a registry without them gets no finding at all.
+# Demo behaviour, not access control: the checks catch a typo the Sandbox would otherwise shrug
+# off with a console warning, so the entry a reviewer opens is the entry the author meant.
+_CAP_CHARS = r"[A-Za-z0-9_.\-]+"
+# data-can="cap" / data-can="cap:level", either quote, escaped or not. The value is a closed set of
+# characters, so `data-can="' + pbEscape(props.can) + '"` (a dynamic value between two quotes) is
+# never read as a literal.
+_DATA_CAN = re.compile(r"(?<![\w-])data-can=\\?([\"'])(" + _CAP_CHARS + r")(?::(" + _CAP_CHARS + r"))?\\?\1")
+# pbCan('cap'[, 'level']): a literal only when it ends at a comma or a paren.
+_PB_CAN = re.compile(r"\bpbCan\(\s*([\"'])([^\"'\\]+)\1\s*([,)])(?:\s*([\"'])([^\"'\\]*)\4\s*[,)])?")
+
+
+def _present(meta, key):
+    return key in meta and meta[key] is not None
+
+
+def _ids_of(items):
+    """The string ids of a list of {id} objects (or bare strings); anything else is skipped."""
+    out = []
+    for it in items if isinstance(items, list) else []:
+        v = it.get("id") if isinstance(it, dict) else it
+        if isinstance(v, str) and v:
+            out.append(v)
+    return out
+
+
+def _capability_uses(text):
+    """[(capability, level-or-None)] for each literal data-can / pbCan() in code with comments removed."""
+    if "data-can" not in text and "pbCan" not in text:
+        return []
+    text = strip_comments(text)
+    uses = [(m.group(2), m.group(3)) for m in _DATA_CAN.finditer(text)]
+    uses += [(m.group(2), m.group(5) if m.group(3) == "," else None) for m in _PB_CAN.finditer(text)]
+    return uses
+
+
+def _check_demo_model(add, reg, meta, components, screens, base_dir, strict):
+    sev = ERROR if strict else WARN
+    has_perm, has_people, has_demo = (_present(meta, k) for k in ("permissions", "personas", "demo"))
+    if not (has_perm or has_people or has_demo):
+        return
+
+    roles = meta.get("roles") if isinstance(meta.get("roles"), list) else []
+    role_ids = set(_ids_of(roles))
+    admin_ids = {r.get("id") for r in roles if isinstance(r, dict) and r.get("isAdmin")}
+    perm = meta.get("permissions") if isinstance(meta.get("permissions"), dict) else {}
+    levels = perm.get("levels")
+    levels_ok = (isinstance(levels, list) and bool(levels) and all(isinstance(x, str) and x for x in levels)
+                 and len(set(levels)) == len(levels))
+    persona_role = {}                                   # persona id -> its role, for R-ENTRY
+
+    # ── R-PERM ───────────────────────────────────────────────────────────────
+    if has_perm:
+        if not isinstance(meta["permissions"], dict):
+            add(sev, "R-PERM", "meta.permissions", "meta.permissions must be an object {levels, matrix}")
+        else:
+            if not levels_ok:
+                add(sev, "R-PERM", "meta.permissions.levels",
+                    "levels must be a non-empty list of unique strings, lowest first (the first means "
+                    "no access), e.g. [\"none\", \"view\", \"approve\"]")
+            matrix = perm.get("matrix")
+            if matrix is not None and not isinstance(matrix, dict):
+                add(sev, "R-PERM", "meta.permissions.matrix", "matrix must be an object {<role id>: {<capability>: <level>}}")
+            for rid, row in (matrix.items() if isinstance(matrix, dict) else []):
+                where = f"meta.permissions.matrix[{rid!r}]"
+                if rid not in role_ids:
+                    add(sev, "R-PERM", where,
+                        f"the matrix row names role {rid!r}, which meta.roles does not declare — "
+                        "declare the role or fix the row's id")
+                if not isinstance(row, dict):
+                    add(sev, "R-PERM", where, "a matrix row must be an object {<capability>: <level>}")
+                    continue
+                for cap, lvl in row.items():
+                    if levels_ok and lvl not in levels:
+                        add(sev, "R-PERM", f"{where}[{cap!r}]",
+                            f"capability {cap!r} is set to {lvl!r}, which is not in levels "
+                            f"({', '.join(levels)}) — use one of them")
+    if has_people:
+        people = meta["personas"]
+        if not isinstance(people, list):
+            add(sev, "R-PERM", "meta.personas", "meta.personas must be a list of {id, name, role, scope?}")
+            people = []
+        seen = set()
+        for i, p in enumerate(people):
+            if not isinstance(p, dict):
+                add(sev, "R-PERM", f"meta.personas[{i}]", "a persona must be an object {id, name, role, scope?}")
+                continue
+            pid = p.get("id")
+            where = f"meta.personas[{i}] id={pid!r}"
+            for field in ("id", "name", "role"):
+                if not isinstance(p.get(field), str) or not p.get(field):
+                    add(sev, "R-PERM", where, f"persona is missing its {field!r} — every persona needs id, name and role")
+            if isinstance(pid, str) and pid:
+                if pid in seen:
+                    add(sev, "R-PERM", where, f"persona id {pid!r} is used twice — ids must be unique")
+                seen.add(pid)
+                persona_role.setdefault(pid, p.get("role"))
+            role = p.get("role")
+            if isinstance(role, str) and role and role not in role_ids:
+                add(sev, "R-PERM", where, f"persona {pid!r} has role {role!r}, which meta.roles does not declare — "
+                                          "declare the role or fix the persona")
+            if "scope" in p and not isinstance(p["scope"], dict):
+                add(sev, "R-PERM", where, f"persona {pid!r} has a scope that is not an object — scope is plain "
+                                          "data, e.g. {\"region\": \"north\"}")
+
+    # Literal capabilities in bodies, runtime modules and styles. Dynamic values are not checked;
+    # a file with no data-can / pbCan in it is never even comment-stripped.
+    if has_perm and isinstance(meta["permissions"], dict):
+        caps = set()
+        if isinstance(perm.get("matrix"), dict):
+            for row in perm["matrix"].values():
+                if isinstance(row, dict):
+                    caps |= set(row)
+        seen_use = set()
+
+        def scan(label, text):
+            for cap, lvl in _capability_uses(text) if isinstance(text, str) else []:
+                if (label, cap, lvl) in seen_use:
+                    continue
+                seen_use.add((label, cap, lvl))
+                if cap not in caps:
+                    add(sev, "R-PERM", label,
+                        f"capability {cap!r} is used but no meta.permissions.matrix row names it — "
+                        "add it to a row, or fix the name")
+                if lvl is not None and levels_ok and lvl not in levels:
+                    add(sev, "R-PERM", label,
+                        f"level {lvl!r} (with capability {cap!r}) is not in meta.permissions.levels "
+                        f"({', '.join(levels)})")
+
+        for kind, items in (("component", components), ("screen", screens)):
+            for i, item in enumerate(items):
+                if isinstance(item, dict):
+                    label = f"{kind}s[{i}] id={item.get('id', '')!r}"
+                    scan(label, _body_of(item, base_dir))
+                    css = _style_of(item, base_dir)
+                    scan(label + " styleSrc", _CSS_COMMENT.sub("", css) if css else css)
+        for i, entry in enumerate(reg.get("runtime") if isinstance(reg.get("runtime"), list) else []):
+            src = entry.get("src") if isinstance(entry, dict) else None
+            if src and base_dir is not None:
+                try:
+                    with open(os.path.normpath(os.path.join(base_dir, src)), encoding="utf-8") as f:
+                        scan(f"runtime[{i}] src={src!r}", f.read())
+                except OSError:
+                    pass
+
+    # ── R-ENTRY ──────────────────────────────────────────────────────────────
+    if not has_demo:
+        return
+    demo = meta["demo"]
+    if not isinstance(demo, dict):
+        add(sev, "R-ENTRY", "meta.demo", "meta.demo must be an object {seeds, entries}")
+        return
+    seeds = demo.get("seeds") if demo.get("seeds") is not None else []
+    entries = demo.get("entries") if demo.get("entries") is not None else []
+    if not isinstance(seeds, list):
+        add(sev, "R-ENTRY", "meta.demo.seeds", "seeds must be a list of ids or {id, name}")
+        seeds = []
+    if not isinstance(entries, list):
+        add(sev, "R-ENTRY", "meta.demo.entries", "entries must be a list of {id, name, screen, ...}")
+        entries = []
+    seed_ids, seen = set(), set()
+    for i, sd in enumerate(seeds):
+        sid = sd.get("id") if isinstance(sd, dict) else sd
+        if not isinstance(sid, str) or not sid:
+            add(sev, "R-ENTRY", f"meta.demo.seeds[{i}]", "a seed is a non-empty string or an object {id, name}")
+            continue
+        if sid in seen:
+            add(sev, "R-ENTRY", f"meta.demo.seeds[{i}] id={sid!r}", f"seed id {sid!r} is used twice — ids must be unique")
+        seen.add(sid)
+        seed_ids.add(sid)
+
+    screen_by_id = {s["id"]: s for s in screens if isinstance(s, dict) and isinstance(s.get("id"), str)}
+    persona_ids = set(persona_role)
+    seen, defaults = set(), []
+    for i, e in enumerate(entries):
+        if not isinstance(e, dict):
+            add(sev, "R-ENTRY", f"meta.demo.entries[{i}]", "an entry must be an object {id, name, screen, ...}")
+            continue
+        eid = e.get("id")
+        where = f"meta.demo.entries[{i}] id={eid!r}"
+        for field in ("id", "name", "screen"):
+            if not isinstance(e.get(field), str) or not e.get(field):
+                add(sev, "R-ENTRY", where, f"entry is missing its {field!r} — every entry needs id, name and screen")
+        if isinstance(eid, str) and eid:
+            if eid in seen:
+                add(sev, "R-ENTRY", where, f"entry id {eid!r} is used twice — ids must be unique")
+            seen.add(eid)
+        if e.get("default") is True:
+            defaults.append(eid)
+        scr, role, per, seed = (e.get(k) for k in ("screen", "role", "persona", "seed"))
+        if isinstance(scr, str) and scr and scr not in screen_by_id:
+            add(sev, "R-ENTRY", where, f"screen {scr!r} is not a screen in this registry — use one of its screens[].id")
+        if isinstance(role, str) and role and role not in role_ids:
+            add(sev, "R-ENTRY", where, f"role {role!r} is not in meta.roles — declare it or fix the entry")
+        if isinstance(per, str) and per and per not in persona_ids:
+            add(sev, "R-ENTRY", where, f"persona {per!r} is not in meta.personas — declare it or fix the entry")
+        if isinstance(seed, str) and seed and seed not in seed_ids:
+            add(sev, "R-ENTRY", where, f"seed {seed!r} is not in meta.demo.seeds — declare it or fix the entry")
+        if (isinstance(per, str) and per in persona_role and isinstance(role, str) and role
+                and persona_role[per] != role):
+            add(sev, "R-ENTRY", where,
+                f"persona {per!r} belongs to role {persona_role[per]!r}, but the entry starts as role {role!r} — "
+                "pick a persona of that role or change the role")
+        allowed = screen_by_id.get(scr, {}).get("roles") if isinstance(scr, str) else None
+        if (isinstance(role, str) and role in role_ids and role not in admin_ids
+                and isinstance(allowed, list) and allowed and role not in allowed):
+            add(sev, "R-ENTRY", where,
+                f"role {role!r} cannot see screen {scr!r} (screens[].roles allows {', '.join(map(str, allowed))}) — "
+                "the entry would fall through to another screen; pick a role the screen allows")
+    if len(defaults) > 1:
+        add(sev, "R-ENTRY", "meta.demo.entries",
+            f"{len(defaults)} entries have default: true ({', '.join(repr(d) for d in defaults)}) — at most one may")
 
 
 def _size_classes(meta):
@@ -881,6 +1105,8 @@ def check(reg, strict=False, base_dir=None):
     _check_styles(add, reg.get("meta") if isinstance(reg.get("meta"), dict) else {},
                   components, screens, comp_by_id, base_dir, hex_px_sev, strict)
     _check_retired(add, reg.get("meta") if isinstance(reg.get("meta"), dict) else {})
+    _check_demo_model(add, reg, reg.get("meta") if isinstance(reg.get("meta"), dict) else {},
+                      components, screens, base_dir, strict)
 
     # ── tokens: W3C DTCG $type validity + legacy-shape + runtime-required presence ──
     # tokens is a DTCG document (flat or nested-with-aliases). Validate each token's $type

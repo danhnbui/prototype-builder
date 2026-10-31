@@ -10,6 +10,7 @@ Exit: 0 pass, 1 fail.
 """
 import json
 import os
+import re
 import stat
 import subprocess
 import sys
@@ -376,6 +377,208 @@ r = run("--strict", GOLDEN_REG)
 check(r.returncode == 0 and "WARN [R-RETIRED] meta.tradeoffs" in r.stdout,
       "the CI command (--strict fixtures/golden/registry.json) still exits 0 although the golden keeps a trade-off in the retired field")
 
+# ── R-ENTRY · R-PERM — the demo model (v2.5) ──────────────────────────────────────────
+print("R-ENTRY / R-PERM — only when the project declares a demo model")
+DEMO_REG = os.path.join(ROOT, "fixtures", "demo-model", "registry.json")
+
+
+def _dm_reg(screens=None, comps=None, runtime=None, **meta_extra):
+    """A small valid demo model; a test overrides the one field it breaks ("<drop>" removes one)."""
+    meta = {"name": "t",
+            "roles": [{"id": "admin", "name": "Admin", "isAdmin": True},
+                      {"id": "staff", "name": "Staff"}, {"id": "guest", "name": "Guest"}],
+            "permissions": {"levels": ["none", "view", "approve"],
+                            "matrix": {"staff": {"request": "approve", "report": "view"}}},
+            "personas": [{"id": "staff-a", "name": "Staff A", "role": "staff", "scope": {"region": "n"}},
+                         {"id": "guest-a", "name": "Guest A", "role": "guest"}],
+            "demo": {"seeds": ["empty", {"id": "full", "name": "Full"}],
+                     "entries": [{"id": "start", "name": "Start", "screen": "home", "role": "staff",
+                                  "persona": "staff-a", "seed": "empty", "default": True}]}}
+    meta.update(meta_extra)
+    for k in [k for k, v in meta.items() if v == "<drop>"]:
+        del meta[k]
+    reg = {"meta": meta, "tokens": dict(_DANGER), "components": comps or [],
+           "screens": screens or [{"id": "home", "name": "Home", "renderFn": "renderScreenHome", "render": "return '';"},
+                                  {"id": "vault", "name": "Vault", "renderFn": "renderScreenVault", "render": "return '';",
+                                   "roles": ["admin", "staff"]},
+                                  {"id": "gated", "name": "Gated", "renderFn": "renderScreenGated", "render": "return '';",
+                                   "roles": ["admin"]}]}
+    if runtime is not None:
+        reg["runtime"] = runtime
+    return reg
+
+
+def _dm(reg, code, strict=False):
+    return [f for f in L.check(reg, strict=strict) if f.code == code]
+
+
+def _entry(**kw):
+    e = {"id": "e2", "name": "Second", "screen": "home"}
+    e.update(kw)
+    return e
+
+
+def _with_entries(*extra):
+    reg = _dm_reg()
+    reg["meta"]["demo"]["entries"] += list(extra)
+    return reg
+
+
+check(_dm(_dm_reg(), "R-ENTRY") == [] and _dm(_dm_reg(), "R-PERM") == [],
+      "the base demo model used below is itself clean (so each finding is the one thing broken)")
+
+ENTRY_CASES = [
+    ("unknown screen", _entry(screen="nowhere"), "screen 'nowhere'"),
+    ("unknown role", _entry(role="ghost"), "role 'ghost'"),
+    ("unknown persona", _entry(persona="ghost"), "persona 'ghost'"),
+    ("unknown seed", _entry(seed="ghost"), "seed 'ghost'"),
+    ("missing id", {"name": "N", "screen": "home"}, "'id'"),
+    ("missing name", {"id": "e2", "screen": "home"}, "'name'"),
+    ("missing screen", {"id": "e2", "name": "N"}, "'screen'"),
+    ("duplicate entry id", _entry(id="start"), "'start' is used twice"),
+    ("a second default", _entry(default=True), "2 entries have default: true"),
+    ("persona of another role", _entry(role="staff", persona="guest-a"), "persona 'guest-a' belongs to role 'guest'"),
+    ("role the screen does not allow", _entry(screen="gated", role="staff"), "role 'staff' cannot see screen 'gated'"),
+]
+for label, entry, needle in ENTRY_CASES:
+    got = _dm(_with_entries(entry), "R-ENTRY")
+    check(len(got) == 1 and needle in got[0].msg and got[0].severity == "WARN" and got[0].where.startswith("meta.demo.entries"),
+          "R-ENTRY, %s: one WARN naming the value (%s)" % (label, got[0].msg[:60] if got else "none"))
+    got = _dm(_with_entries(entry), "R-ENTRY", strict=True)
+    check(len(got) == 1 and got[0].severity == "ERROR", "R-ENTRY, %s: ERROR under --strict" % label)
+check(any("id='e2'" in f.where for f in _dm(_with_entries(_entry(screen="nowhere")), "R-ENTRY")),
+      "R-ENTRY names the entry id in the location")
+check(_dm(_with_entries(_entry(screen="gated", role="admin")), "R-ENTRY") == [] and
+      _dm(_with_entries(_entry(screen="vault", role="staff")), "R-ENTRY") == [] and
+      _dm(_with_entries(_entry(screen="home", role="guest")), "R-ENTRY") == [],
+      "R-ENTRY: an isAdmin role is allowed everywhere, a listed role on its screen, any role on a screen with no roles[]")
+reg = _dm_reg()
+reg["meta"]["demo"]["seeds"] = ["empty", {"id": "empty", "name": "Again"}]
+got = _dm(reg, "R-ENTRY")
+check(len(got) == 1 and "seed id 'empty' is used twice" in got[0].msg,
+      "R-ENTRY: a duplicate seed id (the string and {id, name} forms count as one id space)")
+reg = _dm_reg()
+reg["meta"]["demo"]["entries"] = [_entry(seed="a-seed")]
+reg["meta"]["demo"]["seeds"] = ["a-seed", {"id": "b-seed"}]
+check(_dm(reg, "R-ENTRY") == [], "R-ENTRY: seeds may be strings or {id, name}; an entry may omit role, persona and seed")
+
+PERM_CASES = [
+    ("levels empty", {"permissions": {"levels": [], "matrix": {}}}, "levels must be a non-empty list"),
+    ("levels not a list", {"permissions": {"levels": "none", "matrix": {}}}, "levels must be a non-empty list"),
+    ("levels not unique", {"permissions": {"levels": ["a", "a"], "matrix": {}}}, "unique"),
+    ("levels with a non-string", {"permissions": {"levels": ["a", 2], "matrix": {}}}, "levels must be a non-empty list"),
+    ("matrix row for an undeclared role", {"permissions": {"levels": ["none", "view"], "matrix": {"ghost": {"x": "view"}}}},
+     "role 'ghost'"),
+    ("cell with an undeclared level", {"permissions": {"levels": ["none", "view"], "matrix": {"staff": {"x": "godmode"}}}},
+     "'godmode'"),
+    ("persona without id", {"personas": [{"name": "N", "role": "staff"}]}, "'id'"),
+    ("persona without name", {"personas": [{"id": "p", "role": "staff"}]}, "'name'"),
+    ("persona without role", {"personas": [{"id": "p", "name": "N"}]}, "'role'"),
+    ("duplicate persona id", {"personas": [{"id": "p", "name": "N", "role": "staff"}, {"id": "p", "name": "M", "role": "staff"}]},
+     "persona id 'p' is used twice"),
+    ("persona with an undeclared role", {"personas": [{"id": "p", "name": "N", "role": "ghost"}]}, "role 'ghost'"),
+    ("persona scope not an object", {"personas": [{"id": "p", "name": "N", "role": "staff", "scope": "north"}]},
+     "scope that is not an object"),
+]
+for label, meta_extra, needle in PERM_CASES:
+    reg = _dm_reg(**dict(meta_extra, demo="<drop>"))
+    got = _dm(reg, "R-PERM")
+    check(len(got) >= 1 and any(needle in f.msg for f in got) and all(f.severity == "WARN" for f in got),
+          "R-PERM, %s: WARN naming the value (%s)" % (label, got[0].msg[:60] if got else "none"))
+    strict_got = _dm(reg, "R-PERM", strict=True)
+    check(bool(strict_got) and all(f.severity == "ERROR" for f in strict_got), "R-PERM, %s: ERROR under --strict" % label)
+check(any("id='p'" in f.where for f in _dm(_dm_reg(personas=[{"id": "p", "name": "N", "role": "ghost"}], demo="<drop>"), "R-PERM")),
+      "R-PERM names the persona id in the location")
+check(_dm(_dm_reg(permissions="<drop>", demo="<drop>"), "R-PERM") == [] and
+      len(_dm(_dm_reg(personas=[{"id": "p", "name": "N", "role": "ghost"}], permissions="<drop>", demo="<drop>"), "R-PERM")) == 1,
+      "R-PERM: personas alone (no permissions) are checked — clean is silent, a bad role fires")
+check(_dm(_dm_reg(personas="<drop>", demo="<drop>", permissions={"levels": ["none"], "matrix": {"staff": {"x": "none"}}}), "R-PERM") == [],
+      "R-PERM: permissions alone (no personas) is checked, and a clean one is silent")
+
+# the body scan: literal capabilities in a body, a runtime module and a style sheet
+SCAN_BODY = (
+    "// data-can=\"commented-out\" and pbCan('commented-too')\n"
+    "function renderCmpScan(props) {\n"
+    "  var ok = pbCan('request', 'approve') && pbCan(\"report\");\n"
+    "  var typo = pbCan('reqest');\n"
+    "  var lvl = pbCan('request', 'godmode');\n"
+    "  var dyn = pbCan(props.cap, 'approve') + pbCan('cap-' + props.x);\n"
+    "  return '<a data-can=\"request:approve\">a</a><a data-can=\"report\">b</a>'\n"
+    "    + '<a data-can=\"nosuch\">c</a><a data-can=\"request:nope\">d</a><a data-can=\\'single\\'>e</a>'\n"
+    "    + '<a data-can=\"' + pbEscape(props.can) + '\" data-can-mode=\"hide\">dyn</a>';\n"
+    "}\n"
+)
+with tempfile.TemporaryDirectory() as d:
+    reg = _dm_reg(comps=[cmp_("scan", level="atom")], runtime=[{"id": "mod", "src": "runtime/mod.js"}])
+    os.makedirs(os.path.join(d, "runtime"))
+    open(os.path.join(d, "runtime", "mod.js"), "w").write("window.x = pbCan('from-module');\n// pbCan('module-comment')\n")
+    os.makedirs(os.path.join(d, "render", "styles"))
+    open(os.path.join(d, "render", "styles", "scan.css"), "w").write(
+        "/* [data-can=\"css-comment\"] */\n.c-scan [data-can=\"from-style\"] { color: var(--danger); }\n")
+    reg["components"][0]["styleSrc"] = "render/styles/scan.css"
+    p = write(d, reg, {"scan": SCAN_BODY})
+    found = [f for f in L.check(json.load(open(p)), base_dir=d) if f.code == "R-PERM"]
+    reported = sorted(re.match(r"(?:capability|level) '([^']*)'", f.msg).group(1) for f in found)
+    check(reported == sorted(["reqest", "godmode", "nosuch", "nope", "single", "from-module", "from-style"]) and
+          all(f.severity == "WARN" for f in found),
+          "R-PERM body scan: exactly the seven bad literals, each once, all WARN — not the declared ones, not the commented-out "
+          "ones, not the dynamic ones, not `data-can=\"' + …` (got %s)" % reported)
+    check(any("runtime[0]" in f.where for f in found) and any("styleSrc" in f.where for f in found) and
+          any("components[0] id='scan'" in f.where for f in found),
+          "R-PERM body scan: the finding names the component, the runtime module or the style sheet it is in")
+    r = run(p)
+    check(r.returncode == 1 and "WARN [R-PERM]" in r.stdout and "ERROR [R-PERM]" not in r.stdout,
+          "CLI: the body-scan findings are WARN and exit 1 (rc=%d)" % r.returncode)
+    r = run("--strict", p)
+    check(r.returncode == 2 and "ERROR [R-PERM]" in r.stdout, "CLI --strict: the same findings are ERROR and exit 2 (rc=%d)" % r.returncode)
+    # no meta.permissions: the same bodies are not scanned for capabilities at all
+    reg2 = json.load(open(p))
+    del reg2["meta"]["permissions"]
+    check([f for f in L.check(reg2, base_dir=d) if f.code == "R-PERM"] == [],
+          "the body scan runs only when meta.permissions is present (personas alone: no capability check)")
+
+# the clean fixture, with and without --strict
+for flags in ((), ("--strict",)):
+    r = run(*flags, DEMO_REG)
+    check(r.returncode == 0 and "R-ENTRY" not in r.stdout and "R-PERM" not in r.stdout,
+          "fixtures/demo-model %s: exit 0, no finding" % (" ".join(flags) or "(default)"))
+fx = json.load(open(DEMO_REG))
+check(not [f for f in L.check(fx, base_dir=os.path.dirname(DEMO_REG)) if f.code in ("R-ENTRY", "R-PERM")],
+      "fixtures/demo-model: no R-ENTRY / R-PERM in-process either (its pbCan('request', 'approve') is a declared pair)")
+fx["meta"]["demo"]["entries"][0]["screen"] = "nowhere"
+fx["meta"]["permissions"]["matrix"]["reviewer"]["report"] = "godmode"
+check({f.code for f in L.check(fx, base_dir=os.path.dirname(DEMO_REG))} >= {"R-ENTRY", "R-PERM"},
+      "…and breaking two fields of that fixture does fire both (the clean result is not a dead rule)")
+
+# the CLI exit codes: WARN by default (exit 1), ERROR under --strict (exit 2)
+with tempfile.TemporaryDirectory() as d:
+    reg = _with_entries(_entry(screen="nowhere"))
+    reg["meta"]["personas"][0]["role"] = "ghost"
+    p = write(d, reg)
+    r = run(p)
+    check(r.returncode == 1 and "WARN [R-ENTRY]" in r.stdout and "WARN [R-PERM]" in r.stdout and "ERROR [R-" not in r.stdout,
+          "CLI default: both rules are WARN and exit 1, not 2 (rc=%d)" % r.returncode)
+    r = run("--strict", p)
+    check(r.returncode == 2 and "ERROR [R-ENTRY]" in r.stdout and "ERROR [R-PERM]" in r.stdout,
+          "CLI --strict: both rules are ERROR and exit 2 (rc=%d)" % r.returncode)
+
+# a registry that declares none of the three fields gets nothing, however its bodies read
+with tempfile.TemporaryDirectory() as d:
+    reg = {"meta": {"name": "t", "roles": [{"id": "a", "name": "A"}], "others": None}, "tokens": dict(_DANGER), "screens": [],
+           "components": [cmp_("scan", level="atom")]}
+    p = write(d, reg, {"scan": SCAN_BODY})
+    for flags in ((), ("--strict",)):
+        r = run(*flags, p)
+        check("R-ENTRY" not in r.stdout and "R-PERM" not in r.stdout,
+              "no meta.permissions / personas / demo %s: not one R-ENTRY or R-PERM, even with data-can and pbCan in a body"
+              % (" ".join(flags) or "(default)"))
+for absent in ({}, {"permissions": None, "personas": None, "demo": None}):
+    reg = _dm_reg(**dict({"permissions": "<drop>", "personas": "<drop>", "demo": "<drop>"}, **absent))
+    check(not [f for f in L.check(reg) if f.code in ("R-ENTRY", "R-PERM")],
+          "fields absent or null (%s): no finding" % (", ".join(sorted(absent)) or "all dropped"))
+check(not [f for f in L.check(json.load(open(GOLDEN_REG))) if f.code in ("R-ENTRY", "R-PERM")],
+      "fixtures/golden declares no demo model: no R-ENTRY / R-PERM")
+
 # ── --exec · the context a body runs in cannot reach the host ─────────────────────────
 print("--exec — a body is somebody else's code")
 import shutil  # noqa: E402
@@ -488,4 +691,4 @@ if _fails:
     for f in _fails:
         print("   - " + f)
     sys.exit(1)
-print("PASS — lint rule changes (D-10, D-11, D-22, D-26) and R-TOKENREF behave")
+print("PASS — lint rule changes (D-10, D-11, D-22, D-26), R-TOKENREF, R-ENTRY and R-PERM behave")

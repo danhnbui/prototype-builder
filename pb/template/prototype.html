@@ -3315,6 +3315,24 @@
     .pb-insp .sbx-sw.on::after { left: calc(2rem - .875rem - var(--pb-rule-w)); background: var(--pb-on-ink); box-shadow: none; }
     .pb-insp-note { margin: 0; padding: var(--pb-rule-w) var(--pb-s4) var(--pb-s2); color: var(--pb-ink-3); font-size: var(--pb-t-sm); }
     .pb-insp-note code { font-family: var(--pb-mono); font-size: .92em; color: var(--pb-ink-2); }
+    /* "This role can" — a read-only list of capability and level, in the Conditions section */
+    .pb-insp .sbx-row--can { align-items: flex-start; }
+    .sbx-can { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--pb-s1); flex: 1 1 auto; min-width: 0; margin: 0; padding: 0; list-style: none; }
+    .sbx-can li { padding: 0 var(--pb-s2); border: var(--pb-hair-w) solid var(--pb-hair-2); border-radius: var(--pb-r-pill); font: var(--pb-w-reg) var(--pb-t-sm)/1.5 var(--pb-font); color: var(--pb-ink-2); }
+    .sbx-can b { font-weight: var(--pb-w-bold); color: var(--pb-ink); }
+    /* UX Design → Logic → Permissions: read-only tool chrome (never inside .pb-product) */
+    .pb-perm { margin: 0 0 var(--pb-s5); font-size: var(--pb-t-sm); }
+    .pb-perm-h { margin: 0 0 var(--pb-s2); font-size: var(--pb-t-md); font-weight: var(--pb-w-bold); }
+    .pb-perm-w { overflow-x: auto; border: var(--pb-hair-w) solid var(--pb-hair); border-radius: var(--pb-r-md); }
+    .pb-perm-t { width: 100%; border-collapse: collapse; line-height: 1.4; }
+    .pb-perm-t th, .pb-perm-t td { padding: var(--pb-s1) var(--pb-s2); text-align: left; vertical-align: top; }
+    .pb-perm-t thead th { color: var(--pb-ink-2); background: var(--pb-wash); border-bottom: var(--pb-hair-w) solid var(--pb-hair); }
+    .pb-perm-t th { font-weight: var(--pb-w-bold); white-space: nowrap; }
+    .pb-perm-t tbody tr + tr > * { border-top: var(--pb-hair-w) solid var(--pb-hair); }
+    .pb-perm-t td.is-none { color: var(--pb-ink-3); }
+    .pb-perm-t tr.is-admin td { color: var(--pb-ink-2); font-style: italic; }
+    .pb-perm-tag { margin-left: var(--pb-s1); padding: 0 var(--pb-s1); border: var(--pb-hair-w) solid var(--pb-hair-2); border-radius: var(--pb-r); font-weight: var(--pb-w-reg); }
+    .pb-perm-note { margin: var(--pb-s2) 0 0; color: var(--pb-ink-3); }
     /* Run: a section disclosure; story groups inside it, scenarios inside those — every level a pbDisc, so
        every level is multi-open. "Run all" rides the section's header as a SIBLING of the trigger (a button
        cannot hold a button), so it stays in reach while the section is closed. */
@@ -3544,6 +3562,11 @@
                                      // because the input is rendered into the toolbar, not the rows.
       flowIndex: 0,                  // index into flow.flows[] (multi-flow dropdown)
       activeRole: null,              // resolved meta.defaultRole — the role the sandbox previews as (v1.5)
+      activePersona: null,           // a meta.personas[].id — the person within that role (v2.5, demo model)
+      activeSeed: null,              // a meta.demo.seeds[] id — the data the prototype is showing (v2.5)
+      activeEntry: null,             // a meta.demo.entries[].id — where Reset returns to (v2.5)
+      protoCtx: null,                // the data-ctx of the click that opened the current screen (v2.5)
+      protoCtxStack: [],             // one ctx per protoHistory entry, kept aligned with it (v2.5)
       /* TODO: add your app state here, e.g.:
          user: null,
          currentScreen: 'home',
@@ -4303,11 +4326,68 @@
            </select></div>`
         : '';
       return `
+        ${pbDemoEntryRow()}
         <div class="sbx-row"><span class="sbx-row-lbl" id="sbx-l-dev">Device</span>${switcher}</div>
         <div class="sbx-row"><span class="sbx-row-lbl" id="sbx-l-chrome">Chrome</span>${shellToggle}</div>
         ${cmpSwitch}${cmpPick}
         ${sw('Structure tree', !!isStructOpen, 'data-sbx-f="tree" onclick="toggleProtoStructPanel()"')}
-        ${roleRow}`;
+        ${roleRow}${pbDemoPersonRow()}${pbDemoSeedRow()}${pbSandboxProjectRows()}${pbDemoCanRow()}`;
+    }
+
+    /* Demo-model rows (v2.5): drawn only with something to show, on .sbx-row / .sbx-select, one constant handler (pbDemoPick). */
+    function pbDemoSelectRow(id, kind, label, opts, cur, title, extra) {
+      return `<div class="sbx-row"><label class="sbx-row-lbl" for="sbx-${id}">${pbEscape(label)}</label>
+        <select id="sbx-${id}" class="sbx-select" data-sbx-f="${id}" data-sbx-k="${kind}" aria-label="${escapeHtmlAttr(label)}"${title ? ` title="${escapeHtmlAttr(title)}"` : ''}${extra || ''} onchange="pbDemoPick(this)">
+        ${opts.map(o => `<option value="${escapeHtmlAttr(o.value)}"${String(o.value) === String(cur) ? ' selected' : ''}>${pbEscape(o.label != null ? o.label : o.value)}</option>`).join('')}</select></div>`;
+    }
+    function pbDemoRow(kind, label, list, cur, title) {
+      return list.length ? pbDemoSelectRow(kind, kind, label, list.map(x => ({ value: x.id, label: x.name || x.id })), cur, title) : '';
+    }
+    function pbDemoEntryRow() { const c = pbEntryObj(); return pbDemoRow('entry', 'Start from', pbDemoEntries(), state.activeEntry, c && c.note); }
+    function pbDemoPersonRow() { return pbDemoRow('person', 'Person', pbPersonasForRole(state.activeRole), state.activePersona); }
+    function pbDemoSeedRow() { return pbDemoRow('seed', 'Data', pbSeedsList(), state.activeSeed); }
+    /* Rows a project added with pbSandboxRow(): the last spec per id wins, in order of first appearance. */
+    function pbSandboxRowList() {
+      const rows = [], at = {};
+      (window.pbSandboxRows || []).forEach(r => {
+        if (!r || typeof r !== 'object') return;
+        const k = r.id != null ? String(r.id) : null;
+        if (k != null && at[k] != null) rows[at[k]] = r; else { if (k != null) at[k] = rows.length; rows.push(r); }
+      });
+      return rows;
+    }
+    function pbSandboxProjectRows() {
+      return pbSandboxRowList().map((r, i) => {
+        let opts = [], cur = null;
+        try { opts = typeof r.options === 'function' ? r.options() : r.options; } catch (e) { opts = []; }
+        try { if (typeof r.get === 'function') cur = r.get(); } catch (e) { cur = null; }
+        opts = (Array.isArray(opts) ? opts : []).map(o => (o && typeof o === 'object') ? o : { value: o, label: o });
+        return opts.length ? pbDemoSelectRow('x-' + i, 'row', r.label || r.id || 'Setting', opts, cur, '', ` data-sbx-i="${i}"`) : '';
+      }).join('');
+    }
+    /* A Sandbox select changed: apply it, then repaint the panel. A project's row calls its set(value) and repaints the
+       prototype too, since set() may not. */
+    window.pbDemoPick = function (sel) {
+      const k = sel.getAttribute('data-sbx-k'), v = sel.value;
+      if (k === 'entry') pbApplyEntry(v); else if (k === 'person') pbSetPersona(v); else if (k === 'seed') pbSetSeed(v);
+      else {
+        const r = pbSandboxRowList()[+sel.getAttribute('data-sbx-i')];
+        if (r && typeof r.set === 'function') { try { r.set(v); } catch (e) { console.error('pb: a pbSandboxRow set() threw', e); } }
+        renderPrototype();
+      }
+      pbSandboxRerender();
+    };
+    /* "This role can": the active role's capabilities above the lowest level, read-only. An admin role bypasses the matrix. */
+    function pbDemoCanRow() {
+      const p = pbPermissions();
+      if (!p || !p.matrix || !pbRolesList().length) return '';
+      const lv = pbLevels();
+      const items = pbRoleIsAdmin(state.activeRole)
+        ? [['everything', 'admin bypass']]
+        : pbCapabilities().map(c => [c, lv[pbRoleLevel(state.activeRole, c)]]).filter(x => pbRoleLevel(state.activeRole, x[0]) > 0);
+      if (!items.length) return '';
+      return `<div class="sbx-row sbx-row--can"><span class="sbx-row-lbl" id="sbx-l-can">This role can</span>
+        <ul class="sbx-can" aria-labelledby="sbx-l-can">${items.map(x => `<li><b>${pbEscape(x[0])}</b> ${pbEscape(x[1])}</li>`).join('')}</ul></div>`;
     }
 
     /* The runnable scenarios — flow.stories[].scenarios[], each with the SENTENCE that describes it.
@@ -4529,7 +4609,9 @@
       const lines = [];
       const add = (kind, html, more) => lines.push(Object.assign({ n: lines.length, kind, html }, more));
       const word = (html) => add('prose', html, { status: 'blocked', why: PB_RUN_BLOCKED });
+      if (t.entry) add('entry', `Start from <strong>${pbEscape(t.entry)}</strong>`);
       if ((t.roles || []).length) add('role', `As <strong>${pbEscape(t.roles[0])}</strong>`);
+      if (t.persona) add('persona', `As person <strong>${pbEscape(t.persona)}</strong>`);
       if (t.seed) add('seed', `Seed data <strong>${pbEscape(t.seed)}</strong>`);
       if (t.start) add('start', `Start on <strong>${pbEscape(t.start)}</strong>`);
       (t.steps || []).forEach(x => typeof x === 'string' ? word(pbEscape(x)) : add('step', pbStepText(x), { step: x }));
@@ -4655,7 +4737,10 @@
       if (!quiet) pbDiscSet(did, true, true);
       else if (gEl && gEl.classList.contains('is-open')) pbDiscSet(did, true, true);
       const live = () => tok === state.sbxRunToken;
-      // a fresh session for every scenario, exactly as test_run.py starts one
+      // a fresh session for every scenario, exactly as test_run.py starts one: a fresh page opens the
+      // default entry, so a project with entries starts each scenario there, whatever was picked since
+      const dflt = pbDefaultEntryObj();
+      if (dflt) state.activeEntry = dflt.id;
       pbResetSandbox();
       state.sbxToasts = [];
       let failed = false;
@@ -4667,11 +4752,17 @@
         await pbSleep(220);
         if (!live()) return false;
         let res;
-        if (line.kind === 'role') {
+        const lack = (what, id, where) => ({ status: 'blocked', why: 'blocked: no ' + what + ' "' + id + '" in ' + where + ' — run /pb:test for this step' });
+        if (line.kind === 'entry') {
+          res = pbEntryById(sc.test.entry) ? (pbApplyEntry(sc.test.entry), { status: 'pass' }) : lack('entry', sc.test.entry, 'meta.demo.entries');
+        } else if (line.kind === 'persona') {
+          res = pbPersonaById(sc.test.persona) ? (pbSetPersona(sc.test.persona), { status: 'pass' }) : lack('person', sc.test.persona, 'meta.personas');
+        } else if (line.kind === 'role') {
           const rid = sc.test.roles[0];
-          res = pbRoleById(rid) ? (setProtoRole(rid), { status: 'pass' }) : { status: 'blocked', why: 'blocked: no role "' + rid + '" in meta.roles — run /pb:test for this step' };
+          res = pbRoleById(rid) ? (setProtoRole(rid), { status: 'pass' }) : lack('role', rid, 'meta.roles');
         } else if (line.kind === 'seed') {
-          res = (typeof window.pbScenarioSwitch === 'function') ? (window.pbScenarioSwitch(sc.test.seed), { status: 'pass' })
+          res = pbSeedById(sc.test.seed) ? (pbSetSeed(sc.test.seed), { status: 'pass' })
+            : (typeof window.pbScenarioSwitch === 'function') ? (window.pbScenarioSwitch(sc.test.seed), { status: 'pass' })
             : (typeof window.pbApplyScenario === 'function') ? (window.pbApplyScenario(sc.test.seed), { status: 'pass' })
             : { status: 'blocked', why: 'blocked: the page cannot apply seed data — run /pb:test for this step' };
         } else if (line.kind === 'start') {
@@ -4959,6 +5050,7 @@
       } else {
         state.activeRole = null;
       }
+      pbReconcilePersona();   // v2.5 — a person belongs to the role; a no-op when no personas are declared
       let sel = screens.find(s => s.id === state.protoScreenId);
       // If the active (non-admin) role may not see the selected screen, fall back to the first it can.
       if (roles.length && sel && !pbScreenAllowsRole(sel, state.activeRole)) {
@@ -5543,12 +5635,36 @@
       screens.forEach(s => { if (!seen[s.id]) out.push(row(s.id, 0)); });   // whatever the walk never reached
       return '<div class="pb-tree">' + out.join('') + '</div>';
     }
+    /* A screen change. protoHistory stays a plain array of screen ids (modules pop it and call back with fromBack);
+       protoCtxStack rides beside it, one subject per entry, and is truncated to the history's length rather than
+       trusted when the two drift. A data-nav-reset on the screen being left empties both. */
     function setProtoScreen(id, fromBack) {
-      if (!fromBack && state.protoScreenId && state.protoScreenId !== id) {
-        state.protoHistory = state.protoHistory || [];
-        state.protoHistory.push(state.protoScreenId);
+      const hist = state.protoHistory = state.protoHistory || [];
+      const stack = state.protoCtxStack = state.protoCtxStack || [];
+      const leaving = state.protoScreenId, moving = !!leaving && leaving !== id;
+      const wipe = moving && pbScreenIsNavReset();
+      if (fromBack) {
+        // the history was already popped, so the subject of the screen we return to sits just past its end
+        state.protoCtx = stack.length > hist.length ? stack[hist.length] : null;
+        stack.length = Math.min(stack.length, hist.length);
+      } else {
+        if (moving) {
+          stack.length = Math.min(stack.length, hist.length);
+          while (stack.length < hist.length) stack.push(null);
+          hist.push(leaving); stack.push(state.protoCtx == null ? null : state.protoCtx);
+        }
+        // a click names its subject (data-ctx); any other way in carries none; staying put keeps it
+        state.protoCtx = state.protoNextCtx !== undefined ? state.protoNextCtx : (moving ? null : state.protoCtx);
       }
+      if (wipe) { hist.length = 0; stack.length = 0; }
       state.protoScreenId = id; renderPrototype();
+    }
+    /* data-nav-reset on a screen's root (the first element of its body) marks a screen you cannot go back through. */
+    function pbScreenIsNavReset() {
+      const f = document.getElementById('proto-frame');
+      let r = f && f.firstElementChild;
+      while (r && /^(STYLE|SCRIPT|TEMPLATE)$/.test(r.tagName)) r = r.nextElementSibling;
+      return !!(r && r.hasAttribute('data-nav-reset'));
     }
     function setProtoDevice(id) {
       // Picking the primary that compare is already showing would put a device beside itself.
@@ -5600,22 +5716,177 @@
       const screens = (PB_DATA.handoff && PB_DATA.handoff.screens) || [];
       return pbScreenAllowsRole(screens.find(s => s.id === id), state.activeRole);
     }
-    window.setProtoRole = function (id) { state.activeRole = id; renderPrototype(); };
-    // Reset the sandbox: back to the first screen, clear history + field inputs, dismiss toasts.
+
+    /* =========================================================================
+       DEMO MODEL (v2.5) — people, permissions, entry points, data, a subject, a real back.
+       Optional (meta.permissions · meta.personas · meta.demo); declare none and none of this runs. Demo
+       behaviour, not access control. Contract: prototype-builder.md → "Demo model". Bodies read it through
+       window (pbRole pbPersona pbCan pbSeed pbEntry pbCtx pbBack pbSandboxRow); runtime.js ships safe
+       defaults, replaced here unless the project defined its own. state.activeRole stays the truth for
+       role. Every setter changes state, fires its event, THEN repaints: a body sees the new value first.
+       ========================================================================= */
+    function pbDemoMeta() { return (PB_REGISTRY && PB_REGISTRY.meta) || {}; }
+    function pbDemoEntries() {
+      const seen = {};
+      return (((pbDemoMeta().demo || {}).entries) || []).filter(e => e && typeof e === 'object' && e.id != null && !seen[e.id] && (seen[e.id] = 1));
+    }
+    function pbEntryById(id) { return id == null ? null : pbDemoEntries().find(e => e.id === id) || null; }
+    function pbDefaultEntryObj() { const l = pbDemoEntries(); return l.find(e => e.default) || l[0] || null; }
+    function pbEntryObj() { return pbEntryById(state.activeEntry); }
+    function pbSeedsList() {
+      return (((pbDemoMeta().demo || {}).seeds) || []).map(s => (typeof s === 'string' ? { id: s, name: s } : s)).filter(s => s && s.id != null);
+    }
+    function pbSeedById(id) { return id == null ? null : pbSeedsList().find(s => s.id === id) || null; }
+    function pbPersonasList() { const p = pbDemoMeta().personas; return Array.isArray(p) ? p.filter(x => x && x.id != null) : []; }
+    function pbPersonaById(id) { return id == null ? null : pbPersonasList().find(p => p.id === id) || null; }
+    function pbPersonaObj() { return pbPersonaById(state.activePersona); }
+    // the people who can be "signed in" as a role: those that name it (one naming no role fits any)
+    function pbPersonasForRole(role) {
+      const roleless = !pbRolesList().length;
+      return pbPersonasList().filter(p => roleless || !p.role || p.role === role);
+    }
+    // keep the person if they belong to the active role; else the one asked for; else that role's first, or none
+    function pbReconcilePersona(prefer) {
+      if (!pbPersonasList().length) return;
+      const ids = pbPersonasForRole(state.activeRole).map(p => p.id);
+      state.activePersona = ids.indexOf(prefer) !== -1 ? prefer : ids.indexOf(state.activePersona) !== -1 ? state.activePersona : (ids[0] != null ? ids[0] : null);
+    }
+    function pbPermissions() { const p = pbDemoMeta().permissions; return p && typeof p === 'object' ? p : null; }
+    function pbLevels() { const p = pbPermissions(); return p && Array.isArray(p.levels) ? p.levels : []; }
+    function pbCapabilities() {
+      const p = pbPermissions(), out = [];
+      Object.keys((p && p.matrix) || {}).forEach(r => Object.keys(p.matrix[r] || {}).forEach(c => { if (out.indexOf(c) === -1) out.push(c); }));
+      return out;
+    }
+    // a role's level on a capability, as a position in meta.permissions.levels; unnamed or unknown = the first level
+    function pbRoleLevel(role, cap) {
+      const row = ((pbPermissions() || {}).matrix || {})[role];
+      const i = row && typeof row === 'object' ? pbLevels().indexOf(row[cap]) : -1;
+      return i < 0 ? 0 : i;
+    }
+    // true when the active role's level on `cap` is at least `min` (omitted: the lowest level above the first)
+    function pbCanImpl(cap, min) {
+      const lv = pbLevels();
+      if (!pbPermissions() || !pbRolesList().length || !lv.length) return true;
+      if (pbRoleIsAdmin(state.activeRole)) return true;
+      const need = (min == null || min === '') ? 1 : lv.indexOf(min);
+      if (need < 0 || need >= lv.length) return false;
+      return pbRoleLevel(state.activeRole, cap) >= need;
+    }
+    function pbDemoSnap() { return { role: state.activeRole, persona: state.activePersona, seed: state.activeSeed, entry: state.activeEntry }; }
+    function pbSeedSwitch(id) {
+      if (id == null || typeof window.pbScenarioSwitch !== 'function') return;
+      try { window.pbScenarioSwitch(id); } catch (e) { console.error('pb: pbScenarioSwitch threw', e); }
+    }
+    // Tell the page what changed since `prev`, before anything repaints. forceSeed re-applies the seed even
+    // when it did not change (Reset and an entry start from the data again).
+    function pbDemoCommit(prev, forceSeed) {
+      if (state.activeRole !== prev.role) pbEmit(window, 'pb:rolechange', { role: state.activeRole });
+      if (state.activePersona !== prev.persona) pbEmit(window, 'pb:personachange', { persona: pbPersonaObj() });
+      const seedMoved = state.activeSeed !== prev.seed;
+      if (seedMoved) pbEmit(window, 'pb:seedchange', { seed: state.activeSeed });
+      if (seedMoved || (forceSeed && state.activeSeed != null)) pbSeedSwitch(state.activeSeed);
+      if (state.activeEntry !== prev.entry) pbEmit(window, 'pb:entrychange', { entry: pbEntryObj() });
+    }
+    // an entry's state, set without events or a repaint (the callers do both): screen, role, person, seed, a clean history
+    function pbEntryState(e) {
+      const screens = (PB_DATA.handoff && PB_DATA.handoff.screens) || [];
+      state.activeEntry = e.id;
+      state.protoHistory = []; state.protoCtxStack = []; state.protoCtx = null;
+      const warn = (what, id) => id && console.warn('pb: entry "' + e.id + '" names an unknown ' + what + ' "' + id + '" — ignored');
+      if (pbScreensHas(e.screen)) state.protoScreenId = e.screen;
+      else { warn('screen', e.screen); state.protoScreenId = screens.length ? screens[0].id : null; }
+      if (pbRolesList().length) {
+        if (!pbRoleById(e.role)) warn('role', e.role);
+        state.activeRole = pbRoleById(e.role) ? e.role : pbResolveDefaultRole();
+      }
+      if (!pbPersonaById(e.persona)) warn('person', e.persona);
+      state.activePersona = null; pbReconcilePersona(e.persona);
+      if (!pbSeedById(e.seed)) warn('seed', e.seed);
+      state.activeSeed = pbSeedById(e.seed) ? e.seed : ((pbSeedsList()[0] || {}).id || null);
+    }
+    window.setProtoRole = function (id) {
+      const prev = pbDemoSnap();
+      state.activeRole = id;
+      pbReconcilePersona();   // the person stays if they belong to the new role, else that role's first, else none
+      pbDemoCommit(prev);
+      renderPrototype();
+    };
+    // A person within a role. Choosing one who belongs to another role switches the role to theirs.
+    window.pbSetPersona = function (id) {
+      const p = pbPersonaById(id);
+      if (!p) { console.warn('pb: unknown person "' + id + '" — ignored'); return false; }
+      const prev = pbDemoSnap();
+      if (p.role && p.role !== state.activeRole && pbRoleById(p.role)) state.activeRole = p.role;
+      state.activePersona = p.id;
+      pbDemoCommit(prev);
+      renderPrototype();
+      return true;
+    };
+    window.pbSetSeed = function (id) {
+      if (!pbSeedById(id)) { console.warn('pb: unknown seed "' + id + '" — ignored'); return false; }
+      const prev = pbDemoSnap();
+      state.activeSeed = id;
+      pbDemoCommit(prev);
+      renderPrototype();
+      return true;
+    };
+    // Start from an entry: its screen, role, person and seed, with no history and no subject.
+    window.pbApplyEntry = function (id) {
+      const e = pbEntryById(id);
+      if (!e) { console.warn('pb: unknown entry "' + id + '" — ignored'); return false; }
+      const prev = pbDemoSnap();
+      pbEntryState(e);
+      pbDemoCommit(prev, true);
+      renderPrototype();
+      return true;
+    };
+    // Reset the sandbox: back to the active entry (screen, role, person, seed) — or, with none declared, to the
+    // first screen and the default role as ever. Clears history + field inputs, dismisses toasts.
     window.pbResetSandbox = function () {
       const screens = (PB_DATA.handoff && PB_DATA.handoff.screens) || [];
-      state.protoScreenId = screens.length ? screens[0].id : null;
-      state.protoHistory = [];
-      // Reset the previewed role too. Without this line the sandbox reset cleared the screen,
-      // the history, the inputs and the toasts but left state.activeRole set, so every scenario
-      // after a role switch silently inherited that role and results became order-dependent —
-      // the defect that made the test runner's per-role verdicts meaningless.
-      state.activeRole = pbRolesList().length ? pbResolveDefaultRole() : null;
+      const prev = pbDemoSnap();
+      const entry = pbEntryById(state.activeEntry) || pbDefaultEntryObj();
+      if (entry) pbEntryState(entry);
+      else {
+        state.protoScreenId = screens.length ? screens[0].id : null;
+        state.protoHistory = []; state.protoCtxStack = []; state.protoCtx = null;
+        // Reset the previewed role too. Without this line the sandbox reset cleared the screen,
+        // the history, the inputs and the toasts but left state.activeRole set, so every scenario
+        // after a role switch silently inherited that role and results became order-dependent —
+        // the defect that made the test runner's per-role verdicts meaningless.
+        state.activeRole = pbRolesList().length ? pbResolveDefaultRole() : null;
+        state.activePersona = null; pbReconcilePersona();
+        if (pbSeedsList().length) state.activeSeed = pbSeedsList()[0].id;
+      }
       document.querySelectorAll('.proto-screen .field__input').forEach(function (i) { i.value = ''; });
       const tw = document.getElementById('proto-toast-wrap');
       if (tw) tw.innerHTML = '';
+      pbDemoCommit(prev, !!entry || pbSeedsList().length > 0);
+      pbEmit(window, 'pb:reset', { entry: pbEntryObj() });
       renderPrototype();
     };
+    // A project row in Sandbox -> Conditions. Callable while a module loads (runtime.js queues it); the real
+    // one adds to the same list and repaints the panel.
+    function pbSandboxRowAdd(spec) {
+      if (!spec || typeof spec !== 'object') return;
+      (window.pbSandboxRows = window.pbSandboxRows || []).push(spec);
+      pbSandboxRerender();
+    }
+    // Replace the safe defaults from runtime.js, except where the project defined its own.
+    (function pbInstallDemo() {
+      const real = {
+        pbRole: () => (state.activeRole == null ? null : state.activeRole),
+        pbPersona: () => pbPersonaObj(),
+        pbCan: (cap, min) => pbCanImpl(cap, min),
+        pbSeed: () => (state.activeSeed == null ? null : state.activeSeed),
+        pbEntry: () => pbEntryObj(),
+        pbCtx: () => (state.protoCtx == null ? null : state.protoCtx),
+        pbBack: () => { protoBack(); },
+        pbSandboxRow: pbSandboxRowAdd,
+      };
+      Object.keys(real).forEach(k => { const cur = window[k]; if (typeof cur !== 'function' || cur.__pbDefault) window[k] = real[k]; });
+    })();
     /* R resets the session. It is the most-repeated thing in the Sandbox (reset, try a flow, reset),
        and it sat behind a menu. Scoped hard so it can never cost anyone anything:
          - not with Cmd/Ctrl/Alt held (Cmd+R is the browser's reload);
@@ -5656,6 +5927,39 @@
         const allowed = (el.getAttribute('data-roles') || '').split(/\s+/).filter(Boolean);
         const ok = !allowed.length || (state.activeRole != null && allowed.indexOf(state.activeRole) !== -1);
         el.style.display = ok ? '' : 'none';
+      });
+      pbApplyCan();
+    }
+    /* data-can="<capability>[:<level>]" (v2.5): gate by what the role may do. data-can-mode="hide" (default) hides it
+       like data-roles; "disable" sets disabled, aria-disabled and a title naming what is missing. Every .proto-screen
+       (so Compare), every render. What it set is remembered (data-pb-can) so allowing it again gives back what the
+       author wrote. */
+    function pbApplyCan() {
+      const lv = pbLevels();
+      document.querySelectorAll('.proto-screen [data-can]').forEach(function (el) {
+        const raw = el.getAttribute('data-can') || '', k = raw.lastIndexOf(':');
+        const split = k > 0 && lv.indexOf(raw.slice(k + 1)) !== -1;
+        const cap = split ? raw.slice(0, k) : raw, min = split ? raw.slice(k + 1) : '';
+        const ok = !!(min ? pbCan(cap, min) : pbCan(cap));
+        const mark = el.getAttribute('data-pb-can');
+        if (el.getAttribute('data-can-mode') !== 'disable') {
+          if (!ok) { el.style.display = 'none'; el.setAttribute('data-pb-can', 'hid'); }
+          else if (mark === 'hid') { el.removeAttribute('data-pb-can'); if (!el.hasAttribute('data-roles')) el.style.display = ''; }
+        } else if (!ok) {
+          if (mark !== 'off') {
+            el.setAttribute('data-pb-can', 'off');
+            el.setAttribute('data-pb-can-was', JSON.stringify([el.hasAttribute('disabled'), el.getAttribute('aria-disabled'), el.getAttribute('title')]));
+          }
+          el.setAttribute('disabled', ''); el.setAttribute('aria-disabled', 'true');
+          el.setAttribute('title', 'Needs ' + (min || lv[1] || 'access') + ' on ' + cap);
+        } else if (mark === 'off') {
+          let was = [false, null, null];
+          try { was = JSON.parse(el.getAttribute('data-pb-can-was')) || was; } catch (e) { /* use the defaults */ }
+          [['disabled', was[0] ? '' : null], ['aria-disabled', was[1]], ['title', was[2]]].forEach(function (p) {
+            if (p[1] == null) el.removeAttribute(p[0]); else el.setAttribute(p[0], p[1]);
+          });
+          el.removeAttribute('data-pb-can'); el.removeAttribute('data-pb-can-was');
+        }
       });
     }
     /* The toggle lives inside the Sandbox popover, and the popover is anchored over exactly the
@@ -5894,8 +6198,30 @@
       pbInspectWireKeys();
       frame.addEventListener('click', function (e) {
         if (e.altKey) { e.preventDefault(); e.stopPropagation(); pbInspectCopy(e.target); return; }  // ⌥-click = copy reference
+        // a control a role may not use (data-can-mode="disable") does nothing, whatever element it is
+        if (e.target.closest('[data-pb-can="off"]')) { e.preventDefault(); return; }
         var nav = e.target.closest('[data-nav]');
-        if (nav) { var id=nav.getAttribute('data-nav'); if(pbScreensHas(id)){ e.preventDefault(); if(pbNavAllowed(id)) setProtoScreen(id); } return; }
+        if (nav) {
+          var id=nav.getAttribute('data-nav');
+          if(pbScreensHas(id)){
+            e.preventDefault();
+            if(pbNavAllowed(id)){
+              // data-ctx beside data-nav says what was tapped; a nav without one clears the subject
+              state.protoNextCtx = nav.hasAttribute('data-ctx') ? nav.getAttribute('data-ctx') : null;
+              try { setProtoScreen(id); } finally { state.protoNextCtx = undefined; }
+            }
+          }
+          return;
+        }
+        // data-back is a real back; with nothing to go back to, data-back="<screen id>" names where to go
+        var back = e.target.closest('[data-back]');
+        if (back) {
+          e.preventDefault();
+          var to = back.getAttribute('data-back');
+          if ((state.protoHistory || []).length) protoBack();
+          else if (to && pbScreensHas(to) && pbNavAllowed(to)) setProtoScreen(to, true);
+          return;
+        }
         var tog = e.target.closest('[data-action="toggle-password"]');
         if (tog) { e.preventDefault(); pbTogglePassword(tog); return; }
         var sub = e.target.closest('[data-action="submit"]');
@@ -6652,14 +6978,15 @@
     function pbRenderLogic() {
       const L = window.PB_LOGIC;
       if (!L || !L.stats) {
-        return pbUxEmpty('No logic graph yet',
+        return pbPermissionsHTML() + pbUxEmpty('No logic graph yet',
           'The ripple view is derived from your render bodies at render time — what each handler reads, which store slice it touches, what it re-renders — and rules you declare are linked to the code that implements them. Re-render to generate it.',
           'Render', '/pb:build --render');
       }
       // Land on Rules when there is anything to read there — including decisions a project has
       // not migrated yet, which would otherwise open on Ripple and look like nothing was recorded.
+      // (A permission matrix is read there too, so a project that declares one lands on Rules.)
       if (!state.logicView) {
-        state.logicView = ((L.rules || []).length + pbLegacyTradeoffs().length) ? 'rules' : 'ripple';
+        state.logicView = ((L.rules || []).length + pbLegacyTradeoffs().length || pbPermissionsHTML()) ? 'rules' : 'ripple';
       }
       const v = state.logicView;
       const S = L.stats;
@@ -6670,8 +6997,31 @@
             <button class="lg-view ${v === 'ripple' ? 'active' : ''}" onclick="pbSetLogicView('ripple')">Impact <span class="meta-subtab-count">${S.handlers}</span></button>
             <span class="lg-stats">${S.handlers} handlers · ${S.exported} shared · ${S.saves} saves · ${S.slices} store slices · <span class="${S.deadReads ? 'lg-warn' : ''}">${S.deadReads} dead read${S.deadReads === 1 ? '' : 's'}</span></span>
           </div>
-          ${v === 'rules' ? pbRenderLogicRules(L) : pbRenderLogicRipple(L)}
+          ${v === 'rules' ? pbPermissionsHTML() + pbRenderLogicRules(L) : pbRenderLogicRipple(L)}
         </div>`;
+    }
+
+    /* Permissions (v2.5): meta.permissions as a read-only role x capability table above the rules; an isAdmin role is
+       marked as bypassing it. Tool chrome, never inside .pb-product. Nothing is drawn without a matrix. */
+    function pbPermissionsHTML() {
+      const p = pbPermissions();
+      if (!p || !p.matrix || typeof p.matrix !== 'object') return '';
+      const lv = pbLevels(), caps = pbCapabilities();
+      const roles = pbRolesList().length ? pbRolesList() : Object.keys(p.matrix).map(id => ({ id: id }));
+      if (!caps.length || !roles.length) return '';
+      const cell = (role, cap) => {
+        const raw = (p.matrix[role] || {})[cap], i = lv.indexOf(raw);
+        return `<td${i > 0 ? '' : ' class="is-none"'}>${pbEscape(raw != null ? raw : (lv[0] != null ? lv[0] : '—'))}</td>`;
+      };
+      const rows = roles.map(r => r.isAdmin
+        ? `<tr class="is-admin"><th scope="row">${pbEscape(r.name || r.id)}<span class="pb-perm-tag">admin</span></th><td colspan="${caps.length}">bypasses the matrix: every capability, at every level</td></tr>`
+        : `<tr><th scope="row">${pbEscape(r.name || r.id)}</th>${caps.map(c => cell(r.id, c)).join('')}</tr>`).join('');
+      return `<section class="pb-perm" aria-labelledby="pb-perm-t">
+          <h4 class="pb-perm-h" id="pb-perm-t">Permissions</h4>
+          <div class="pb-perm-w"><table class="pb-perm-t"><thead><tr><th scope="col">Role</th>${caps.map(c => `<th scope="col">${pbEscape(c)}</th>`).join('')}</tr></thead><tbody>${rows}</tbody></table></div>
+          ${lv.length ? `<p class="pb-perm-note">Levels, lowest first: ${pbEscape(lv.join(' → '))}.</p>` : ''}
+          <p class="pb-perm-note">Demo behaviour, not access control: it runs in the browser, and <code>?role=</code> shows anyone that role.</p>
+        </section>`;
     }
 
     function pbRenderLogicRules(L) {
@@ -11544,6 +11894,38 @@
       e.preventDefault(); f.focus(); f.select();
     });
     pbUiInstall({ items: pbSearchItems });
+
+    /* Where the session starts (v2.5): ?entry= wins, then the default entry, then today's rule (screens[0],
+       meta.defaultRole); ?role= and ?persona= apply on top; an unknown value warns and is ignored. Nothing declared
+       and nothing asked leaves it as it was. Events fire here, before the first render. */
+    (function pbDemoBoot() {
+      let q = null;
+      try { q = new URLSearchParams(location.search); } catch (e) { /* no query string to read */ }
+      const ask = k => (q && q.get(k)) || null;
+      const wantEntry = ask('entry'), wantRole = ask('role'), wantPersona = ask('persona');
+      const hasModel = pbDemoEntries().length || pbPersonasList().length || pbSeedsList().length;
+      if (!hasModel && !wantEntry && !wantRole && !wantPersona) return;
+      const prev = pbDemoSnap();
+      let entry = null;
+      if (wantEntry) { entry = pbEntryById(wantEntry); if (!entry) console.warn('pb: unknown ?entry="' + wantEntry + '" — ignored'); }
+      if (!entry) entry = pbDefaultEntryObj();
+      if (entry) pbEntryState(entry);
+      else {
+        if (pbRolesList().length) state.activeRole = pbResolveDefaultRole();
+        pbReconcilePersona();
+        if (pbSeedsList().length) state.activeSeed = pbSeedsList()[0].id;
+      }
+      if (wantRole) {
+        if (pbRoleById(wantRole)) { state.activeRole = wantRole; pbReconcilePersona(); }
+        else console.warn('pb: unknown ?role="' + wantRole + '" — ignored');
+      }
+      if (wantPersona) {
+        const p = pbPersonaById(wantPersona);
+        if (!p) console.warn('pb: unknown ?persona="' + wantPersona + '" — ignored');
+        else { if (p.role && p.role !== state.activeRole && pbRoleById(p.role)) state.activeRole = p.role; state.activePersona = p.id; }
+      }
+      pbDemoCommit(prev, !!entry);
+    })();
 
     /* Deep link (v2.1.0): ?screen=<id>&device=<id>&shell=<mode>&embed=1. /pb:explore's compare
        page opens every option on the screen being compared; `embed` drops the tab bar so a frame
