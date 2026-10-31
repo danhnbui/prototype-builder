@@ -48,7 +48,8 @@ _failures = []
 
 def check(cond, msg):
     mark = "✓" if cond else "✗"
-    print(f"  {mark} {msg}")
+    # a message may carry the tool's output after its first line: show that only when the check failed
+    print(f"  {mark} {msg if not cond else msg.split(chr(10))[0]}")
     if not cond:
         _failures.append(msg)
 
@@ -240,6 +241,240 @@ def navigation_run(sync_playwright):
         check(r.returncode == 1, f"a blocked scenario is a warning, exit 1 (rc={r.returncode})")
 
 
+DEMO_DIR = os.path.join(ROOT, "fixtures", "demo-model")
+
+
+def copy_demo(tmp, name="demo"):
+    """A temp copy of fixtures/demo-model (registry + render bodies); returns the copied registry path."""
+    dst = os.path.join(tmp, name)
+    shutil.copytree(DEMO_DIR, dst)
+    return os.path.join(dst, "registry.json")
+
+
+def roles_run(reg_path, *extra):
+    """test_run.py --roles --json on a registry; returns (CompletedProcess, combined output, payload)."""
+    jp = os.path.join(os.path.dirname(reg_path), "roles.json")
+    r = run_tool(TEST_RUN, reg_path, "--roles", "--json", jp, *extra)
+    payload = load(jp) if os.path.isfile(jp) else {}
+    return r, r.stdout + r.stderr, payload
+
+
+def codes(payload):
+    return [f["code"] for f in payload.get("findings", [])]
+
+
+def demo_model(sync_playwright):
+    """Demo model (v2.5): scenarios start from an entry and a person; --roles checks the matrix, every
+    data-can control and every entry; a project that declares none of it is untouched."""
+    sys.path.insert(0, TOOLS)
+    import contextlib
+    import io
+    import importlib
+    tr = importlib.import_module("test_run")
+
+    # ── the fixture: clean, and both scenarios behave as the fixture says ─────────────────────────
+    print("test_run.py --roles (fixtures/demo-model — matrix, data-can controls and entries all clean):")
+    with tempfile.TemporaryDirectory() as tmp:
+        reg_path = copy_demo(tmp)
+        r, out, pl = roles_run(reg_path)
+        check(r.returncode == 0, f"--roles exits 0 on the demo model (rc={r.returncode})\n{out}")
+        check("T-PERM" not in out and "T-ENTRY" not in out, "no T-PERM and no T-ENTRY finding")
+        check(out.count("\npermissions: ") + out.startswith("permissions: ") == 1
+              and out.count("\nentries: ") + out.startswith("entries: ") == 1,
+              "one summary line for the permission check and one for the entries")
+        pm, en = pl.get("permissions") or {}, pl.get("entries") or {}
+        # 3 roles x (2 capabilities + 1 nothing names) x (5 levels + omitted + unknown)
+        check(pm.get("roles") == 3 and pm.get("probes") == 63 and pm.get("mismatches") == 0,
+              f"--json permissions: 3 roles, 63 pbCan answers, 0 mismatches ({pm})")
+        check(pm.get("views") == 12 and pm.get("controls") == 9,
+              f"--json permissions: every role x screen it can see, 9 data-can controls ({pm})")
+        check(en.get("entries") == 2 and [o["ok"] for o in en.get("opened", [])] == [True, True]
+              and sorted(f["id"] for f in en.get("freshLoads", [])) == ["first-run", "review"]
+              and [f["default"] for f in en.get("freshLoads", [])] == [True, False],
+              f"--json entries: both opened ok, ?entry= loaded for the default and one other ({en})")
+        check([(s["role"], s["status"]) for s in pl.get("scenarios", [])]
+              == [("reviewer", "pass"), ("requester", "pass")],
+              "a scenario that starts from an entry runs once, as the entry's role (not once per role)")
+
+        r = run_tool(TEST_RUN, reg_path, "--functional")
+        check(r.returncode == 0, f"--functional exits 0 on the demo model (rc={r.returncode})\n{r.stdout}{r.stderr}")
+        got = [(sc["id"], sc["lastResult"]["status"], [x["role"] for x in sc["lastResult"]["roles"]])
+               for sc in iter_test_scenarios(load(reg_path))]
+        check(got == [("approve-from-queue", "pass", ["reviewer"]), ("requester-cannot-approve", "pass", ["requester"])],
+              f"entry 'review' approves R-1 as the reviewer; entry 'first-run' + person requester-b as the requester ({got})")
+
+    print("test_run.py --functional (test.entry · role · test.persona · seed · start apply in the shell's order):")
+    with tempfile.TemporaryDirectory() as tmp:
+        reg_path = copy_demo(tmp)
+        reg = load(reg_path)
+        scs = reg["flow"]["stories"][0]["scenarios"]
+        # entry 'review' is the reviewer; an explicit role then wins over the entry ...
+        scs.append({"id": "role-after-entry", "text": "role after entry", "category": "permission", "test": {
+            "entry": "review", "roles": ["requester"], "start": "detail", "steps": [],
+            "expect": [{"text": "cannot approve"}, {"present": "[data-testid=approve][disabled]"}]}})
+        # ... and a person of another role wins over that role
+        scs.append({"id": "persona-after-role", "text": "persona after role", "category": "permission", "test": {
+            "entry": "review", "roles": ["requester"], "persona": "reviewer-a", "start": "detail", "steps": [],
+            "expect": [{"text": "can approve"}, {"absent": "[data-testid=approve][disabled]"}]}})
+        # the seed is applied before start
+        scs.append({"id": "seed-before-start", "text": "seed before start", "category": "happy", "test": {
+            "entry": "first-run", "seed": "two-open", "start": "requests", "steps": [],
+            "expect": [{"present": "[data-testid=row-R-2]"}]}})
+        scs.append({"id": "no-such-entry", "text": "unknown entry", "category": "error", "test": {
+            "entry": "nope", "start": "welcome", "steps": [], "expect": [{"screen": "welcome"}]}})
+        scs.append({"id": "no-such-person", "text": "unknown person", "category": "error", "test": {
+            "persona": "nobody", "start": "welcome", "steps": [], "expect": [{"screen": "welcome"}]}})
+        dump(reg, reg_path)
+        r = run_tool(TEST_RUN, reg_path, "--functional")
+        out = r.stdout + r.stderr
+        res = {sc["id"]: sc["lastResult"] for sc in iter_test_scenarios(load(reg_path))}
+        check("Traceback" not in out, f"no traceback on an unknown entry or person\n{out[-500:]}")
+        check(res["role-after-entry"]["status"] == "pass", f"the role is applied after the entry ({res['role-after-entry']['detail']})")
+        check(res["persona-after-role"]["status"] == "pass", f"the person is applied after the role ({res['persona-after-role']['detail']})")
+        check(res["seed-before-start"]["status"] == "pass", f"the seed is applied before start ({res['seed-before-start']['detail']})")
+        check(res["no-such-entry"]["status"] == "blocked"
+              and "nope" in res["no-such-entry"]["roles"][0]["detail"] and "meta.demo.entries" in res["no-such-entry"]["roles"][0]["detail"],
+              f"an unknown entry is a blocked scenario with the reason ({res['no-such-entry']['roles'][0]['detail']})")
+        check(res["no-such-person"]["status"] == "blocked" and "nobody" in res["no-such-person"]["roles"][0]["detail"],
+              f"an unknown person is a blocked scenario with the reason ({res['no-such-person']['roles'][0]['detail']})")
+        check(r.returncode == 1, f"blocked scenarios are warnings, exit 1 (rc={r.returncode})")
+        r, out, pl = roles_run(reg_path)
+        check("Traceback" not in out and r.returncode == 1 and any("nope" in f["msg"] for f in pl["findings"] if f["severity"] == "WARN"),
+              f"--roles names the blocked entry scenario as a warning, not a failure (rc={r.returncode})")
+
+    # ── a project's own pbCan that disagrees with the matrix ───────────────────────────────────────
+    print("test_run.py --roles (a wrong matrix: the project's own pbCan ignores it -> T-PERM):")
+    with tempfile.TemporaryDirectory() as tmp:
+        reg_path = copy_demo(tmp)
+        os.makedirs(os.path.join(tmp, "demo", "runtime"))
+        with open(os.path.join(tmp, "demo", "runtime", "own-perm.js"), "w", encoding="utf-8") as f:
+            f.write("window.pbCan = function () { return true; };\n")     # a hand-rolled check that lets everyone in
+        reg = load(reg_path)
+        reg["runtime"] = [{"id": "own-perm", "src": "runtime/own-perm.js", "why": "test: a project's own pbCan"}]
+        dump(reg, reg_path)
+        r, out, pl = roles_run(reg_path)
+        check(r.returncode == 2 and "T-PERM" in codes(pl), f"a pbCan that disagrees with the matrix is a T-PERM (rc={r.returncode})\n{out[-700:]}")
+        check("[T-PERM] role 'requester' capability 'report' level 'view'" in out
+              and "expected False, got True" in out,
+              "…naming the role, capability, level, expected and got")
+        check("[T-PERM] role 'requester' screen 'detail' control button[data-testid=approve]" in out,
+              "…and the gated control the shell then enabled for a role the matrix denies")
+
+    # ── a body that ignores data-can ────────────────────────────────────────────────────────────────
+    print("test_run.py --roles (a body that ignores data-can -> T-PERM):")
+    with tempfile.TemporaryDirectory() as tmp:
+        reg_path = copy_demo(tmp)
+        body = os.path.join(tmp, "demo", "render", "screens", "requests.js")
+        src = open(body, encoding="utf-8").read().replace(
+            "return '<div data-testid=\"requests\"",
+            "return '<style>[data-testid=report]{display:inline-block !important}</style><div data-testid=\"requests\"")
+        check("!important" in src, "sabotaged the requests body: a stylesheet forces the hide-mode report control visible")
+        with open(body, "w", encoding="utf-8") as f:
+            f.write(src)
+        r, out, pl = roles_run(reg_path)
+        check(r.returncode == 2, f"--roles fails (rc={r.returncode})")
+        check("[T-PERM] role 'requester' screen 'requests' control button[data-testid=report]" in out
+              and "should be not visible, but it is visible" in out,
+              f"the control that should be hidden is named with role, screen, expected and got\n{out[-700:]}")
+        check(not any("role 'reviewer' screen 'requests' control" in f["where"] for f in pl["findings"] if f["code"] == "T-PERM"),
+              "…and a role the matrix allows is not flagged")
+
+    # ── entries ──────────────────────────────────────────────────────────────────────────────────────
+    print("test_run.py --roles (a broken entry -> T-ENTRY):")
+    with tempfile.TemporaryDirectory() as tmp:
+        reg_path = copy_demo(tmp, "ghost")
+        reg = load(reg_path)
+        reg["meta"]["demo"]["entries"][1]["screen"] = "ghost-screen"
+        dump(reg, reg_path)
+        r, out, pl = roles_run(reg_path)
+        check(r.returncode == 2 and "[T-ENTRY] entry 'review'" in out and "ghost-screen" in out,
+              f"an entry naming a screen that is not there is a T-ENTRY (rc={r.returncode})\n{out[-600:]}")
+        check(codes(pl).count("T-ENTRY") >= 2 and not [f for f in pl["findings"] if "first-run" in f["where"]],
+              "…found on the entry open and on the fresh ?entry= load, and the good entry is not flagged")
+
+        reg_path = copy_demo(tmp, "fallback")
+        reg = load(reg_path)
+        next(s for s in reg["screens"] if s["id"] == "requests")["roles"] = ["reviewer"]
+        reg["meta"]["demo"]["entries"][0]["screen"] = "requests"    # the requester's entry onto a reviewer-only screen
+        dump(reg, reg_path)
+        r, out, pl = roles_run(reg_path)
+        check(r.returncode == 2 and "R-ENTRY" in out and "cannot see 'requests'" in out,
+              f"an entry whose role cannot see its screen (the permitted-screen fallback) is a T-ENTRY naming R-ENTRY\n{out[-700:]}")
+
+        reg_path = copy_demo(tmp, "person")
+        reg = load(reg_path)
+        reg["meta"]["demo"]["entries"][1]["persona"] = "requester-a"   # a person of the wrong role: the shell picks another
+        dump(reg, reg_path)
+        r, out, pl = roles_run(reg_path)
+        check(r.returncode == 2 and "[T-ENTRY] entry 'review'" in out and "person" in out,
+              f"an entry whose person is not active once opened is a T-ENTRY\n{out[-500:]}")
+
+        reg_path = copy_demo(tmp, "boom")
+        body = os.path.join(tmp, "boom", "render", "screens", "requests.js")
+        src = open(body, encoding="utf-8").read().replace(
+            "var open = ", "if (pbEntry() && pbEntry().id === 'review') { throw new Error('boom from the review entry'); }\n  var open = ", 1)
+        check("boom from" in src, "sabotaged the requests body: it throws when the review entry is open")
+        with open(body, "w", encoding="utf-8") as f:
+            f.write(src)
+        r, out, pl = roles_run(reg_path)
+        check("Traceback" not in out and "[T-ENTRY] entry 'review'" in out and ("boom" in out),
+              f"an entry that makes the page throw is a T-ENTRY, never a traceback (rc={r.returncode})\n{out[-700:]}")
+
+    # ── pbCan lied about in a page init script (in-process: the init script must precede the page) ────
+    print("test_run._roles (pbCan mutated in a page init script to lie -> T-PERM):")
+
+    class _Closer:
+        def __init__(self, browser, ctx):
+            self.browser, self.ctx = browser, ctx
+
+        def new_page(self):
+            return self.ctx.new_page()
+
+        def close(self):
+            self.ctx.close()
+            self.browser.close()
+
+    class LyingSession(tr._Session):
+        def open_page(self):
+            browser = tr._launch(self._p)
+            ctx = browser.new_context()
+            ctx.add_init_script("window.pbCan = function () { return false; };")
+            page, cerr = tr._prep_page(ctx, self.url)
+            return _Closer(browser, ctx), page, cerr
+
+    with tempfile.TemporaryDirectory() as tmp:
+        reg_path = copy_demo(tmp)
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            code, pl = tr._roles(reg_path, LyingSession(reg_path))
+        perm = [f for f in pl["findings"] if f["code"] == "T-PERM"]
+        check(code == 2 and perm, f"a lying pbCan is a T-PERM (exit {code})\n{buf.getvalue()[-600:]}")
+        check(any("role 'admin'" in f["where"] and "expected True, got False" in f["msg"] for f in perm)
+              and any("role 'reviewer' capability 'request' level 'approve'" in f["where"] for f in perm),
+              "…naming role, capability, level, expected and got (admin must be true; reviewer may approve)")
+        check(not any("role 'requester' capability 'report' level 'view'" in f["where"] for f in perm),
+              "…and an answer the lie happens to get right is not flagged")
+
+    # ── fixtures/golden: nothing new ──────────────────────────────────────────────────────────────────
+    print("fixtures/golden (declares no permissions, personas or demo: no new check, finding or line):")
+    with tempfile.TemporaryDirectory() as tmp:
+        reg_path = copy_golden(tmp)
+        reg = load(reg_path)
+        roles = (reg["meta"].get("roles") or [])
+        expect_runs = sum(len([x for x in (sc["test"].get("roles") or []) if isinstance(x, str)]) or len(roles)
+                          for sc in iter_test_scenarios(reg))
+        r, out, pl = roles_run(reg_path)
+        check(r.returncode == 0 and "T-PERM" not in out and "T-ENTRY" not in out
+              and "permissions:" not in out and "entries:" not in out,
+              f"--roles on the golden: exit 0, no T-PERM / T-ENTRY, no summary line (rc={r.returncode})\n{out}")
+        check("permissions" not in pl and "entries" not in pl and not pl["findings"]
+              and len(pl["scenarios"]) == expect_runs,
+              f"--json on the golden has neither new key and the same {expect_runs} scenario runs ({len(pl['scenarios'])})")
+        r = run_tool(TEST_RUN, reg_path, "--functional")
+        sts = [(sc.get("lastResult") or {}).get("status") for sc in iter_test_scenarios(load(reg_path))]
+        check(r.returncode == 0 and sts and all(s == "pass" for s in sts), f"--functional on the golden still passes every scenario ({sts})")
+
+
 def run():
     navigation_race()
     # ── dependency gates (skip cleanly, exit 2) ──────────────────────────────
@@ -271,6 +506,7 @@ def run():
               "each lastResult carries a detail + ranAt")
 
     navigation_run(sync_playwright)
+    demo_model(sync_playwright)
 
     # ── 1b · the verdicts are saved under the registry lock, after the run, on a fresh read ──
     # What is asserted is WHERE the write happens, not whether the scenarios pass (section 1 does that),

@@ -27,6 +27,8 @@ Wire behavior with data-attributes (no JS in the body beyond building the string
 - `data-action="submit"` — validate the form, then on success: `data-go="<screen>"` (navigate) ·
   `data-toast="<msg>"` · `data-redirect="<screen>"` + `data-redirect-ms="<n>"`.
 - `data-nav="<screen>"` — direct navigation. `data-action="toggle-password"` — reveal/hide a password.
+- Who may do it: `data-can="<capability>[:<level>]"` and `pbCan()` read `meta.permissions`; `data-roles`
+  still gates by role. Demo behaviour, not access control (`canon.md` § *The demo model*).
 
 ## 4 · Conditional rendering
 The render body is plain JS that returns a string — branch on `props.state` to vary markup

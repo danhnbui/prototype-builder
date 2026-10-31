@@ -117,6 +117,10 @@ Fourteen commands. Flags narrow a command; they are not commands of their own.
 `/pb:plan --flow` and `--data` author the UX Design and Data slices **once**; from then on
 `/pb:build` reconciles them itself. **Upgrading a 1.x project?** → [docs/upgrade-to-2.0.md](docs/upgrade-to-2.0.md).
 
+## Demo model
+
+A prototype can declare who may do what (`meta.permissions`), named people per role, and entry points and data seeds for a demo; bodies read `pbCan()` and `data-can` gates controls, and Sandbox → Conditions switches them. It is demo behaviour, not access control, and the hand-off says so.
+
 ## Under the hood
 
 - **`registry.json`** is the single source of truth (tokens, components, screens, meta, flow, erd, config).

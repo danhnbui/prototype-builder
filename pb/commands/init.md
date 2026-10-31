@@ -95,6 +95,8 @@ clause is what the tab composes into each layer's purpose.
 **Optional here.** `/pb:clarify` §1b writes the jobs in the default pipeline and refines any seeded
 here, so skip this step when the user wants to move on — nothing downstream depends on init doing it.
 
+Demo entry points (`meta.demo`) are proposed later, at `/pb:plan`.
+
 Leave `screens: []` on every job, and do not ask for layers: `/pb:plan` §2 maps jobs to screens, names
 the nav hub (`meta.navHub`) and asks what each layer is *for* once the screens exist. Layer membership,
 the parent/child edges and the overlays are **derived** from the hub and the render bodies — never ask

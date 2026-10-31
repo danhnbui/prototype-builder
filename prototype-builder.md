@@ -20,18 +20,9 @@ lintable and diffable. (A legacy inline `render` string still renders for backwa
 tokens are applied to the **product subtree** (`.pb-product`) at boot via `applyRegistryTokens` — never onto `:root`,
 which holds the tool's own `--pb-*` vocabulary (`pb/template/chrome.css`).
 
-**Responsive styles (`styleSrc`).** An inline `style=""` cannot hold a breakpoint, so a component or
-screen that changes across device sizes carries an optional `styleSrc` → `render/styles/<id>.css`.
-`render.py` emits `pb/template/product.css` (the size-class utilities) and then every sheet, components
-before screens, into one `<style id="pb-product-css">` in both sites and in the React scaffold. A sheet
-styles its own root class — `.c-<id>` for a component, `.s-<id>` for a screen — and uses
-**`@container pb-screen (min-width: …)`, never `@media`**: the device frames are `<div>`s in one
-document, so `@media` answers the browser window, not the frame. Size classes: **compact** < 600px
-(mobile) · **medium** 600–1023px (tablet) · **expanded** ≥ 1024px (laptop, monitor). Utilities:
-`r-compact` · `r-medium-up` · `r-expanded-up` · `r-below-expanded` (show only in that range) and
-`r-cols` (1 → 2 → 3 columns). Anything that changes across sizes lives in the sheet, not inline —
-an inline declaration beats the container rule. Lint: `R-STYLESRC` · `R-STYLE-MEDIA` · `R-STYLE-SCOPE`
-· `R-HEX`/`R-PX` · `R-RESPONSIVE` (see `meta.responsive`).
+**Responsive styles (`styleSrc`).** A component or screen that changes across device sizes carries an
+optional `styleSrc` → `render/styles/<id>.css`, written with `@container pb-screen`, never `@media`. The
+canonical text ships with the plugin: `pb/docs/canon.md` § *Responsive styles*.
 
 ### Top-level shape
 
@@ -42,6 +33,9 @@ an inline declaration beats the container rule. Lint: `R-STYLESRC` · `R-STYLE-M
 | `meta.device` | `'monitor'\|'laptop'\|'tablet'\|'mobile'` | Prototype | default device for the preview frame; set at `/pb:init`. Falls back to `'laptop'`. Legacy `'desktop'` → `'laptop'` |
 | `meta.devices` | `('monitor'\|'laptop'\|'tablet'\|'mobile')[]` | Prototype | the fixed sizes this project supports (`monitor 1920×1080 · laptop 1280×832 · tablet 834×1112 · mobile 429×926`) — unsupported sizes are disabled in the switcher. Optional; defaults to all four. Legacy `'desktop'` expands to `monitor`+`laptop` |
 | `meta.responsive` | `true\|false\|null` | Prototype · build · lint | whether the UI **adapts** across the `meta.devices` size classes — asked at `/pb:init` right after the device question. `true`: every screen answers at every listed size (container queries via `styleSrc` or the `r-*` utilities; `R-RESPONSIVE` warns per screen that nothing adapts). `false`: one layout — `meta.devices` is trimmed to `meta.device`. `null` (an older project): `/pb:build` asks once before its next screen/component write; lint stays silent on it. Additive, no schema bump |
+| `meta.permissions` | `{levels[], matrix{role→{capability→level}}}` | Prototype · lint · test | optional demo permission matrix, read by `pbCan()` and `data-can`; **not access control**. Written by `/pb:clarify`. `R-PERM` |
+| `meta.personas` | `{id, name, role?, scope?}[]` | Prototype · lint | optional named people per role (Sandbox → Person, `pbPersona()`); `scope` is plain data for the project's own rules. `R-PERM` |
+| `meta.demo` | `{seeds[], entries[]}` | Prototype · lint · test | optional demo entry points (screen · role · person · seed) and named data seeds; proposed by `/pb:plan`. `R-ENTRY` |
 | `meta.designSystem` | `{ name, designLink, codeLibrary, linked }` | design-system site | the linked design system — `name`, `designLink` (the project's Figma file), `codeLibrary` (folder path or repo URL). Seeded from the DS Lock at `/pb:init`. **Editable in the Project settings dialog**, saved through `POST /api/meta` on `/pb:preview` (read-only over `file://`): **`name` is required**; `designLink` is optional and, when set, must be a `figma.com/file/…` or `figma.com/design/…` link — except that a non-Figma link the project already carries is **kept with a warning** rather than blocking a save of the names. Hand-off, the Figma push and the drift check read it. Absent → Project settings shows it empty |
 | `meta.platform` | `'web'\|'ios'\|'android'\|'desktop'` | — | the DS/target platform; set at `/pb:init`. Defaults to `'web'`. Schema 5 (v1.6) |
 | `meta.dsSource` | `{ type, ref, clonedAt } \| null` | — | provenance of the cloned DS: `type ∈ figma\|code-library\|mcp\|common`, `ref` the literal URL/path/name, `clonedAt` ISO stamp. `null` until `/pb:pull-ds` clones. The full token/component snapshot lives in `design-system/<name>/.source.json`; `/pb:test --drift` §5 diffs the live source against it. Schema 5 (v1.6) |
@@ -279,27 +273,8 @@ prototype (System / Light / Dark); the demo stages stay light.
 
 ## Rich text
 
-Prose a person reads on a page — the Project Summary (`meta.overview.objectives`, principle bodies,
-`meta.userInsights.*`), an IA job's `gap` note, a component's design notes (`purpose`) — is rendered by
-`pbRichText(str)` in `runtime.js` (both shells). It **escapes first**, then reads a small set of marks, so an author
-(or `/pb:clarify`) can give a long text a hierarchy without markup of their own:
-
-| Mark | Renders as |
-|---|---|
-| `**bold**` | strong |
-| `*em*` or `_em_` | emphasis |
-| `==the one thing to remember==` | a highlight (`.pb-hl`) |
-| `{+an improvement+}` | positive, in the pass colour (`.pb-pos`) |
-| `{-a problem or risk-}` | negative, in the fail colour (`.pb-neg`) |
-| `` `code` `` | code, and opaque to every other mark |
-| a line starting `·` `•` `▪` `- ` `– ` or `* ` | a bullet list |
-| a line starting `1.` or `1)` | a numbered list (a different start number is kept) |
-| a blank line / a single newline | a paragraph / a line break |
-| a number with `%`, a currency or a unit, or a grouped number (`11,042`) | **bold**, automatically (`.pb-num`; `numbers:false` turns it off) |
-
-An unbalanced mark stays literal; `{inline:true}` returns the marks only, with no blocks. The colours are the tool's
-`--pb-pass` / `--pb-fail` tokens, so they follow the theme. The marks are authored, never inferred: the
-writer agents add them under the limits in `pb/commands/clarify.md`.
+The marks `pbRichText` reads (`**bold**`, `==highlight==`, `{+good+}`, `{-bad-}`, lists) ship with the plugin:
+`pb/docs/canon.md` § *Rich text*.
 
 ## Render-function inventory
 
@@ -361,98 +336,13 @@ successes. Vocabulary: `sandbox-test`. Canonical rule: `pb/commands/test.md` §2
 
 ## Demo model — roles, permissions, people, entry points, data (v2.5)
 
-Projects with real role or flow needs kept hand-building the same layer, because the shell's state is
-private and a render body takes no arguments. All of this is **optional**: a project that declares none
-of it behaves exactly as before, and a project's own role or account module keeps working beside it.
-**It is demo behaviour, not access control.** It runs in the browser, and `?role=admin` shows anyone that
-role. Hand-off docs say so.
-
-### Registry (`meta`, additive, no schema change)
-
-```json
-"permissions": {
-  "levels": ["none", "view", "request", "approve", "apply"],
-  "matrix": { "<role id>": { "<capability>": "<level>" } }
-},
-"personas": [ { "id": "reviewer-a", "name": "Reviewer A", "role": "<role id>", "scope": { } } ],
-"demo": {
-  "seeds": [ "empty", { "id": "two-open", "name": "Two open requests" } ],
-  "entries": [
-    { "id": "first-run", "name": "First run, whole flow", "screen": "<screen id>",
-      "role": "<role id>", "persona": "<persona id>", "seed": "<seed id>", "default": true, "note": "" }
-  ]
-}
-```
-
-- `levels` runs lowest to highest; the first means no access. A capability a role's row doesn't name is at
-  the first level. `scope` is plain data for the project's own rules; pb never reads it.
-- In an entry only `id`, `name` and `screen` are required. At most one entry has `default: true`. With
-  entries but no default, the first entry is the default.
-
-### What a body or a project module can read (`window`)
-
-| Call | Returns | With nothing declared, or on the design-system site |
-|---|---|---|
-| `pbRole()` | the active role id | `null` |
-| `pbPersona()` | the active persona object | `null` |
-| `pbCan(capability, minLevel)` | `true` when the active role's level is at least `minLevel`; `minLevel` omitted means the lowest level above the first | `true` |
-| `pbSeed()` | the active seed id | `null` |
-| `pbEntry()` | the active entry object | `null` |
-| `pbCtx()` | the `data-ctx` of the click that opened this screen | `null` |
-| `pbBack()` | goes back; a no-op with no history | no-op |
-| `pbSandboxRow({id, label, options, get, set})` | adds a select row to Sandbox → Conditions; callable while a runtime module loads; `options` is `[{value, label}]` or a function returning it | no-op |
-
-`pbCan` is also `true` for an `isAdmin` role and when `meta.roles` is absent. An unknown `minLevel` is
-`false`. Events fire on `window` **before** the re-render, so a body sees the new value on the first frame:
-`pb:rolechange` `{role}`, `pb:personachange` `{persona}`, `pb:seedchange` `{seed}`, `pb:entrychange` `{entry}`,
-`pb:reset` `{entry}`. A seed change also calls `window.pbScenarioSwitch(seed)` when a project defines it.
-
-### Markup
-
-- **`data-can="<capability>[:<level>]"`** gates a control by capability, with `data-can-mode="hide"`
-  (default) or `"disable"`, which also sets `disabled`, `aria-disabled` and a `title` naming what's missing.
-  It re-evaluates on every render, in every Compare frame. `data-roles` keeps its meaning and can sit beside it.
-- **`data-ctx="<subject>"`** beside `data-nav` says what was tapped. Going back restores the subject of the
-  screen you return to; a `data-nav` without `data-ctx` clears it.
-- **`data-back`** is a real back. `data-back="<screen id>"` names where to go when there is no history.
-- **`data-nav-reset`** on a screen's root empties the history as that screen is left: you can't go back
-  through it. The first screen after it falls through to its own `data-back` value.
-
-### Sandbox → Conditions
-
-In order: **Start from** (entries) · Device · Chrome · Compare · Structure tree · Role · **Person** (only
-that role's personas) · **Data** (seeds) · project rows from `pbSandboxRow` · **This role can** (read-only,
-capability and level). A row with nothing to show isn't drawn.
-
-- **Start:** `?entry=` wins, then the default entry, then today's rule (`screens[0]`, `meta.defaultRole`).
-  `?role=` and `?persona=` apply on top. An unknown value is ignored with a console warning, never an error.
-- **Picking an entry** applies its screen, role, person and seed, and clears history and subject.
-- **Reset** (the button or R) returns to the active entry with all of that. With no entries it behaves
-  exactly as before.
-- **Changing role** keeps the person if they belong to the new role, otherwise picks that role's first
-  person, or none. An entry whose role can't see its screen falls through to the existing permitted-screen rule.
-
-### Checks
-
-- `lint_registry.py`: **`R-ENTRY`** (unknown screen, role, persona or seed; more than one default; an entry
-  role the screen doesn't allow; duplicate ids) and **`R-PERM`** (a matrix naming an undeclared role or level; a
-  persona naming an undeclared role; a `data-can` or `pbCan()` capability no matrix row names). WARN, ERROR
-  under `--strict`.
-- `test_run.py --roles`: every role × capability against the matrix through `pbCan`, every `data-can`
-  control on every screen, every entry opened with no console error. Scenarios may carry `test.entry` and
-  `test.persona`, applied before `test.start`.
-
-### What must not change
-
-Real project modules call these, so they keep their names and meaning: `renderPrototype`,
-`setProtoScreen(id, fromBack)`, `setProtoRole`, `pbResetSandbox`, `pbSetStep`, `pbPreserve`,
-`pbResolveDefaultRole`, `pbApplyRoleGating`, `pbNavAllowed`, `pbProtoSubmit`, `pbScenarioSwitch`, `PB_DATA`,
-`PB_REGISTRY`, `state.protoScreenId`, `state.activeRole`, `state.protoHistory` (an array of screen ids),
-`state.metaView`, and the `proto-frame`, `proto-screen`, `proto-pair` hooks. Pinned by
+Optional `meta.permissions` (a capability matrix by role), `meta.personas` (named people per role) and
+`meta.demo` (`entries`: where and as whom a demo starts; `seeds`: named data sets), read through `pbRole()`,
+`pbCan()`, `pbSeed()` and `pbCtx()`, gated in markup by `data-can`, and driven from Sandbox → Conditions.
+**It is demo behaviour, not access control.** The full contract (registry shape, read API, events, markup,
+start and Reset rules, checks, and the names that must not change) is in `pb/docs/canon.md` § *The demo
+model*, which ships with the plugin; if the two disagree, the canon wins. Pinned by
 `tests/sandbox_demo_model.py`.
-
-Data scope rules and approval routing stay project logic. Personas carry `scope` so those rules have what
-they need.
 
 ## Footprint — what pb starts, and what it leaves behind (v2.2)
 

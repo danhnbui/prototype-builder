@@ -100,6 +100,11 @@ These five fields are what `/pb:orchestrate` reads to dispatch each task in depe
 pass, a restructured diagram, a new entity's relationships. A wave carrying such a task **owns** that
 slice for the wave — the reconcile stands down.
 
+### 3b · The demo's start points
+From the flow you author, propose `meta.demo.entries` (the whole-flow start, plus one per role with a
+distinct journey) and `meta.demo.seeds`, and add one `meta` task for them (`canon.md` § *The demo model*).
+Bodies read `pbRole()`, `pbCan()`, `pbSeed()` and `pbCtx()`; they don't write their own role module.
+
 ---
 
 ## 4 · Author the flow slice
