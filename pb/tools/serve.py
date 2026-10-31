@@ -33,20 +33,40 @@ POST /api/meta  the Project settings dialog's save (localhost + same-origin only
 under slice.py's registry lock and replace-atomically; every bad request is a 400 with a message, a
 busy registry a 503, a response may carry `warnings`.
 
+Who may ask. Every request, GET and POST, is checked first: its Host header must name this server — a
+loopback name, the concrete --host it is bound to, or a name given with --allow-host — or it is a 403
+that names the flag. That is what stops a page on another site (DNS rebinding: its name resolves to
+127.0.0.1) from reading the project through your browser. A request with no Host is accepted from this
+machine only. POST /api/meta and POST /__pb_explore/<id>/scores stay loopback-only on top of that,
+whatever --allow-host says. Static files beside the registry are assets only: a dot-file or dot-folder
+(.git, .env), memory/ and the registry itself are a 403. Every response carries nosniff,
+no-referrer, X-Frame-Options SAMEORIGIN and Cross-Origin-Resource-Policy same-origin.
+
 The server looks after its own footprint: with no browser tab connected and no request for
---idle-exit minutes (default 30; 0 = never) it stops itself and removes the record, so a forgotten
-preview does not run for days. It polls the files every 0.3 s while somebody is looking and every
-2 s otherwise (a page request checks synchronously first, so a page is never stale), and folds a
-burst of saves into one reload (--debounce-ms). `--status` and `--stop` read and end the running
-server without a `kill`.
+--idle-exit minutes (default 480, eight hours; 0 = never) it stops itself and removes the record, so a
+forgotten preview does not run for days — and one in use does not vanish mid-afternoon. It polls the
+files every 0.3 s while somebody is looking and every 2 s otherwise (a page request checks
+synchronously first, so a page is never stale), and folds a burst of saves into one reload
+(--debounce-ms). `--status` and `--stop` read and end the running server without a `kill`.
+
+Without --port a project gets a port of its own — 8100 + a hash of its registry's path, walking up
+when that one is busy — so two projects stop fighting over 8000 and a restart keeps the URL.
+
+`--ensure` is the one idempotent start: it prints the URL of this registry's server, starting one
+(detached, through explore.py's find-or-start) only when none is running. A server started that way or
+by `explore.py link` is *managed*: it records itself in a per-user folder ($PB_PREVIEW_DIR, else a
+0700 folder under the temp dir), and at most $PB_PREVIEW_MAX (default 6; 0 = no cap) of them run at
+once — starting another stops the longest-idle one with no tab open, never one someone is looking at.
+A plain `serve.py`, and the private servers shot.py and test_run.py boot, neither register nor evict.
 
 Usage:
-  python3 serve.py [registry.json] [--port N] [--host H] [--shell PATH]
+  python3 serve.py [registry.json] [--port N] [--host H] [--allow-host NAME]... [--shell PATH]
                    [--write [--out PATH]] [--no-open] [--idle-exit MINUTES] [--debounce-ms N]
+  python3 serve.py [registry.json] --ensure [--json]    exit 0 running / started · 3 could not start
   python3 serve.py [registry.json] --status [--json]    exit 0 running · 1 not
   python3 serve.py [registry.json] --stop [--json]      exit 0 stopped / was not running · 1 could not
 """
-import argparse, datetime, glob, importlib, json, mimetypes, os, re, select, signal, socket, sys, threading, time, traceback, unicodedata, urllib.parse, webbrowser
+import argparse, datetime, glob, hashlib, importlib, json, mimetypes, os, re, select, signal, socket, sys, tempfile, threading, time, traceback, unicodedata, urllib.parse, webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from html import escape as _esc
@@ -54,6 +74,7 @@ from html import escape as _esc
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))  # import sibling render.py
 import render
 import explore  # /pb:explore's manifests — served at /explore/<target> on this same port
+import browser as pbbrowser  # the per-user 0700 folder check, for the managed-preview records
 # slice.py is the registry's one write path for a targeted patch. Imported by name through
 # importlib because `import slice` would shadow the builtin of the same name in this module.
 pbslice = importlib.import_module("slice")
@@ -70,8 +91,11 @@ WARM_SECONDS = 60.0
 DEBOUNCE_MS = 300          # a burst of saves is one reload: wait this long with no further change…
 DEBOUNCE_CAP = 2.0         # …but never longer than this after the first change, so a file that keeps changing still reloads
 DEBOUNCE_STEP = 0.05       # how finely the quiet window is watched
-IDLE_EXIT_MIN = 30.0       # stop after this many minutes with no tab and no request (0 disables)
-SSE_SLICE = 1.0            # an SSE stream looks for a vanished client this often; it pings every SSE_PING
+IDLE_EXIT_MIN = 480.0      # stop after this many minutes (8 h) with no tab and no request (0 disables); 30 lost people their preview
+PORT_BASE, PORT_SPAN = 8100, 800   # a project's own port, absent --port: PORT_BASE + hash(registry path) % PORT_SPAN
+PREVIEW_MAX = 6            # managed servers (--ensure, explore.py link) running at once, per user (0 = no cap)
+HEALTH_TIMEOUT = 1.0       # seconds a peer's /__pb_health may take when the cap is counted
+SSE_SLICE = 1.0           # an SSE stream looks for a vanished client this often; it pings every SSE_PING
 SSE_PING = 15.0
 STOP_WAIT = 5.0            # --stop waits this long for the server to go away
 
@@ -130,6 +154,12 @@ _JSON_SPECIAL = re.compile(r'[\[\]{}"\\]')   # one character each: linear, whate
 FIGMA_FILE_RE = re.compile(r"^https://(www\.)?figma\.com/(file|design)/\S+$")
 LOOPBACK_ADDRS = ("127.0.0.1", "::1", "::ffff:127.0.0.1")
 LOOPBACK_HOSTS = ("127.0.0.1", "localhost", "[::1]")
+WILDCARD_HOSTS = ("", "0.0.0.0", "::", "[::]")           # a --host that binds every interface names no Host of its own
+LOOPBACK_BINDS = ("127.0.0.1", "localhost", "::1", "[::1]")
+_HOST_HEADER = re.compile(r"^(\[[0-9a-f:.]+\]|[^\s:/@\[\]]+)(?::[0-9]{0,5})?$")
+_ALLOW_NAME = re.compile(r"^(\[[0-9a-f:.]+\]|[a-z0-9](?:[a-z0-9._-]*[a-z0-9])?)$")
+SECURITY_HEADERS = (("X-Content-Type-Options", "nosniff"), ("Referrer-Policy", "no-referrer"),
+                    ("X-Frame-Options", "SAMEORIGIN"), ("Cross-Origin-Resource-Policy", "same-origin"))
 # A value that is a name or a link carries no control (Cc), format/invisible (Cf) or lone-surrogate
 # (Cs) characters: they are how a line-break, a bidi override or a zero-width space gets into a
 # registry field, a command line the read-only dialog prints, or a Figma library name — and a lone
@@ -137,6 +167,52 @@ LOOPBACK_HOSTS = ("127.0.0.1", "localhost", "[::1]")
 META_BAD_CATEGORIES = ("Cc", "Cf", "Cs")
 META_LINK_WARNING = ("designSystem.designLink: not a figma.com/file/… or figma.com/design/… link — "
                      "kept as it was; hand-off and the Figma push will not use it")
+
+
+def host_name(header):
+    """The host a Host header names — lower-cased, the port dropped, an IPv6 literal kept in its brackets —
+    or None when the header is not a plain `host[:port]`. The one reading of that header: the Host guard
+    and the Host door of `_local_same_origin` both go through it."""
+    m = _HOST_HEADER.match((header or "").strip().lower())
+    return m.group(1) if m else None
+
+
+def parse_allow_host(value):
+    """`--allow-host NAME` → the lower-cased name a Host header will carry (an IPv6 literal bracketed).
+    A name only: no port, no wildcard, no scheme or path — ArgumentTypeError otherwise."""
+    name = (value or "").strip().lower()
+    if name.count(":") >= 2 and not name.startswith("["):
+        name = "[%s]" % name
+    if not _ALLOW_NAME.match(name):
+        raise argparse.ArgumentTypeError(
+            "%r is not a host name — give the bare name, with no port, scheme, path or wildcard (e.g. my-mac.local)" % value)
+    return name
+
+
+def allowed_hosts(bind_host, extra=()):
+    """The Host names this server answers to: the loopback ones, the concrete address it is bound to (not
+    a wildcard bind, which names nothing), and each --allow-host."""
+    names = set(LOOPBACK_HOSTS) | set(extra)
+    bound = (bind_host or "").strip().lower()
+    if bound not in WILDCARD_HOSTS:
+        names.add("[%s]" % bound if ":" in bound and not bound.startswith("[") else bound)
+    return frozenset(names)
+
+
+def host_warning(bind_host, hosts):
+    """The startup line for a --host that reaches beyond this machine, else None."""
+    if bind_host in LOOPBACK_BINDS:
+        return None
+    return ("  ⚠ host    --host %s reaches beyond this machine. Requests are answered only for Host %s; "
+            "another device or a tunnel's name needs --allow-host NAME. Saves (POST) stay loopback-only."
+            % (bind_host or "''", ", ".join(sorted(hosts))))
+
+
+def stable_port(reg_path):
+    """The port a project gets when --port is not given: PORT_BASE + a hash of its registry's real path,
+    so a project keeps its URL across restarts and two projects rarely want the same one."""
+    digest = hashlib.sha1(os.fsencode(os.path.realpath(reg_path))).hexdigest()
+    return PORT_BASE + int(digest, 16) % PORT_SPAN
 
 
 def _json_too_deep(text, limit=JSON_MAX_DEPTH):
@@ -620,10 +696,40 @@ def watcher(state):
 
 class Handler(BaseHTTPRequestHandler):
     state = None              # set on the class before the server starts
+    hosts = frozenset(LOOPBACK_HOSTS)   # the Host names this server answers to; main() adds --host and --allow-host
     protocol_version = "HTTP/1.1"
 
     def log_message(self, *_):  # silence per-request noise; the watcher logs what matters
         pass
+
+    def _security_headers(self):
+        for name, value in SECURITY_HEADERS:
+            self.send_header(name, value)
+
+    def _refuse_host(self):
+        """The Host guard, first thing in every do_*: True once it has answered 403 because the Host header
+        does not name this server. Browsers send the name the address bar holds, so a page on another
+        site that resolves its own name to 127.0.0.1 (DNS rebinding) arrives with a name that is not
+        ours and reads nothing. A request with no Host is a hand-made one: accepted from this machine,
+        refused from any other. Runs before state.touch(): a refused request is not use."""
+        hosts = self.headers.get_all("Host") or []
+        if not hosts:
+            if self.client_address[0] in LOOPBACK_ADDRS:
+                return False
+            msg = ("pb-preview: refused a request with no Host header. To preview from another device or "
+                   "through a tunnel, start the server with --allow-host <name>.")
+        elif len(hosts) > 1:      # which one a proxy or a browser would believe is not ours to guess
+            msg = "pb-preview: refused a request with more than one Host header."
+        else:
+            name = host_name(hosts[0])
+            if name in self.hosts:
+                return False
+            # echoed back, so: printable ASCII only (no CR/LF, no escape sequences), and short
+            shown = re.sub(r"[^A-Za-z0-9._:\[\]-]", "?", name or hosts[0])[:80]
+            msg = ("pb-preview: refused unknown Host %s. To preview from another device or through a tunnel, "
+                   "start the server with --allow-host %s." % (shown, shown))
+        self._send(msg.encode("utf-8"), ctype="text/plain; charset=utf-8", status=403, close=True)
+        return True
 
     def _write(self, data):
         try:
@@ -637,6 +743,7 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Content-Type", ctype.replace("\r", "").replace("\n", ""))
         self.send_header("Content-Length", str(len(body)))
         self.send_header("Cache-Control", "no-store")
+        self._security_headers()
         if close:
             # A request body we did not read is still in the socket; on a kept-alive connection
             # its bytes would be parsed as the next request. Say so and hang up.
@@ -646,6 +753,8 @@ class Handler(BaseHTTPRequestHandler):
         self._write(body)
 
     def do_GET(self):
+        if self._refuse_host():   # every route, the health probe and the event stream included
+            return
         path = self.path.split("?", 1)[0]
         if path != "/__pb_health":   # a health probe (--status, explore.py link) is not use: it must not keep the server alive
             self.state.touch()
@@ -715,6 +824,7 @@ class Handler(BaseHTTPRequestHandler):
             self.send_response(302)
             self.send_header("Location", "/explore/%s/%s" % (target, opt["page"].lstrip("/")))
             self.send_header("Content-Length", "0")
+            self._security_headers()
             self.end_headers()
             return
         root = os.path.realpath(os.path.join(self.state.base_dir, explore.EXPLORE_DIR, target))
@@ -733,6 +843,8 @@ class Handler(BaseHTTPRequestHandler):
         self._send(data, ctype=mimetypes.guess_type(candidate)[0] or "application/octet-stream")
 
     def do_POST(self):
+        if self._refuse_host():   # …and before the body is read: the refusal closes the connection
+            return
         self.state.touch()
         path = self.path.split("?", 1)[0]
         if path == "/api/meta":
@@ -782,8 +894,7 @@ class Handler(BaseHTTPRequestHandler):
         if self.client_address[0] not in LOOPBACK_ADDRS:
             return "only accepted from this machine"
         host = (self.headers.get("Host") or "").strip().lower()
-        hostname = host.rsplit(":", 1)[0] if not host.startswith("[") else host.split("]")[0] + "]"
-        if hostname not in LOOPBACK_HOSTS:
+        if host_name(host) not in LOOPBACK_HOSTS:     # --allow-host never widens this: a write is for this machine
             return "only accepted on a loopback host"
         origin = (self.headers.get("Origin") or "").strip().lower()
         if origin != "http://" + host:
@@ -885,6 +996,7 @@ class Handler(BaseHTTPRequestHandler):
             self.send_header("Cache-Control", "no-cache")
             self.send_header("Connection", "keep-alive")
             self.send_header("X-Accel-Buffering", "no")  # disable proxy buffering
+            self._security_headers()
             self.end_headers()
             if not self._write(b": connected\n\n"):
                 return
@@ -913,13 +1025,31 @@ class Handler(BaseHTTPRequestHandler):
             st.client_close()
             self.close_connection = True
 
+    def _static_private(self, rel):
+        """True for a path under the project that is not an asset and must never be served: anything with a
+        dot-named part (.git, .env, .preview, .claude, .pb-backups), the memory/ folder (the spec, the
+        decisions log, backups), and the registry itself with the lock and temp files beside it. Decided
+        on `rel`, the path AFTER resolve() — so `..`, a symlink and a percent-escaped dot all end up
+        judged by where they land — and casefolded, because the macOS filesystem is case-insensitive
+        and `/MEMORY/x.md` is the same file as `/memory/x.md`."""
+        parts = [p.casefold() for p in rel.parts]
+        if any(p.startswith(".") for p in parts):
+            return True
+        if parts and parts[0] == "memory":
+            return True
+        reg = Path(self.state.reg_path)
+        names = {"registry.json", reg.name.casefold(), reg.resolve().name.casefold()}   # registry.json, registry.json.lock, …
+        return len(parts) == 1 and any(parts[0] == n or parts[0].startswith(n + ".") for n in names)
+
     def serve_static(self, path):
-        """Fall back to files next to the registry (e.g. local assets a render references)."""
+        """Fall back to files next to the registry (e.g. local assets a render references) — assets only."""
         root = Path(self.state.reg_path).resolve().parent
         try:
             # relative_to() raises ValueError on traversal; resolve() expands symlinks first
             rel = (root / path.lstrip("/")).resolve().relative_to(root)
         except ValueError:
+            return self._send(b"403 forbidden", ctype="text/plain", status=403)
+        if self._static_private(rel):    # whether or not it exists: a 404 would say which names are real
             return self._send(b"403 forbidden", ctype="text/plain", status=403)
         # Rebuild from root so the remainder of the function operates on a clean path
         candidate = root / rel
@@ -1134,6 +1264,154 @@ def cmd_stop(reg_path, as_json):
     return done(1, False, "not stopped — pid %d still answers at %s after %gs" % (pid, url, STOP_WAIT), pid=pid)
 
 
+def cmd_ensure(reg_path, as_json, extra_args):
+    """`serve.py --ensure` — this registry's preview URL, whether or not a server was running: print it and
+    start nothing when one is, else start one (detached, managed) through explore.py's find-or-start and
+    print that. `extra_args` are the serve.py flags the caller gave (--shell, --port, …), handed on
+    as they were. Exit 0, or 3 when no server could be started."""
+    st, info = server_status(reg_path)
+    started = False
+    if st in ("running", "mismatch"):    # "mismatch" is still THIS registry's server: a second would be a duplicate
+        url, pid = info["url"], info["pid"]
+    else:
+        try:
+            rec = explore._start_server(reg_path, extra_args=extra_args, managed=True)
+        except (explore.ExploreError, OSError) as e:
+            if as_json:
+                print(json.dumps({"error": str(e)}))
+            print("pb-serve: " + str(e), file=sys.stderr)
+            return 3
+        url, pid, started = rec["url"], rec["pid"], True
+    if as_json:
+        print(json.dumps({"url": url, "pid": pid, "started": started}))
+    else:
+        print("pb-serve · %s %s (pid %s)" % ("started" if started else "running at", url, pid))
+    return 0
+
+
+# ── managed previews — the ones --ensure and explore.py link start, kept to a few ─────────────────
+# Each server uses 2–6 MB, so what costs people is a preview that is gone when they come back, not one
+# more running. But a user who works on many projects ends up with dozens; six is room for the day.
+# A managed server records itself in a per-user folder; starting a seventh stops the longest-idle one
+# nobody is looking at. Everything here FAILS OPEN: a folder that cannot be used, a peer that does not
+# answer — the new server starts regardless.
+
+def preview_dir():
+    """The folder managed servers record themselves in: $PB_PREVIEW_DIR, else pb-previews-<uid> under the
+    temp dir (0700, the same check browser.py's slot folder gets). Created here."""
+    d = os.environ.get("PB_PREVIEW_DIR", "").strip() or os.path.join(
+        tempfile.gettempdir(), "pb-previews-%d" % os.getuid())
+    pbbrowser._ensure_dir(d)
+    return d
+
+
+def preview_max():
+    """PB_PREVIEW_MAX, else PREVIEW_MAX. 0 = no cap; anything that is not a whole number >= 0 is ignored."""
+    raw = os.environ.get("PB_PREVIEW_MAX", "").strip()
+    try:
+        n = int(raw) if raw else PREVIEW_MAX
+    except ValueError:
+        return PREVIEW_MAX
+    return n if n >= 0 else PREVIEW_MAX
+
+
+def _pid_alive(pid):
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except OSError:      # EPERM: it exists, it is somebody else's
+        return True
+    return True
+
+
+def _peer_health(rec):
+    """(health, answered) for a managed record: `health` is its /__pb_health when that names a pb-preview with
+    the recorded pid, else None; `answered` is whether anything at all replied. Loopback URLs only."""
+    if not _loopback_url(rec["url"]):
+        return None, True
+    code, body = explore._get(rec["url"].rstrip("/") + "/__pb_health", timeout=HEALTH_TIMEOUT)
+    try:
+        health = json.loads(body) if code == 200 else None
+    except ValueError:
+        health = None
+    ok = isinstance(health, dict) and health.get("app") == "pb-preview" and health.get("pid") == rec["pid"]
+    return (health if ok else None), code is not None
+
+
+def managed_peers(d, own_pid):
+    """The live managed servers other than this one → [{"rec", "health", "path"}]. A record whose server is
+    gone, or whose URL now answers as something else, is deleted. A server that is alive but silent (it
+    may be starting) is neither counted nor touched."""
+    peers = []
+    for name in sorted(os.listdir(d)):
+        fp = os.path.join(d, name)
+        if not name.endswith(".json"):
+            continue
+        try:
+            with open(fp, encoding="utf-8") as f:
+                rec = json.load(f)
+        except (OSError, ValueError):
+            continue
+        pid = rec.get("pid") if isinstance(rec, dict) else None
+        if not (isinstance(pid, int) and not isinstance(pid, bool) and pid > 1 and isinstance(rec.get("url"), str)):
+            continue
+        if pid == own_pid:
+            continue
+        health, answered = _peer_health(rec)
+        if health is not None:
+            peers.append({"rec": rec, "health": health, "path": fp})
+        elif answered or not _pid_alive(pid):
+            try:
+                os.remove(fp)
+            except OSError:
+                pass
+    return peers
+
+
+def enforce_cap(own_pid):
+    """Keep managed servers to PB_PREVIEW_MAX counting the one starting now: while over, SIGTERM the
+    longest-idle peer with no browser tab open — only one whose health answer has just named a pb-preview
+    with its recorded pid, and asked again right before the signal, in case a tab has opened since. One
+    log line per server stopped; one when the cap is exceeded and nothing more may be stopped."""
+    cap = preview_max()
+    if cap <= 0:
+        return
+    peers = managed_peers(preview_dir(), own_pid)
+    over = len(peers) + 1 - cap
+    if over <= 0:
+        return
+    free = sorted((p for p in peers if p["health"].get("clients") == 0 and isinstance(p["health"].get("idleSeconds"), int)),
+                  key=lambda p: -p["health"]["idleSeconds"])
+    stopped = 0
+    for p in free:
+        if stopped >= over:
+            break
+        now, _ = _peer_health(p["rec"])
+        if now is None or now.get("clients") != 0:
+            continue
+        try:
+            os.kill(p["rec"]["pid"], signal.SIGTERM)
+        except OSError:
+            continue
+        stopped += 1
+        log("  cap       stopped pid %d (%s), idle %s with no tab open — %d previews run, the cap is %d (PB_PREVIEW_MAX)"
+            % (p["rec"]["pid"], now.get("registry"), _human_seconds(now.get("idleSeconds")), len(peers) + 1, cap))
+    if stopped < over:
+        log("  cap       %d previews run and the cap is %d (PB_PREVIEW_MAX); the rest have a tab open, so they stay"
+            % (len(peers) + 1, cap))
+
+
+def register_managed(url, reg_path, started_at):
+    """<preview dir>/<pid>.json — how the next managed start finds and counts this one. Removed on exit."""
+    fp = os.path.join(preview_dir(), "%d.json" % os.getpid())
+    tmp = fp + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump({"url": url, "pid": os.getpid(), "registry": reg_path, "startedAt": started_at}, f)
+    os.replace(tmp, fp)
+    return fp
+
+
 def main():
     here = os.path.dirname(os.path.abspath(__file__))
     default_shell = os.path.normpath(os.path.join(here, "..", "template", "prototype.html"))
@@ -1153,9 +1431,16 @@ def main():
                     help="the design-system.html template served at /design-system")
     ap.add_argument("--runtime", default=default_runtime,
                     help="the shared runtime.js injected into the design-system site")
-    ap.add_argument("--port", type=int, default=8000,
-                    help="port (default: 8000, auto-incremented if busy)")
-    ap.add_argument("--host", default="127.0.0.1", help="bind host (default: 127.0.0.1)")
+    ap.add_argument("--port", type=int, default=None,
+                    help="port (default: one of the project's own, %d–%d from a hash of the registry's path — "
+                         "the same every start; walks up if busy)" % (PORT_BASE, PORT_BASE + PORT_SPAN - 1))
+    ap.add_argument("--host", default="127.0.0.1",
+                    help="bind host (default: 127.0.0.1; anything else exposes the preview beyond this machine — "
+                         "the Host guard then answers only the bound address and the --allow-host names)")
+    ap.add_argument("--allow-host", action="append", type=parse_allow_host, metavar="NAME", default=None,
+                    help="also answer requests whose Host header is NAME (repeatable; a bare name, no port, no "
+                         "wildcard) — for previewing from another device or through a tunnel. Any other Host is a "
+                         "403 naming this flag. POST (the settings and score saves) stays loopback-only")
     ap.add_argument("--write", action="store_true",
                     help="also write the rendered prototype.html to disk on every change")
     ap.add_argument("--out", default=None,
@@ -1169,7 +1454,8 @@ def main():
         idle_default = IDLE_EXIT_MIN
     ap.add_argument("--idle-exit", type=float, default=idle_default, metavar="MINUTES",
                     help="stop by itself after this many minutes with no browser tab open and no request "
-                         "(default: %g, or $PB_PREVIEW_IDLE_MIN; 0 = never)" % idle_default)
+                         "(default: %g = %s, or $PB_PREVIEW_IDLE_MIN; 0 = never)"
+                         % (idle_default, _human_seconds(idle_default * 60)))
     ap.add_argument("--debounce-ms", type=int, default=DEBOUNCE_MS, metavar="MS",
                     help="fold a burst of saves into one reload: wait this long with no further change, "
                          "at most %gs (default: %d; 0 = reload on the first change)" % (DEBOUNCE_CAP, DEBOUNCE_MS))
@@ -1180,7 +1466,12 @@ def main():
     mode.add_argument("--stop", action="store_true",
                       help="stop this registry's preview server (SIGTERM, only after its health check confirms it is "
                            "this registry's and the pid matches) and exit: 0 stopped / not running, 1 could not")
-    ap.add_argument("--json", action="store_true", help="with --status / --stop: print one JSON object")
+    mode.add_argument("--ensure", action="store_true",
+                      help="print this registry's preview URL and pid; if no server is running, start one in the "
+                           "background first (kept to $PB_PREVIEW_MAX, default 6, at once — the longest-idle one with "
+                           "no tab open makes room). Safe to run again and again: exit 0 running / started, 3 could not start")
+    ap.add_argument("--json", action="store_true", help="with --status / --stop / --ensure: print one JSON object")
+    ap.add_argument("--managed", action="store_true", help=argparse.SUPPRESS)   # internal: set by explore._start_server
     args = ap.parse_args()
     if args.idle_exit < 0:
         ap.error("--idle-exit must be 0 or more minutes")
@@ -1198,6 +1489,29 @@ def main():
     out_path = os.path.abspath(args.out) if args.out else os.path.join(
         os.path.dirname(reg_path), "prototype.html")
 
+    if args.ensure:
+        # What the caller asked for goes to the server it starts, as they asked: a project with a forked
+        # shell must get that shell, not the plugin's. Only what differs from a default is passed on, and
+        # paths absolute (the server starts in the project's folder, not in this one).
+        given = []
+        for flag, value, default in (("--shell", args.shell, default_shell), ("--ds-shell", args.ds_shell, default_ds_shell),
+                                     ("--runtime", args.runtime, default_runtime), ("--out", args.out, None)):
+            if value is not None and os.path.abspath(value) != default:
+                given += [flag, os.path.abspath(value)]
+        if args.port is not None:
+            given += ["--port", str(args.port)]
+        if args.host != "127.0.0.1":
+            given += ["--host", args.host]
+        for name in args.allow_host or []:
+            given += ["--allow-host", name]
+        if args.idle_exit != idle_default:
+            given += ["--idle-exit", "%g" % args.idle_exit]
+        if args.debounce_ms != DEBOUNCE_MS:
+            given += ["--debounce-ms", str(args.debounce_ms)]
+        if args.write:
+            given.append("--write")
+        sys.exit(cmd_ensure(reg_path, args.json, given))
+
     # Paths are absolute now, so it's safe to anchor cwd to a dir we can read. A sandboxed
     # launcher (e.g. the macOS preview helper) may hand us an inherited cwd we're not allowed
     # to stat — then any later os.getcwd() (os.path.relpath in the banner, stdlib internals)
@@ -1213,11 +1527,13 @@ def main():
                   default_explore_shell if os.path.isfile(default_explore_shell) else None,
                   idle_exit_min=args.idle_exit, debounce_ms=args.debounce_ms)
     Handler.state = state
+    Handler.hosts = allowed_hosts(args.host, args.allow_host or [])
 
-    explicit_port = ("--port" in sys.argv) or any(a.startswith("--port=") for a in sys.argv)
-    httpd = make_server(args.host, args.port, explicit_port)
+    explicit_port = args.port is not None
+    httpd = make_server(args.host, args.port if explicit_port else stable_port(reg_path), explicit_port)
     port = httpd.server_address[1]
-    url = "http://%s:%d/" % (args.host, port)
+    # A wildcard bind names no address a browser could be sent to (0.0.0.0 would arrive as a Host the guard refuses)
+    url = "http://%s:%d/" % ("127.0.0.1" if args.host in WILDCARD_HOSTS else args.host, port)
 
     def rel(p):  # short path when cwd is readable; absolute path if the sandbox forbids getcwd
         try:
@@ -1240,6 +1556,10 @@ def main():
                             else "off (in-memory preview; --write to update prototype.html)"))
     log("  idle exit %s" % ("after %g min with no tab open and no request (--idle-exit 0 keeps it running)" % args.idle_exit
                             if args.idle_exit else "off (--idle-exit MINUTES to stop it when forgotten)"))
+    if host_warning(args.host, Handler.hosts):
+        log(host_warning(args.host, Handler.hosts))
+    elif args.allow_host:
+        log("  hosts     also answering Host %s (--allow-host); saves (POST) stay loopback-only" % ", ".join(args.allow_host))
 
     refresh(state)  # prime the mtimes the watcher compares against (before the render: a save during it is not missed)
     _html, err = render_current(state)  # render once up front so the banner reflects reality
@@ -1253,16 +1573,28 @@ def main():
         threading.Thread(target=lambda: (time.sleep(0.4), webbrowser.open(url)), daemon=True).start()
 
     record = os.path.join(state.base_dir, explore.SERVER_FILE)
-    write_server_record(record, {"url": url, "host": args.host, "port": port, "pid": os.getpid(),
-                                 "registry": reg_path, "startedAt": state.started_at})
+    managed_record = None
     # A plain kill (SIGTERM) unwinds like Ctrl-C, so the record goes with the server.
     signal.signal(signal.SIGTERM, lambda *_: sys.exit(0))
     try:
+        if args.managed:   # started by --ensure or explore.py link: counted against the cap, and makes room for itself
+            try:
+                enforce_cap(os.getpid())
+                managed_record = register_managed(url, reg_path, state.started_at)
+            except Exception as e:   # bookkeeping is never the reason a preview does not start
+                log("  ⚠ managed-preview bookkeeping skipped (%s) — started anyway" % e)
+        write_server_record(record, {"url": url, "host": args.host, "port": port, "pid": os.getpid(),
+                                     "registry": reg_path, "startedAt": state.started_at})
         httpd.serve_forever()
     except KeyboardInterrupt:
         pass
     finally:
         drop_server_record(record)
+        if managed_record:
+            try:
+                os.remove(managed_record)
+            except OSError:
+                pass
         state.stop.set()
         state.bump()  # wake SSE streams so they exit promptly
         httpd.shutdown()

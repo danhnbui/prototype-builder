@@ -55,7 +55,7 @@ absence of context as deliberate, not as something to go and fill in.
 
 ## Never
 Never hand-write a Playwright script, start `serve.py` with `&` / `nohup`, or `kill` a preview — a screen
-you need to look at is `shot.py`; `CLAUDE.md` § *pb bounds its own footprint* is the canonical text.
+you need to look at is `shot.py`; `${CLAUDE_PLUGIN_ROOT}/docs/canon.md` § *pb bounds its own footprint* is the canonical text.
 
 ## Slice it owns
 **Read-only on the registry**, with one exception: it writes each tested scenario's

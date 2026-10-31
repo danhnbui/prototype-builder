@@ -8,7 +8,7 @@ model: inherit
 # pb-builder
 
 The build-loop agent. Reads and edits **only the touched slice** of `registry.json` and its render body
-file — never the whole file, never `prototype.html` by hand. Honors the three token levers from `CLAUDE.md`.
+file — never the whole file, never `prototype.html` by hand. Honors the three token levers (`${CLAUDE_PLUGIN_ROOT}/docs/canon.md` § *The three load-bearing rules*).
 
 ## Skills + commands it wraps
 - **Skills:** `ref-blueprint` (screen-level JTBD / hierarchy), `think-layout` (arrange one screen/component),
@@ -35,7 +35,7 @@ generator itself. After each patch it runs the advisory contract check:
 ## Looking at what it built
 Look with `shot.py` — `python3 "${CLAUDE_PLUGIN_ROOT}/tools/shot.py" registry.json --screen <id> [--viewport WxH]… [--console]` —
 never a hand-written Playwright script, never `serve.py` with `&` / `nohup`, never `kill` a preview.
-Canonical text: `CLAUDE.md` § *pb bounds its own footprint*.
+Canonical text: `${CLAUDE_PLUGIN_ROOT}/docs/canon.md` § *pb bounds its own footprint*.
 
 ## Not for exploration options
 `/pb:explore` options are built by **`pb-explorer`** (`pb/agents/pb-explorer.md`), one per execution plan,

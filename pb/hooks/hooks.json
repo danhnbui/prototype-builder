@@ -1,0 +1,21 @@
+{
+  "description": "Product Builder: put the operating rules in front of the model in any pb project (advice only; never blocks, never decides a permission)",
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|resume|clear|compact",
+        "hooks": [
+          { "type": "command", "command": "python3", "args": ["-S", "-B", "${CLAUDE_PLUGIN_ROOT}/hooks/session_rules.py"], "timeout": 3 }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          { "type": "command", "command": "python3", "args": ["-S", "-B", "${CLAUDE_PLUGIN_ROOT}/hooks/bash_advice.py"], "timeout": 3 }
+        ]
+      }
+    ]
+  }
+}

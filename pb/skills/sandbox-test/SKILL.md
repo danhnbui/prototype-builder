@@ -38,7 +38,7 @@ If nothing resolves, the step **fails** with a clear "target not found" detail �
 - **Server.** `test_run.py` reuses the single running `/pb:preview` server by default — never boot a
   second (one preview per project); with none running it boots one for the run and stops it. `--isolated`
   forces a private one; `--all` runs functional + roles + server in one browser. Never hand-write a
-  Playwright script or start `serve.py` with `&` / `nohup` — `CLAUDE.md` § *pb bounds its own footprint*.
+  Playwright script or start `serve.py` with `&` / `nohup` — `${CLAUDE_PLUGIN_ROOT}/docs/canon.md` § *pb bounds its own footprint*.
 - **Reset between scenarios.** Call `pbResetSandbox()` before each scenario so state (screen, field values,
   toasts, history) never leaks between tests. Then set `state.protoScreenId = test.start`.
 - **Roles (`--roles`).** Run each scenario once per `meta.roles`: `setProtoRole(id)`, then assert role-gated

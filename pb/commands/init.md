@@ -154,7 +154,7 @@ target?"* Use the answer to seed:
   (laptop, monitor):
   - **Two or more classes → ask.** **Yes** → `meta.responsive: true`: from the first `/pb:build` on,
     every screen and component is designed for every listed size, not designed once and stretched
-    (`CLAUDE.md` → *Responsive across devices*). **No** → `meta.responsive: false` **and** trim
+    (`${CLAUDE_PLUGIN_ROOT}/docs/canon.md` § *Responsive across devices*). **No** → `meta.responsive: false` **and** trim
     `meta.devices` to `[meta.device]`, so the other sizes are disabled in the switcher instead of
     showing a layout nobody designed for them.
   - **One class** (e.g. laptop + monitor, or mobile alone) → don't ask; set `meta.responsive: false`
@@ -185,15 +185,17 @@ Write into `registry.json`: `meta.overview.objectives` = the PRD objective; `met
 = the constitution Principles as `[{num,title,body}]`. This is the Project-Summary sync the v0.4.0
 `after_*` hooks used to do — it now lives here. **Do not render yet.**
 
-## 5b · Install the pb agents (optional — enables `/pb:orchestrate`)
-After scaffolding, offer to install the 9 `pb-*` agents into this project's `.claude/agents/` so
-`/pb:orchestrate` (and `/pb:explore`) can dispatch tasks to them:
+## 5b · Install the pb agents (optional — makes the bare names available)
+The plugin already exposes all 9 `pb-*` agents under its own name (`pb:pb-explorer`, `pb:pb-builder`, …),
+and `/pb:explore` dispatches those with **no install step**. What this step adds is the bare names
+(`pb-explorer`), which `/pb:orchestrate`'s roster uses. After scaffolding, offer to copy the agents into
+this project's `.claude/agents/`:
 ```
 python3 "${CLAUDE_PLUGIN_ROOT}/tools/agents_install.py" --project-dir .
 ```
 It copies the roster (`pb-clarifier` · `pb-planner` · `pb-builder` · `pb-design-system` · `pb-flow` ·
 `pb-data` · `pb-tester` · `pb-reviewer` · `pb-explorer`) into `.claude/agents/`, idempotently (safe to re-run). Skip it for
-a plain single-slice `/pb:build` workflow — it's only needed for the agent-wave orchestration path. Mention
+a plain single-slice `/pb:build` or `/pb:explore` workflow — the bare names matter only to the agent-wave orchestration path. Mention
 to the user that they can run it later if they decide to use `/pb:orchestrate`.
 
 ## 6 · `--import <bundle>` (alternative on-ramp)
@@ -201,7 +203,7 @@ If set, skip 1–5: read the bundle (`registry.json` + `render/` body files + `d
 `memory/constitution.md` + `memory/decisions.md`), copy it **all** into the new project (the
 `render/` tree is required — without it the registry's `renderSrc` references dangle), confirm the locks.
 
-**Schema compatibility check** (see **Schema compatibility** in `CLAUDE.md`) — run it here, on the
+**Schema compatibility check** (`${CLAUDE_PLUGIN_ROOT}/docs/canon.md` § *Schema compatibility*) — run it here, on the
 imported `registry.json`, before proceeding. If the bundle is on an older schema, show the banner and
 suggest `/pb:update-version`. Do not silently copy an out-of-contract slice into the project. Ready to `/pb:build`.
 

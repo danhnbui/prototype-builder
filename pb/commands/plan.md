@@ -8,7 +8,7 @@ Design the structure before anything is built: the plan, the tasks, and the two 
 how the product flows and what it holds.
 
 > **This is not a sync command.** `flow` and `erd` are reconciled **automatically** by `/pb:build` on
-> every trio write (`CLAUDE.md` § *Auto-sync*) — nodes inserted, edges repaired, rows added and
+> every trio write (`${CLAUDE_PLUGIN_ROOT}/docs/canon.md` § *Auto-sync*) — nodes inserted, edges repaired, rows added and
 > dropped, in the same turn, with no command to remember. You run `/pb:plan` for the two things the
 > reconcile deliberately will not do: **first population** and **restructuring** (a new flow, a
 > re-authored QA pass, a new entity with relationships, a diagram past 9 nodes). Absorbs the former
@@ -25,7 +25,7 @@ how the product flows and what it holds.
 | `--replan` | Re-author `memory/plan.md` + `memory/tasks.md` only; leave both slices alone |
 
 ## Pre-write schema check
-Apply the **Schema compatibility** check from `CLAUDE.md` before writing to the registry. Below
+Apply the **Schema compatibility** check (`${CLAUDE_PLUGIN_ROOT}/docs/canon.md` § *Schema compatibility*) before writing to the registry. Below
 `CURRENT_SCHEMA` → print the banner and suggest `/pb:update-version`. Stop (do not write) if the
 current write touches a slice a pending version update changes.
 

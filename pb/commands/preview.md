@@ -27,14 +27,20 @@ preview. View it in a normal **browser** (Chrome/Safari) at the printed URL — 
 you. (An in-app preview pane is optional; see the macOS note.)
 
 ## 0 · Flags
-- `--port <N>` — bind a specific port (default: 8000, auto-incremented if busy).
+- `--ensure` — **the one way to start or restart a preview.** Idempotent and detached: it prints the URL
+  whether it started a server or found this project's running one, so it is safe to call twice. Use it
+  instead of a background task, `&` or `nohup`.
+- `--port <N>` — bind a specific port. Without it each project gets a **stable default port derived from
+  its path**, so the URL survives restarts; `--port` wins.
+- `--allow-host <name>` — the server refuses any `Host` header it does not know, on every route. To preview
+  from another device or through a tunnel, name the host here (repeatable).
 - `--write` — *also* write **both** `prototype.html` and `design-system.html` to disk on every change
   (a watch-mode `/pb:build --render`). The written files are clean — the live-reload script is injected
   into the served pages only.
 - `--no-open` — don't open the browser on start.
 - `--idle-exit <MINUTES>` — stop by itself after this many minutes with no browser tab open and no
-  request (float; default **30**; `0` = never). `PB_PREVIEW_IDLE_MIN` sets the default for every start.
-  See §4.
+  request (float; default **480**, i.e. 8 hours; `PB_PREVIEW_IDLE_MIN` sets the default for every start).
+  Do not pass `0` (never) — that is how previews became orphans. See §4.
 - `--debounce-ms <N>` — fold a burst of saves into one reload: wait this long with no further change, at
   most 2 s (default **300**; `0` = reload on the first change seen).
 - `--status [--json]` — print this registry's running preview (url, pid, uptime, clients, idle seconds)
@@ -42,17 +48,17 @@ you. (An in-app preview pane is optional; see the macOS note.)
   combined.
 - `<registry.json>` — preview a registry other than `./registry.json`.
 
-## 1 · Launch (from the project root, in the background)
+## 1 · Launch (from the project root)
 ```
-python3 "${CLAUDE_PLUGIN_ROOT}/tools/serve.py" registry.json
+python3 "${CLAUDE_PLUGIN_ROOT}/tools/serve.py" registry.json --ensure
 ```
-(In-place dev tree: `python3 pb/tools/serve.py registry.json`.) First ask whether one is already up:
-`serve.py registry.json --status` exits `0` and prints its URL when this project's preview is running —
-then report that URL and start nothing. Otherwise start it as a **background task of the host** (the
-Bash tool's `run_in_background`), **never** with a trailing `&` or `nohup`: a shell-detached server
-outlives the session with nothing holding its handle, which is how previews became orphans. Then report
-the `preview http://…` URL from its startup banner. The server opens that URL in your browser
-automatically unless `--no-open`. (`explore.py link <id>` starts one the same way when an exploration
+(In-place dev tree: `python3 pb/tools/serve.py registry.json --ensure`.) `--ensure` is idempotent and
+detached: it prints the URL whether it started a server or reused this project's running one, so there is
+no need to ask first (`serve.py registry.json --status` still reports one without starting anything). Never
+use a trailing `&` or `nohup` and never `--idle-exit 0`: a server detached by the shell outlives the session
+with nothing holding its handle, which is how previews became orphans. Report the URL it prints. At most 6
+managed previews run per user (`PB_PREVIEW_MAX`, `0` = no cap): starting another stops the longest-idle one
+that has no open tab, never one with a tab open. (`explore.py link <id>` starts one the same way when an exploration
 needs it; `test_run.py` and `shot.py` boot one only for their own run.)
 
 ## 2 · Iterate
@@ -171,12 +177,12 @@ collapses any duplicates for this project, and **never touches entries it doesn'
 ## 4 · It stops itself — and `--status` / `--stop`
 
 **Idle exit (v2.2).** A preview nobody is looking at is just a process. With no browser tab connected
-(`/__pb_events`) **and** no request for 30 minutes, the server logs
-`idle for 30 min — stopping (explore.py link or /pb:preview starts it again)`, removes
-`.preview/server.json` and exits 0. A tab left open keeps it alive indefinitely; `--idle-exit 0` turns
-the exit off for a server you want to leave running. Anything that needs the preview later — `/pb:preview`,
+(`/__pb_events`) **and** no request for 8 hours (480 minutes), the server logs
+`idle for 480 min — stopping (explore.py link or /pb:preview starts it again)`, removes
+`.preview/server.json` and exits 0. A tab left open keeps it alive indefinitely; `--idle-exit MINUTES` or
+`PB_PREVIEW_IDLE_MIN` changes the window (do not use `0`). Anything that needs the preview later — `/pb:preview`,
 `explore.py link`, `test_run.py`, `shot.py` — finds none and starts one, so the exit loses nothing but memory.
-The startup banner says which: `idle exit after 30 min with no tab open and no request` or `idle exit off`.
+The startup banner says which: `idle exit after 480 min with no tab open and no request`.
 
 **Without `kill`.**
 ```
@@ -216,5 +222,6 @@ sandboxed working directory.
 - NEVER use this as the hand-off artifact — it's a local dev server. Use `/pb:handoff` to share.
 - NEVER start a second server (or `python3 -m http.server`) to show explore options — they live at
   `/explore/<id>` on this one.
-- NEVER start `serve.py` with `&` or `nohup`, NEVER `kill` it, and NEVER hand-write a Playwright script
-  to look at it — `CLAUDE.md` § *pb bounds its own footprint* (`serve.py --stop`, `shot.py`).
+- NEVER start `serve.py` with `&` or `nohup` (or with `--idle-exit 0`), NEVER `kill` it, and NEVER hand-write
+  a Playwright script to look at it — `${CLAUDE_PLUGIN_ROOT}/docs/canon.md` § *pb bounds its own footprint*
+  (`serve.py registry.json --ensure` to start or restart, `serve.py --stop`, `shot.py`).

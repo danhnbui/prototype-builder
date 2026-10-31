@@ -8,11 +8,11 @@ Run the plan end to end. `/pb:plan` produced `memory/tasks.md` (per-tab tasks, e
 **acceptance · skill · agent · deps · slice**). This command turns that into **dependency waves** and
 executes them: each task goes to its fitting agent, agents **return slice patches** (they do not write
 the registry themselves), the coordinator applies patches **serially**, renders **once per wave**, then
-gates the wave before moving on. Honors the three token levers (`CLAUDE.md`): the compact registry stays
+gates the wave before moving on. Honors the three token levers (`${CLAUDE_PLUGIN_ROOT}/docs/canon.md` § *The three load-bearing rules*): the compact registry stays
 resident, HTML is rendered deterministically once per wave, never per task.
 
 ## 0 · Schema check (once)
-Apply the **Schema compatibility** check from `CLAUDE.md` **one time** up front, on `registry.json`. If a
+Apply the **Schema compatibility** check (`${CLAUDE_PLUGIN_ROOT}/docs/canon.md` § *Schema compatibility*) **one time** up front, on `registry.json`. If a
 pending version update touches a slice the plan will write, **stop** and print
 `Blocked: run /pb:update-version --apply first, then retry.` Otherwise print the banner (if any) and proceed.
 
@@ -39,7 +39,7 @@ each wave in order:
    (never concurrent writes — that races the file), writing any body files. Trio writes still honor the
    `/pb:build` gate (drift / Stack / DS) — a drift PAUSE here bubbles up to the user.
 3. **Sync once.** After all of the wave's patches are applied, reconcile `flow` and `erd` **once** for
-   the whole wave (`CLAUDE.md` § *Auto-sync*) — never once per task. The **coordinator** does it, as one
+   the whole wave (`${CLAUDE_PLUGIN_ROOT}/docs/canon.md` § *Auto-sync*) — never once per task. The **coordinator** does it, as one
    more serial write, from the patches it just applied; it does not dispatch an agent (an agent would
    re-read the slice it already knows how to change). **Skip a slice the wave already owns:** if the wave
    contained a `flow` (or `erd`) task, that task *is* the sync — reconciling on top of it puts two writers
@@ -75,6 +75,6 @@ each wave acceptance-gated, and passing a final strict contract check. Next: `/p
 - NEVER let an agent write `registry.json` directly — agents return patches; the coordinator applies them.
 - NEVER let a wave's agents hand-write Playwright scripts, start `serve.py` with `&` / `nohup`, or `kill` a
   preview — they look with `shot.py`, and at most 3 headless browsers run at once however wide the wave
-  (`CLAUDE.md` § *pb bounds its own footprint*).
+  (`${CLAUDE_PLUGIN_ROOT}/docs/canon.md` § *pb bounds its own footprint*).
 
 > **Skill degrade (NS6).** If a skill this command invokes fails to load, say so explicitly and proceed with its core intent — never silently skip the step.

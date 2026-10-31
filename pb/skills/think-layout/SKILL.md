@@ -106,7 +106,7 @@ project's running preview (or one it boots for the run):
 `python3 "${CLAUDE_PLUGIN_ROOT}/tools/shot.py" registry.json --screen <id> --viewport 390x844 --viewport 834x1112 --viewport 1440x900 [--role <id>] [--console]`
 writes one PNG per width under `.preview/shots/` and prints each path — open them. The overflow check
 above is `--eval`: `--eval "<expression>"` prints its JSON result per width. Never a hand-written
-Playwright script (`CLAUDE.md` § *pb bounds its own footprint*); `/pb:test` then runs the scenarios on
+Playwright script (`${CLAUDE_PLUGIN_ROOT}/docs/canon.md` § *pb bounds its own footprint*); `/pb:test` then runs the scenarios on
 the same preview. No Playwright, or `shot.py` exits 3 → report "not looked at — blocked", never "passed".
 
 ## Output

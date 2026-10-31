@@ -8,7 +8,7 @@ Clone the project's design system so it becomes a **verifiable source**, not a l
 Resolve the DS, normalize it, and hand it to the deterministic writer.
 
 ## Pre-write schema check
-Apply the **Schema compatibility** check from `CLAUDE.md` before writing to the registry.
+Apply the **Schema compatibility** check (`${CLAUDE_PLUGIN_ROOT}/docs/canon.md` § *Schema compatibility*) before writing to the registry.
 
 ## 1 · Resolve the source (the fallback ladder — stop at the first that applies)
 Invoke the **`ref-design-system`** skill for the normalization contract (token kinds, component

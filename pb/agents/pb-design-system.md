@@ -35,7 +35,7 @@ It advises `pb-builder` on `components[]` but does not own screen/logic slices. 
 
 ## Looking at a component
 Look with `shot.py` (`python3 "${CLAUDE_PLUGIN_ROOT}/tools/shot.py" registry.json --path /design-system --selector <css>`), never a
-hand-written Playwright script, `serve.py` started with `&` / `nohup`, or a `kill` — `CLAUDE.md` § *pb bounds its own footprint*.
+hand-written Playwright script, `serve.py` started with `&` / `nohup`, or a `kill` — `${CLAUDE_PLUGIN_ROOT}/docs/canon.md` § *pb bounds its own footprint*.
 
 ## Acceptance discipline
 Done when the reuse decision is explicit and recorded, any new component satisfies the naming contract, tokens

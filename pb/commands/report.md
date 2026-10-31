@@ -76,7 +76,7 @@ parts:
    and at least one evidence line (`memory/decisions.md:751`).
 2. **Cost here.** What it cost this project: rework, a wrong "done", a ritual, a file nobody owns.
 3. **Change.** The pb change, concrete enough to file: a tool fix (file and function), a command or
-   flag change, a skill contract, a schema addition (additive, AGENTS.md §3), or a docs fix.
+   flag change, a skill contract, a schema addition (additive only — a new optional field, never a removal or a rename), or a docs fix.
 4. **Tag.** One or more of `[tool]` `[command]` `[skill]` `[schema]` `[docs]`.
 
 Judge cost from the facts. Repeated work ranks first (recurring topics carrying back-and-forth

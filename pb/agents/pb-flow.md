@@ -17,7 +17,7 @@ categorized test checklist — worn as the QA hat, not just a diagram.
 
 ## Slice it owns
 - **`flow`** — the sole **author** of this registry slice (`/pb:build` may reconcile it per
-  `CLAUDE.md` § *Auto-sync* — insert a node, repair an edge — but never re-author it):
+  `${CLAUDE_PLUGIN_ROOT}/docs/canon.md` § *Auto-sync* — insert a node, repair an edge — but never re-author it):
   `{ populated, mermaid, stories[], coverageWarnings[] }`.
   - `mermaid` — one `flowchart LR`: single `Start`, ≥1 `End`, no dead-ends, only the 6 shapes, 5–9 nodes
     (7±2), decisions end with `?`, branches labeled `-- Yes/No -->`, sentence case, no emojis/HTML/Title Case.
