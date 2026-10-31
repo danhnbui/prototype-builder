@@ -1,4 +1,4 @@
-# Product Builder v2.3.0 — router (read first)
+# Product Builder v2.4.0 — router (read first)
 
 Standalone, CLAUDE.md-native prototype builder. **No SpecKit** — no `extension.yml`,
 `preset.yml`, or `after_*` hooks. State lives in `registry.json`; commands are native
@@ -22,7 +22,7 @@ the playbook, [prototype-builder.md](prototype-builder.md) (authored in Phase 2)
 | `/pb:explore` | **Two modes.** An **id** → a one-screen direction approved at **G-DIRECTION** → one execution plan per bet → N `pb-explorer` sub-agents (sonnet, xhigh) build them → **one compare-and-rate page at `/explore/<id>` on the `/pb:preview` server** → a scoring gate → keep one (`tools/explore.py`; registry untouched). **Every stop that shows options ends with that page's browser URL**, printed and checked by `explore.py link <id>` (it finds or starts the server); a file path or editor link never stands in for it. A subject that is no registry body (the tool's own chrome, a mockup) is a page round, `init --pages`, on the same page. A **goal sentence** → the gated discovery pipeline (below), stopping at **G-JTBD**, **G-DIRECTION** and **G-DESIGN**. `explore.py --ia` runs `/pb:clarify`'s IA round on the same engine. `explore.py list` shows each open round's age and flags it `STALE` past 3 days; `promote` / `reject` name the rounds still open | P3 |
 | `/pb:handoff` | **The one hand-off command.** Asks who is receiving it: **1** everything incl. a vendored Product Builder (recipient keeps building) · **2** engineering — `prototype.html` + `design-system.html` + `logic.md` + `rules.md` + `constitution.md` · **3** Figma, lowered deterministically then written through the MCP (falls back to the DS Bridge plugin). Mode 2 tiers: `host` (a runnable Vite/Next build serving the file) · `scaffold` (React+Tailwind). One command; no sub-commands | P6 |
 | `/pb:update-version` | Versioned schema update: dry-run / `--apply` / `--rollback` / `--to <N>` | P6 |
-| `/pb:clean` | **What the project has piled up, and pruning it on request.** `tools/clean.py` is a dry run by default — open explore rounds (with age, `STALE` past 3 days), closed rounds, `memory/backups/`, `.pb-backups/`, `.preview/server.log`, `.preview/shots/`, orphan `render/_candidates/` folders, the preview server. Bare `--apply` does only the always-safe set; **a backup or a closed round is deleted only by an explicit `--keep-backups N` / `--keep-closed N`**, never an open round, never a server (`serve.py --stop`) | v2.2 |
+| `/pb:clean` | **What the project has piled up, and pruning it on request.** `tools/clean.py` is a dry run by default — open explore rounds (with age, `STALE` past 3 days), closed rounds, `memory/backups/`, `.pb-backups/`, `.preview/server.log`, `.preview/shots/`, orphan `render/_candidates/` folders, `.pb-patches/`, `memory/decisions.md`, `.claude/worktrees/` (reported only), the preview server. Bare `--apply` does only the always-safe set; **a backup, a closed round or a patch folder is deleted only by an explicit `--keep-backups N` / `--keep-closed N` / `--keep-patches N`**, the decisions log rotates only on `--rotate-decisions`, never an open round, never a server (`serve.py --stop`) | v2.2 |
 
 > **Retired — the files are gone, not stubbed.** AGENTS.md §2 requires an alias for a rename; these shipped without one, which is why **v2.0.0 is a major** (D-34). Users upgrading follow [docs/upgrade-to-2.0.md](docs/upgrade-to-2.0.md). `/pb:flow` + `/pb:data` → `/pb:plan --flow` / `--data` (and their older `sync-` aliases) · `/pb:check-drift` → `/pb:test --drift` · `/pb:handoff-close`, `/pb:handoff-dev`, `/pb:hand-off`, `/pb:build-figma-handoff` → `/pb:handoff` · `/pb:build-check-design-system` → `/pb:build` §3a · `/pb:preview-ds` → `/pb:preview` §2b · `/pb:validate` → `/pb:handoff --tier=host`. 24 commands became 12 at v2.0.0; `/pb:report` (v2.1) and `/pb:clean` (v2.2) make 14.
 
@@ -61,11 +61,13 @@ reach real projects. Edit them there, not here. One-line pointers:
   `pb/docs/canon.md` § *Responsive across devices*.
 - **pb bounds its own footprint** (browser slots, `shot.py`, `serve.py --ensure`, 8-hour idle exit, 6
   previews, `--allow-host`, `/pb:clean`; the NEVER rules) — `pb/docs/canon.md` § *pb bounds its own footprint*.
+- **Checking a change** (the five-level ladder: trust the reload, `lint_registry.py --exec`,
+  `shot.py --no-png`, one look, a full look) — `pb/docs/canon.md` § *Checking a change*.
 - **Schema compatibility** (the write-path check) — `pb/docs/canon.md` § *Schema compatibility*.
 
-Two hooks in `pb/hooks/` (`hooks.json`) put the key rules in front of the model in any pb project:
-`session_rules.py` at session start and `bash_advice.py` before a matching shell command. They advise
-only; `tests/hook_advice.py` pins them.
+Three hooks in `pb/hooks/` (`hooks.json`) put the key rules in front of the model in any pb project:
+`session_rules.py` at session start, `bash_advice.py` before a matching shell command and
+`browser_advice.py` before a browser MCP call. They advise only; `tests/hook_advice.py` pins them.
 
 ## One registry → two sites, one preview server
 

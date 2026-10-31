@@ -4,6 +4,7 @@
 
 One guide per release. Each covers the upgrade from **every** earlier release, so open the one for the version you are moving to — normally the newest.
 
+- [v2.4.0](v2.4.0.md)
 - [v2.3.0](v2.3.0.md)
 
 How they are made: `.github/scripts/migration_guide.py`. What to run instead of a retired command lives in [retired-commands.json](retired-commands.json).

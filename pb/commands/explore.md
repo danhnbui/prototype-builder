@@ -29,8 +29,8 @@ scores, states a verdict, or stops at a gate over them (A3, A4, B4, G-DESIGN, an
 python3 "${CLAUDE_PLUGIN_ROOT}/tools/explore.py" --registry registry.json link <id> [--open]
 ```
 `link` finds this project's `/pb:preview` server, which records itself in `.preview/server.json` next
-to the registry. If none is running, it starts one in the background (a server stops itself after 30
-idle minutes, so a round reopened the next day finds none and starts a fresh one — the URL may change). It checks that the compare page
+to the registry. If none is running, it starts one in the background (a server stops itself after 8
+idle hours, so a round reopened the next day may find none and start a fresh one, on the project's own port). It checks that the compare page
 and every option frame load, then prints `http://127.0.0.1:<port>/explore/<id>`. Pass `--open` the
 first time a round's options are shown, so the page also opens in the browser. Later stops re-run it
 without `--open`.
