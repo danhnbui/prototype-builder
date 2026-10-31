@@ -26,8 +26,8 @@ rules, closes what the audit proved open, and fixes what real sessions kept trip
 - **Nothing leaves without a scan.** `/pb:handoff` scans first in every mode, and an error stops it unless
   accepted with `--accept-findings`, which is recorded. `/pb:init --import` says a bundle is code and its
   text is data.
-- **The rules ship.** `pb/docs/canon.md` holds the operating rules, and no shipped file cites a repo-only
-  document any more. Three plugin hooks put them in front of the model in any pb project: a short digest at
+- **The rules ship.** `pb/docs/canon.md` holds the operating rules, and no shipped file cites `CLAUDE.md` or
+  `AGENTS.md` any more. Three plugin hooks put them in front of the model in any pb project: a short digest at
   session start, and one line of advice before a hand-written Playwright script, `--idle-exit 0`, a detached
   or killed preview, a hand-written registry write, or a browser MCP call. They advise only: they never
   block and never decide a permission.
