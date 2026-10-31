@@ -65,6 +65,43 @@ jobs:
       - name: Registry contract is clean on the golden
         run: python3 pb/tools/lint_registry.py --strict fixtures/golden/registry.json
 
+  # The machine people actually run: macOS and Python 3.9, stdlib only (no Playwright).
+  # Not a required check yet: it is not in main's branch protection, so a red run here
+  # informs but does not block. Promote it once it has been green for a while.
+  mac:
+    name: mac (python 3.9, stdlib)
+    runs-on: macos-14
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: "3.9"
+
+      # The same loop as the unit job. Nothing here assumes Linux: /tmp/out.txt, bash and
+      # coreutils behave the same on a macOS runner.
+      - name: Regression suite (stdlib)
+        run: |
+          set -u
+          want=$(echo $BROWSER_ONLY | wc -w)
+          pass=0; fail=0; skipped=0; failed=""
+          for f in tests/*.py; do
+            base=$(basename "$f" .py)
+            case " $BROWSER_ONLY " in *" $base "*) skipped=$((skipped+1)); continue ;; esac
+            if python3 "$f" > /tmp/out.txt 2>&1; then
+              pass=$((pass+1)); echo "PASS  $base"
+            else
+              rc=$?; fail=$((fail+1)); failed="$failed $base"
+              echo "::group::FAIL  $base  (exit $rc)"; cat /tmp/out.txt; echo "::endgroup::"
+            fi
+          done
+          echo "--- $pass pass, $fail fail, $skipped deferred to the e2e job ---"
+          test "$skipped" -eq "$want" || { echo "::error::expected $want browser tests, saw $skipped"; exit 1; }
+          test "$fail" -eq 0 || { echo "::error::red:$failed"; exit 1; }
+
+      - name: Registry contract is clean on the golden
+        run: python3 pb/tools/lint_registry.py --strict fixtures/golden/registry.json
+
   e2e:
     name: e2e (playwright chromium, dev-only)
     runs-on: ubuntu-24.04

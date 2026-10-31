@@ -92,55 +92,19 @@ This file is the *how you must work*, release-independent.
 
 ## 8. The user's stated goal is the contract
 
-- **Restate before you start.** Open structural work by restating the goal in the user's own
-  terms — one or two sentences. Where your restatement and the request differ, **the request
-  wins**; do not proceed on a restatement the user has not seen.
-- **Never silently re-scope.** Narrowing ("I'll do the simple half"), widening ("while I was in
-  there"), and substituting ("what they really need is") are all scope changes. Propose them and
-  get an answer. A scope change assumed is a scope change that ships wrong.
-- **Record it where the pipeline can check it.** The goal goes verbatim into `memory/prd.md`
-  under `## Goal` (or the task's `what:` for a single task). Every later stage is checked against
-  **that text**, not against the previous stage's output — otherwise drift compounds silently,
-  one stage at a time, and each step looks reasonable next to the one before it.
-- **Blocked ≠ done.** If part of the goal cannot be met, finish everything else in full and say
-  plainly what was left out and why. Scaling the goal down is the user's call, not yours.
+The rule — restate the goal before structural work, never silently re-scope, record it verbatim in
+`memory/prd.md` under `## Goal`, check every stage against that text, and "blocked is not done" — is
+canonical in **`pb/docs/canon.md` § *Goal fidelity + the gated discovery pipeline*** (subsection *The
+user's stated goal is the contract*). It ships with the plugin; edit it there, not here.
 
 ## 9. Structural work runs the discovery pipeline, gated twice by a human
 
-**Applies to:** a new feature, a new flow, a revamp, a new entity, anything touching the trio
-(a screen, a component, logic) at structural scale. **Does not apply to:** point fixes, token
-values, copy, prop defaults, spacing — those take `/pb:build` directly, exactly as rule 1's
-gate-skip says. Do not make a two-line change bureaucratic.
+Applies to structural work (a new feature, flow, revamp, entity, anything touching the trio at
+structural scale); point fixes take `/pb:build` directly. Hosted by `/pb:explore "<goal>"` (Mode B,
+`pb/commands/explore.md`, stages B1–B8). The eight-stage table, the "no document write before both
+gates pass" rule and **What makes a gate real** (blocking · the artifact, not a summary · open
+questions carried up · approval recorded · a rejection returns to the stage that produced it) are
+canonical in **`pb/docs/canon.md` § *Goal fidelity + the gated discovery pipeline*** (subsections
+*Structural work runs the discovery pipeline, gated twice by a human* and *What makes a gate real*).
+Contributors: a change to the pipeline is a change to that file and to `explore.md` Mode B together.
 
-**Hosted by `/pb:explore "<goal>"`** (Mode B — `pb/commands/explore.md`, stages B1–B8); the
-canonical summary is CLAUDE.md § *Goal fidelity + the gated discovery pipeline*. Stages run **in
-order**. Sub-agents work in parallel **within** a stage, never across stages, and the team is the
-existing 9-role roster (rule 5) — no ad-hoc agent types.
-
-| # | Stage | Command · agent | Produces |
-|---|---|---|---|
-| 1 | **Clarify JTBD** | `/pb:clarify` · `pb-clarifier` | `ia.jobs[]` — three fields each (`when` / `want` / `so`), `roles[]`, `priority` (`ia.layers[]` purposes and `meta.navHub` follow in stage 5, once screens exist) |
-| 2 | **G-JTBD** | — **human gate** — | approval, edits, or rejection |
-| 3 | **Discover** | read-only · `pb-clarifier` | findings over the current registry slices, `memory/`, the DS reference + `.source.json`. **No patch** |
-| 4 | **Diverge** | coordinator → **G-DIRECTION** → N × `pb-explorer` via the Task tool, one per execution plan (`explore.md` B4) | parallel *approaches* — which screens, what is reused, what is new — compared against the `## Goal` text; one recommended. Form-divergence on a target that already exists is `/pb:explore <id>` (Mode A) instead |
-| 5 | **Design** | `/pb:plan` · `pb-planner` | per-task `acceptance · skill · agent · deps · slice`; the IA pass — jobs → screens, `ia.layers[]` purposes, `meta.navHub` |
-| 6 | **G-DESIGN** | — **human gate** — | approval, edits, or rejection |
-| 7 | **Build + test** | `/pb:orchestrate` → `/pb:test` · `pb-tester` → `pb-reviewer` | dependency waves, each gated on tester + reviewer; a red gate stops the loop |
-| 8 | **Update the documents** | coordinator | `ia.rules` (logic rules) · `memory/prd.md` · `memory/spec.md` · `logic/**` contracts · an entry in `memory/decisions.md` · `DESIGN.md` when an invariant moved |
-
-**No document write before both gates pass.** Stage 8 is the only stage that updates `ia.rules`
-or the PRD, and it does not begin until G-JTBD and G-DESIGN are both approved. Stages 1–7 may
-write registry slices the plan calls for; they may not rewrite the documents that record intent.
-
-### What makes a gate real
-
-- **Blocking.** Stop and ask. Silence is not approval, and neither is an absent objection.
-- **Present the artifact, not a summary of it.** G-JTBD shows every job as `when / want / so`
-  and names the jobs mapped to no screen. G-DESIGN shows the option kept *and the ones rejected*,
-  the task breakdown, and exactly which documents stage 8 will change.
-- **Carry the open questions up.** A gate that hides its uncertainty to look finished is worse
-  than no gate.
-- **Approval is recorded** — in the `decisions.md` entry stage 8 writes — so a later stage cites
-  it instead of re-asking.
-- **A rejection returns to the stage that produced it**, not to the start. Re-running a stage
-  re-opens its gate; an approval does not survive the artifact it approved.

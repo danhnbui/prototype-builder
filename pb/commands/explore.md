@@ -29,8 +29,8 @@ scores, states a verdict, or stops at a gate over them (A3, A4, B4, G-DESIGN, an
 python3 "${CLAUDE_PLUGIN_ROOT}/tools/explore.py" --registry registry.json link <id> [--open]
 ```
 `link` finds this project's `/pb:preview` server, which records itself in `.preview/server.json` next
-to the registry. If none is running, it starts one in the background (a server stops itself after 30
-idle minutes, so a round reopened the next day finds none and starts a fresh one — the URL may change). It checks that the compare page
+to the registry. If none is running, it starts one in the background (a server stops itself after 8
+idle hours, so a round reopened the next day may find none and start a fresh one, on the project's own port). It checks that the compare page
 and every option frame load, then prints `http://127.0.0.1:<port>/explore/<id>`. Pass `--open` the
 first time a round's options are shown, so the page also opens in the browser. Later stops re-run it
 without `--open`.
@@ -129,7 +129,8 @@ Then fill each option's `label` (one line on the take), `bet` (whose user, in wh
 
 ### A1d · Dispatch N × `pb-explorer`
 Launch **N `pb-explorer` subagents** via the **Task tool**, concurrently — **one message, N Task
-calls**, one per plan. Hand each **only** three paths: its plan, its overlay (the slot's candidate
+calls**, one per plan. Use the plugin's agent name, `pb:pb-explorer`: it works with no install step
+(`agents_install.py` is optional and only adds the bare name). Hand each **only** three paths: its plan, its overlay (the slot's candidate
 files, from the manifest's `overlay`; in a page round, its slot folder and `page`), and
 `registry.json`. No brief, no sibling plan, no framing from this conversation — what the plan does
 not say, the agent would re-guess. `/pb:test` §2b pins its
@@ -221,7 +222,7 @@ chat is a rule the next exploration breaks.
 # Mode B · the gated discovery pipeline
 
 For a goal that has no component yet — a new feature, a new flow, a revamp. The canonical rules are
-**`AGENTS.md` §8–§9**; this is the executable form. Stages run **in order**; sub-agents run in parallel
+**`${CLAUDE_PLUGIN_ROOT}/docs/canon.md` § *Goal fidelity + the gated discovery pipeline***; this is the executable form. Stages run **in order**; sub-agents run in parallel
 **within** a stage, never across. The team is the 9-role `pb-*` roster — no ad-hoc agent types.
 
 **Restate the goal first** (§8). One or two sentences, in the user's own terms, shown before any work.
@@ -261,7 +262,7 @@ genuinely new:
   approval; an edit re-opens B4a.
 - **B4c · Plans** — one `plans/<slot>.md` per approved bet (`think-direction` §5b), anti-brief
   included, naming the one file its executor writes: `memory/explore/<goal-id>/<slot>.approach.md`.
-- **B4d · Dispatch** — one message, N `pb-explorer` Task calls, each handed its plan path, its approach
+- **B4d · Dispatch** — one message, N `pb:pb-explorer` Task calls (the plugin name; no install step), each handed its plan path, its approach
   file path and `registry.json`. The coordinator then copies each approach into its slot's `approach`
   (plus `label`, `bet`, `axes`) — one writer for the manifest. In a page round, each explorer is handed
   its slot folder instead and builds its page there. The coordinator fills `label`, `bet` and `axes`.
@@ -296,9 +297,9 @@ entry in `memory/decisions.md` recording both gate approvals · `DESIGN.md` when
 
 ## NEVER
 - NEVER hand-write a Playwright script to look at an option — `shot.py` does it, through the browser
-  limit, against the same preview (`CLAUDE.md` § *pb bounds its own footprint*):
+  limit, against the same preview (`${CLAUDE_PLUGIN_ROOT}/docs/canon.md` § *pb bounds its own footprint*):
   `python3 "${CLAUDE_PLUGIN_ROOT}/tools/shot.py" registry.json --path /explore/<id>/<slot>`. And never
-  start `serve.py` with `&` / `nohup` (`link` starts it) or `kill` it (`serve.py --stop`).
+  start `serve.py` with `&` / `nohup` (`link` starts it, or `serve.py registry.json --ensure`) or `kill` it (`serve.py --stop`).
 - NEVER hand-write a preview or a compare page, and NEVER start a second server or port for an
   exploration — options are rendered by `explore.py` / `serve.py` and shown at `/explore/<id>` on the
   `/pb:preview` server. Three loose HTML files is the failure this command exists to prevent. A

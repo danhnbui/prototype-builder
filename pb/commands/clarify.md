@@ -11,7 +11,7 @@ Design → Logic → Rules**, carrying the decision it was made by (D-33). All o
 and the decision log **from this body — no hook**.
 
 **Two human gates, in order: ▛ G-JTBD ▟ (the jobs), then ▛ G-IA ▟ (the grouping).** Each is blocking
-and presents the artifact, not a summary of it (`AGENTS.md` §9, *What makes a gate real*). Silence is
+and presents the artifact, not a summary of it (`${CLAUDE_PLUGIN_ROOT}/docs/canon.md` § *What makes a gate real*). Silence is
 not approval. When `/pb:explore` Mode B runs this command at B1, the G-JTBD below is the one its B2
 names — ask it once, here.
 
@@ -54,7 +54,7 @@ Numbers are already bolded for you (`11,042`, `38%`, `12 ha`); add the marks a r
 ## 1b · Jobs — what each role needs done (`ia.jobs[]`)
 
 The Information Architecture view is only as good as its job list, and this is the step in the default
-pipeline that writes it (`CLAUDE.md` names `/pb:clarify` → `ia.jobs[]`). `/pb:init` §1b may have seeded
+pipeline that writes it (`/pb:clarify` → `ia.jobs[]` is the default pipeline's first stage). `/pb:init` §1b may have seeded
 some already; **refine those in place — never add a second job saying the same thing.**
 
 **Source.** `memory/prd.md`, `memory/spec.md`'s user stories, and the insights above. Draft the jobs,

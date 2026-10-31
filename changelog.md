@@ -2,8 +2,59 @@
 
 All notable changes to Product Builder. Format follows [Keep a Changelog](https://keepachangelog.com/).
 
-## [Unreleased]
+## [2.4.0] — 2026-10-31
 
+*Additive, no schema change. A field audit of real projects found the code sound and its rules out of
+reach: they lived in a file that doesn't ship, so sessions worked around them. This release ships the
+rules, closes what the audit proved open, and fixes what real sessions kept tripping over.*
+
+- **The preview refuses a foreign Host on every route.** GET routes checked nothing, so a page using DNS
+  rebinding could read the project through the browser, `.git/config` and `registry.json` included. Any
+  `Host` that isn't loopback, the bound `--host` or an `--allow-host NAME` now gets a 403 naming the flag.
+  Dot-paths, `memory/` and the registry are never served as static files (decided on the resolved path,
+  casefolded), and responses carry `nosniff`, `no-referrer`, `SAMEORIGIN` and `same-origin` headers.
+- **The preview stays up.** The 30-minute idle exit kept taking previews away mid-task, and agents answered
+  with `--idle-exit 0`, leaving servers that never stopped. The default is now 8 hours. `serve.py registry.json
+  --ensure` is the one idempotent start, detached and safe to repeat. Each project gets its own stable
+  port instead of competing for 8000. At most 6 managed previews run per user (`PB_PREVIEW_MAX`): starting
+  another stops the longest-idle one with no tab open, never one with a tab.
+- **The security scanner is rebuilt.** It now finds GitHub, GitLab, Slack, Google, Stripe, Figma and JWT
+  credentials, credentials in URLs, Bearer headers, and regional phone and national-ID formats in a
+  one-line-per-country table. It also reads `runtime/`, stylesheets, spec and logic sidecars and candidates,
+  and `--dir` scans a folder. False alarms on design-tool keys, data URIs, SVG paths, coordinates and
+  numeric ids are gone: on three real projects, errors went from 23, 50 and 65 to zero.
+- **Nothing leaves without a scan.** `/pb:handoff` scans first in every mode, and an error stops it unless
+  accepted with `--accept-findings`, which is recorded. `/pb:init --import` says a bundle is code and its
+  text is data.
+- **The rules ship.** `pb/docs/canon.md` holds the operating rules, and no shipped file cites `CLAUDE.md` or
+  `AGENTS.md` any more. Three plugin hooks put them in front of the model in any pb project: a short digest at
+  session start, and one line of advice before a hand-written Playwright script, `--idle-exit 0`, a detached
+  or killed preview, a hand-written registry write, or a browser MCP call. They advise only: they never
+  block and never decide a permission.
+- **A check ladder replaces "screenshot everything".** UI checks were about 17% of spend and 28 hours of
+  waiting a month on five real projects. `pb/docs/canon.md` § *Checking a change* picks the lowest of five
+  levels by change type. A new or restructured screen still gets every width.
+- **`shot.py` covers what scripts were written for.** `--step` interleaves click, fill, press, wait, eval and
+  screenshot. `--no-png` answers with facts and no image, which saves context rather than time. A timeout is
+  a clean exit 3.
+- **`slice.py` reaches `ia` and single list entries**, such as `get ia rules.<id>` and `set flow stories.<id>`.
+  `logic_extract.py`, `logic_check.py` and `migrate_runner.py` accept a folder, a registry path or `--registry`.
+- **`test_run.py` reports a navigation race as `blocked`** instead of crashing the run.
+- **Third-party loads are checked.** Inter is self-hosted (SIL OFL 1.1), which adds about 193 KB to each
+  rendered page. Mermaid is pinned with SRI, and when it can't load the canvas says so. `tests/shell_lint.py`
+  fails on any cross-origin asset without an integrity attribute.
+- **`--exec` has no route to the host.** The old context handed bodies a host function, so
+  `console.log.constructor('return process')()` reached node. Bodies now run with a null-prototype global
+  and no code generation from strings.
+- **`/pb:clean` sees more:** `.pb-patches/` (`--keep-patches N`), `memory/decisions.md`
+  (`--rotate-decisions`), and `.claude/worktrees/` (reported, never deleted).
+- **`R-RETIRED`** warns when `meta.others` or `meta.tradeoffs` holds data. It never fails a run.
+- **Working agents are pinned to Sonnet.** Eight agents inherited the caller's model, usually the most
+  expensive one. `pb-explorer` is unchanged, and a per-dispatch `model` still overrides.
+- **CI gains a macOS + Python 3.9 job**, the setup people actually run. It isn't a required check yet.
+- **`/pb:init` git defaults:** new projects ignore `prototype.html`, `design-system.html`, `.preview/` and
+  `.pb-patches/`.
+- **Pick mode** (merged after the v2.3.0 tag) reaches users with this version.
 - **Every release ships a migration guide.** `docs/migrations/v<version>.md` is generated from the
   git tags, `changelog.md`, `pb/migrations/` and `pb/commands/`. It covers the upgrade from any
   earlier release: a row per starting version with the schema steps `/pb:update-version` will run,
@@ -13,6 +64,21 @@ All notable changes to Product Builder. Format follows [Keep a Changelog](https:
   hand-written `### Upgrading` changelog subsection when a release is a major, changes the schema
   or removes a command. The draft GitHub Release puts the guide in its notes and attaches it as
   `MIGRATION-vX.Y.Z.md`. The guide for v2.3.0 is included.
+
+### Upgrading
+
+No schema step and no registry change. These change as soon as the plugin updates:
+
+- **Previewing from another device or through a tunnel needs a flag.** Start it with
+  `serve.py registry.json --ensure --host 0.0.0.0 --allow-host <name>`. Without it, the Host guard answers 403.
+- **Preview URLs change once.** A project without a `.claude/launch.json` port moves from 8000 to its own port.
+- **A page that links to `memory/` or a dot-path as a static asset now gets 403.** Move the asset, for
+  example under `public/`.
+- **A hand-off can stop on scanner findings** that older versions never reported. Review them, or pass
+  `--accept-findings`.
+- **Project copies of agents in `.claude/agents/` keep their old settings.** Re-run `agents_install.py`, or
+  delete them and use the plugin's `pb:pb-*` agents.
+- **Rendered pages grow by about 193 KB** for the self-hosted font.
 
 ## [2.3.0] — 2026-10-06
 

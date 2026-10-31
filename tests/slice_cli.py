@@ -305,6 +305,110 @@ with tempfile.TemporaryDirectory() as d:
     check(json.load(open(reg)) is not None and [f for f in os.listdir(d) if f.endswith(".tmp")] == [],
           "the file is whole JSON and no temp file is left")
 
+print("ia + list-element paths — get / set / list, append, byte-level isolation")
+with tempfile.TemporaryDirectory() as d:
+    reg = os.path.join(d, "registry.json")
+    R = ["--registry", reg]
+    base = {
+        "meta": {"name": "T"},
+        "ia": {"jobs": [{"id": "j1", "when": "a", "want": "b", "so": "c"}, {"id": "j2", "when": "x"}],
+               "rules": [{"id": "r1", "title": "One", "text": "é — first", "decision": {"why": "z"}},
+                         {"id": "r2", "title": "Two", "text": "second"},
+                         {"id": "r3", "title": "Three", "text": "third"}]},
+        "flow": {"mermaid": "graph TD", "stories": [{"id": "s1", "title": "S1", "scenarios": [{"id": "a"}]},
+                                                     {"id": "s2", "title": "S2"}]},
+        "content": {"terms": [{"id": "t1", "term": "Order"}, {"id": "t2", "term": "Item"}]},
+        "plain": [],
+    }
+    base["flow"]["extra"] = ["no", "ids"]
+
+    def dump(reg_obj):
+        with open(reg, "w", encoding="utf-8") as f:
+            f.write(json.dumps(reg_obj, indent=2, ensure_ascii=False) + "\n")
+
+    dump(base)
+    r = run("get", "ia", "rules.r2", *R)
+    check(r.returncode == 0 and json.loads(r.stdout)["title"] == "Two", "get ia rules.r2 → that rule")
+    r = run("get", "ia", "rules.r1", "--fields", "title,decision", *R)
+    check(r.returncode == 0 and list(json.loads(r.stdout)) == ["title", "decision"], "--fields works on a list element")
+    r = run("get", "ia", "rules.r1", "--no-prose", "--fields", "id,usage", *R)
+    check(r.returncode != 0, "--fields naming a missing key still fails on a list element")
+    r = run("get", "flow", "stories.s1.scenarios.a", *R)
+    check(r.returncode == 0 and json.loads(r.stdout) == {"id": "a"}, "get flow stories.s1.scenarios.a → nested list element")
+    r = run("get", "content", "terms.t2", *R)
+    check(r.returncode == 0 and json.loads(r.stdout)["term"] == "Item", "get content terms.t2")
+    r = run("get", "flow", "extra.1", *R)
+    check(r.returncode == 0 and json.loads(r.stdout) == "ids", "a numeric segment indexes a list without ids")
+    r = run("get", "ia", "rules.nope", *R)
+    check(r.returncode != 0 and "Traceback" not in r.stderr and len(r.stderr.strip().splitlines()) == 1, "get a missing element → one line, non-zero")
+    r = run("get", "ia", "jobs.0", *R)
+    check(r.returncode != 0, "a numeric segment does not index a list whose elements carry ids")
+
+    print("list — optional path")
+    r = run("list", "ia", *R)
+    check(r.stdout.split() == ["jobs", "rules"], "list ia → top-level keys")
+    r = run("list", "ia", "rules", *R)
+    check([l.split()[0] for l in r.stdout.splitlines()] == ["r1", "r2", "r3"] and "Two" in r.stdout, "list ia rules → ids (and titles)")
+    r = run("list", "flow", "stories", *R)
+    check([l.split()[0] for l in r.stdout.splitlines()] == ["s1", "s2"], "list flow stories → ids")
+    r = run("list", "flow", *R)
+    check(r.stdout.split() == ["mermaid", "stories", "extra"], "list flow (no path) unchanged")
+
+    print("set — merge into one element, byte-level isolation")
+    before_text = open(reg, encoding="utf-8").read()
+    before_obj = json.loads(before_text)
+    r = run("set", "ia", "rules.r2", *R, stdin='{"title": "Two!", "status": "open"}')
+    check(r.returncode == 0 and "patched" in r.stdout, "set ia rules.r2 → patched (%s)" % r.stdout.strip())
+    after_text = open(reg, encoding="utf-8").read()
+    after = json.loads(after_text)
+    check(after["ia"]["rules"][1] == {"id": "r2", "title": "Two!", "text": "second", "status": "open"}, "the patch merged into r2 (existing keys kept)")
+    ser = lambda o: json.dumps(o, indent=2, ensure_ascii=False)
+    check(ser(after["ia"]["rules"][0]) == ser(before_obj["ia"]["rules"][0])
+          and ser(after["ia"]["rules"][2]) == ser(before_obj["ia"]["rules"][2])
+          and ser(after["ia"]["jobs"]) == ser(before_obj["ia"]["jobs"])
+          and ser(after["flow"]) == ser(before_obj["flow"]) and ser(after["content"]) == ser(before_obj["content"]),
+          "every other element serialises byte-for-byte the same")
+    ind = lambda o: "\n".join("      " + ln for ln in ser(o).splitlines())   # an element of ia.rules sits at depth 3
+    sa, sb = ind(before_obj["ia"]["rules"][0]), ind(before_obj["ia"]["rules"][2])
+    check(sa in after_text and sb in after_text and sa in before_text and sb in before_text,
+          "and those bytes sit unchanged in the file text")
+    check([id_["id"] for id_ in after["ia"]["rules"]] == ["r1", "r2", "r3"], "element order is unchanged")
+    r = run("set", "ia", "rules.r2", *R, stdin='{"status": "open"}')
+    check(r.returncode == 0 and "no change" in r.stdout and open(reg, encoding="utf-8").read() == after_text, "re-applying the patch → no change, file byte-identical")
+    r = run("set", "ia", "rules.r2", *R, stdin='')
+    check(r.returncode == 0 and open(reg, encoding="utf-8").read() == after_text, "an empty patch on an element is byte-identical")
+    r = run("set", "flow", "stories.s1.scenarios.a", *R, stdin='{"title": "A"}')
+    check(r.returncode == 0 and json.load(open(reg))["flow"]["stories"][0]["scenarios"][0] == {"id": "a", "title": "A"}, "set reaches a nested list element")
+    r = run("set", "content", "terms.t1", *R, stdin='{"rule": "r1"}')
+    check(r.returncode == 0 and json.load(open(reg))["content"]["terms"][0]["rule"] == "r1", "set content terms.t1")
+
+    print("set — missing elements and lists")
+    snap = open(reg, encoding="utf-8").read()
+    r = run("set", "ia", "rules.r9", *R, stdin='{"title": "New"}')
+    check(r.returncode != 0 and "Traceback" not in r.stderr and len(r.stderr.strip().splitlines()) == 1 and open(reg, encoding="utf-8").read() == snap,
+          "set a missing element without a matching id → one-line error, nothing written")
+    r = run("set", "ia", "rules.r9", *R, stdin='{"id": "other"}')
+    check(r.returncode != 0 and open(reg, encoding="utf-8").read() == snap, "a patch with a different id does not append")
+    r = run("set", "ia", "rules.r9", *R, stdin='{"id": "r9", "title": "New"}')
+    check(r.returncode == 0 and [x["id"] for x in json.load(open(reg))["ia"]["rules"]] == ["r1", "r2", "r3", "r9"], "a patch carrying the same id appends")
+    snap = open(reg, encoding="utf-8").read()
+    r = run("set", "ia", "layers.l1", *R, stdin='{"id": "l1"}')
+    check(r.returncode != 0 and open(reg, encoding="utf-8").read() == snap, "a missing list (ia.layers) is never created")
+    r = run("set", "ia", "rules.r1", *R, stdin='"text"')
+    check(r.returncode != 0 and open(reg, encoding="utf-8").read() == snap, "a non-object patch on an element is refused")
+    r = run("set", "ia", "intent", *R, stdin='"x"')
+    check(r.returncode == 0 and json.load(open(reg))["ia"]["intent"] == "x", "set ia <plain key> works like the other dict kinds")
+
+    print("set — ia is locked like every other write")
+    with open(reg + ".lock", "w") as lk:
+        import fcntl as _fcntl
+        _fcntl.flock(lk, _fcntl.LOCK_EX)
+        snap = open(reg, encoding="utf-8").read()
+        r = subprocess.run([sys.executable, SLICE, "set", "ia", "rules.r1", *R], input='{"title": "L"}', capture_output=True, text=True,
+                           env=dict(os.environ, PB_LOCK_TIMEOUT="0.3"))
+        check(r.returncode != 0 and "another pb process" in r.stderr and open(reg, encoding="utf-8").read() == snap,
+              "a held lock refuses a list-element set and leaves the file untouched")
+
 print()
 if fails:
     print(f"FAIL — {len(fails)} regression(s)")

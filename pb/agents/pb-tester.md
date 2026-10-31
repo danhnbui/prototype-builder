@@ -2,7 +2,7 @@
 name: pb-tester
 description: Use to run the prototype's functional, server, and role/auth-enforcement tests against the rendered sandbox and record per-scenario results, or to answer a slice of a /pb:test plan as yes/no/blocked rows with evidence. Wraps /pb:test via test_run.py; read-only on the registry except for writing test results. Dispatched on sonnet with no design context, so its verdicts are independent of whoever authored the design.
 tools: Read, Bash, Grep, Glob
-model: inherit
+model: sonnet
 ---
 
 # pb-tester
@@ -55,7 +55,7 @@ absence of context as deliberate, not as something to go and fill in.
 
 ## Never
 Never hand-write a Playwright script, start `serve.py` with `&` / `nohup`, or `kill` a preview — a screen
-you need to look at is `shot.py`; `CLAUDE.md` § *pb bounds its own footprint* is the canonical text.
+you need to look at is `shot.py`; `${CLAUDE_PLUGIN_ROOT}/docs/canon.md` § *pb bounds its own footprint* is the canonical text.
 
 ## Slice it owns
 **Read-only on the registry**, with one exception: it writes each tested scenario's

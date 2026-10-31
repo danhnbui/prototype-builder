@@ -11,7 +11,8 @@ Flags:
   --rollback         Restore the latest .pb-backups/ entry; re-render; confirm. The registry and
                      spec/ as they are NOW are first saved to .pb-backups/pre-rollback.<ts>/.
   --to <N>           Target schema version (default: CURRENT_SCHEMA from manifest.py).
-  --registry <path>  Path to registry.json (default: registry.json in cwd).
+  --registry <path>  Path to registry.json (default: registry.json in cwd). Also accepted
+                     positionally, as a registry.json path or its folder.
 
 NEVER list (enforced in code, not just docs):
   - Never auto-edit memory/constitution.md, the Stack Lock, or the DS Lock.
@@ -215,8 +216,13 @@ def run(args=None):
         elif args[i] == "--to" and i + 1 < len(args):
             to_v = int(args[i + 1])
             i += 2
+        elif not args[i].startswith("--"):
+            registry_path = args[i]       # positional: a registry.json path or its folder
+            i += 1
         else:
             i += 1
+    if os.path.isdir(registry_path):
+        registry_path = os.path.join(registry_path, "registry.json")
 
     # ── ROLLBACK ────────────────────────────────────────────────────────────────
     if rollback_mode:

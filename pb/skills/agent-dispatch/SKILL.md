@@ -48,7 +48,7 @@ finish and gate green.
 2. **Apply serially.** The coordinator applies patches **one at a time** to `registry.json` (concurrent
    writes race the file and lose edits). Trio writes still honor the `/pb:build` drift / Stack / DS gate.
 3. **Sync once per wave.** After the patches land, the coordinator reconciles `flow` and `erd` **once**
-   for the whole wave (`CLAUDE.md` § *Auto-sync*) — from the patches it just applied, never by dispatching
+   for the whole wave (`${CLAUDE_PLUGIN_ROOT}/docs/canon.md` § *Auto-sync*) — from the patches it just applied, never by dispatching
    an agent, never per task. **Skip a slice the wave already owns:** a `flow` (or `erd`) task in the wave
    *is* that slice's sync. Skip entirely when every task was a non-trio slice (`tokens`, `meta`).
 4. **Render once per wave.** After all of the wave's patches land and are synced, run `render.py`

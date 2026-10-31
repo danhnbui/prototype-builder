@@ -27,6 +27,7 @@ Exit:   0 = pass · 1 = a failure
 """
 import json
 import os
+import re
 import shutil
 import signal
 import struct
@@ -122,6 +123,28 @@ def stdlib_half():
     check(rc == 2 and not os.path.exists(os.path.join(d, "t")) and procs(mark) == [],
           "…and the non-loopback --url never launched a browser or booted a server")
 
+    print("--step / --no-png — refused before anything starts")
+    for argv, why in ((["--step", "bogus:x"], "an unknown step kind"),
+                      (["--step", "click"], "click with no selector"),
+                      (["--step", "click:"], "click with an empty selector"),
+                      (["--step", "fill:#a"], "fill with no =VALUE"),
+                      (["--step", "fill:=v"], "fill with no selector"),
+                      (["--step", "wait:abc"], "a wait that is not a number"),
+                      (["--step", "wait:99999"], "a wait over 60000"),
+                      (["--step", "eval:"], "an empty eval"),
+                      (["--step", "shot:a", "--step", "shot:a"], "two shots with one name"),
+                      (["--no-png", "--step", "shot"], "--no-png with a shot step"),
+                      (["--no-png", "--out", os.path.join(d, "o.png")], "--no-png with --out"),
+                      (["--no-png", "--selector", "#x"], "--no-png with --selector")):
+        rc, out, err = run([reg, "--screen", "login"] + argv)
+        check(rc == 2 and "S-USAGE" in err and out == "", "%s → exit 2" % why)
+    check(shot.parse_step("click:#go") == ("click", "#go", None) and shot.parse_step("wait:50") == ("wait", 50, None)
+          and shot.parse_step("shot") == ("shot", None, None) and shot.parse_step("shot:../My Name") == ("shot", "My-Name", None)
+          and shot.parse_step("press:Control+k") == ("press", "Control+k", None),
+          "steps parse (a shot name is sanitized to a safe file name)")
+    check(shot.parse_step('fill:[name="a=b"]=v=w') == ("fill", '[name="a=b"]', "v=w") and shot.parse_step("fill:#a=") == ("fill", "#a", ""),
+          "fill splits at the first = outside [] and quotes; the value may hold = or be empty")
+
     print("no Playwright → exit 3, and no server was booted for it")
     runner = ("import sys, runpy; sys.modules['playwright'] = None; sys.argv = ['shot.py', %r, '--screen', 'login']; "
               "runpy.run_path(%r, run_name='__main__')" % (reg, SHOT))
@@ -213,6 +236,46 @@ def browser_half():
         check(rc in (0, 1), "an unknown role is not a crash (rc=%s)" % rc)
         rc, out, err = run([reg, "--url", "http://127.0.0.1:1/", "--viewport", "600x400", "--out", os.path.join(d, "v")], cwd=d)
         check(rc == 3 and "cannot run" in out, "a loopback URL nothing answers at → exit 3 (rc=%s)" % rc)
+
+        print("--step: an interleaved sequence, per viewport, in order")
+        sd = os.path.join(d, "steps")
+        inp = "#proto-frame .field__input"
+        rc, out, err = run([reg, "--screen", "login", "--viewport", "700x500", "--out", sd,
+                            "--step", "eval:state.protoScreenId", "--step", "shot:before",
+                            "--step", "fill:%s=hello" % inp, "--step", "wait:50",
+                            "--step", "eval:document.querySelector(%r).value" % inp,
+                            "--step", "press:Tab", "--step", "wait-for:#proto-frame", "--step", "shot",
+                            "--step", "click:#proto-frame", "--step", "eval:1+1"], cwd=d)
+        l = [x for x in out.splitlines() if not x.startswith("reusing")]
+        want = ['eval 700x500 step1 "login"', os.path.join(sd, "login-before-700x500.png"),
+                'eval 700x500 step5 "hello"', os.path.join(sd, "login-step8-700x500.png"),
+                'eval 700x500 step10 2', os.path.join(sd, "login-700x500.png")]
+        check(rc == 0 and l == want, "evals are labelled with viewport and step number, shots list their paths, the final capture comes last (rc=%s, %s)" % (rc, l))
+        check(all(png_size(x) == (700, 500) for x in want if x.endswith(".png")), "…every PNG is real, inside the output folder")
+        rc, out, err = run([reg, "--screen", "login", "--viewport", "700x500", "--out", os.path.join(d, "ord.png"), "--click", "#proto-frame",
+                            "--step", "eval:state.protoScreenId"], cwd=d)
+        check(rc == 0 and 'eval 700x500 step1 "login"' in out, "--click still works, and --step runs after it")
+        rc, out, err = run([reg, "--screen", "login", "--viewport", "700x500", "--step", "click:#no-such-button", "--step", "shot:late",
+                            "--out", os.path.join(d, "bad")], cwd=d)
+        check(rc == 1 and "S-SELECTOR" in out and "step 1" in out and not os.path.exists(os.path.join(d, "bad")),
+              "a step selector that matches nothing → exit 1, S-SELECTOR, later steps never ran")
+
+        print("--no-png — page facts, no image")
+        nd = os.path.join(d, ".preview", "shots")
+        before = set(os.listdir(nd)) if os.path.isdir(nd) else set()
+        rc, out, err = run([reg, "--screen", "login", "--viewport", "700x500", "--no-png", "--eval", "state.protoScreenId",
+                            "--step", "eval:1+2", "--console"], cwd=d)
+        l = [x for x in out.splitlines() if not x.startswith("reusing")]
+        after = set(os.listdir(nd)) if os.path.isdir(nd) else set()
+        check(rc == 0 and l[0] == 'eval 700x500 step1 3' and 'eval 700x500 "login"' in l and re.match(r"elapsed \d+\.\d\ds$", l[-1]),
+              "--no-png still returns --eval and step evals, then reports the elapsed time (%s)" % l)
+        check(after == before and not any(x.endswith(".png") for x in l), "…and wrote no new image file")
+
+        print("a timeout is a clean exit, never a traceback")
+        rc, out, err = run([reg, "--screen", "login", "--viewport", "700x500", "--out", os.path.join(d, "t.png")], cwd=d,
+                           env={"PB_SHOT_TIMEOUT_MS": "1"})
+        check(rc == 3 and "cannot run" in out and "Traceback" not in out + err and out.count("\n") <= 3,
+              "a screenshot that times out → one line, exit 3 (rc=%s, %r %r)" % (rc, out[-200:], err[-200:]))
     finally:
         try:
             os.kill(rec["pid"], signal.SIGTERM)

@@ -2,7 +2,7 @@
 name: pb-reviewer
 description: Use as the acceptance/critic gate — a read-only drift audit of the trio against the constitution plus contract and secrets/PII scans. Wraps /pb:test --drift, lint_registry.py, and security_scan.py; never writes to the registry or prototype.html.
 tools: Read, Bash, Grep, Glob
-model: inherit
+model: sonnet
 ---
 
 # pb-reviewer

@@ -2,7 +2,7 @@
 name: pb-clarifier
 description: Use to turn a PRD or feature brief into a structured spec, the Project Summary tab, the jobs each role needs done, the information architecture that places them and the rules behind its contested UI decisions — objective, prototype-shaped user stories, user insights, ia.jobs[] (gated at G-JTBD), N scored groupings of those jobs with one promoted (gated at G-IA), and one ia.rules[] entry per decision. Wraps /pb:specify and /pb:clarify at the front of a Product Builder project.
 tools: Read, Grep, Glob, Write
-model: inherit
+model: sonnet
 ---
 
 # pb-clarifier
@@ -32,7 +32,7 @@ does the last step of making them readable (`/pb:clarify` §1a and §2b; the mar
 - **Marks.** In `meta.userInsights.*` and `meta.overview.objectives` wrap the words a reader would underline:
   `**key claim**` (≤ about one per sentence), `==the one thing to remember==` (**at most once per field**),
   `{-a problem-}` and `{+an improvement+}`. **Never change the wording** — a mark wraps what is already there.
-- **Blocks.** Never leave a rule decision-only when its prose has a shape: run `tools/logic_shape.py registry.json --rule <id> --json` and add each suggested `blocks[]` entry (any of the 23 types in `think-logic` §5) from facts **already in the rule or the registry** — never invented — each with a `source` note naming where it came from.
+- **Blocks.** Never leave a rule decision-only when its prose has a shape: add each `blocks[]` entry (any of the 23 types in `think-logic` §5) its prose supports, from facts **already in the rule or the registry** — never invented — each with a `source` note naming where it came from. This agent has no shell: where the coordinator has run `python3 "${CLAUDE_PLUGIN_ROOT}/tools/logic_shape.py" registry.json --rule <id> --json` and passed the suggestions in, use them; otherwise read the prose and say which rules still lack blocks.
 
 ## Slice it owns
 - `memory/spec.md` — authored directly.

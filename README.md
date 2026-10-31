@@ -1,4 +1,4 @@
-# Product Builder v2.3.0
+# Product Builder v2.4.0
 
 A standalone, CLAUDE.md-native prototype builder for Claude Code. Turn a PRD into two interactive,
 self-documenting sites from **one `registry.json`** — a **4-tab prototype** (a real click-through flow
@@ -33,7 +33,7 @@ command.
 
 **New in v2.2 — pb bounds its own footprint.** Tests reuse the running preview and run their three browser
 modes in one browser (`test_run.py --all`); no more than 3 headless browsers run at once on the machine; a
-preview server stops itself after 30 idle minutes; agents look at a screen with `shot.py` instead of
+preview server stops itself after 8 idle hours; agents look at a screen with `shot.py` instead of
 writing Playwright scripts; and the new **`/pb:clean`** shows what a project has piled up (explore rounds,
 backups, logs, screenshots) and prunes it only when told to. Nothing is deleted without an explicit
 keep flag.
@@ -65,7 +65,7 @@ state stays in each prototype's folder.)
 **Full capability with zero external skills** — every skill the commands use ships inside the plugin
 (`pb/skills/`), so a fresh install works for anyone with no personal/employer skill set required. The
 **only** thing pb needs on your machine is **Python 3** (already present on most Macs and Linux; on Windows
-install it from python.org and tick "Add to PATH"). No other setup, no `pip install`.
+install it from python.org and tick "Add to PATH"). No other setup, no `pip install`. The one optional dependency is **Playwright** (`pip install playwright`, then `playwright install chromium`): `/pb:test`'s browser modes and `shot.py` need it, and they report *blocked* with one line when it is absent; everything else works without it.
 
 Those skills are **internal**: each sets `user-invocable: false`, so only the 14 commands appear in the `/`
 menu. `think-clarify`, for example, is how `/pb:init` and `/pb:specify` decide what to ask — it is not a
@@ -97,7 +97,7 @@ Fourteen commands. Flags narrow a command; they are not commands of their own.
 | `/pb:plan` | Implementation plan + per-tab task breakdown (acceptance · skill · agent · deps · slice) built from the IA `/pb:clarify` chose (`--ia <job-id> --into <screen-id>` places one late job), and the first authoring of the flow and data slices (`--flow` / `--data` / `--mock`) |
 | `/pb:orchestrate` | Dispatch `memory/tasks.md` to the 8 routable agents of the 9-agent roster in dependency **waves** — serial registry writes, render once per wave, acceptance-gated |
 | `/pb:build` | The cheap loop: targeted `registry.json` patches, trio-gated, no per-tweak render. Runs the DS-first reuse → variant → local check on every new component, and keeps flow + data in sync. `--render` to regenerate both sites |
-| `/pb:preview` | Live preview dev server: watch `registry.json` → render → live-reload. One server, two routes — the prototype at `/`, the design-system workbench at `/design-system`. Stops itself after 30 idle minutes; `serve.py --status` / `--stop` |
+| `/pb:preview` | Live preview dev server: watch `registry.json` → render → live-reload. One server, two routes — the prototype at `/`, the design-system workbench at `/design-system`. Stops itself after 8 idle hours; `serve.py --status` / `--stop` |
 | `/pb:test` | **Check everything.** No flag = scenarios · roles · server · security · drift · health · shell coherence · DS drift, one verdict. Writes a yes/no test plan, then delegates it to subagents that never saw the design. A flag narrows it (`--drift`, `--roles`, `--security`, …) |
 | `/pb:report` | A retrospective for the pb maintainer: scans the project's decisions log, `memory/`, backups, explore rounds and (opt-in, `--sessions`) session transcripts, then writes one report of facts and ranked proposals for the next pb release to `memory/reports/`. Read-only on the project |
 | `/pb:explore` | An **id** → N agents diverge that render body, scored against a rubric, keep one. A **goal sentence** → the gated discovery pipeline |
@@ -126,7 +126,7 @@ Fourteen commands. Flags narrow a command; they are not commands of their own.
   *same* generator in memory, live-reloading the browser on every change (`/pb:preview`). It's the **one**
   preview per project — view it in any browser; `pb/tools/preview_register.py` keeps a single canonical
   `.claude/launch.json` entry when an in-app preview pane is used. Stdlib-only. It exits by itself after
-  30 minutes with no tab open and no request (`--idle-exit`), and `serve.py --status` / `--stop` inspect and
+  8 hours (480 minutes) with no tab open and no request (`--idle-exit`), and `serve.py --status` / `--stop` inspect and
   stop it without `kill`.
 - **`pb/tools/browser.py`** is the one door pb opens a headless browser through (at most 3 at once per
   machine; `PB_BROWSER_SLOTS`), **`pb/tools/shot.py`** is how an agent looks at a screen (reusing the

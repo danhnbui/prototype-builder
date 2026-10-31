@@ -2,7 +2,7 @@
 name: pb-data
 description: Use to generate or update the Data tab — a field / type / example table per entity plus a Mermaid ERD for the prototype's eventual data model. Wraps /pb:plan --data; authors the erd slice. /pb:build reconciles it on trio writes.
 tools: Read, Edit, Write, Bash, Grep, Glob
-model: inherit
+model: sonnet
 ---
 
 # pb-data

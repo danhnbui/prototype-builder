@@ -44,10 +44,10 @@ which allows **3 headless browsers at once on the machine** (`PB_BROWSER_SLOTS`,
 `PB_BROWSER_WAIT`, default 120 s, after which it proceeds anyway with a `note:` — the limit never makes
 a test fail). The default battery runs its three browser modes (§3 · §4 · §5) as **one**
 `test_run.py --all`: one transport, one browser, a fresh context per mode. Canonical text:
-`CLAUDE.md` § *pb bounds its own footprint*.
+`${CLAUDE_PLUGIN_ROOT}/docs/canon.md` § *pb bounds its own footprint*.
 
 ## 1 · Pre-write schema check
-Apply the **Schema compatibility** check from `CLAUDE.md`. This command writes only
+Apply the **Schema compatibility** check (`${CLAUDE_PLUGIN_ROOT}/docs/canon.md` § *Schema compatibility*). This command writes only
 `flow.stories[].lastResult`; if a pending version update touches `flow`, **stop** and print
 `Blocked: run /pb:update-version --apply first, then retry.` Otherwise print the banner and continue.
 
@@ -212,8 +212,8 @@ anyway and say so: sonnet is the cost choice, but the **fresh context is the loa
 
 **One preview for every lane.** Testers reuse the running preview by default, so **never** hand one
 `--isolated` or tell it to start a server. When no preview is running and more than one browser agent
-will be dispatched (chunked lanes), start one first — `/pb:preview` §1 — so they share it instead of each
-booting a private server; it stops by itself after 30 idle minutes.
+will be dispatched (chunked lanes), start one first (`serve.py registry.json --ensure`, `/pb:preview` §1) so they share it instead of each
+booting a private server; it stops by itself after 8 idle hours.
 
 **Hand each agent exactly this and nothing more:** the absolute path to the plan file and **the item
 ids it owns**; the path to `registry.json` plus the preview URL when one is running (otherwise nothing:
@@ -325,7 +325,7 @@ is the product here, not the detection.
 
 ## 9 · Shell coherence (advisory)
 Catches the silent stale render: `prototype.html` left rendered by an older plugin shell than the one now
-installed. Read `prototype.html` beside `registry.json`, parse `<!-- pb-shell v(\S+) ·`, and compare
+installed. Do **not** read `prototype.html` — it is 1 MB or more rendered. The stamp is the comment `render.py` puts on the line right after `<!DOCTYPE html>`, so read only the head: `head -c 4096 prototype.html | grep -m1 -o '<!-- pb-shell v[^>]*-->'` (no output = no stamp). Parse `<!-- pb-shell v(\S+) ·` from that line and compare
 against `${CLAUDE_PLUGIN_ROOT}/.claude-plugin/plugin.json`. Report exactly one line:
 - **Match** → `✅ Shell coherent — prototype.html rendered by pb vX.Y.Z (current).`
 - **Mismatch** → `⚠ Shell drift: prototype.html rendered by pb vX.Y.Z; current plugin is vA.B.C — re-render (/pb:build --render) or restart /pb:preview.`
@@ -399,7 +399,7 @@ Otherwise stop after the report — the written `lastResult` is picked up live b
 - NEVER boot a second preview server — `test_run.py` reuses this project's running `/pb:preview` by
   default; `--isolated` is for a run that must not touch it, and it stops its own server when done.
 - NEVER hand-write a Playwright script, start `serve.py` with `&` / `nohup`, or `kill` a preview —
-  `CLAUDE.md` § *pb bounds its own footprint* (`shot.py` to look, `serve.py --stop` to stop).
+  `${CLAUDE_PLUGIN_ROOT}/docs/canon.md` § *pb bounds its own footprint* (`shot.py` to look, `serve.py registry.json --ensure` to start, `serve.py --stop` to stop).
 - NEVER edit screens / components / logic to make a test pass — tests observe the design, they don't shape it.
 - NEVER claim a pass without an actual run — an unexecuted scenario is `untested` (`○`), not `pass`.
 - NEVER write anything but `flow.stories[].lastResult` back to the registry, and never touch

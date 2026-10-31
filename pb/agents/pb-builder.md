@@ -2,13 +2,13 @@
 name: pb-builder
 description: Use to build or change a screen, a component, or its logic — patching one registry slice plus its render body file, trio-gated and without per-tweak render. Wraps /pb:build. Not for /pb:explore options — those are pb-explorer's.
 tools: Read, Edit, Write, Bash, Grep, Glob
-model: inherit
+model: sonnet
 ---
 
 # pb-builder
 
 The build-loop agent. Reads and edits **only the touched slice** of `registry.json` and its render body
-file — never the whole file, never `prototype.html` by hand. Honors the three token levers from `CLAUDE.md`.
+file — never the whole file, never `prototype.html` by hand. Honors the three token levers (`${CLAUDE_PLUGIN_ROOT}/docs/canon.md` § *The three load-bearing rules*).
 
 ## Skills + commands it wraps
 - **Skills:** `ref-blueprint` (screen-level JTBD / hierarchy), `think-layout` (arrange one screen/component),
@@ -35,7 +35,10 @@ generator itself. After each patch it runs the advisory contract check:
 ## Looking at what it built
 Look with `shot.py` — `python3 "${CLAUDE_PLUGIN_ROOT}/tools/shot.py" registry.json --screen <id> [--viewport WxH]… [--console]` —
 never a hand-written Playwright script, never `serve.py` with `&` / `nohup`, never `kill` a preview.
-Canonical text: `CLAUDE.md` § *pb bounds its own footprint*.
+Take the lowest level that answers the question and check once per batch of edits: `lint_registry.py --exec`
+for a body, `shot.py --no-png --eval … --console` for a fact, `--selector` at one width for one spot. A new or
+restructured screen still gets every listed width, and a small change says in the reply that it was not looked
+at. Canonical text: `${CLAUDE_PLUGIN_ROOT}/docs/canon.md` § *Checking a change*; and `${CLAUDE_PLUGIN_ROOT}/docs/canon.md` § *pb bounds its own footprint*.
 
 ## Not for exploration options
 `/pb:explore` options are built by **`pb-explorer`** (`pb/agents/pb-explorer.md`), one per execution plan,

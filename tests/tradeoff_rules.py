@@ -149,7 +149,7 @@ def test_shell():
     except ImportError:
         print("\n(browser half skipped — Playwright not installed)")
         return
-    from e2e_smoke import GOLDEN, Server, _offline  # noqa: E402
+    from e2e_smoke import GOLDEN, Server, _offline, real_console_error  # noqa: E402
 
     with sync_playwright() as pw:
         try:
@@ -171,7 +171,7 @@ def test_shell():
                 _offline(page)
                 errs = []
                 page.on("pageerror", lambda e: errs.append(str(e)))
-                page.on("console", lambda m: errs.append(m.text) if m.type == "error" else None)
+                page.on("console", lambda m: errs.append(m.text) if real_console_error(m) else None)
                 open_logic(page, srv.url)
                 # The decision is context, not the rule: it sits behind the card's Details button, in the
                 # drawer's Decision section (logic visuals, v2.3) — open it and read it there.
@@ -212,7 +212,7 @@ def test_shell():
                 _offline(page)
                 errs = []
                 page.on("pageerror", lambda e: errs.append(str(e)))
-                page.on("console", lambda m: errs.append(m.text) if m.type == "error" else None)
+                page.on("console", lambda m: errs.append(m.text) if real_console_error(m) else None)
                 open_logic(page, srv.url)
                 body = page.eval_on_selector("#app", "e => e.innerText")
                 check(page.locator(".pb-qa-warn-head").count() == 1,

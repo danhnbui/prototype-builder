@@ -1241,7 +1241,7 @@ def _ours(base, reg_path):
 
 def _claimed_port(base_dir, reg_path):
     """The port this project's own launch.json entry (preview_register.py) gives its preview — so a
-    server started here keeps the URL the project already uses, instead of taking the default 8000
+    server started here keeps the URL the project already uses, instead of a port
     another project may have claimed. None when there is no such entry or the port is busy."""
     try:
         with open(os.path.join(base_dir, ".claude", "launch.json"), encoding="utf-8") as f:
@@ -1285,18 +1285,23 @@ def trim_log(path, limit=LOG_MAX, keep=LOG_KEEP):
         return 0
 
 
-def _start_server(reg_path, wait=30.0):
+def _start_server(reg_path, wait=30.0, extra_args=None, managed=False):
     """Start serve.py for this registry in its own session (it outlives this command) and wait
     until it answers as ours. Its output goes to .preview/server.log (trimmed to its last 256 KB
-    first when it has grown past 1 MB)."""
+    first when it has grown past 1 MB). `extra_args` are more serve.py flags (--shell, --port,
+    --host, …) passed on as they are. `managed` marks the server as one of the few `serve.py --ensure`
+    and `link` keep (serve.py's --managed: it records itself and makes room under PB_PREVIEW_MAX) — a
+    caller that only needs a server for a moment, a test among them, leaves it off. Without --port
+    the project's launch.json port is used when it has one, else serve.py picks the project's own."""
     base_dir = os.path.dirname(os.path.abspath(reg_path))
     log_path = os.path.join(base_dir, SERVER_LOG)
     os.makedirs(os.path.dirname(log_path), exist_ok=True)
     trim_log(log_path)
-    port = _claimed_port(base_dir, reg_path)
+    extra = list(extra_args or [])
+    port = None if "--port" in extra else _claimed_port(base_dir, reg_path)
     with open(log_path, "ab") as log:
         proc = subprocess.Popen([sys.executable, os.path.join(HERE, "serve.py"), reg_path, "--no-open"]
-                                + (["--port", str(port)] if port else []),
+                                + (["--port", str(port)] if port else []) + (["--managed"] if managed else []) + extra,
                                 stdin=subprocess.DEVNULL, stdout=log, stderr=subprocess.STDOUT,
                                 cwd=base_dir, start_new_session=True)
     deadline = time.time() + wait
@@ -1332,7 +1337,7 @@ def cmd_link(reg_path, target, open_browser=False):
     man = load_manifest(base_dir, target)
     rec, started = server_record(base_dir), False
     if not (rec and _ours(rec["url"].rstrip("/"), reg_path)):
-        rec, started = _start_server(reg_path), True
+        rec, started = _start_server(reg_path, managed=True), True
     base = rec["url"].rstrip("/")
     url = "%s/explore/%s" % (base, urllib.parse.quote(target))
     problems = []

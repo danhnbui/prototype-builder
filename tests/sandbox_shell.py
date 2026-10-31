@@ -41,7 +41,7 @@ import sys
 import tempfile
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from e2e_smoke import GOLDEN, Server, _offline  # noqa: E402  (same harness, one definition)
+from e2e_smoke import GOLDEN, Server, _offline, real_console_error  # noqa: E402  (same harness, one definition)
 
 # A screen with navigation that happens INSIDE the page — the golden has none, and in-page state
 # is exactly what compare mode used to drop on the floor.
@@ -147,7 +147,7 @@ def run():
             page = browser.new_page(viewport={"width": 1500, "height": 950})
             _offline(page)
             errors = []
-            page.on("console", lambda m: errors.append(m.text) if m.type == "error" else None)
+            page.on("console", lambda m: errors.append(m.text) if real_console_error(m) else None)
             page.on("pageerror", lambda e: errors.append(str(e)))
             page.goto(srv.url, wait_until="domcontentloaded")
             page.wait_for_selector("#proto-frame", timeout=10000)
@@ -418,7 +418,7 @@ def run():
                 page = browser.new_page(viewport={"width": 1500, "height": 950})
                 _offline(page)
                 errs2 = []
-                page.on("console", lambda m: errs2.append(m.text) if m.type == "error" else None)
+                page.on("console", lambda m: errs2.append(m.text) if real_console_error(m) else None)
                 page.on("pageerror", lambda e: errs2.append(str(e)))
                 page.goto(srv2.url, wait_until="domcontentloaded")
                 page.wait_for_selector("#proto-frame", timeout=10000)

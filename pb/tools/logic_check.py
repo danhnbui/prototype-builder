@@ -674,6 +674,9 @@ def main():
             sys.exit("usage: logic_check.py --explain <CODE>")
         return explain(args[i + 1])
 
+    reg_flag, args = extract_mod.pop_registry_flag(args)
+    if reg_flag is not None:
+        args = args + [reg_flag]
     shell_path = None
     if "--shell" in args:
         i = args.index("--shell")
@@ -686,15 +689,17 @@ def main():
         if len(rest) != 3 or rest[0] not in ("capture", "compare"):
             sys.exit("usage: logic_check.py --freeze {capture|compare} <file> <project-dir> [--shell <path>]")
         mode, path, project_dir = rest
+        project_dir = extract_mod.resolve_project_dir(project_dir, "logic_check")
         if mode == "capture":
             return freeze_capture(project_dir, shell_path, path)
         return freeze_compare(project_dir, shell_path, path)
 
     if len(args) != 1:
-        sys.exit("usage: logic_check.py <project-dir> [--shell <prototype.html>]  |  "
+        sys.exit("usage: logic_check.py <project-dir | registry.json | --registry PATH> [--shell <prototype.html>]  |  "
                  "logic_check.py --explain <CODE>  |  "
                  "logic_check.py --freeze {capture|compare} <file> <project-dir>")
-    findings, graph = run(args[0], shell_path=shell_path)
+    project_dir = extract_mod.resolve_project_dir(args[0], "logic_check")
+    findings, graph = run(project_dir, shell_path=shell_path)
     return _report(findings, "logic_check.py", f"clean — {args[0]} ({graph['stats']['handlers']} handler(s) scanned)")
 
 

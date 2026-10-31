@@ -18,9 +18,22 @@ browser once per file write of a burst, and could only be ended with `kill`. Now
                    never signals a record whose health check names another registry, nor a pid that is
                    not the one that answered, and --status / --stop never start a server
   7. slot cache    a rendered option of an exploration that is no longer open is dropped when the version bumps
+  9. default       the idle exit defaults to 480 minutes (8 h) — 30 lost people their preview mid-afternoon —
+                   and --idle-exit / $PB_PREVIEW_IDLE_MIN still set it
+ 10. --ensure      the one idempotent start: twice gives one pid and one URL (the second starts nothing), JSON
+                   {url, pid, started}, the server outlives the command that started it, --shell / --idle-exit /
+                   --allow-host are handed on, a server that cannot start is exit 3 with the message; with no
+                   --port the project gets its own stable port
+ 11. the cap       at most $PB_PREVIEW_MAX managed servers (--ensure, explore.py link); starting one more stops
+                   the longest-idle server with no tab open — never one with an open event stream — and says so;
+                   when every other has a tab, nothing is stopped and the new one starts anyway
+ 12. who counts    a plain serve.py, a direct explore._start_server and so the private servers shot.py and
+                   test_run.py boot never register and never evict; `explore.py link` does register
 
-Stdlib only, no browser, never a fixed port (the servers bind port 0). Builds from a temp copy of
-fixtures/golden and cleans up every process it starts.  Usage:  python3 tests/serve_idle.py
+Stdlib only, no browser, never a fixed port but the one test of the project's own port (the other servers
+bind port 0; every managed-server folder is a temp one via PB_PREVIEW_DIR, so this test never reads or
+stops a real preview). Builds from a temp copy of fixtures/golden and cleans up every process it starts,
+the detached ones with `serve.py --stop`.  Usage:  python3 tests/serve_idle.py
 Exit: 0 pass · 1 fail
 """
 import http.client
@@ -41,10 +54,12 @@ SERVE = os.path.join(ROOT, "pb", "tools", "serve.py")
 GOLDEN_DIR = os.path.join(ROOT, "fixtures", "golden")
 sys.path.insert(0, os.path.join(ROOT, "pb", "tools"))
 import serve  # noqa: E402
+import explore  # noqa: E402
 
 _fail = []
 _procs = []      # every process this test starts, killed in the end
 _dirs = []       # every temp folder, removed in the end
+_ensured = []    # registries of detached servers (--ensure / link): stopped with `serve.py --stop` in the end
 T0 = time.time()
 
 
@@ -77,12 +92,12 @@ def set_name(reg_path, name):
 class Proc:
     """serve.py on a registry, with its output collected by a thread so the pipe never fills."""
 
-    def __init__(self, reg_path, *args, cwd=None):
+    def __init__(self, reg_path, *args, cwd=None, env=None):
         self.reg = reg_path
         self.lines = []
         self.url = None
         self.proc = subprocess.Popen([sys.executable, SERVE, reg_path, "--no-open", "--port", "0"] + list(args),
-                                     stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1, cwd=cwd)
+                                     stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1, cwd=cwd, env=env)
         _procs.append(self.proc)
         threading.Thread(target=self._pump, daemon=True).start()
         deadline = time.time() + 15
@@ -175,11 +190,42 @@ class Events:
                 pass
 
 
-def cli(reg_arg, *args, cwd=None):
-    """serve.py's one-shot modes → (exit code, stdout)."""
+def cli(reg_arg, *args, cwd=None, env=None, split=False):
+    """serve.py's one-shot modes → (exit code, stdout + stderr), or (exit code, stdout, stderr) with split."""
     cmd = [sys.executable, SERVE] + ([reg_arg] if reg_arg else []) + list(args)
-    r = subprocess.run(cmd, capture_output=True, text=True, timeout=30, cwd=cwd)
-    return r.returncode, r.stdout + r.stderr
+    r = subprocess.run(cmd, capture_output=True, text=True, timeout=60, cwd=cwd, env=env)
+    return (r.returncode, r.stdout, r.stderr) if split else (r.returncode, r.stdout + r.stderr)
+
+
+def ensure(reg, env, *args, cwd=None):
+    """`serve.py --ensure --json` → (exit code, parsed JSON or {}, stderr). Remembers the server for the final cleanup."""
+    if reg not in _ensured:
+        _ensured.append(reg)
+    code, out, err = cli(reg, "--ensure", "--json", *args, env=env, split=True, cwd=cwd)
+    try:
+        return code, json.loads(out), err
+    except ValueError:
+        return code, {}, err + out
+
+
+def up(info):
+    """True when the server `info` names answers its health as that pid."""
+    try:
+        conn = http.client.HTTPConnection(info["url"].split("//", 1)[1].rstrip("/"), timeout=2)
+        conn.request("GET", "/__pb_health")
+        return json.loads(conn.getresponse().read().decode()).get("pid") == info["pid"]
+    except (OSError, ValueError, KeyError):
+        return False
+
+
+class Remote:
+    """What Events needs of a server this test did not start itself."""
+    def __init__(self, info):
+        self.hostport = info["url"].split("//", 1)[1].rstrip("/")
+
+
+def port_of(info):
+    return int(info["url"].rstrip("/").rsplit(":", 1)[1])
 
 
 def wait_until(fn, seconds, step=0.05):
@@ -382,6 +428,204 @@ def main():
           "six threads that all see one change bump the version once (%d bumps, %d saw it)" % (st.version - v0, sum(1 for g in got if g)))
     check(err is None and "Raced" in html, "…and what they render is the new file")
 
+    def stop_plain(p):
+        p.proc.terminate()
+        p.wait_exit(5)
+
+    def log_of(reg_path):
+        try:
+            with open(os.path.join(os.path.dirname(reg_path), ".preview", "server.log"), encoding="utf-8") as f:
+                return f.read()
+        except OSError:
+            return ""
+
+    def records(d):
+        return sorted(n for n in os.listdir(d) if n.endswith(".json"))
+
+    def tempdir(prefix):
+        d = tempfile.mkdtemp(prefix=prefix)
+        _dirs.append(d)
+        return d
+
+    print("9 · the idle exit defaults to 480 minutes (8 h)")
+    env0 = {k: v for k, v in os.environ.items() if k not in ("PB_PREVIEW_IDLE_MIN", "PB_PREVIEW_DIR", "PB_PREVIEW_MAX")}
+    check(serve.IDLE_EXIT_MIN == 480, "IDLE_EXIT_MIN is 480 (it was 30)")
+    s = Proc(project(), env=env0)
+    check(re.search(r"idle exit +after 480 min", s.log()) is not None, "a server started with no --idle-exit says it stops after 480 min")
+    stop_plain(s)
+    s = Proc(project(), env=dict(env0, PB_PREVIEW_IDLE_MIN="12"))
+    check(re.search(r"idle exit +after 12 min", s.log()) is not None, "$PB_PREVIEW_IDLE_MIN still sets it")
+    stop_plain(s)
+    s = Proc(project(), "--idle-exit", "7", env=dict(env0, PB_PREVIEW_IDLE_MIN="12"))
+    check(re.search(r"idle exit +after 7 min", s.log()) is not None, "…and --idle-exit still wins over it")
+    stop_plain(s)
+    code, out = cli(None, "--help", env=env0)
+    check(code == 0 and "default: 480" in out, "--help states the new default")
+
+    print("10 · --ensure: one idempotent start")
+    pdir = tempdir("pb-previews-")
+    env = dict(env0, PB_PREVIEW_DIR=pdir)
+    reg = project()
+    code, a1, err = ensure(reg, env)
+    check(code == 0 and a1.get("started") is True and sorted(a1) == ["pid", "started", "url"] and isinstance(a1.get("pid"), int),
+          "the first --ensure --json starts a server and prints exactly {url, pid, started} (exit %s: %s)" % (code, a1 or err[-200:]))
+    own = serve.stable_port(reg)
+    check(own <= port_of(a1) < own + 60, "with no --port it takes the project's own port, or the next free one above it (got %d, own %d)" % (port_of(a1), own))
+    check(up(a1), "it answers as that pid after the command that started it has exited")
+    try:
+        check(os.getsid(a1["pid"]) == a1["pid"], "…in a session of its own, so it outlives that command's terminal")
+    except (OSError, AttributeError):
+        check(True, "(os.getsid unavailable)")
+    code, a2, err = ensure(reg, env)
+    check(code == 0 and a2 == dict(a1, started=False), "a second --ensure starts nothing: the same pid and URL, started false (%s)" % (a2 or err))
+    code, out = cli(reg, "--ensure", env=env)
+    check(code == 0 and a1["url"] in out and str(a1["pid"]) in out and "running at" in out, "without --json it says where it runs (%s)" % out.strip())
+    ps = subprocess.run(["ps", "-axo", "command="], capture_output=True, text=True).stdout.splitlines()
+    mine = [ln for ln in ps if "serve.py" in ln and reg in ln and "--ensure" not in ln]
+    check(len(mine) == 1, "…and one serve.py process serves this registry (%d)" % len(mine))
+    rec_file = os.path.join(pdir, "%d.json" % a1["pid"])
+    try:
+        with open(rec_file, encoding="utf-8") as f:
+            rec = json.load(f)
+    except (OSError, ValueError):
+        rec = {}
+    check(rec.get("pid") == a1["pid"] and rec.get("url") == a1["url"] and rec.get("registry") == reg and rec.get("startedAt"),
+          "a managed server records itself as <preview dir>/<pid>.json {url, pid, registry, startedAt}")
+    check(re.search(r"idle exit +after 480 min", log_of(reg)) is not None, "…and the server it started stops after 480 min by default")
+    code, out = cli(reg, "--stop", env=env)
+    check(code == 0 and wait_until(lambda: not up(a1), 5), "--stop ends it (exit %d)" % code)
+    check(wait_until(lambda: not os.path.exists(rec_file), 3) and not os.path.exists(os.path.join(os.path.dirname(reg), ".preview", "server.json")),
+          "…and both its records go with it")
+
+    print("   the flags the caller gave reach the server it starts")
+    fork_dir = tempdir("pb-fork-")
+    forked = os.path.join(fork_dir, "forked-shell.html")
+    with open(os.path.join(ROOT, "pb", "template", "prototype.html"), encoding="utf-8") as f:
+        shell_html = f.read()
+    with open(forked, "w", encoding="utf-8") as f:
+        f.write(shell_html.replace("<title>Prototype Builder</title>", "<title>Prototype Builder FORKED-SHELL-MARK</title>", 1))
+    reg_f = project()
+    # (the relative --shell is resolved against the caller's cwd — fork_dir — before it is handed on: the server starts in the project)
+    code, f1, err = ensure(reg_f, env, "--port", "0", "--shell", "forked-shell.html", "--idle-exit", "7", "--allow-host", "Foo.Local",
+                           cwd=fork_dir)
+    check(code == 0 and f1.get("started") is True, "--ensure with --port 0 --shell --idle-exit --allow-host starts (exit %s: %s)" % (code, f1 or err[-200:]))
+    if f1:
+        conn = http.client.HTTPConnection(f1["url"].split("//", 1)[1].rstrip("/"), timeout=10)
+        conn.request("GET", "/")
+        body = conn.getresponse().read().decode("utf-8", "replace")
+        check("FORKED-SHELL-MARK" in body, "--shell survives: the page is the forked shell's")
+        check(re.search(r"idle exit +after 7 min", log_of(reg_f)) is not None, "--idle-exit survives (the server's banner says 7 min)")
+        conn = http.client.HTTPConnection(f1["url"].split("//", 1)[1].rstrip("/"), timeout=10)
+        conn.request("GET", "/", headers={"Host": "foo.local"})
+        check(conn.getresponse().status == 200, "--allow-host survives (Host foo.local is answered)")
+        cli(reg_f, "--stop", env=env)
+
+    print("   a server that cannot start is exit 3 with the message")
+    busy = socket.socket()
+    busy.bind(("127.0.0.1", 0))
+    busy.listen(1)
+    reg_x = project()
+    _ensured.append(reg_x)
+    code, out, err = cli(reg_x, "--ensure", "--port", str(busy.getsockname()[1]), env=env, split=True)
+    check(code == 3 and "exited as it started" in err and "server.log" in err, "--ensure on a port in use → exit 3 and why (%s)" % err.strip()[:120])
+    code, out, err = cli(reg_x, "--ensure", "--json", "--port", str(busy.getsockname()[1]), env=env, split=True)
+    check(code == 3 and "exited as it started" in json.loads(out).get("error", ""), "…and with --json, {error} on stdout (%s)" % out.strip()[:100])
+    busy.close()
+    check(wait_until(lambda: records(pdir) == [], 3), "…and nothing was recorded")
+    code, out = cli(reg, "--ensure", "--stop", env=env)
+    check(code == 2, "--ensure with --stop or --status is a usage error (exit %d)" % code)
+
+    print("   PB_PREVIEW_MAX")
+    saved = os.environ.get("PB_PREVIEW_MAX")
+    try:
+        got = []
+        for raw in (None, "", "0", "3", "junk", "-2"):
+            if raw is None:
+                os.environ.pop("PB_PREVIEW_MAX", None)
+            else:
+                os.environ["PB_PREVIEW_MAX"] = raw
+            got.append(serve.preview_max())
+        check(got == [6, 6, 0, 3, 6, 6], "preview_max: default 6, 0 = no cap, a number, junk and negatives ignored (%s)" % got)
+    finally:
+        if saved is None:
+            os.environ.pop("PB_PREVIEW_MAX", None)
+        else:
+            os.environ["PB_PREVIEW_MAX"] = saved
+
+    print("11 · the cap: the longest-idle server with no tab open makes room; one with a tab is never stopped")
+    pdir2 = tempdir("pb-previews-")
+    envc = dict(env0, PB_PREVIEW_DIR=pdir2, PB_PREVIEW_MAX="2")
+    ra, rb, rc_ = project(), project(), project()
+    _c, A, _e = ensure(ra, envc, "--port", "0")
+    time.sleep(2.2)
+    _c, B, _e = ensure(rb, envc, "--port", "0")
+    time.sleep(2.2)
+    check(up(A) and up(B) and len(records(pdir2)) == 2, "two managed servers fit under a cap of 2 (records: %d)" % len(records(pdir2)))
+    code, C, err = ensure(rc_, envc, "--port", "0")
+    check(code == 0 and C.get("started") is True and up(C), "a third --ensure starts (exit %s)" % code)
+    check(wait_until(lambda: not up(A), 6), "…and stops the longest-idle one with no tab open (the first)")
+    check(up(B) and up(C), "…the other two stay")
+    check(wait_until(lambda: records(pdir2) == sorted("%d.json" % i["pid"] for i in (B, C)), 4), "…and the records are B's and C's (%s)" % records(pdir2))
+    lg = log_of(rc_)
+    check(re.search(r"cap +stopped pid %d " % A["pid"], lg) is not None and "no tab open" in lg and "PB_PREVIEW_MAX" in lg,
+          "one log line in the new server's log names what was stopped (%s)" % ([ln for ln in lg.splitlines() if "cap" in ln][:1]))
+    for reg_i in (rb, rc_):
+        cli(reg_i, "--stop", env=envc)
+    check(wait_until(lambda: records(pdir2) == [], 5), "(the other two stopped: no records left)")
+
+    pdir3 = tempdir("pb-previews-")
+    envd = dict(env0, PB_PREVIEW_DIR=pdir3, PB_PREVIEW_MAX="2")
+    rd, re_, rf, rg = project(), project(), project(), project()
+    _c, D, _e = ensure(rd, envd, "--port", "0")
+    ev_d = Events(Remote(D))
+    check(ev_d.connected.is_set(), "(a tab is open on the first server)")
+    time.sleep(2.2)
+    _c, E, _e = ensure(re_, envd, "--port", "0")
+    time.sleep(2.2)
+    _c, F, _e = ensure(rf, envd, "--port", "0")
+    check(wait_until(lambda: not up(E), 6), "with a tab open on the OLDEST, the next-oldest is the one stopped")
+    check(up(D) and up(F), "…the one with the open event stream stays, and so does the new one")
+    ev_f = Events(Remote(F))
+    time.sleep(1.2)
+    code, G, err = ensure(rg, envd, "--port", "0")
+    check(code == 0 and G.get("started") is True and up(G) and up(D) and up(F),
+          "every other server has a tab open: nothing is stopped and the new one starts anyway (exit %s)" % code)
+    lg = log_of(rg)
+    check("have a tab open" in lg and not re.search(r"cap +stopped", lg), "…it says so in one line (%s)" % ([ln for ln in lg.splitlines() if "cap" in ln][:1]))
+    ev_d.close()
+    ev_f.close()
+
+    print("12 · only --ensure and explore.py link are managed — plain servers and direct starts neither register nor evict")
+    pdir4 = tempdir("pb-previews-")
+    envp = dict(env0, PB_PREVIEW_DIR=pdir4, PB_PREVIEW_MAX="1")
+    rh, ri, rj, rk = project(), project(), project(), project()
+    _c, H, _e = ensure(rh, envp, "--port", "0")
+    check(up(H) and len(records(pdir4)) == 1, "(one managed server, cap 1)")
+    plain = Proc(ri, env=envp)
+    time.sleep(1.0)
+    check(up(H) and records(pdir4) == ["%d.json" % H["pid"]], "a plain serve.py registers nothing and stops nothing, though that is over the cap")
+    stop_plain(plain)
+    saved_env = {k: os.environ.get(k) for k in ("PB_PREVIEW_DIR", "PB_PREVIEW_MAX")}
+    os.environ.update(PB_PREVIEW_DIR=pdir4, PB_PREVIEW_MAX="1")
+    try:
+        _ensured.append(rj)
+        direct = explore._start_server(rj)
+        time.sleep(1.0)
+        check(up(H) and "%d.json" % direct["pid"] not in records(pdir4) and len(records(pdir4)) == 1,
+              "explore._start_server on its own (what shot.py and the tests use) registers nothing and stops nothing")
+        explore.cmd_init(rk, "lk", options=2, goal=True, intent="a round to link to")
+        _ensured.append(rk)
+        res = explore.cmd_link(rk, "lk")
+        check(res["started"] and res["problems"] == [], "explore.py link starts a server (%s)" % res["problems"])
+        check("%d.json" % res["pid"] in records(pdir4), "…a managed one: it records itself")
+        check(wait_until(lambda: not up(H), 6), "…and, with the cap at 1, it stops the idle managed server to make room")
+    finally:
+        for k, v in saved_env.items():
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v
+
     print()
     print("wall time %.1f s" % (time.time() - T0))
     if _fail:
@@ -398,6 +642,11 @@ if __name__ == "__main__":
     try:
         rc = main()
     finally:
+        for reg_i in _ensured:       # the detached ones: only `--stop` ends them, and only after confirming whose they are
+            try:
+                subprocess.run([sys.executable, SERVE, reg_i, "--stop"], capture_output=True, timeout=30)
+            except (subprocess.SubprocessError, OSError):
+                pass
         for p in _procs:
             if p.poll() is None:
                 p.terminate()

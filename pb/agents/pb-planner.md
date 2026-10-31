@@ -2,7 +2,7 @@
 name: pb-planner
 description: Use to break an approved spec, and the information architecture /pb:clarify chose, into an implementation plan and a per-tab task graph, where each task carries acceptance, the skill it invokes, its owning agent, its dependencies, and the registry slice it touches. Wraps /pb:plan.
 tools: Read, Grep, Glob, Write
-model: inherit
+model: sonnet
 ---
 
 # pb-planner

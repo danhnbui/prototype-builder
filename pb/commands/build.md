@@ -5,10 +5,10 @@ description: The cheap build loop. Apply a targeted patch to the touched registr
 # /pb:build
 
 The build loop. Reads/edits **only the touched slice of `registry.json`** — never the whole file,
-never `prototype.html` by hand. Honors the three token levers from the project router (`CLAUDE.md`).
+never `prototype.html` by hand. Honors the three token levers (`${CLAUDE_PLUGIN_ROOT}/docs/canon.md` § *The three load-bearing rules*).
 
 ## Pre-write schema check
-Apply the **Schema compatibility** check from `CLAUDE.md` before writing any registry slice. If
+Apply the **Schema compatibility** check (`${CLAUDE_PLUGIN_ROOT}/docs/canon.md` § *Schema compatibility*) before writing any registry slice. If
 `meta.schemaVersion` is below `CURRENT_SCHEMA`, print the banner and suggest `/pb:update-version`. Stop
 (do not write) if the current write touches a slice a pending version update changes.
 
@@ -22,16 +22,16 @@ Apply the **Schema compatibility** check from `CLAUDE.md` before writing any reg
 - no flag — apply the registry patch and **stop. Do NOT render.**
 
 ## 1 · Read the touched slice (only)
-Identify the target and read ONLY that from `registry.json` — use `pb/tools/slice.py get` so
-a big registry never loads whole into context:
+Identify the target and read ONLY that from `registry.json` — use `python3 "${CLAUDE_PLUGIN_ROOT}/tools/slice.py" get` so
+a big registry never loads whole into context (every `slice.py` below is that path):
 | Prompt targets | Read |
 |---|---|
-| a token | `slice.py get tokens <name>` |
-| a component | `slice.py get components <id>` (+ the DS index first if it's NEW — step 3) |
-| a screen / element | `slice.py get screens <id>` |
-| Project Summary copy | `slice.py get meta <key>` |
+| a token | `python3 "${CLAUDE_PLUGIN_ROOT}/tools/slice.py" get tokens <name>` |
+| a component | `python3 "${CLAUDE_PLUGIN_ROOT}/tools/slice.py" get components <id>` (+ the DS index first if it's NEW — step 3) |
+| a screen / element | `python3 "${CLAUDE_PLUGIN_ROOT}/tools/slice.py" get screens <id>` |
+| Project Summary copy | `python3 "${CLAUDE_PLUGIN_ROOT}/tools/slice.py" get meta <key>` |
 
-`slice.py list <components\|screens\|tokens\|meta>` enumerates ids/keys when you need to locate a
+`python3 "${CLAUDE_PLUGIN_ROOT}/tools/slice.py" list <components\|screens\|tokens\|meta>` enumerates ids/keys when you need to locate a
 target first. Do not load the whole registry, and never read `prototype.html` to make an edit.
 
 ## 1b · Responsive — ask once, before the first trio write that needs it
@@ -43,7 +43,7 @@ Read `meta.responsive` and `meta.devices`. Group the devices by size class — *
   as `/pb:init` §3 does (`true`, or `false` plus trimming `meta.devices` to `[meta.device]`), with a
   Principle and a `decisions.md` line. Ask **once** — never again once it is recorded.
 - **`true`** → every new or restructured screen/component in this run is built for every listed size
-  (`CLAUDE.md` → *Responsive across devices*). **Yes means build it now**, not later: a screen that
+  (`${CLAUDE_PLUGIN_ROOT}/docs/canon.md` § *Responsive across devices*). **Yes means build it now**, not later: a screen that
   only works at `meta.device` is unfinished.
 - **`false`, or one class** → one layout at `meta.device`; nothing more to do.
 - Non-trio tweaks never trigger the question.
@@ -88,10 +88,13 @@ The **trio** = a **screen**, a **component**, or **logic** (states, validation, 
    variant → local, then the naming contract. Invoke skills as needed: `think-layout` (layout),
    `think-logic` (state/rules), `design-component-build` (a new custom component).
    For a new or restructured screen or component, `think-layout` §2–§3 (a component chosen per region,
-   the density budget) and §5 (render it and look at both widths) are not optional — a layout handed
+   the density budget) and §5 (render it and look at every listed width) are not optional — a layout handed
    back without them is unfinished, and §5 with no browser is reported blocked, never passed. Look with
    `shot.py` — `python3 "${CLAUDE_PLUGIN_ROOT}/tools/shot.py" registry.json --screen <id> [--viewport WxH]…` —
-   never a hand-written Playwright script (`CLAUDE.md` § *pb bounds its own footprint*).
+   never a hand-written Playwright script (`${CLAUDE_PLUGIN_ROOT}/docs/canon.md` § *pb bounds its own footprint*).
+   That full look is for a new or restructured screen; a smaller change takes the lowest level that
+   answers the question, checked once per batch, and the reply says when it was not looked at
+   (`${CLAUDE_PLUGIN_ROOT}/docs/canon.md` § *Checking a change*).
    With **`meta.responsive: true`**, `think-layout` §4 *Responsive* is part of that: each size class
    in `meta.devices` gets its own answer (navigation, columns, table → cards, dialog → sheet), written
    as container queries in the item's `styleSrc` sheet or with the `r-*` utilities, and §5 looks at
@@ -186,7 +189,7 @@ It exits with one code per cause — read the code, do not guess:
 created, then continue to §4.
 
 ## 4 · Apply the targeted patch
-Patch the **one** touched slice — `pb/tools/slice.py set <kind> <id>` (patch JSON on stdin) merges
+Patch the **one** touched slice — `python3 "${CLAUDE_PLUGIN_ROOT}/tools/slice.py" set <kind> <id>` (patch JSON on stdin) merges
 into just that entry and rewrites the file, so no other slice enters context. Changed keys only:
 - **token** → set `tokens.<name>.$value` (create one tagged `"scope":"local"` if none fits; never a raw hex/px elsewhere).
 - **component** → patch the `components[]` entry (a `properties` default, etc.). To change
@@ -243,7 +246,7 @@ Two more rules:
   the page. Opened read-only (over `file://`, or in a hand-off) the dialog hands out a **plain prompt** to
   paste here — `Set this project's name to "…"`, `Set this project's design system name to "…"`,
   `Set this project's Figma file link to "…"` — so treat that sentence as the request. It is a `meta` patch
-  (`slice.py set meta <key>`: `name`, `designSystem.name`, `designSystem.designLink`), not a trio change, so
+  (`${CLAUDE_PLUGIN_ROOT}/tools/slice.py set meta <key>`: `name`, `designSystem.name`, `designSystem.designLink`), not a trio change, so
   no gate and no render. Apply the dialog's own rules: neither name may be empty, a Figma link must be a
   `figma.com/file/…` or `figma.com/design/…` link (an empty one removes the key), and no value may carry a
   control or invisible character. There is no `/pb:build set …` syntax.
@@ -253,7 +256,7 @@ Two more rules:
 
 ## 4.5 · Auto-sync the flow + erd slices (trio writes only)
 A trio write changed what the product *is*, so the two slices that describe it move with it — same
-turn, no Sync button, no second command. Apply the **Auto-sync** rules from `CLAUDE.md` (canonical).
+turn, no Sync button, no second command. Apply the **Auto-sync** rules (`${CLAUDE_PLUGIN_ROOT}/docs/canon.md` § *Auto-sync*, canonical).
 Non-trio tweaks (step 2) **skip this**, exactly as they skip the gate.
 
 **Reconcile, never regenerate.** Read the patch you just applied — not `memory/spec.md`, not
@@ -271,7 +274,7 @@ Non-trio tweaks (step 2) **skip this**, exactly as they skip the gate.
 | removed a data-bearing field | — | drop that row |
 | anything else — a component body, a prop, a label | — | — |
 
-**Read narrowly.** `slice.py get flow mermaid` is ~15 lines and is all you need to place a node. Do
+**Read narrowly.** `${CLAUDE_PLUGIN_ROOT}/tools/slice.py get flow mermaid` is ~15 lines and is all you need to place a node. Do
 **not** pull `flow.stories[].scenarios[]` into context to append a story, and read only the touched
 entity's rows out of `erd.table[]`.
 

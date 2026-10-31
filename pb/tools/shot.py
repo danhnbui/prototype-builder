@@ -17,7 +17,7 @@ Usage:
   python3 shot.py [registry.json] (--screen ID | --path /explore/<id>/<slot> | --url URL)
                   [--viewport WxH]... [--full-page] [--selector CSS] [--click CSS]...
                   [--wait-for CSS] [--wait MS] [--role ID] [--eval JS] [--console]
-                  [--out FILE_OR_DIR] [--isolated]
+                  [--step STEP]... [--no-png] [--out FILE_OR_DIR] [--isolated]
 
   --screen ID       a registry screen, in the prototype (`/`)
   --path PATH       a page on the preview server — e.g. /explore/<id>/<slot>?embed=1, /design-system
@@ -34,12 +34,27 @@ Usage:
   --out FILE_OR_DIR where the PNGs go — a directory, or a .png file (several viewports then get
                     -<WxH> before the extension). Default: <registry folder>/.preview/shots/<name>-<WxH>.png
 
+  --step STEP       repeatable, run in the order given, after --click/--wait-for/--wait and before the final
+                    capture (per viewport, after role and screen setup). STEP is one of
+                      click:CSS          click the first match (5s)
+                      fill:CSS=VALUE     fill an input; CSS ends at the first `=` outside [] and quotes
+                      press:KEY          a keyboard key, e.g. Enter, Escape, Control+k
+                      wait:MS            sleep 0..60000 ms
+                      wait-for:CSS       wait for it to be on the page (10s)
+                      eval:JS            evaluate; prints `eval <WxH> step<N> <json>`
+                      shot | shot:NAME   write a PNG <name>-<NAME>-<WxH>.png next to the others
+                                         (NAME is sanitized; bare `shot` is named step<N>)
+                    A malformed step is a usage error (exit 2) before a browser opens.
+  --no-png          page facts only: no final screenshot, no image file; --eval, --step eval: and
+                    --console still report, then `elapsed <s>s`. With `shot` steps, --out or --selector
+                    it is a usage error.
+
 Prints one line per PNG written — its path, nothing else on that line. `--eval` prints
 `eval <WxH> <json>`; `--console` prints `console <WxH> <message>`.
 
 Exit: 0 ok · 1 console errors under --console, or a screen / selector / role not found, or --eval
-threw · 2 usage · 3 cannot run (no Playwright, no reachable preview, the browser would not start) —
-the same meanings as test_run.py. Stdlib only; Playwright is imported lazily.
+threw · 2 usage · 3 cannot run (no Playwright, no reachable preview, the browser would not start, a page
+that could not be captured in time — PB_SHOT_TIMEOUT_MS, default 15000) — the same meanings as test_run.py. Stdlib only; Playwright is imported lazily.
 """
 import argparse
 import importlib
@@ -47,6 +62,7 @@ import json
 import os
 import re
 import sys
+import time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
@@ -91,6 +107,52 @@ def out_paths(base_dir, name, viewports, out=None):
     return {l: os.path.join(d, "%s-%s.png" % (name, l)) for l in labels}
 
 
+_STEP_KINDS = ("click", "fill", "press", "wait", "wait-for", "eval", "shot")
+
+
+def _split_fill(text):
+    """'CSS=VALUE' → (CSS, VALUE) at the first `=` outside [] and quotes; None if there is none."""
+    depth, quote = 0, None
+    for i, ch in enumerate(text):
+        if quote:
+            quote = None if ch == quote else quote
+        elif ch in "\"'":
+            quote = ch
+        elif ch == "[":
+            depth += 1
+        elif ch == "]":
+            depth = max(0, depth - 1)
+        elif ch == "=" and depth == 0:
+            return text[:i], text[i + 1:]
+    return None
+
+
+def parse_step(text):
+    """'click:#go' → ('click', '#go', None); ValueError on anything else."""
+    kind, sep, arg = text.partition(":")
+    kind = kind.strip().lower()
+    if kind not in _STEP_KINDS:
+        raise ValueError("--step %r: unknown step (want one of %s, as KIND:ARG)" % (text, ", ".join(_STEP_KINDS)))
+    if kind == "shot":
+        return kind, (_slug(arg, "") if sep else None) or None, None
+    if not sep or not arg.strip():
+        raise ValueError("--step %r: %s needs an argument" % (text, kind))
+    if kind == "wait":
+        try:
+            ms = int(arg)
+        except ValueError:
+            ms = -1
+        if not 0 <= ms <= 60000:
+            raise ValueError("--step %r: wait is milliseconds, 0..60000" % text)
+        return kind, ms, None
+    if kind == "fill":
+        parts = _split_fill(arg)
+        if not parts or not parts[0].strip():
+            raise ValueError("--step %r: fill is fill:CSS=VALUE" % text)
+        return kind, parts[0], parts[1]
+    return kind, arg, None
+
+
 def build_parser():
     ap = argparse.ArgumentParser(
         prog="shot.py",
@@ -111,6 +173,9 @@ def build_parser():
     ap.add_argument("--role", metavar="ID", help="act as this meta.roles id")
     ap.add_argument("--eval", dest="eval_js", metavar="JS", help="evaluate in the page; print the JSON result")
     ap.add_argument("--console", action="store_true", help="print console errors; exit 1 if there are any")
+    ap.add_argument("--step", action="append", default=[], metavar="STEP",
+                    help="repeatable, in order: click:CSS fill:CSS=VALUE press:KEY wait:MS wait-for:CSS eval:JS shot[:NAME]")
+    ap.add_argument("--no-png", dest="no_png", action="store_true", help="no screenshot, no image file; report eval/console/elapsed")
     ap.add_argument("--out", metavar="FILE_OR_DIR", help="a directory, or a .png file")
     ap.add_argument("--isolated", action="store_true", help="boot a private preview even if this project's is running")
     return ap
@@ -118,6 +183,15 @@ def build_parser():
 
 def _validate(a):
     """→ (viewports, error message or None). Everything that can be refused WITHOUT a browser."""
+    try:
+        a.steps = [parse_step(t) for t in a.step]
+    except ValueError as e:
+        return None, str(e)
+    names = [st[1] for st in a.steps if st[0] == "shot" and st[1]]
+    if len(names) != len(set(names)):
+        return None, "two --step shot:NAME steps share a name"
+    if a.no_png and (a.out or a.selector or any(st[0] == "shot" for st in a.steps)):
+        return None, "--no-png writes no image: it cannot be combined with --out, --selector or a shot step"
     given = [a.screen, a.path, a.url]
     if sum(x is not None for x in given) != 1:
         return None, "give exactly one of --screen ID, --path /page, --url http://127.0.0.1:PORT/…"
@@ -151,6 +225,57 @@ def _goto(page, base, a):
         page.goto(a.url, wait_until="domcontentloaded")
 
 
+def _shot_timeout():
+    """Milliseconds a screenshot may take (PB_SHOT_TIMEOUT_MS, default 15000)."""
+    try:
+        return max(1, int(os.environ.get("PB_SHOT_TIMEOUT_MS") or 15000))
+    except ValueError:
+        return 15000
+
+
+def _run_steps(page, tr, a, label, path, lines):
+    """Run --step in order → True if one failed (its ERROR line is printed). A `shot` step writes
+    <stem>-<NAME>-<WxH>.png beside the final capture's path; the name was sanitized at parse time."""
+    stem = os.path.basename(path)[:-4]
+    if stem.endswith("-" + label):
+        stem = stem[:-len(label) - 1]
+    outdir = os.path.dirname(os.path.abspath(path))
+    for n, (kind, arg, extra) in enumerate(a.steps, 1):
+        try:
+            if kind == "click":
+                page.click(arg, timeout=5000)
+                page.wait_for_timeout(120)
+            elif kind == "fill":
+                page.fill(arg, extra, timeout=5000)
+            elif kind == "press":
+                page.keyboard.press(arg)
+                page.wait_for_timeout(60)
+            elif kind == "wait":
+                page.wait_for_timeout(arg)
+            elif kind == "wait-for":
+                page.wait_for_selector(arg, timeout=10000)
+            elif kind == "eval":
+                print("eval %s step%d %s" % (label, n, json.dumps(tr._eval(page, arg), ensure_ascii=False)))
+            else:                                                    # shot
+                os.makedirs(outdir, exist_ok=True)
+                png = os.path.join(outdir, "%s-%s-%s.png" % (stem, arg or "step%d" % n, label))
+                if os.path.islink(png):
+                    print("ERROR [S-OUT] %s: %s is a symlink — refusing to write through it" % (label, png))
+                    return True
+                page.screenshot(path=png, full_page=a.full_page, timeout=_shot_timeout())
+                lines.append(png)
+                print(png)
+        except Exception as e:                                       # noqa: BLE001
+            if kind == "shot":
+                raise                                                # shoot() reports it: exit 3
+            if kind in ("click", "fill", "wait-for"):
+                print("ERROR [S-SELECTOR] %s: step %d %s:%s matched nothing on the page" % (label, n, kind, arg))
+            else:
+                print("ERROR [S-STEP] %s: step %d %s:%s — %s" % (label, n, kind, arg, str(e).splitlines()[0][:200]))
+            return True
+    return False
+
+
 def shoot(p, base, a, viewports, paths):
     """Drive the browser: → (exit code, [printed lines]). `base` is the preview's URL (None for --url)."""
     tr = importlib.import_module("test_run")
@@ -180,9 +305,9 @@ def shoot(p, base, a, viewports, paths):
                         code = EXIT_FAIL
                         continue
                 if a.screen is not None:
-                    page.evaluate("(id) => { if (typeof setProtoScreen === 'function') setProtoScreen(id); }", a.screen)
+                    tr._eval(page, "(id) => { if (typeof setProtoScreen === 'function') setProtoScreen(id); }", a.screen)
                     page.wait_for_timeout(80)
-                    cur = page.evaluate("() => (typeof state!=='undefined' && state) ? state.protoScreenId : null")
+                    cur = tr._eval(page, "() => (typeof state!=='undefined' && state) ? state.protoScreenId : null")
                     if cur != a.screen:
                         print("ERROR [S-SCREEN] %s: screen %r is not showing (the shell is on %r) — no such screen, "
                               "or the active role cannot see it" % (label, a.screen, cur))
@@ -208,25 +333,31 @@ def shoot(p, base, a, viewports, paths):
                 if a.wait:
                     page.wait_for_timeout(a.wait)
                 path = paths[label]
-                os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
-                if os.path.islink(path):
-                    print("ERROR [S-OUT] %s: %s is a symlink — refusing to write through it" % (label, path))
-                    code = EXIT_FAIL
-                    continue
-                if a.selector:
-                    loc = page.locator(a.selector)
-                    if loc.count() == 0:
-                        print("ERROR [S-SELECTOR] %s: --selector %r matched nothing on the page" % (label, a.selector))
+                if a.steps:
+                    failed = _run_steps(page, tr, a, label, path, lines)
+                    if failed:
                         code = EXIT_FAIL
                         continue
-                    loc.first.screenshot(path=path)
-                else:
-                    page.screenshot(path=path, full_page=a.full_page)
-                lines.append(path)
-                print(path)
+                if not a.no_png:
+                    os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
+                    if os.path.islink(path):
+                        print("ERROR [S-OUT] %s: %s is a symlink — refusing to write through it" % (label, path))
+                        code = EXIT_FAIL
+                        continue
+                    if a.selector:
+                        loc = page.locator(a.selector)
+                        if loc.count() == 0:
+                            print("ERROR [S-SELECTOR] %s: --selector %r matched nothing on the page" % (label, a.selector))
+                            code = EXIT_FAIL
+                            continue
+                        loc.first.screenshot(path=path, timeout=_shot_timeout())
+                    else:
+                        page.screenshot(path=path, full_page=a.full_page, timeout=_shot_timeout())
+                    lines.append(path)
+                    print(path)
                 if a.eval_js is not None:
                     try:
-                        print("eval %s %s" % (label, json.dumps(page.evaluate(a.eval_js), ensure_ascii=False)))
+                        print("eval %s %s" % (label, json.dumps(tr._eval(page, a.eval_js), ensure_ascii=False)))
                     except Exception as e:                           # noqa: BLE001
                         print("ERROR [S-EVAL] %s: %s" % (label, str(e).splitlines()[0][:200]))
                         code = EXIT_FAIL
@@ -235,6 +366,10 @@ def shoot(p, base, a, viewports, paths):
                         print("console %s %s" % (label, " ".join(str(m).split())[:300]))
                     if errors:
                         code = EXIT_FAIL
+            except Exception as e:                                   # noqa: BLE001 — never a traceback
+                what = ("timed out (%s ms)" % _shot_timeout()) if type(e).__name__ == "TimeoutError" else "failed"
+                return _cannot_run("%s: the page could not be captured — %s %s" % (
+                    label, what, str(e).splitlines()[0][:160] if str(e) else "")), lines
             finally:
                 ctx.close()
     finally:
@@ -248,6 +383,14 @@ def main(argv=None):
     viewports, err = _validate(a)
     if err:
         return _usage(err)
+    t0 = time.time()
+    code = _go(a, viewports)
+    if a.no_png:
+        print("elapsed %.2fs" % (time.time() - t0))
+    return code
+
+
+def _go(a, viewports):
     reg_path = os.path.abspath(a.registry)
     base_dir = os.path.dirname(reg_path)
     needs_preview = a.url is None

@@ -3,7 +3,7 @@
 skill_refs_lint.py — the skill surface stays internal, and every reference to it resolves.
 
 Portability guard (refit plan T4.4), widened in v2.1.0 after users found `think-clarify`
-(the skill, exposed as a command) beside `/pb:clarify` and took it for a duplicate. Four checks:
+(the skill, exposed as a command) beside `/pb:clarify` and took it for a duplicate. Five checks:
 
   S1  every pb/skills/<name>/SKILL.md sets `user-invocable: false` — skills are loaded by
       commands and agents, never typed. (Not `disable-model-invocation`: that would stop the
@@ -17,6 +17,9 @@ Portability guard (refit plan T4.4), widened in v2.1.0 after users found `think-
       retired name in a doc is allowed only where the line says it is retired.
   S4  (WARN) a skill description's "loaded by /pb:X" names a command that does not load it —
       directly, or through an agent that wraps that command.
+  S5  nothing under pb/commands, pb/agents, pb/skills cites CLAUDE.md or AGENTS.md (they do not
+      ship; the canon is pb/docs/canon.md) except handoff.md's recipient-file lines, and every
+      `canon.md` § *<name>* citation resolves to a real heading in pb/docs/canon.md.
 
 Usage:  python3 tests/skill_refs_lint.py
 Exit:   0 = clean (warnings allowed) · 1 = an S1–S3 failure
@@ -163,12 +166,61 @@ def check_s4(warnings):
                             f"but neither {cmd}.md nor an agent wrapping it mentions {name}")
 
 
+CANON = os.path.join(ROOT, "pb", "docs", "canon.md")
+# What a shipped file may say about a repo-only document: nothing. The one exception is
+# handoff.md, whose AGENTS.md is the file /pb:handoff writes for the RECIPIENT (handoff/AGENTS.md).
+REPO_ONLY = re.compile(r"CLAUDE\.md|AGENTS\.md")
+RECIPIENT_FILES = {"handoff.md": re.compile(r"AGENTS\.md")}
+CANON_CITE = re.compile(r"canon\.md`\s*§\s*\*([^*]+)\*")
+
+
+def shipped_docs():
+    out = []
+    for folder in (COMMANDS_DIR, AGENTS_DIR, SKILLS_DIR):
+        for dirpath, _dirs, files in os.walk(folder):
+            out += [os.path.join(dirpath, f) for f in files if f.endswith(".md")]
+    return sorted(out)
+
+
+def canon_headings():
+    heads = []
+    for line in read(CANON).splitlines():
+        m = re.match(r"#{1,6}\s+(.*)", line)
+        if m:
+            heads.append(re.sub(r"[*`]", "", m.group(1)).strip().lower())
+    return heads
+
+
+def check_s5(errors):
+    """S5  a shipped file cites nothing that only exists in the repo, and every canon § resolves."""
+    if not os.path.isfile(CANON):
+        errors.append("S5 pb/docs/canon.md is missing (the plugin ships its own canon)")
+        return
+    heads = canon_headings()
+    cites = 0
+    for path in shipped_docs():
+        rel = os.path.relpath(path, ROOT)
+        exempt = RECIPIENT_FILES.get(os.path.basename(path)) if "commands" in path else None
+        for n, line in enumerate(read(path).splitlines(), 1):
+            if REPO_ONLY.search(line) and not (exempt and exempt.search(line) and "CLAUDE.md" not in line):
+                errors.append(f"S5 {rel}:{n} → cites CLAUDE.md/AGENTS.md, which does not ship with the "
+                              f"plugin; cite `${{CLAUDE_PLUGIN_ROOT}}/docs/canon.md` § *<section>*")
+            for name in CANON_CITE.findall(line):
+                cites += 1
+                want = name.strip().lower()
+                if not any(h == want or h.startswith(want) for h in heads):
+                    errors.append(f"S5 {rel}:{n} → canon.md § *{name}* matches no heading in pb/docs/canon.md")
+    if not cites:
+        errors.append("S5 no shipped file cites canon.md § *<section>* — the canon is orphaned")
+
+
 def main():
     errors, warnings = [], []
     check_s1(errors)
     check_s2(errors)
     check_s3(errors)
     check_s4(warnings)
+    check_s5(errors)
     have = shipped_skills()
     print(f"shipped skills ({len(have)}): {', '.join(sorted(have))}")
     for w in warnings:

@@ -105,7 +105,8 @@ Read the lines for your id:
 - **Looked at** — open the design-system site (`/pb:preview` → `/design-system`; or
   `python3 "${CLAUDE_PLUGIN_ROOT}/tools/shot.py" registry.json --path /design-system --full-page`, never a
   hand-written Playwright script) and look at every cell of the variant grid. Two cells that look the same are an option nothing branches on; a cell
-  reading "could not render its demo" threw.
+  reading "could not render its demo" threw. This is the full look, for a new component or a new variant;
+  a point edit takes the lowest level that answers it (`${CLAUDE_PLUGIN_ROOT}/docs/canon.md` § *Checking a change*).
 
 ## Output
 The new `components[]` entry + its `render/components/<id>.js` file (parts marked) + the sidecar (checklist
@@ -116,3 +117,4 @@ rows, `cases` priority, `usage.example`, and the measured anatomy/spec), then ha
   don't over-build the level.
 - **Declared means rendered** — no option without a branch, no read without a declaration.
 - **Run it before you hand it back** — a body that lints clean but returns `undefined` is a failed task.
+  `lint_registry.py --exec` runs every body in node in about a second: level 1 of § *Checking a change*.

@@ -238,6 +238,31 @@ with tempfile.TemporaryDirectory() as d:
                     sweep_states(page, cdp, sn)
                     sweep_static(page, sn)
 
+        print("1b · self-hosted Inter, and Mermaid unreachable (every request but file:/data: is aborted)")
+        MSG = "Diagrams couldn\u2019t load. Mermaid is fetched from the internet, so check your connection."
+        page.evaluate("document.fonts.load('600 14px Inter', 'Ag')")
+        check(page.evaluate("document.fonts.check('600 14px Inter')"),
+              "document.fonts.check('600 14px Inter') is true with the network blocked (the font ships in the page)")
+        check(page.evaluate("typeof window.mermaid") == "undefined", "Mermaid did not load (its request was aborted)")
+        for tab_start, seg, vp in (("UX", "User Flow", "#flow-viewport"), ("Data", None, "#erd-viewport")):
+            for t in range(tabs.count()):
+                if (tabs.nth(t).text_content() or "").strip().startswith(tab_start):
+                    tabs.nth(t).click(); page.wait_for_timeout(150)
+                    break
+            if seg:
+                segs = page.locator(".meta-subtabs:not(.meta-subtabs--view) .meta-subtab")
+                for k in range(segs.count()):
+                    if (segs.nth(k).text_content() or "").strip() == seg:
+                        segs.nth(k).click(); page.wait_for_timeout(300)
+                        break
+            page.wait_for_timeout(200)
+            got = page.evaluate("(v) => { const e = document.querySelector(v + ' .pb-diagram-fail'); return e ? e.textContent.trim() : null; }", vp)
+            if got is None and seg is None:
+                print(f"  - {vp}: no diagram on this tab in the fixture (ERD shown as a table or absent); not asserted")
+            else:
+                check(got == MSG, f"{vp}: the canvas shows the plain message instead of a blank area (got {got!r})")
+        tabs.nth(0).click(); page.wait_for_timeout(150)
+
         print("2 · prototype — the Sandbox menu, open")
         tabs.nth(0).click(); page.wait_for_timeout(150)
         page.click(".meta-sandbox"); page.wait_for_selector(".proto-sandbox-menu.is-visible, .proto-sandbox-menu", timeout=5000)

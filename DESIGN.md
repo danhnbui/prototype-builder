@@ -166,7 +166,7 @@ an invariant with no enforcement is a wish.
   `tests/tool_cli.py`, `tests/specs_shape.py`, `tests/spec_measure.py`.
 - **I-10 · pb bounds its own footprint.** At most **3** headless browsers run at once on a machine (the
   limit **fails open** — past a wait it proceeds with a note, so it is a courtesy and never a reason a
-  test cannot run); a preview server **exits when idle** (30 minutes with no tab and no request);
+  test cannot run); a preview server **exits when idle** (8 hours with no tab and no request);
   tests **reuse the running preview** rather than boot their own; and **nothing is deleted without an
   explicit keep flag** — `/pb:clean --apply` alone never removes a backup or a closed round. A tool that
   starts a process or grows a file answers for how it ends and how it is pruned.

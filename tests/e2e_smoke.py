@@ -96,6 +96,13 @@ def make_viewonly_registry(tmpdir, unpopulate=False):
     return path
 
 
+def real_console_error(m):
+    """True for a console message these tests should fail on. _offline answers the Mermaid CDN with an
+    empty body, and the browser then rightly refuses that body on the tag's integrity hash: the stub's
+    own doing, not the page's. Only that one message is forgiven. A real mismatch is shell_lint's to catch."""
+    return m.type == "error" and not ("integrity" in m.text and "mermaid" in m.text)
+
+
 def _offline(page):
     """Block every request that is not the local preview server.
 
@@ -143,7 +150,7 @@ def run():
             page = browser.new_page()
             _offline(page)
             errors = []
-            page.on("console", lambda m: errors.append(m.text) if m.type == "error" else None)
+            page.on("console", lambda m: errors.append(m.text) if real_console_error(m) else None)
             page.on("pageerror", lambda e: errors.append(str(e)))
             page.goto(srv.url, wait_until="domcontentloaded")
             page.wait_for_selector(".meta-tab", timeout=10000)
@@ -258,7 +265,7 @@ def run():
                 page = browser.new_page()
                 _offline(page)
                 errors = []
-                page.on("console", lambda m: errors.append(m.text) if m.type == "error" else None)
+                page.on("console", lambda m: errors.append(m.text) if real_console_error(m) else None)
                 page.on("pageerror", lambda e: errors.append(str(e)))
                 page.goto(srv.url, wait_until="domcontentloaded")
                 page.wait_for_selector(".meta-tab", timeout=10000)
@@ -322,7 +329,7 @@ def run():
                 page = browser.new_page()
                 _offline(page)
                 errors = []
-                page.on("console", lambda m: errors.append(m.text) if m.type == "error" else None)
+                page.on("console", lambda m: errors.append(m.text) if real_console_error(m) else None)
                 page.on("pageerror", lambda e: errors.append(str(e)))
                 page.goto(srv.url, wait_until="domcontentloaded")
                 page.wait_for_selector('[data-machine="wiz"]', timeout=10000)
@@ -372,7 +379,7 @@ def run():
                 page = browser.new_page()
                 _offline(page)
                 errors = []
-                page.on("console", lambda m: errors.append(m.text) if m.type == "error" else None)
+                page.on("console", lambda m: errors.append(m.text) if real_console_error(m) else None)
                 page.on("pageerror", lambda e: errors.append(str(e)))
                 page.goto(srv.url, wait_until="domcontentloaded")
                 page.wait_for_selector(".meta-tab", timeout=10000)

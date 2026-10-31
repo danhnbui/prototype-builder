@@ -1,4 +1,4 @@
-# Product Builder v2.3.0 — router (read first)
+# Product Builder v2.4.0 — router (read first)
 
 Standalone, CLAUDE.md-native prototype builder. **No SpecKit** — no `extension.yml`,
 `preset.yml`, or `after_*` hooks. State lives in `registry.json`; commands are native
@@ -16,13 +16,13 @@ the playbook, [prototype-builder.md](prototype-builder.md) (authored in Phase 2)
 | `/pb:plan` | Implementation plan **+** per-tab task breakdown (acceptance · skill · **agent · deps · slice**) **+** **consumes the IA `/pb:clarify` chose** (a task per planned screen and for an unbuilt hub; no chosen IA → it stops and names `/pb:clarify`; `--ia <job-id> --into <screen-id>` places one late job, never regroups) **+** first authoring of the `flow` and `erd` slices (`--flow` / `--data` / `--mock`). Routine changes need none of it — `/pb:build` reconciles both automatically | P4 |
 | `/pb:orchestrate` | Dispatch `memory/tasks.md` to the agent roster in dependency **waves** — serial registry writes, render once per wave, `acceptance`-gated | P4 |
 | `/pb:build` | The cheap loop: targeted `registry.json` patches, trio-gated, **no per-tweak render**. §3a is the DS-first check on every new/changed component (reuse → variant → local + the naming contract) | P3 |
-| `/pb:preview` | Live preview dev server: watch `registry.json` → deterministic render → live-reload (**it stops itself after 30 idle minutes**; `serve.py --status` / `--stop`; see *pb bounds its own footprint*). **One server, two routes** — the prototype at `/` and the design-system workbench at `/design-system` (§2b: live demo with Anatomy · Spec layers, variants & spec, anatomy, Push-to-Figma, tokens) — plus `POST /api/meta` (the Project settings save) and `/explore/<id>` while a `/pb:explore` is open (§2c) | P3 |
+| `/pb:preview` | Live preview dev server: watch `registry.json` → deterministic render → live-reload (**start or restart it with `serve.py registry.json --ensure`** — idempotent, detached, prints the URL; **it stops itself after 8 idle hours**, at most 6 per user, a stable port per project, an unknown `Host` refused unless `--allow-host`; `serve.py --status` / `--stop`; see `pb/docs/canon.md` § *pb bounds its own footprint*). **One server, two routes** — the prototype at `/` and the design-system workbench at `/design-system` (§2b: live demo with Anatomy · Spec layers, variants & spec, anatomy, Push-to-Figma, tokens) — plus `POST /api/meta` (the Project settings save) and `/explore/<id>` while a `/pb:explore` is open (§2c) | P3 |
 | `/pb:test` | **Check everything.** No flag = scenarios · roles · server · security · constitution drift · ranked health · shell coherence · DS drift, one verdict; the three browser modes run as one `test_run.py --all` against the running preview. Writes a **yes/no test plan** first (`memory/test-plans/`, one item per test case, never an open question), delegates it to **sonnet `pb-tester` subagents** that never saw the design being built, then reconciles their rows against the plan. A mode flag narrows it (`--drift` is the old `/pb:check-drift`) | P3 |
 | `/pb:report` | **Retrospective for the pb maintainer.** `tools/report.py` turns the project's history — `decisions*.md`, hand-written `memory/` files, backups, explore manifests, render-body comments, render timings, lint and test counts, and (opt-in, `--sessions`) the session transcripts as counts and sequences only — into one facts file; the model appends ranked proposals for the next pb release. `--since <date>` windows it. Read-only on the project: writes only `memory/reports/pb-report-<date>.md` | v2.1 |
 | `/pb:explore` | **Two modes.** An **id** → a one-screen direction approved at **G-DIRECTION** → one execution plan per bet → N `pb-explorer` sub-agents (sonnet, xhigh) build them → **one compare-and-rate page at `/explore/<id>` on the `/pb:preview` server** → a scoring gate → keep one (`tools/explore.py`; registry untouched). **Every stop that shows options ends with that page's browser URL**, printed and checked by `explore.py link <id>` (it finds or starts the server); a file path or editor link never stands in for it. A subject that is no registry body (the tool's own chrome, a mockup) is a page round, `init --pages`, on the same page. A **goal sentence** → the gated discovery pipeline (below), stopping at **G-JTBD**, **G-DIRECTION** and **G-DESIGN**. `explore.py --ia` runs `/pb:clarify`'s IA round on the same engine. `explore.py list` shows each open round's age and flags it `STALE` past 3 days; `promote` / `reject` name the rounds still open | P3 |
 | `/pb:handoff` | **The one hand-off command.** Asks who is receiving it: **1** everything incl. a vendored Product Builder (recipient keeps building) · **2** engineering — `prototype.html` + `design-system.html` + `logic.md` + `rules.md` + `constitution.md` · **3** Figma, lowered deterministically then written through the MCP (falls back to the DS Bridge plugin). Mode 2 tiers: `host` (a runnable Vite/Next build serving the file) · `scaffold` (React+Tailwind). One command; no sub-commands | P6 |
 | `/pb:update-version` | Versioned schema update: dry-run / `--apply` / `--rollback` / `--to <N>` | P6 |
-| `/pb:clean` | **What the project has piled up, and pruning it on request.** `tools/clean.py` is a dry run by default — open explore rounds (with age, `STALE` past 3 days), closed rounds, `memory/backups/`, `.pb-backups/`, `.preview/server.log`, `.preview/shots/`, orphan `render/_candidates/` folders, the preview server. Bare `--apply` does only the always-safe set; **a backup or a closed round is deleted only by an explicit `--keep-backups N` / `--keep-closed N`**, never an open round, never a server (`serve.py --stop`) | v2.2 |
+| `/pb:clean` | **What the project has piled up, and pruning it on request.** `tools/clean.py` is a dry run by default — open explore rounds (with age, `STALE` past 3 days), closed rounds, `memory/backups/`, `.pb-backups/`, `.preview/server.log`, `.preview/shots/`, orphan `render/_candidates/` folders, `.pb-patches/`, `memory/decisions.md`, `.claude/worktrees/` (reported only), the preview server. Bare `--apply` does only the always-safe set; **a backup, a closed round or a patch folder is deleted only by an explicit `--keep-backups N` / `--keep-closed N` / `--keep-patches N`**, the decisions log rotates only on `--rotate-decisions`, never an open round, never a server (`serve.py --stop`) | v2.2 |
 
 > **Retired — the files are gone, not stubbed.** AGENTS.md §2 requires an alias for a rename; these shipped without one, which is why **v2.0.0 is a major** (D-34). Users upgrading follow [docs/upgrade-to-2.0.md](docs/upgrade-to-2.0.md). `/pb:flow` + `/pb:data` → `/pb:plan --flow` / `--data` (and their older `sync-` aliases) · `/pb:check-drift` → `/pb:test --drift` · `/pb:handoff-close`, `/pb:handoff-dev`, `/pb:hand-off`, `/pb:build-figma-handoff` → `/pb:handoff` · `/pb:build-check-design-system` → `/pb:build` §3a · `/pb:preview-ds` → `/pb:preview` §2b · `/pb:validate` → `/pb:handoff --tier=host`. 24 commands became 12 at v2.0.0; `/pb:report` (v2.1) and `/pb:clean` (v2.2) make 14.
 
@@ -32,8 +32,8 @@ the playbook, [prototype-builder.md](prototype-builder.md) (authored in Phase 2)
 
 ## Agent roster + sandbox (v1.5)
 
-- **Agents** (`pb/agents/*.md`, installed to `.claude/agents/` via `tools/agents_install.py`): `pb-clarifier`, `pb-planner`, `pb-builder`, `pb-design-system`, `pb-flow`, `pb-data`, `pb-tester`, `pb-reviewer`, and `pb-explorer` — the ninth, dispatched only by `/pb:explore` (one per execution plan, `model: sonnet`, `effort: xhigh`), never routed by `/pb:orchestrate`. **`pb-explorer` is not installed by the plugin alone: run `tools/agents_install.py` and restart the Claude Code session before `/pb:explore` can dispatch it.** `/pb:orchestrate` routes each task to its fitting agent by `slice`; agents **return slice patches**, the coordinator applies them **serially** and renders **once per wave**; `pb-tester` + `pb-reviewer` are the `acceptance` gate.
-- **Sandbox** (`/pb:test` → `tools/test_run.py`, Playwright — the only pip dep, isolated to this path like Node/npm at `/pb:handoff --tier=host`; degrades if absent; every browser it opens goes through `tools/browser.py`, see *pb bounds its own footprint*): drives the `data-*` runtime to verify scenario `test{}` blocks, per-role gating, and server reachability; `tools/security_scan.py` (stdlib) scans for secrets/PII. Results write `flow.stories[].scenarios[].lastResult` (additive) → the UX-tab ✓/✗/○/☐ glyphs.
+- **Agents** (`pb/agents/*.md`, installed to `.claude/agents/` via `tools/agents_install.py`): `pb-clarifier`, `pb-planner`, `pb-builder`, `pb-design-system`, `pb-flow`, `pb-data`, `pb-tester`, `pb-reviewer`, and `pb-explorer` — the ninth, dispatched only by `/pb:explore` (one per execution plan, `model: sonnet`, `effort: xhigh`), never routed by `/pb:orchestrate`. **The plugin exposes all nine as `pb:pb-*` (e.g. `pb:pb-explorer`), and `/pb:explore` dispatches that name with no install step; `tools/agents_install.py` is optional and only adds the bare names (`pb-explorer`) as project agents, which `orchestrate.py`'s roster uses.** `/pb:orchestrate` routes each task to its fitting agent by `slice`; agents **return slice patches**, the coordinator applies them **serially** and renders **once per wave**; `pb-tester` + `pb-reviewer` are the `acceptance` gate.
+- **Sandbox** (`/pb:test` → `tools/test_run.py`, Playwright — the only pip dep, isolated to this path like Node/npm at `/pb:handoff --tier=host`; degrades if absent; every browser it opens goes through `tools/browser.py`, see `pb/docs/canon.md` § *pb bounds its own footprint*): drives the `data-*` runtime to verify scenario `test{}` blocks, per-role gating, and server reachability; `tools/security_scan.py` (stdlib) scans for secrets/PII. Results write `flow.stories[].scenarios[].lastResult` (additive) → the UX-tab ✓/✗/○/☐ glyphs.
 - **Independent grading (v2.0.0).** A test run is **planned, then delegated**. `/pb:test` §2a writes
   `memory/test-plans/<stamp>.md` — one item per test case, each a binary question whose `yes` means the
   check held, and **never** an open question (no "should", nothing answerable *it depends*; a check that
@@ -45,140 +45,29 @@ the playbook, [prototype-builder.md](prototype-builder.md) (authored in Phase 2)
   The reason: the context that authored a design reads its own intent and scores the intent.
 - **Roles** (all additive/optional): `meta.roles[]` + `meta.defaultRole` + `screens[].roles[]` + element `data-roles` gate the Prototype tab; the role switcher (Sandbox → Conditions) and **Reset** (the Sandbox footer, or R) stay available (kept visible to viewers even in a `--people` hand-off — only authoring controls hide); an `isAdmin` role bypasses gating.
 
-## Goal fidelity + the gated discovery pipeline
+## The operating rules live in the plugin canon (`pb/docs/canon.md`)
 
-Structural work — a new feature, a new flow, a revamp, anything touching the **trio** at structural
-scale — runs one pipeline, hosted by **`/pb:explore "<goal>"`**. Point fixes, token values, copy, prop
-defaults and spacing go straight to `/pb:build`, exactly as the gate-skip lever (rule 3) says. Do not
-make a two-line change bureaucratic.
+The rules every pb project follows ship **inside the plugin** as [`pb/docs/canon.md`](pb/docs/canon.md)
+(installed as `${CLAUDE_PLUGIN_ROOT}/docs/canon.md`), so commands, agents and skills cite them and they
+reach real projects. Edit them there, not here. One-line pointers:
 
-**The user's stated goal is the contract.** Restate it before starting; where the restatement and the
-request differ, **the request wins**. It goes verbatim into `memory/prd.md` `## Goal`, and every stage is
-checked against *that text* — never against the previous stage's output, or drift compounds one
-reasonable-looking step at a time. Never silently narrow, widen or substitute scope.
+- **The three load-bearing rules** (token levers: state in `registry.json`, batched deterministic render,
+  gate-skip on non-trio tweaks) — `pb/docs/canon.md` § *The three load-bearing rules*.
+- **Goal fidelity + the gated discovery pipeline** (eight stages, G-JTBD / G-DIRECTION / G-DESIGN, "what
+  makes a gate real") — `pb/docs/canon.md` § *Goal fidelity + the gated discovery pipeline*; the
+  contributor view is `AGENTS.md` §8–§9.
+- **Auto-sync — flow + erd ride the trio** — `pb/docs/canon.md` § *Auto-sync*.
+- **Responsive across devices** (size classes, `pb-screen`, `@container` never `@media`) —
+  `pb/docs/canon.md` § *Responsive across devices*.
+- **pb bounds its own footprint** (browser slots, `shot.py`, `serve.py --ensure`, 8-hour idle exit, 6
+  previews, `--allow-host`, `/pb:clean`; the NEVER rules) — `pb/docs/canon.md` § *pb bounds its own footprint*.
+- **Checking a change** (the five-level ladder: trust the reload, `lint_registry.py --exec`,
+  `shot.py --no-png`, one look, a full look) — `pb/docs/canon.md` § *Checking a change*.
+- **Schema compatibility** (the write-path check) — `pb/docs/canon.md` § *Schema compatibility*.
 
-**Eight stages, two stage gates** — plus the gates a stage holds inside it (`/pb:clarify`'s G-IA, diverge's
-G-DIRECTION): clarify JTBD (`/pb:clarify` → `ia.jobs[]` as `when`/`want`/`so`) ·
-**▛ G-JTBD ▟** · discover (read-only) · diverge (direction **▛ G-DIRECTION ▟** → plans → N × `pb-explorer`) · design (`/pb:plan` → `memory/tasks.md`) ·
-**▛ G-DESIGN ▟** · build + test (`/pb:orchestrate` waves, gated on `pb-tester` + `pb-reviewer`) ·
-update the documents (`ia.rules`, `memory/prd.md`, `memory/spec.md`, `logic/**`, `memory/decisions.md`).
-
-A gate is **blocking**: it presents the artifact rather than a summary of it, carries its open questions
-up, and records the approval. Silence is not approval. **No document is written before both gates pass** —
-the stages before may write the registry slices the plan calls for, but never the documents that record
-intent. A rejection returns to the stage that produced it, not to the start; re-running a stage re-opens
-its gate.
-
-Full rules: `AGENTS.md` §8–§9. Executable form: `pb/commands/explore.md` Mode B. This is the canonical
-text — commands reference this section rather than re-stating it.
-
-## The three load-bearing rules (token levers — ship together)
-
-1. **State in `registry.json`.** The loop reads/edits only the touched slice. `prototype.html`
-   is **never** the source of truth and is **never** hand-edited.
-2. **Batched, deterministic render.** A generator regenerates `prototype.html` from `registry.json`
-   ONLY on `/pb:build --render` and automatically at `/pb:handoff` — **never** per tweak,
-   and **never** by the model hand-emitting HTML (that is ~2–3× *worse* — measured at G0.5).
-   *(`/pb:preview` may render on every change without breaking this: it's the **same generator**
-   rendering **in memory** at ~0 model tokens — never the model, never written to disk unless `--write`.)*
-3. **Gate-skip on non-trio tweaks.** The drift / Stack / DS gate runs only when a change touches
-   the **trio** — a screen, a component, or logic. Pure cosmetic tweaks skip it.
-
-## Auto-sync — flow + erd ride the trio
-
-The trio classifier (a screen, a component, logic) drives one more thing: after a **trio-touching**
-patch, `/pb:build` reconciles the `flow` and `erd` slices **in the same turn**. No Sync button, no
-second command. Non-trio tweaks — a token value, a copy reword, a prop default, spacing — **skip it**,
-exactly as they skip the gate. Rule 3 is unchanged.
-
-- **Reconcile, never regenerate.** The sync reads the patch it just applied — never `memory/spec.md`
-  or `memory/plan.md`. It inserts, deletes and re-points; everything the patch did not touch is left
-  exactly as authored.
-- **Populated slices only.** `flow.populated` / `erd.populated` false → skip. First-time authoring is
-  `/pb:plan --flow` / `--data`; they read the spec, the loop does not.
-- **Never re-author.** No rewriting an existing scenario (that discards the `lastResult` `/pb:test`
-  wrote), no second five-lens QA pass, no re-deriving an untouched entity.
-- **Defer restructuring.** Past 9 nodes, a new flow, a new entity with relationships → stop and name
-  the command that owns it. The loop inserts; it does not redesign.
-- **No render, no second gate.** The sync writes registry slices only — levers 1 and 2 hold, and the
-  gate already ran for the patch itself.
-- **One line when it writes, one line when it defers, silent on a true no-op.**
-
-This is the canonical text. `/pb:build`, `/pb:plan` and `/pb:orchestrate`
-reference this section rather than re-stating it.
-
-## Responsive across devices
-
-A prototype used to be designed once, at `meta.device`, and shown in every other frame stretched or
-squeezed — the laptop frame was the phone column at 1280px with a bottom tab bar. Two causes, both
-structural: a render body styles itself inline, and inline `style=""` cannot hold a breakpoint; and the
-device frames are `<div>`s in one document, so even a real `@media` rule answered the browser window.
-
-- **Ask once, at `/pb:init`.** Right after *which devices*, ask whether the UI adapts to each of them
-  → `meta.responsive`. `true` → designed for every size class in `meta.devices`; `false` → one layout,
-  and `meta.devices` is trimmed to `meta.device`. Devices in one size class → not asked (`false`). An
-  older project with `null` is asked by `/pb:build` §1b before its next screen/component write — once.
-- **Size classes:** **compact** < 600px (mobile) · **medium** 600–1023px (tablet) · **expanded**
-  ≥ 1024px (laptop, monitor).
-- **Mechanism.** Every place a project renders is a container named `pb-screen` — the prototype's
-  `.proto-screen`, the design system's demo stage and variant cells, the React scaffold's root. A
-  component/screen that changes across sizes carries `styleSrc` → `render/styles/<id>.css`, scoped to
-  its root class (`.c-<id>` / `.s-<id>`), written as **`@container pb-screen (…)` — never `@media`**.
-  `pb/template/product.css` adds `r-compact` · `r-medium-up` · `r-expanded-up` · `r-below-expanded` ·
-  `r-cols` · `r-measure` for swaps that need no sheet. Contract: `prototype-builder.md` → *Responsive styles*.
-- **Enforced** by `lint_registry.py`: `R-STYLE-MEDIA` (a size `@media`), `R-STYLE-SCOPE`, `R-HEX`/`R-PX`
-  in sheets, `R-STYLESRC` (missing file), and `R-RESPONSIVE` — `meta.responsive` `false` across several
-  size classes, or `true` with a screen nothing in which adapts (`null` is `/pb:build`'s question, never a
-  lint finding — an older project's CI stays green).
-- **Looked at.** `think-layout` §5 screenshots every listed size; the expanded frame must not be the
-  compact layout stretched.
-
-This is the canonical text. `/pb:init`, `/pb:build`, `think-layout` and `design-component-build`
-reference this section rather than re-stating it.
-
-## pb bounds its own footprint (v2.2)
-
-On three real projects in one morning, tests booted their own server and browser 156 of 183 times,
-agents hand-wrote ~740 browser scripts, up to 4 headless browsers (~0.6 GB each) ran at once, preview
-servers never exited (3 of 4 were orphans), and nothing that grew was ever flagged or pruned. pb now
-bounds what it starts and shows what accumulates:
-
-- **At most 3 headless browsers at once, per machine and user.** `tools/browser.py` is the one door
-  `test_run.py`, `shot.py`, `explore.py check --shots` and `spec_measure.py` (`/pb:build`'s component
-  measuring) open a browser through: a counting semaphore of slot files
-  in a per-user temp directory, freed by the kernel when its holder dies. `PB_BROWSER_SLOTS`
-  (default 3; `0` = no limit) · `PB_BROWSER_WAIT` (default 120 s). It **fails open**: past the wait it
-  prints one `note:` and starts the browser anyway, so the limit is a courtesy and never a reason a test
-  cannot run.
-- **Tests reuse the running preview.** `test_run.py` with no `--attach` attaches to this project's
-  `/pb:preview` when one is up (`reusing the running preview at <url>`) and boots a private server only
-  when none is; `--isolated` forces the private one, `--attach [URL]` is as before. `--all` runs
-  functional + roles + server in **one** browser — it is how `/pb:test` runs its three browser modes.
-- **To look at a render, run `shot.py`.** It reuses the preview (or boots one for the run and stops it),
-  opens one browser for every viewport and writes PNGs to `.preview/shots/`:
-  ```
-  python3 "${CLAUDE_PLUGIN_ROOT}/tools/shot.py" registry.json --screen <id> [--viewport WxH]... [--role <id>] [--console]
-  python3 "${CLAUDE_PLUGIN_ROOT}/tools/shot.py" registry.json --path /explore/<id>/<slot>
-  ```
-  Defaults: 1440x900 and 390x844. `--selector`, `--click`, `--wait-for`, `--eval` and `--full-page` cover
-  what a throwaway script was written for. Exit `3` = cannot run (no Playwright) — *blocked*, not passed.
-- **A preview server stops itself.** After 30 minutes with no browser tab open and no request it exits
-  and drops `.preview/server.json` (`--idle-exit MINUTES`, `0` = never; `PB_PREVIEW_IDLE_MIN`). It is
-  started by `/pb:preview` or `explore.py link`, inspected with `serve.py --status`, and stopped with
-  `serve.py --stop`.
-- **Growth is visible and prunable.** The health report (`lint_registry.py --report`, part of `/pb:test`)
-  has a `resources` block that ranks backups, open and closed explore rounds, `server.log` and an
-  oversized registry key; `/pb:clean` shows the same piles and prunes them. **Nothing is deleted without an
-  explicit keep flag** — `/pb:clean --apply --keep-backups N` / `--keep-closed N` are the only way pb ever
-  deletes a backup or a closed round.
-
-The three rules agents follow:
-
-- **NEVER hand-write a Playwright script to look at a prototype** — use `shot.py`.
-- **NEVER start `serve.py` with `&` or `nohup`** — `explore.py link` (or `/pb:preview`) starts it.
-- **NEVER `kill` a preview** — `serve.py --stop`; it also exits by itself after 30 idle minutes.
-
-This is the canonical text. Commands, agents and skills reference this section rather than re-stating it.
+Three hooks in `pb/hooks/` (`hooks.json`) put the key rules in front of the model in any pb project:
+`session_rules.py` at session start, `bash_advice.py` before a matching shell command and
+`browser_advice.py` before a browser MCP call. They advise only; `tests/hook_advice.py` pins them.
 
 ## One registry → two sites, one preview server
 
@@ -200,7 +89,7 @@ aside, 400–600px). When a slice is unpopulated the tab renders **only** the he
 card that owns the CTA — no dead controls. (Replaces the old `meta-tag`/`meta-sub` per-tab headers.)
 
 - **Prototype** — interactive, **no** screen-switcher. Each frame's screen is a `pb-screen` container, so
-  a project's container queries answer the frame, not the window (see *Responsive across devices*). A declarative `data-*` runtime drives a real flow:
+  a project's container queries answer the frame, not the window (see `pb/docs/canon.md` § *Responsive across devices*). A declarative `data-*` runtime drives a real flow:
   `data-nav="<id>"` navigates; `data-action="toggle-password"`; `data-action="submit"` validates the form
   (`data-required` · `data-validate="email"` · `data-minlength`) then `data-go` / `data-toast` /
   `data-redirect`+`data-redirect-ms`; **`data-machine`/`data-step`** drives a wizard (`data-step-pane`
@@ -354,18 +243,8 @@ browsed the upstream `.source.json` clone instead of the project's live componen
 
 ## Schema compatibility
 
-Write-path commands (`/pb:build`, `/pb:plan`, `/pb:pull-ds`, `/pb:handoff`, `/pb:init --import`) apply
-this check before patching `registry.json`:
-
-1. Read `meta.schemaVersion` from `registry.json` (absent → treat as schema 2).
-2. Read `CURRENT_SCHEMA` from `pb/migrations/manifest.py` (currently **13** — 8 = W3C DTCG tokens, 9 = required atomic `level` / component-first, 10 = `anatomy`/`spec`/`usage`/`uiLogic` externalized to `spec/<kind>/<id>.json` sidecars via `specSrc`, 11 = the logic contract via `logicSrc` + the `ia` slice + `registry.runtime[]`, 12 = `meta.tradeoffs[]` collapsed into `ia.rules[]` as decision-carrying rules, 13 = spec sidecars in the Specs-plugin shape — `anatomy`/`layout`/`elements`/`shape`/`measured`, measured by `tools/spec_measure.py`; migration `0011`).
-3. If `schemaVersion < CURRENT_SCHEMA`: print a one-line banner —
-   `⚠ Schema gap (v<from> → v<to>): <pending version update's describe() text>. Run /pb:update-version.`
-4. Proceed — **unless** the current write touches a slice a pending version update changes,
-   in which case **stop** and print: `Blocked: run /pb:update-version --apply first, then retry.`
-
-This is the canonical text. Write-path commands reference this section rather than re-stating it.
-Read-only commands (`/pb:test --drift`, `/pb:preview`) and exits do **not** carry this check.
+Write-path commands check `meta.schemaVersion` against `CURRENT_SCHEMA` (`pb/migrations/manifest.py`,
+currently **13**) before patching `registry.json` — the full check is `pb/docs/canon.md` § *Schema compatibility*.
 
 ## Why (G0.5 spike, 2026-06-05)
 
