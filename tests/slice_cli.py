@@ -409,6 +409,92 @@ with tempfile.TemporaryDirectory() as d:
         check(r.returncode != 0 and "another pb process" in r.stderr and open(reg, encoding="utf-8").read() == snap,
               "a held lock refuses a list-element set and leaves the file untouched")
 
+print("set — --create-list, a redundant leading kind, mixed id lists, appending a component / screen")
+with tempfile.TemporaryDirectory() as d:
+    reg = os.path.join(d, "registry.json")
+    R = ["--registry", reg]
+    TEMPLATE = os.path.join(ROOT, "pb", "template", "registry.template.json")
+    OLD = {"meta": {"name": "T"}, "ia": {"populated": False, "jobs": [], "layers": [], "rules": []},
+           "flow": {"populated": False}, "components": [{"id": "btn", "name": "Btn"}], "screens": []}
+
+    def dump(obj):
+        with open(reg, "w", encoding="utf-8") as f:
+            f.write(json.dumps(obj, indent=2, ensure_ascii=False) + "\n")
+
+    # the fresh template already holds the lists the build commands append to
+    shutil.copy(TEMPLATE, reg)
+    r = run("set", "content", "terms.t1", *R, stdin='{"id": "t1", "term": "Order"}')
+    check(r.returncode == 0 and json.load(open(reg))["content"]["terms"] == [{"id": "t1", "term": "Order"}],
+          "fresh template: set content terms.t1 appends (the list is seeded)")
+    r = run("set", "flow", "stories.s1", *R, stdin='{"id": "s1", "title": "S"}')
+    check(r.returncode == 0 and json.load(open(reg))["flow"]["stories"][0]["id"] == "s1",
+          "fresh template: set flow stories.s1 appends (the list is seeded)")
+
+    # an older registry has neither list: refused as before, created with --create-list
+    dump(OLD)
+    snap = open(reg, encoding="utf-8").read()
+    for kind, path, patch in (("content", "terms.t1", '{"id": "t1", "term": "Order"}'),
+                              ("flow", "stories.s1", '{"id": "s1", "title": "S"}')):
+        r = run("set", kind, path, *R, stdin=patch)
+        check(r.returncode != 0 and "--create-list" in r.stderr and len(r.stderr.strip().splitlines()) == 1
+              and open(reg, encoding="utf-8").read() == snap, f"without --create-list, set {kind} {path} is refused and writes nothing")
+    r = run("set", "content", "terms.t1", "--create-list", *R, stdin='{"id": "t1", "term": "Order"}')
+    r2 = run("set", "flow", "stories.s1", "--create-list", *R, stdin='{"id": "s1", "title": "S"}')
+    got = json.load(open(reg))
+    check(r.returncode == 0 and r2.returncode == 0 and got["content"]["terms"] == [{"id": "t1", "term": "Order"}]
+          and got["flow"]["stories"] == [{"id": "s1", "title": "S"}] and got["flow"]["populated"] is False,
+          "with --create-list, both lists (and the missing `content` object) are created and appended to")
+    r = run("set", "content", "strings", "--create-list", *R, stdin='[{"key": "a.b", "text": "x", "kind": "action"}]')
+    check(r.returncode == 0 and json.load(open(reg))["content"]["strings"][0]["key"] == "a.b",
+          "--create-list on a list leaf takes a whole-list patch")
+    r = run("set", "content", "terms.t1", "--create-list", *R, stdin='{"definition": "d"}')
+    check(r.returncode == 0 and json.load(open(reg))["content"]["terms"][0] == {"id": "t1", "term": "Order", "definition": "d"},
+          "--create-list on an existing list still merges into the element")
+
+    # a redundant leading kind
+    dump(OLD)
+    r = run("set", "ia", "ia.jobs", *R, stdin='[{"id": "j1"}]')
+    got = json.load(open(reg))
+    check(r.returncode == 0 and "ia" not in got["ia"] and got["ia"]["jobs"] == [{"id": "j1"}],
+          "set ia ia.jobs behaves as set ia jobs: no stray ia.ia key")
+    r = run("get", "ia", "ia.jobs", *R)
+    check(r.returncode == 0 and json.loads(r.stdout) == [{"id": "j1"}], "get ia ia.jobs behaves as get ia jobs")
+    r = run("set", "meta", "meta.name", *R, stdin='"Renamed"')
+    check(r.returncode == 0 and json.load(open(reg))["meta"]["name"] == "Renamed" and "meta" not in json.load(open(reg))["meta"],
+          "the same holds for meta (set meta meta.name → meta.name)")
+    dump({"meta": {"name": "T"}, "ia": {"ia": {"x": 1}, "jobs": []}})
+    r = run("get", "ia", "ia.x", *R)
+    check(r.returncode == 0 and json.loads(r.stdout) == 1, "a slice that really has a key named like the kind keeps it (ia.ia.x)")
+
+    # a list with some ids and some without: the id-less one is reachable by position
+    dump({"flow": {"stories": [{"title": "old"}, {"id": "s9", "title": "new"}]}})
+    r = run("get", "flow", "stories.0", *R)
+    check(r.returncode == 0 and json.loads(r.stdout) == {"title": "old"}, "an id-less element in a mixed list is reachable by position")
+    r = run("get", "flow", "stories.1", *R)
+    check(r.returncode != 0, "…but an element that has an id is reached by that id only")
+    r = run("set", "flow", "stories.0.scenarios", *R, stdin='[{"text": "t", "category": "function"}]')
+    check(r.returncode == 0 and json.load(open(reg))["flow"]["stories"][0]["scenarios"][0]["text"] == "t",
+          "set reaches a key of an id-less story by position")
+
+    # DONE WHEN 6: a new component / screen is appended when the patch carries the same id
+    dump(OLD)
+    snap = open(reg, encoding="utf-8").read()
+    r = run("set", "components", "card", *R, stdin='{"name": "Card"}')
+    check(r.returncode != 0 and "no component with id" in r.stderr and open(reg, encoding="utf-8").read() == snap,
+          "set components <new id> with no \"id\" in the patch → still the error, nothing written")
+    r = run("set", "components", "card", *R, stdin='{"id": "other", "name": "Card"}')
+    check(r.returncode != 0 and open(reg, encoding="utf-8").read() == snap, "…and a patch carrying a different id does not append either")
+    r = run("set", "components", "card", *R, stdin='{"id": "card", "name": "Card", "level": "molecule"}')
+    got = json.load(open(reg))
+    check(r.returncode == 0 and "appended" in r.stdout and [c["id"] for c in got["components"]] == ["btn", "card"],
+          "set components <new id> with a matching \"id\" appends the entry after the others")
+    r = run("set", "screens", "home", *R, stdin='{"id": "home", "name": "Home"}')
+    check(r.returncode == 0 and json.load(open(reg))["screens"] == [{"id": "home", "name": "Home"}], "the same for screens (an empty list)")
+    r = run("set", "screens", "home", *R, stdin='{"id": "home", "name": "Home 2"}')
+    got = json.load(open(reg))
+    check(r.returncode == 0 and "patched" in r.stdout and len(got["screens"]) == 1 and got["screens"][0]["name"] == "Home 2",
+          "an id that exists is merged, not appended twice")
+
 print()
 if fails:
     print(f"FAIL — {len(fails)} regression(s)")

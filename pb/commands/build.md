@@ -204,7 +204,9 @@ into just that entry and rewrites the file, so no other slice enters context. Ch
   names it. If none does, say so plainly: `⚠ no declared job is served by <id> — add one to
   registry.ia.jobs[], point an existing job at it, or say why it exists.` Never block on it; a
   screen without a job is a question, not an error.
-- **new component / screen** → append an entry with a **kebab-case** `id`, a `renderFn`
+- **new component / screen** → `python3 "${CLAUDE_PLUGIN_ROOT}/tools/slice.py" set components <id>` (or `set screens <id>`)
+  with the whole entry as the patch, **its `"id"` equal to `<id>`**: an id nothing has yet appends the entry
+  (without a matching `"id"` it errors, so a typo creates nothing). Never hand-write `registry.json`. The entry has a **kebab-case** `id`, a `renderFn`
   (`renderCmp{PascalCase}` / `renderScreen{PascalCase}`), and a `renderSrc`
   (`render/components/<id>.js` / `render/screens/<id>.js`); create that `.js` body file with the render
   code. (A legacy inline `render` string still works but is discouraged — `lint_registry.py` warns if both are set.)
@@ -267,7 +269,7 @@ Non-trio tweaks (step 2) **skip this**, exactly as they skip the gate.
 
 | The patch did | `flow` | `erd` |
 |---|---|---|
-| added a screen | one node in its shape + an edge per `data-nav`/`data-go`/`data-redirect` target; append a story stub (`title`/`priority`/`jtbd`/`path`/`nodes` + one `function` scenario for the happy path) | — |
+| added a screen | one node in its shape + an edge per `data-nav`/`data-go`/`data-redirect` target; append a story stub (`id` `s-<screen id>` · `title`/`priority`/`jtbd`/`path`/`nodes` · **`jobs[]` naming every `ia.jobs[]` job whose `screens[]` lists this screen** (`slice.py get ia jobs`; none → `[]`) · one `function` scenario for the happy path) | — |
 | removed a screen | drop its node, repair the edges that pointed at it, drop or re-path any story whose `nodes[]` names it | — |
 | renamed a screen | rename the node label; update the affected `path` strings | — |
 | changed navigation | add / remove / re-point that one edge | — |
@@ -293,6 +295,9 @@ entity's rows out of `erd.table[]`.
   `↻ flow needs restructuring (10 nodes) — run /pb:plan --flow`.
 - NEVER render, NEVER re-gate. This writes registry slices only. The gate (step 3) already ran for the
   patch; a representation of an approved change is not a second decision.
+
+**A stub is thin on purpose.** One happy-path scenario is not coverage: when this step appends one, add
+`· story is a stub — /pb:plan --flow gap-fills its scenarios` to the line below. No QA pass here.
 
 **Say it in one line.** Wrote → `↻ synced  flow +1 node (checkout) +1 story · erd +1 field (Order.total)`.
 Deferred → one line naming the command. Nothing to reconcile → **silent**.

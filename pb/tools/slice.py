@@ -16,20 +16,30 @@ where the token cost lives, not in the Python process.
   list  — enumerate ids so the loop can find a target without loading bodies
 
 Kinds:
-  components | screens — a list of entries keyed by `id`; <id> selects one entry.
-  tokens | meta        — a nested dict; <id> is a **dotted key path** (e.g. `meta.name`,
-                         `tokens.brand`, `tokens.color.bg`).
-  ia                   — same dotted-key form (`ia.rules`, `ia.jobs`, `ia.layers`).
-  flow | erd           — same dotted-key form (`flow.mermaid`, `erd.table`). D-29: the
+  components | screens — a list of entries keyed by `id`; <id> selects one entry. `set` on an id no
+                         entry has appends the patch as a new entry when the patch carries that same
+                         `"id"`; without it the "no component/screen with id" error stands (a typo
+                         creates nothing).
+  tokens | meta        — a nested dict; <id> is a **dotted key path BELOW the kind** (e.g.
+                         `get meta name`, `get tokens brand`, `get tokens color.bg`).
+  ia                   — same dotted-key form (`get ia rules`, `get ia jobs`, `get ia layers`).
+  flow | erd           — same dotted-key form (`flow mermaid`, `erd table`). D-29: the
                          auto-sync in /pb:build reads `flow mermaid` (~15 lines) to place a
                          node without dragging every story's scenarios[] into context.
+  content              — same dotted-key form (`content terms`, `content strings.<id>`).
+
+The kind is NOT part of the path: `set ia jobs`, not `set ia ia.jobs`. A leading segment equal to the
+kind is dropped (so `set ia ia.jobs` means `set ia jobs`, and no stray `ia.ia` key is made), unless the
+slice really has a key with that name.
 
 A path segment that lands on a LIST selects the element whose `id` equals it, so one entry of a
 list slice is reachable: `get ia rules.<id>` · `set ia jobs.<id>` · `get flow stories.<id>` ·
-`get content terms.<id>`. A list without ids can be indexed by a numeric segment (`items.0`). `set`
+`get content terms.<id>`. An element without an id can be indexed by a numeric segment (`stories.3`). `set`
 on such a path merges the patch into that element and touches no other element. A missing element
-is an error — unless the patch carries the same `id`, which appends it. A missing list is never
-created (`ia.rules`, `ia.jobs`, `ia.layers`, `flow.stories`, `content.terms`, `content.strings`).
+is an error — unless the patch carries the same `id`, which appends it. A missing list is not created
+by default (`ia.rules`, `ia.jobs`, `ia.layers`, `flow.stories`, `content.terms`, `content.strings`);
+`set --create-list` creates it (and its parent object) and then appends — use it for the first term,
+story or string on a project whose template predates the seeded lists.
 
 Projection (D-17, `get` only — never `set`/`list`; shapes what's PRINTED, never writes):
   --no-prose        — drop logicNotes/uiLogic/anatomy/spec/usage from the printed slice.
@@ -71,7 +81,7 @@ into it.
 
 Usage:
   python3 slice.py get  <kind> <id> [--registry PATH] [--no-prose] [--fields a,b,c]
-  python3 slice.py set  <kind> <id> [--registry PATH] [--patch FILE]   # patch from FILE or stdin
+  python3 slice.py set  <kind> <id> [--registry PATH] [--patch FILE] [--create-list]   # patch from FILE or stdin
   python3 slice.py list <kind> [path] [--registry PATH]   # no path: top-level keys; a list path: its ids
 
 Exit: 0 on success; non-zero with a message on error (unknown kind, missing id/key,
@@ -95,9 +105,10 @@ except ImportError:          # Windows: no advisory lock; the atomic replace sti
 LIST_KINDS = ("components", "screens")   # id-keyed lists
 # D-29: flow/erd joined the dict kinds so /pb:build's auto-sync can read `flow mermaid`
 # (~15 lines) without pulling every story's scenarios[] into context.
-DICT_KINDS = ("tokens", "meta", "flow", "erd", "content", "ia")   # dotted-key dicts
+DICT_KINDS = ("tokens", "meta", "flow", "erd", "content", "ia", "research")   # dotted-key dicts
 # Lists a `set` must never create by accident (a missing one is an error, not a new `{}`).
-LIST_PATHS = {"ia": ("jobs", "rules", "layers"), "flow": ("stories",), "content": ("terms", "strings")}
+LIST_PATHS = {"ia": ("jobs", "rules", "layers"), "flow": ("stories",), "content": ("terms", "strings"),
+              "research": ("studies",)}
 KINDS = LIST_KINDS + DICT_KINDS
 
 # D-17: the prose keys --no-prose drops. Schema-11 may move these out of registry.json
@@ -254,13 +265,29 @@ def _find_entry(reg, kind, ident):
 
 def _list_index(node, seg):
     """Index of the element of list `node` that segment `seg` names — the element whose `id` is
-    `seg`, else (numeric `seg`, no element carries ids) the position — or None."""
+    `seg`, else (numeric `seg`, and the element at that position carries no id of its own) the position
+    — or None. So a list with some ids and some without (stories written before they had ids) is
+    reachable by position for the id-less ones, while an element that has an id is reached by it only."""
     for i, el in enumerate(node):
         if isinstance(el, dict) and el.get("id") == seg:
             return i
-    if seg.isdigit() and not any(isinstance(el, dict) and "id" in el for el in node) and int(seg) < len(node):
+    if seg.isdigit() and int(seg) < len(node) and not (isinstance(node[int(seg)], dict) and "id" in node[int(seg)]):
         return int(seg)
     return None
+
+
+def _strip_kind(reg, kind, ident):
+    """Drop a redundant leading `<kind>.` from a dotted path: `set ia ia.jobs` means `set ia jobs`.
+    Kept when the slice really has a key with the kind's name, and never strips the whole path."""
+    if kind not in DICT_KINDS or not ident:
+        return ident
+    head, dot, rest = ident.partition(".")
+    if head != kind or not dot or not rest:
+        return ident
+    node = reg.get(kind)
+    if isinstance(node, dict) and kind in node:
+        return ident
+    return rest
 
 
 def _dotted_get(reg, kind, key):
@@ -341,7 +368,7 @@ def cmd_get(args):
     if args.kind in LIST_KINDS:
         entry = _find_entry(reg, args.kind, args.id)
     else:
-        entry = _dotted_get(reg, args.kind, args.id)
+        entry = _dotted_get(reg, args.kind, _strip_kind(reg, args.kind, args.id))
     entry = _project(entry, _parse_fields(args.fields), args.no_prose)
     print(json.dumps(entry, indent=2, ensure_ascii=False))
 
@@ -352,6 +379,15 @@ def _apply_set(args, patch):
     reg = _load(args.registry)
 
     if args.kind in LIST_KINDS:
+        if (isinstance(patch, dict) and patch.get("id") == args.id
+                and not any(isinstance(it, dict) and it.get("id") == args.id for it in reg.get(args.kind) or [])):
+            # no such entry, and the patch carries the same id: append it (the dotted lists' rule).
+            # A patch without a matching id falls through to _find_entry's error — a typo makes nothing.
+            if not isinstance(reg.get(args.kind), list):
+                reg[args.kind] = []
+            reg[args.kind].append(patch)
+            _write(args.registry, reg)
+            return f"✓ appended {args.kind[:-1]} {args.id}  ({', '.join(patch.keys())})"
         entry = _find_entry(reg, args.kind, args.id)
         if isinstance(patch, dict):
             before = json.dumps(entry, sort_keys=True)
@@ -365,7 +401,8 @@ def _apply_set(args, patch):
     else:
         # DICT_KIND dotted set: merge dicts, otherwise replace the leaf. A segment on a list
         # selects an element by id; the last one merges into it (or appends, see the docstring).
-        parts = args.id.split(".")
+        create = getattr(args, "create_list", False)
+        parts = _strip_kind(reg, args.kind, args.id).split(".")
         parent = reg.setdefault(args.kind, {})
         trail = args.kind
         for seg in parts[:-1]:
@@ -376,7 +413,9 @@ def _apply_set(args, patch):
                 parent = parent[i]
             else:
                 if seg not in parent and seg in LIST_PATHS.get(trail, ()):
-                    sys.exit(f"slice: no list {trail}.{seg} to set into")
+                    if not create:
+                        sys.exit(f"slice: no list {trail}.{seg} to set into (--create-list creates it)")
+                    parent[seg] = []
                 parent = parent.setdefault(seg, {})
             trail += "." + seg
             if not isinstance(parent, (dict, list)):
@@ -407,7 +446,11 @@ def _apply_set(args, patch):
                     keys = ", ".join(patch.keys()) if patch else "—"
         else:
             if leaf in LIST_PATHS.get(trail, ()) and leaf not in parent:
-                sys.exit(f"slice: no list {trail}.{leaf} to create")
+                if not create:
+                    sys.exit(f"slice: no list {trail}.{leaf} to create (--create-list creates it)")
+                parent[leaf] = []
+                if isinstance(patch, dict):          # an element patch: the new list starts with it
+                    patch = [patch]
             before = json.dumps(parent.get(leaf), sort_keys=True)
             if patch is None:
                 changed, keys = False, "—"
@@ -456,8 +499,9 @@ def cmd_list(args):
                 for k, v in node.items():
                     walk(v, f"{trail}.{k}" if trail else k)
         walk(_dotted_get(reg, "tokens", args.path) if args.path else reg.get("tokens", {}), args.path or "")
-    else:  # meta | flow | erd | content | ia — a plain dict: its top-level keys
-        node = _dotted_get(reg, args.kind, args.path) if args.path else reg.get(args.kind, {})
+    else:  # meta | flow | erd | content | ia | research — a plain dict: its top-level keys
+        node = (_dotted_get(reg, args.kind, _strip_kind(reg, args.kind, args.path)) if args.path
+                else reg.get(args.kind, {}))
         if isinstance(node, list):
             for el in node:
                 if isinstance(el, dict) and "id" in el:
@@ -497,6 +541,9 @@ def main():
     s = sub.add_parser("set", help="merge a patch into one slice (patch from --patch FILE or stdin)")
     add_common(s)
     s.add_argument("--patch", help="JSON patch file (default: read stdin)")
+    s.add_argument("--create-list", action="store_true",
+                   help="create a missing ia.jobs/rules/layers, flow.stories or content.terms/strings list "
+                        "(and its parent object) and append to it; without it a missing list is refused")
     s.set_defaults(func=cmd_set)
 
     l = sub.add_parser("list", help="enumerate ids/keys for a kind")

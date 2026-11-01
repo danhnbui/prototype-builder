@@ -2,6 +2,48 @@
 
 All notable changes to Product Builder. Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [Unreleased]
+
+*Additive, no schema change. Insights were whatever someone typed into `/pb:clarify`, and nothing separated what a
+user had said from what the team assumed. Now an unsure job, flow or rule can go to real users and come back with
+proof attached. A project that runs no study behaves as before.*
+
+- **`/pb:research`.** Lists what is unproven (`research.py gaps`: assumed rules, open questions, jobs nobody has
+  asked about), or takes your question. It writes falsifiable hypotheses with the thresholds set up front, then a
+  **survey or an interview guide** for a chosen role or segment, seeded from the jobs, the flow and the rules.
+  A job's *when* becomes "tell me about the last time…", and a story's path becomes a task on the prototype.
+- **Two gates.** **G-STUDY** approves the whole instrument before anyone is asked. **G-INSIGHT** approves the findings and
+  the exact text before it reaches the insights.
+- **pb hosts nothing.** Field the survey in any tool, or run the interview, then import the result. A CSV export
+  (Google Forms, Typeform and the like) matches by question id or text.
+- **Evidence is kept.** Raw files go to `memory/research/<id>/evidence/`, read-only and hashed, with consent recorded.
+  A column that looks like personal data is refused unless you drop or explicitly keep it. If a participant withdraws,
+  `drop-evidence` deletes their file and fails any finding that cites it.
+- **Nothing is taken on the model's word.** `research.py` computes every number and checks every quote verbatim
+  against the raw file. The model never simulates a respondent.
+- **Refill.** `refill --approved` appends the approved text to `meta.userInsights` with an `[rs-…]` citation, leaves
+  your own text alone, and can be re-run safely.
+- **Project Summary → Research** shows each study: hypotheses and verdicts, findings with their quotes and numbers,
+  the instrument and the evidence table. A citation in Insights jumps to its study, job rows and a rule's Details
+  drawer show the evidence naming them, and ⌘K finds studies and findings.
+- **Elsewhere.** `rules.md` cites findings on the rules they name. The mode 1 hand-off carries `memory/research/`, and
+  mode 2 never does. `security_scan.py` reads evidence files, `/pb:clean` never prunes them, `/pb:report` never reads
+  them, and lint adds an advisory `R-RESEARCH`.
+
+*Two real `/pb:clarify` + `/pb:plan` runs on a fresh project never wrote the Content
+slice, left jobs with no story, and needed `registry.json` hand-edited past `slice.py`.*
+
+- **Content is authored.** `/pb:clarify` §1b1 drafts the glossary (`content.terms[]`) from the jobs and approves it at
+  G-JTBD with them (also under `--skip-ia`); `/pb:plan` §6 / `--content` authors the wording deck (`content.strings[]`),
+  appending only. `orchestrate.py` accepts `slice: content`, routed to `pb-flow`.
+- **Coverage contract.** `/pb:plan` §4b: every job has a story, every story scenarios, a P1 job at least 3 incl. a
+  non-happy one, every spec Edge case a scenario or a `coverageWarnings` entry. A populated flow gets a gap-fill pass
+  that appends and never rewrites; `--ia` also adds a late job's story. `/pb:build`'s new-screen story stub carries `jobs[]`.
+- **`slice.py`.** `set --create-list` creates a missing `ia`/`flow`/`content` list; `set ia ia.jobs` no longer makes a
+  stray `ia.ia`; `set components|screens <id>` appends a new entry when the patch carries that `id`; an id-less element of
+  a mixed list is reachable by position. The template seeds `flow.stories` and an empty `content`.
+- **Lint (advisory).** `R-COVERAGE`, `R-CONTENT` and `R-IA-NEST` are WARNs that never raise the exit code.
+
 ## [2.5.0] — 2026-10-31
 
 *Additive, no schema change. Projects with real role or flow needs kept hand-building the same layer, because

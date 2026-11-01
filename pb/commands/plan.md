@@ -1,5 +1,5 @@
 ---
-description: Design the structure — the implementation plan and the per-tab task breakdown, consuming the information architecture /pb:clarify chose at its G-IA gate (one task per planned screen and for the hub; --ia places one late job), and the first authoring of the flow and erd slices (wireflow + five-lens QA checklist; entity table + ERD with 5 guardrails). Routine changes need none of this: /pb:build reconciles flow and erd automatically on every trio write. Run this for first population and for restructuring.
+description: Design the structure — the implementation plan and the per-tab task breakdown, consuming the information architecture /pb:clarify chose at its G-IA gate (one task per planned screen and for the hub; --ia places one late job), and the first authoring of the flow, erd and content slices (wireflow + five-lens QA checklist held to a coverage contract — every job a story, every story scenarios; entity table + ERD with 5 guardrails; the wording deck), plus a gap-fill pass that only appends to a populated flow or deck. Routine changes need none of this: /pb:build reconciles flow and erd automatically on every trio write. Run this for first population, for gap-filling coverage and for restructuring.
 ---
 
 # /pb:plan
@@ -17,12 +17,13 @@ how the product flows and what it holds.
 ## Flags
 | Flag | Effect |
 |---|---|
-| *(none)* | Plan + tasks, consuming the IA `/pb:clarify` chose (§2) — it stops and names `/pb:clarify` when none was chosen — then author `flow` and `erd` if either is unpopulated |
-| `--ia [<job-id>] [--into <screen-id>]` | Only §2b, placing a late job in the chosen IA. With `--into`: fold that job into an existing or planned screen. With a job id alone: ask where it goes, or plan one screen under the hub as it is. Bare: the same for every job no screen serves. Never regroups — that is `/pb:clarify` §1c |
-| `--flow` | Only author / restructure the `flow` slice |
+| *(none)* | Plan + tasks, consuming the IA `/pb:clarify` chose (§2) — it stops and names `/pb:clarify` when none was chosen — then author `flow`, `erd` and `content`, or **gap-fill** whichever is already populated (§4, §6) |
+| `--ia [<job-id>] [--into <screen-id>]` | Only §2b, placing a late job in the chosen IA — and, on a populated flow, that job's story, scenarios and wordings. With `--into`: fold that job into an existing or planned screen. With a job id alone: ask where it goes, or plan one screen under the hub as it is. Bare: the same for every job no screen serves. Never regroups — that is `/pb:clarify` §1c |
+| `--flow` | Only author / restructure the `flow` slice, or gap-fill it when populated (§4) |
 | `--data` | Only author / restructure the `erd` slice |
+| `--content` | Only author / gap-fill the `content` slice — the wording deck, and the glossary terms it needs (§6) |
 | `--mock` | With the erd pass: also generate `erd.mock[]` data-set variants (§5c) |
-| `--replan` | Re-author `memory/plan.md` + `memory/tasks.md` only; leave both slices alone |
+| `--replan` | Re-author `memory/plan.md` + `memory/tasks.md` only; leave the `flow`, `erd` and `content` slices alone |
 
 ## Pre-write schema check
 Apply the **Schema compatibility** check (`${CLAUDE_PLUGIN_ROOT}/docs/canon.md` § *Schema compatibility*) before writing to the registry. Below
@@ -64,6 +65,7 @@ never authors, regroups or re-derives it. `ref-ia` §6 says what `promote` wrote
    - **A registry screen no job points at** is a screen nobody has justified. Ask whether it is needed.
 5. **Link both directions.** Give each `flow.stories[]` entry a `jobs[]` list of the ids it exercises.
    Leave the story's prose `jtbd` untouched — a narrative and a standing need are not the same thing.
+   A job no story links is a coverage gap, not a detail — §4b's contract.
 
 ### 2b · A late job — `--ia [<job-id>] [--into <screen-id>]`
 A job approved after the IA was chosen, or one it left unhandled, is **placed, never regrouped**:
@@ -76,8 +78,11 @@ A job approved after the IA was chosen, or one it left unhandled, is **placed, n
 - A job that needs a new hub item or a new layer, or that moves another job, is a regrouping →
   **stop** and name `/pb:clarify` §1c.
 
-It writes that job's `screens[]` (slice `ia`) and nothing else in the IA: never `ia.layers[]`, never
-`meta.navHub`. Record the placement in `memory/plan.md`.
+It writes that job's `screens[]` (slice `ia`, `slice.py set ia jobs.<id>`) and nothing else **in the IA**: never `ia.layers[]`, never
+`meta.navHub`. When `flow.populated`, it then also runs §4's gap-fill for that one job — a story whose
+`jobs[]` names it and whose scenarios meet §4b's contract (3 for a `P1` job, one not the happy path) — and
+the job's new wordings under §6. Nothing already in the flow or the deck is touched. Record the placement
+in `memory/plan.md`.
 
 ## 3 · Task breakdown (grouped by tab)
 Invoke `agent-orchestrate-tasks`. Produce `memory/tasks.md` — tasks grouped by the 4 prototype tabs
@@ -88,7 +93,7 @@ Invoke `agent-orchestrate-tasks`. Produce `memory/tasks.md` — tasks grouped by
 - **agent** — which of the 8 `pb-*` agents runs it, routed by `slice`.
 - **deps** — comma-separated task ids that must finish first, or `none`.
 - **slice** — the one registry slice it touches: `screen` · `component` · `logic` · `tokens` · `flow` ·
-  `erd` · `ia` · `meta`.
+  `erd` · `ia` · `content` · `meta`.
 
 §2's tasks land here: a `screen` task per planned screen, a `component` task for a hub not yet built.
 What the IA left open is not invented as work: a job to place later is an `ia` task (agent
@@ -96,8 +101,9 @@ What the IA left open is not invented as work: a job to place later is an `ia` t
 back to `/pb:clarify` §1c.
 
 These five fields are what `/pb:orchestrate` reads to dispatch each task in dependency waves. Plan a
-`flow` or `erd` task **only** for work the reconcile will not do: first population, a re-authored QA
-pass, a restructured diagram, a new entity's relationships. A wave carrying such a task **owns** that
+`flow` or `erd` task **only** for work the reconcile will not do: first population, a gap-fill or
+re-authored QA pass, a restructured diagram, a new entity's relationships. A `content` task (agent
+`pb-flow`, which has Write, Edit and Bash) depends on the `flow` task it words. A wave carrying such a task **owns** that
 slice for the wave — the reconcile stands down.
 
 ### 3b · The demo's start points
@@ -108,8 +114,14 @@ Bodies read `pbRole()`, `pbCan()`, `pbSeed()` and `pbCtx()`; they don't write th
 ---
 
 ## 4 · Author the flow slice
-Skip if `flow.populated` and nothing structural is being asked for. No drift check runs here — a flow is
-a representation, not a trio decision.
+**Unpopulated** → author the whole slice, §4a–§4d. **Populated, and nothing structural is asked for** → run
+the **gap-fill pass** instead of skipping: compute what §4b's contract finds missing (a job no story's
+`jobs[]` names, a story with no scenarios, a `P1` job short of 3 scenarios or of a non-happy one, a spec
+Edge case with no scenario or `coverageWarnings` entry) and append *only* that — a story for an uncovered
+job, a scenario for an uncovered edge. It **never rewrites an existing story, scenario, `path`, node or
+warning**: that would discard the `lastResult` `/pb:test` wrote. A restructuring (a new flow, a node past
+9) is still the author pass. Nothing missing → say so in one line and write nothing. No drift check runs
+here — a flow is a representation, not a trio decision.
 
 **Inputs.** `memory/spec.md` (stories, JTBDs, acceptance scenarios) + `memory/plan.md`. Invoke
 `craft-connect-flow` for navigation / shared-state / entry-exit patterns.
@@ -132,6 +144,15 @@ acceptance scenario. Tag each `{ text, category }` with `category ∈ ux | ui | 
 - **function** — the happy path and validation actually work.
 - **business** — rules and policy (locked accounts, entitlements, limits).
 - **system-edge** — concurrency, rate limits, timeouts, double-submit, offline.
+
+**The coverage contract.** A flow is not done until all four hold; `lint_registry.py` reports a miss as
+`R-COVERAGE` (advisory):
+1. **Every `ia.jobs[]` job has at least one story** that links it through `jobs[]`.
+2. **Every story has scenarios** — a story with none covers nothing.
+3. **A `P1` job has at least 3 scenarios** across the stories that serve it, **at least one of them not the
+   happy path** — a `business`, `system-edge`, `ux` (empty / error) or validation-failure scenario.
+4. **Every item in the spec's Edge cases section** (`memory/spec.md`) becomes a scenario on the story it
+   belongs to, or a `flow.coverageWarnings` entry below. None is dropped, none is left only in the spec.
 
 Then list **coverage gaps** — edges the QA pass found that the flow/screens do **not** cover yet. Write
 them to `flow.coverageWarnings` as `{ category, title, note, status? }`:
@@ -184,6 +205,15 @@ Structured data, never a baked HTML blob. Into `registry.json` → `flow`:
 Set each story's **`path`** to its route (`"Start → Login → Dashboard"`) — hovering the story highlights
 that path. Add **`nodes`** (the exact Mermaid node ids) to make the highlight precise.
 
+Give each new story an **`id`** (`s-<kebab>`): it is how `slice.py` addresses it. **Write through
+`slice.py`, with `--create-list`** wherever the list might not exist yet (`flow` is seeded with
+`stories: []` now, but an older project is not): `set flow stories.<id> --create-list` appends one story;
+`set flow mermaid`, `set flow populated` (patch `true`) and `set flow coverageWarnings --create-list` write
+the rest. A story that has no `id` (written before they had one) is reached by position — `stories.3`.
+To add scenarios to a story, `get` its `scenarios`, then `set` that story's `scenarios` to the existing
+entries **verbatim** followed by the new ones — a scenario you did not add is byte-for-byte what it was,
+`lastResult` included.
+
 > `flow.html` is **legacy only** — a pre-baked fallback used when `flow.mermaid` is absent. Do not author it.
 
 ---
@@ -232,9 +262,41 @@ realistic and type-appropriate. The always-present "Schema" chip shows the field
 
 ---
 
+## 6 · Author the content slice (`--content`, and the bare command)
+The wording deck of UX Design → Content: the canonical text for every action, status and message the
+stories name, so two screens never phrase one thing two ways. It follows the flow — the stories are where
+the actions and messages are — and it appends; it rewrites nothing.
+
+**Inputs.** `flow.stories[]` (their scenarios, `path`s and `nodes`), `content.terms[]` (`slice.py get
+content terms`), the screens' names, and `ia.rules[]` state labels where a rule declares them.
+
+**The shape.** `content.strings[]` entries are `{ "key", "text", "kind", "note"? }`:
+- `key` — a stable kebab or dotted name (`action-submit-review`, `status.cycle-overdue`), unique in the deck.
+- `kind` ∈ `action` · `status` · `label` · `title` · `empty` · `toast` · `error`.
+- `text` — the wording itself, in the product's language; `note` — where it appears or a condition.
+
+**One string per action, status and message the stories name** — the button that submits, the status a
+scenario asserts, the toast a `test{}` expects, the empty state a `ux` scenario describes, the error a
+`business` scenario triggers. Use each term's `term` as written; **never a word in any term's `avoid[]`**
+(`aka[]` words are what the team says, not what the screen shows).
+
+**Gap-fill, never rewrite.** `slice.py get content strings` first; a `key` already there is left exactly
+as written. Append only what is missing, as one write whose patch is the existing list followed by the
+new entries: `slice.py set content strings --create-list`. Set `content.populated` to `true` the same way
+(`slice.py set content populated`, patch `true`).
+
+**No glossary yet** (`content.terms` empty or absent — an older project, or `/pb:clarify` skipped): draft the
+terms the wordings use as `content.terms[]` (shape: `/pb:clarify` §1b1, one per `id`, `--create-list`),
+take their meaning only from the spec or PRD, and tell the user those terms are **unreviewed** — list them
+by name, and name `/pb:clarify` as where they get approved. Never write a term whose meaning no source states.
+
+---
+
 ## Result
 `memory/plan.md` + `memory/tasks.md` (with the IA's screen and hub tasks), each story's `jobs[]`, a late
-job's `screens[]` under `--ia`, and whichever of `flow` / `erd` this run authored. Then
+job's `screens[]` (and, on a populated flow, its story) under `--ia`, and whichever of `flow` / `erd` /
+`content` this run authored or gap-filled — one line each: `+N stories +M scenarios · +K strings`, with the
+jobs or edges still uncovered named. Then
 `/pb:build --render` to see it. Next: `/pb:build` (one slice at a time) or `/pb:orchestrate` (the whole
 plan in agent waves).
 
@@ -248,7 +310,14 @@ plan in agent waves).
 - NEVER suppress a guardrail warning, and never omit the diagram even when guardrails fail — write
   something; the warnings say what to fix.
 - NEVER re-author a populated slice on a routine change. `/pb:build`'s reconcile owns that, and
-  re-authoring discards the `lastResult` values `/pb:test` wrote.
+  re-authoring discards the `lastResult` values `/pb:test` wrote. A populated flow gets §4's gap-fill pass:
+  it appends a story or a scenario, and rewrites none.
+- NEVER leave a job without a story, a story without scenarios, or an Edge case without a scenario or a
+  `coverageWarnings` entry (§4b's contract) — and NEVER pad one to satisfy it: a scenario that checks nothing
+  is worse than the gap.
+- NEVER write a `content.strings[]` entry that uses a term's `avoid[]` word, rewrite one that exists, or
+  invent a term's meaning (§6). NEVER put the slice's own name in a `slice.py` path (`set ia jobs.<id>`,
+  not `set ia ia.jobs.<id>`).
 - NEVER run a drift check here — a flow is a representation, not a trio decision.
 
 > **Skill degrade (NS6).** If a skill this command invokes fails to load, say so explicitly and proceed

@@ -1,5 +1,5 @@
 ---
-description: Capture User Insights into the Project Summary tab; the jobs each role needs done, approved at the G-JTBD gate; the information architecture — N genuinely different groupings of those jobs, authored by the coordinator, scored on the /pb:preview compare page and chosen at the G-IA gate (the screens per job, the layer purposes, the nav hub); and the rules behind contested UI decisions into UX Design -> Logic. Appends each decision to memory/decisions.md. Replaces the v0.4.0 after_clarify hook (folded into this command body).
+description: Capture User Insights into the Project Summary tab; the jobs each role needs done and the glossary of the words they use (content.terms[]), approved together at the G-JTBD gate; the information architecture — N genuinely different groupings of those jobs, authored by the coordinator, scored on the /pb:preview compare page and chosen at the G-IA gate (the screens per job, the layer purposes, the nav hub); and the rules behind contested UI decisions into UX Design -> Logic. Appends each decision to memory/decisions.md. Replaces the v0.4.0 after_clarify hook (folded into this command body).
 ---
 
 # /pb:clarify [--ia-options N] [--skip-ia]
@@ -18,15 +18,20 @@ names — ask it once, here.
 ## Flags
 | Flag | Effect |
 |---|---|
-| *(none)* | §1 → §1b → **G-JTBD** → §1c → **G-IA** → §2–§4 |
+| *(none)* | §1 → §1b → §1b1 → **G-JTBD** (jobs and glossary) → §1c → **G-IA** → §2–§4 |
 | `--ia-options N` | How many groupings §1c authors (**default 3**, at least 2) |
-| `--skip-ia` | Jobs only: §1c and G-IA do not run and the chosen IA stays as it is — for when the IA was validated already and only the insights, a job's wording or the rules changed. An approved job no screen serves is printed with its one-job placement, `/pb:plan --ia <job-id> --into <screen-id>` |
+| `--skip-ia` | Jobs and glossary only (§1b1 still runs): §1c and G-IA do not run and the chosen IA stays as it is — for when the IA was validated already and only the insights, a job's wording or the rules changed. An approved job no screen serves is printed with its one-job placement, `/pb:plan --ia <job-id> --into <screen-id>` |
 
 ## 1 · User Insights
 Capture — from the user, research, or stated assumptions:
 - `quantitative` — any numbers (conversion, drop-off, survey n).
 - `researchSummary` — what users said / did.
 - `executiveSummary` — the one-paragraph takeaway.
+
+**A claim here is either evidenced or an assumption, so say which.** Text ending in a `[rs-…]` citation
+came from a study through `/pb:research`: keep the citation, and never reword what it cites. When a job or
+a decision below rests on something nobody has checked, write it as an assumption and name `/pb:research`,
+which turns it into a survey or an interview and refills this section from the result.
 
 ### 1a · Emphasis marks — a long text needs a hierarchy
 The Project Summary renders its prose with `pbRichText` (`${CLAUDE_PLUGIN_ROOT}/docs/canon.md` § *Rich text*), so what you
@@ -76,13 +81,43 @@ then confirm them with the user a few at a time. Each one is three fields, never
 - Leave `screens: []`. §1c's `promote` fills them, with `ia.layers[]` and `meta.navHub`; none of the
   three is hand-written here.
 
+## 1b1 · Glossary — the words the jobs use (`content.terms[]`)
+Every domain word a job's `when / want / so` leans on is a term, and it is defined **before** anything is
+named: the group labels §1c writes, the screen names `/pb:plan` plans and the wording deck `/pb:plan`
+authors all read these terms, and two names for one thing is cheaper to fix here than on a screen. It runs
+**with or without `--skip-ia`** — a changed job can bring a new word.
+
+**Source.** The drafted jobs above, `memory/spec.md`, `memory/prd.md` and the insights. **Refine by
+`id`** — `slice.py get content terms` first; a word already defined is edited, never defined a second time.
+Draft only words that carry meaning in this product (a role, an object, a status, a quantity) — not every
+noun. Each term is:
+
+```json
+{ "id": "review-cycle", "term": "Review cycle", "en": "review cycle",
+  "definition": "One scheduled round of reviews for a unit, with a start, an end and a status.",
+  "aka": ["round"], "avoid": ["period", "campaign"] }
+```
+
+- `term` is the word as the product shows it; `en` only when the UI language is not English.
+- `aka[]` is what else the team says for it; `avoid[]` is what it is **never** called — the words another
+  term owns, or that mislead. Both may be empty arrays; neither is left out.
+- `rule` is an `ia.rules[].id` when a rule defines the term's states; omit it otherwise, and never invent
+  an id (§2 may add the rule later — set the link then).
+- The `definition` is one sentence from the spec or PRD. A word whose meaning nobody has stated is a
+  question for the gate, not a definition you write.
+
 ## ▛ G-JTBD — human gate ▟
 **STOP.** Present **every** job as `when / want / so` with its `roles[]` and `priority` — the list, not a
-summary of it — and call out the duplicates (two jobs saying one thing), the jobs no existing screen
-serves, any job still at feature or goal altitude, and the open questions. Ask for **approve**,
-**edit** or **reject**. Silence is not approval. **Nothing below runs until this is answered.**
-- **Approve** → write the approved list to `ia.jobs[]` now, refined in place by `id` — §1c's `check`
-  reads the jobs from the registry. Note the approval for §4's entry.
+summary of it — **and under it every term** (`term · definition · aka · avoid`, from §1b1) — and call out the duplicates (two jobs saying one thing,
+two terms saying one), the jobs no existing screen serves, any job still at feature or goal altitude, any
+term whose meaning came from nowhere, and the open questions. Ask for **approve**, **edit** or
+**reject**; one answer covers both lists. Silence is not approval. **Nothing below runs until this is
+answered.**
+- **Approve** → write the approved list to `ia.jobs[]` now, refined in place by `id`
+  (`slice.py set ia jobs.<id> --create-list`; the path is `jobs.<id>`, never `ia.jobs.<id>`) — §1c's `check`
+  reads the jobs from the registry. Then the terms, one element each, creating the list the first time:
+  `slice.py set content terms.<id> --create-list` (patch = the term with its `id`), and
+  `slice.py set content populated` with the patch `true`. Note the approval for §4's entry.
 - **Edit** → apply, re-present, ask again. An edit re-opens the gate.
 - **Reject** → back to §1b. Nothing is written.
 
@@ -294,6 +329,8 @@ and an unstructured rule whose summary or why runs long (`L-PROSE`, information 
 ## 3 · Write the registry (fold the sync — no hook)
 - `meta.userInsights` = `{ quantitative, researchSummary, executiveSummary }` — with the §1a marks.
 - `ia.jobs[]` — the jobs approved at G-JTBD (already written there); refined in place by `id`.
+- `content.terms[]` — the glossary approved at the same gate (already written there, `--create-list`);
+  refined in place by `id`, with `content.populated: true`. `content.strings[]` is `/pb:plan`'s, not written here.
 - `ia.jobs[].screens[]`, `ia.layers[]`, `meta.navHub` — written by §1c's `promote` only, never here.
 - `ia.rules[]` — append each new rule; update in place when the decision refines one already there.
 - `ia.populated: true` once either list is non-empty (`promote` sets it too).
@@ -327,12 +364,16 @@ the hub component, and its `Rule:` is the placement rule's id, or `none`.
 
 ## Result
 User Insights synced to Tab 2; the approved jobs and the chosen IA (each job's screens, the layer
-purposes, the hub) in UX Design → Information Architecture; one rule per decision in UX Design → Logic
+purposes, the hub) in UX Design → Information Architecture; the approved glossary in UX Design → Content; one rule per decision in UX Design → Logic
 → Rules; one `decisions.md` entry each, pointing back at the rule id. Next: `/pb:plan`, which turns
 the chosen IA into tasks. **Do not render.**
 
 ## NEVER
 - NEVER group before G-JTBD — §1c starts only on an approved job list, written to the registry.
+- NEVER write a term before G-JTBD answers it, define one from nothing (a meaning no source states goes
+  to the gate as a question), or define a word twice — refine by `id`. A term's `avoid[]` names no word
+  that another term uses as its own `term`.
+- NEVER put the slice's own name in the path: `slice.py set ia jobs.<id>`, not `set ia ia.jobs.<id>`.
 - NEVER author an IA outside `explore.py --ia` — no grouping table in chat in place of the link, no
   hand-written compare page, no second server, and no hand-written `ia.jobs[].screens[]`,
   `ia.layers[]` or `meta.navHub`: `promote` writes them.

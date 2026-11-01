@@ -27,6 +27,8 @@ categorized test checklist — worn as the QA hat, not just a diagram.
     additionally carry a `test` block (`{ start, steps[], expect[] }`) and a `lastResult` — but `lastResult`
     is written by `pb-tester`/`test_run.py`, never here.
   - `coverageWarnings[]` — `{ category, note }` for edges the flow/screens do not cover yet.
+- **`content.strings[]`** — when a task's `slice` is `content`: the wording deck `/pb:plan` §6 describes, drawn
+  from the stories it owns. It appends and rewrites nothing, and uses `content.terms[]` as written.
 
 It keeps the wireflow and the wired `data-nav`/`data-go` targets in agreement. One writer per slice: under
 orchestration it **returns the `flow` patch**; the coordinator serializes writes and renders once per wave.

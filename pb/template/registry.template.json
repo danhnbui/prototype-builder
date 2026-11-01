@@ -59,7 +59,13 @@
     }
   },
   "flow": {
-    "populated": false
+    "populated": false,
+    "stories": []
+  },
+  "content": {
+    "populated": false,
+    "terms": [],
+    "strings": []
   },
   "ia": {
     "populated": false,
