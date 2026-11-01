@@ -135,15 +135,16 @@ class Proj:
 
 
 CSV = os.path.join(FIX, "forms-responses.csv")
+SKIP = ("--skip-review", "fixture: the bias review has its own section")
 
 
 def survey_fielding(sid="rs-cod"):
     """A survey study at `fielding`: init, plan, approve, import the Forms CSV (Email dropped)."""
     p = Proj()
-    p.run("init", sid, "--method", "survey", "--question", "Do couriers need the cash amount first?",
+    p.run("init", sid, "--method", "survey", "--scope", "collect", "--question", "Do couriers need the cash amount first?",
           "--role", "courier", "--segment", "rural, under 1 year on the job", "--target", "job:pay-cod")
     p.run("plan", sid, "--file", os.path.join(FIX, "survey-plan.json"))
-    p.run("approve", sid)
+    p.run("approve", sid, *SKIP)
     rc, out, err = p.run("import", sid, CSV, "--kind", "responses", "--consent", "yes", "--drop-columns", "Email Address")
     assert rc == 0, (rc, out, err)
     return p
@@ -151,10 +152,10 @@ def survey_fielding(sid="rs-cod"):
 
 def interview_fielding(sid="rs-handover", p2_consent="unknown"):
     p = Proj()
-    p.run("init", sid, "--method", "interview", "--question", "How do dispatchers confirm a handover?",
+    p.run("init", sid, "--method", "interview", "--scope", "collect", "--question", "How do dispatchers confirm a handover?",
           "--role", "dispatcher", "--target", "job:confirm-handover", "--target", "screen:handover")
     p.run("plan", sid, "--file", os.path.join(FIX, "interview-plan.json"))
-    p.run("approve", sid)
+    p.run("approve", sid, *SKIP)
     rc, out, err = p.run("import", sid, os.path.join(FIX, "transcript-p01.txt"), "--kind", "transcript",
                          "--consent", "yes", "--participant", "P01", "--role", "dispatcher")
     assert rc == 0, (rc, out, err)
@@ -171,7 +172,7 @@ def codes(items):
 # ═════════════════════════════════════════════════════════════════════════════
 section("1. the survey path, verb by verb")
 p = Proj()
-rc, out, err = p.run("init", "rs-cod", "--method", "survey", "--question", "Do couriers need the cash amount first?",
+rc, out, err = p.run("init", "rs-cod", "--method", "survey", "--scope", "collect", "--question", "Do couriers need the cash amount first?",
                      "--role", "courier", "--segment", "rural, under 1 year on the job", "--target", "job:pay-cod")
 st = p.study("rs-cod")
 check(rc == 0 and st["status"] == "draft" and st["audience"]["targetN"] == 30, "init: a draft survey, targetN defaults to 30")
@@ -193,7 +194,7 @@ before = p.raw()
 rc, out, err = p.run("check", "rs-cod")
 check(rc == 0 and out["errors"] == [] and p.raw() == before, "check: clean, writes nothing")
 
-rc, out, err = p.run("approve", "rs-cod", "--note", "reviewed with the lead")
+rc, out, err = p.run("approve", "rs-cod", "--note", "reviewed with the lead", *SKIP)
 st = p.study("rs-cod")
 check(rc == 0 and st["status"] == "approved" and st["gates"][0]["gate"] == "G-STUDY"
       and st["gates"][0]["note"] == "reviewed with the lead", "approve: status approved, G-STUDY appended with its note")
@@ -377,27 +378,27 @@ check(rc == 0 and "W-ONE-PARTICIPANT" in codes(out["warnings"]) and "W-SHORT-QUO
 # ═════════════════════════════════════════════════════════════════════════════
 section("3. the refusals")
 p = Proj()
-rc, out, err = p.run("init", "rs-x", "--method", "survey", "--question", "q")
+rc, out, err = p.run("init", "rs-x", "--method", "survey", "--scope", "collect", "--question", "q")
 check(rc == 1 and "who it asks" in out["error"] and not p.data()["research"]["studies"],
       "REFUSED init with no role and no segment")
-rc, out, err = p.run("init", "rs-x", "--method", "survey", "--question", "q", "--role", "courier", "--target", "job:not-a-job")
+rc, out, err = p.run("init", "rs-x", "--method", "survey", "--scope", "collect", "--question", "q", "--role", "courier", "--target", "job:not-a-job")
 check(rc == 1 and "does not resolve" in out["error"], "REFUSED init with an unresolved target")
-rc, out, err = p.run("init", "rs-x", "--method", "survey", "--question", "q", "--role", "astronaut")
+rc, out, err = p.run("init", "rs-x", "--method", "survey", "--scope", "collect", "--question", "q", "--role", "astronaut")
 check(rc == 1 and "meta.roles" in out["error"], "REFUSED init with a role meta.roles does not declare")
-rc, out, err = p.run("init", "rs-x", "--method", "survey", "--question", "q", "--role", "courier", "--target", "feature:a thing nobody modelled")
+rc, out, err = p.run("init", "rs-x", "--method", "survey", "--scope", "collect", "--question", "q", "--role", "courier", "--target", "feature:a thing nobody modelled")
 check(rc == 0, "init accepts a free-text feature target")
-rc, out, err = p.run("init", "rs-x", "--method", "survey", "--question", "q", "--role", "courier")
+rc, out, err = p.run("init", "rs-x", "--method", "survey", "--scope", "collect", "--question", "q", "--role", "courier")
 check(rc == 1, "REFUSED init of an id that exists")
-rc, out, err = p.run("init", "RS_x", "--method", "survey", "--question", "q", "--role", "courier")
+rc, out, err = p.run("init", "RS_x", "--method", "survey", "--scope", "collect", "--question", "q", "--role", "courier")
 check(rc == 2, "REFUSED a malformed study id (exit 2)")
-rc, out, err = p.run("init", "rs-i", "--method", "interview", "--question", "q", "--segment", "new dispatchers")
+rc, out, err = p.run("init", "rs-i", "--method", "interview", "--scope", "collect", "--question", "q", "--segment", "new dispatchers")
 check(rc == 0 and p.study("rs-i")["audience"]["targetN"] == 5, "init: a segment alone is enough; interview targetN defaults to 5")
 
 # approve with check errors
 bad = jload("survey-plan.json")
 del bad["hypotheses"][0]["refutedIf"]
 bad["instrument"]["sections"][1]["questions"][0]["tests"] = []
-p.run("init", "rs-bad", "--method", "survey", "--question", "q", "--role", "courier")
+p.run("init", "rs-bad", "--method", "survey", "--scope", "collect", "--question", "q", "--role", "courier")
 p.write("bad.json", bad)
 p.run("plan", "rs-bad", "--file", p.path("bad.json"))
 rc, out, err = p.run("approve", "rs-bad")
@@ -515,12 +516,12 @@ vi_plan = jload("survey-plan.json")
 vi_q3 = "Bạn có cần thấy số tiền thu hộ trước khi đến cửa không?"
 vi_plan["instrument"]["sections"][1]["questions"][0]["text"] = unicodedata.normalize("NFC", vi_q3)
 vi_plan["instrument"]["sections"][1]["questions"][0]["options"] = ["Có", "Không"]
-p.run("init", "rs-vi", "--method", "survey", "--question", "q", "--role", "courier")
+p.run("init", "rs-vi", "--method", "survey", "--scope", "collect", "--question", "q", "--role", "courier")
 p.write("vi.json", vi_plan)
 p.run("plan", "rs-vi", "--file", p.path("vi.json"))
 rc, out, err = p.run("check", "rs-vi")
 check(rc == 0, "a Vietnamese question set checks clean (no errors)")
-rc, out, err = p.run("approve", "rs-vi")
+rc, out, err = p.run("approve", "rs-vi", *SKIP)
 header = ["Dấu thời gian", "q1", "q2", unicodedata.normalize("NFD", vi_q3)]
 rows = [["2026/11/02", "Yes", "Under 1 year", "Có"], ["2026/11/02", "Yes", "1 to 3 years", "Không"],
         ["2026/11/02", "Yes", "Under 1 year", "có"], ["2026/11/02", "No", "Under 1 year", "Có"]]
@@ -544,7 +545,7 @@ check(R.split_multi("Cash, counted at the door, E-wallet", {"options": ["Cash", 
 # ═════════════════════════════════════════════════════════════════════════════
 section("6. check: errors and warnings")
 p = Proj()
-p.run("init", "rs-w", "--method", "survey", "--question", "q", "--role", "courier")
+p.run("init", "rs-w", "--method", "survey", "--scope", "collect", "--question", "q", "--role", "courier")
 w = jload("survey-plan.json")
 qs = w["instrument"]["sections"][1]["questions"]
 qs[3]["text"] = "Would you like the amount first and a total?"
@@ -558,7 +559,7 @@ check(rc == 0 and out["errors"] == [], "heuristics are warnings, never errors")
 check({"W-HYPOTHETICAL", "W-LEADING", "W-DOUBLE"} <= set(codes(out["warnings"])),
       "warnings (EN + VI): hypothetical, leading, double-barrelled -> %s" % codes(out["warnings"]))
 
-p.run("init", "rs-e", "--method", "survey", "--question", "q", "--role", "courier")
+p.run("init", "rs-e", "--method", "survey", "--scope", "collect", "--question", "q", "--role", "courier")
 e = jload("survey-plan.json")
 e["instrument"]["intro"] = ""
 e["instrument"]["sections"][1]["questions"][0]["tests"] = ["h9"]
@@ -574,7 +575,7 @@ rc, out, err = p.run("check", "rs-e")
 need = {"C-INTRO", "C-TESTS", "C-SCALE", "C-QUALIFIES", "C-OPTIONS", "C-ID", "C-TYPE", "C-TARGET"}
 check(rc == 1 and need <= set(codes(out["errors"])), "check errors: %s" % sorted(need & set(codes(out["errors"]))))
 
-p.run("init", "rs-s", "--method", "survey", "--question", "q", "--segment", "rural couriers")
+p.run("init", "rs-s", "--method", "survey", "--scope", "collect", "--question", "q", "--segment", "rural couriers")
 ns = jload("survey-plan.json")
 ns["instrument"]["sections"] = ns["instrument"]["sections"][1:]
 p.write("ns.json", ns)
@@ -582,7 +583,7 @@ p.run("plan", "rs-s", "--file", p.path("ns.json"))
 rc, out, err = p.run("check", "rs-s")
 check(rc == 1 and "C-SCREENER" in codes(out["errors"]), "check error: the audience names a segment but there is no screener")
 
-p.run("init", "rs-t", "--method", "interview", "--question", "q", "--role", "dispatcher")
+p.run("init", "rs-t", "--method", "interview", "--scope", "collect", "--question", "q", "--role", "dispatcher")
 it = jload("interview-plan.json")
 it["instrument"]["sections"] = it["instrument"]["sections"][1:]
 tk = it["instrument"]["sections"][0]["questions"][0]["task"]
@@ -598,9 +599,9 @@ check(rc == 1 and "C-WARMUP" in codes(out["errors"]) and "screen 'nowhere'" in m
 # ═════════════════════════════════════════════════════════════════════════════
 section("7. plan on an approved study, gaps, seed")
 p = Proj()
-p.run("init", "rs-cod", "--method", "survey", "--question", "q", "--role", "courier", "--target", "job:pay-cod")
+p.run("init", "rs-cod", "--method", "survey", "--scope", "collect", "--question", "q", "--role", "courier", "--target", "job:pay-cod")
 p.run("plan", "rs-cod", "--file", os.path.join(FIX, "survey-plan.json"))
-p.run("approve", "rs-cod")
+p.run("approve", "rs-cod", *SKIP)
 smd = p.path("memory", "research", "rs-cod", "instrument", "survey.md")
 check("Approved at G-STUDY" in open(smd, encoding="utf-8").read(), "(setup: approved)")
 rc, out, err = p.run("plan", "rs-cod", "--file", os.path.join(FIX, "survey-plan.json"))
@@ -655,6 +656,456 @@ rc, out, err = p.run("seed", "job")
 check(rc == 2, "seed: a malformed target is a usage error (exit 2)")
 rc, txt, err = p.text("gaps")
 check(rc == 0 and "rule:cod-limit" in txt, "human output (no --json) prints a readable list")
+
+# ═════════════════════════════════════════════════════════════════════════════
+section("8. scope and setup")
+SETUP_MARK = "SETUP-MARK-36 Typeform, panel of 40 couriers, results in the team drive"
+p = Proj()
+rc, out, err = p.run("init", "rs-i1", "--method", "survey", "--question", "q", "--role", "courier")
+check(rc == 2, "init without --scope is a usage error (exit 2)")
+rc, out, err = p.run("init", "rs-i1", "--method", "survey", "--scope", "somewhere", "--question", "q", "--role", "courier")
+check(rc == 2, "init with a scope that is neither instrument nor collect is a usage error (exit 2)")
+rc, out, err = p.run("init", "rs-i1", "--method", "survey", "--scope", "instrument", "--setup", SETUP_MARK,
+                     "--question", "q", "--role", "courier", "--target", "job:pay-cod")
+st = p.study("rs-i1")
+check(rc == 0 and st["scope"] == "instrument" and st["setup"] == SETUP_MARK, "init --scope instrument --setup: both stored on the study")
+rc, out, err = p.run("init", "rs-c1", "--method", "survey", "--scope", "collect", "--question", "q", "--role", "courier")
+check(rc == 0 and p.study("rs-c1")["scope"] == "collect" and p.study("rs-c1")["setup"] == "", "init --scope collect without --setup: setup is empty")
+p.run("plan", "rs-i1", "--file", os.path.join(FIX, "survey-plan.json"))
+rc, out, err = p.run("approve", "rs-i1", *SKIP)
+check(rc == 0 and p.study("rs-i1")["status"] == "approved", "an instrument study reaches approved")
+rc, out, err = p.run("import", "rs-i1", CSV, "--kind", "responses", "--consent", "yes", "--drop-columns", "Email Address")
+check(rc == 1 and "scope" in out.get("error", "") and "scope rs-i1 --scope collect" in out["error"]
+      and not p.study("rs-i1")["evidence"] and not os.path.exists(p.path("memory", "research", "rs-i1", "evidence")),
+      "REFUSED import into an instrument study; the message names the `scope` command; nothing stored")
+exported = b"".join(open(p.path("memory", "research", "rs-i1", "instrument", n), "rb").read()
+                    for n in ("survey.md", "responses-template.csv"))
+p.run("export", "rs-i1")
+exported2 = b"".join(open(p.path("memory", "research", "rs-i1", "instrument", n), "rb").read()
+                     for n in ("survey.md", "responses-template.csv"))
+check(exported == exported2 and b"SETUP-MARK" not in exported and b"Typeform" not in exported,
+      "exported instrument files are deterministic and do not contain the setup")
+rc, out, err = p.run("gaps")
+check(rc == 0 and "rs-i1" not in json.dumps(out) , "gaps: an approved instrument study is not listed as unfinished work")
+d = p.data()
+d["research"]["studies"][0]["hypotheses"][0]["verdict"] = "inconclusive"
+p.save(d)
+rc, out, err = p.run("gaps")
+check("inconclusive" not in json.dumps(out["gaps"]), "gaps: an inconclusive verdict in an instrument study is not a gap (no result was due)")
+rc, out, err = p.run("list")
+row = next(r for r in out["studies"] if r["id"] == "rs-i1")
+check(rc == 0 and row["scope"] == "instrument" and next(r for r in out["studies"] if r["id"] == "rs-c1")["scope"] == "collect",
+      "list --json carries each study's scope")
+rc, txt, err = p.text("list")
+check("instrument" in txt and "collect" in txt, "list (text) shows the scope")
+
+gates = p.study("rs-i1")["gates"]
+raw_status = p.study("rs-i1")["status"]
+rc, out, err = p.run("scope", "rs-i1")
+check(rc == 2, "scope with neither --scope nor --setup is a usage error (exit 2)")
+rc, out, err = p.run("scope", "rs-i1", "--scope", "collect")
+st = p.study("rs-i1")
+check(rc == 0 and st["scope"] == "collect" and st["setup"] == SETUP_MARK and st["gates"] == gates and st["status"] == raw_status,
+      "scope --scope collect: changed, setup kept, no gate written, status untouched")
+rc, out, err = p.run("scope", "rs-i1", "--setup", "now: Google Forms")
+check(rc == 0 and p.study("rs-i1")["setup"] == "now: Google Forms" and p.study("rs-i1")["scope"] == "collect",
+      "scope --setup alone changes only the setup")
+rc, out, err = p.run("import", "rs-i1", CSV, "--kind", "responses", "--consent", "yes", "--drop-columns", "Email Address")
+check(rc == 0 and len(p.study("rs-i1")["evidence"]) == 1, "after `scope --scope collect` the import goes through")
+rc, out, err = p.run("scope", "rs-i1", "--scope", "instrument")
+rc2, out2, err2 = p.run("scope", "rs-nope", "--scope", "collect")
+check(rc == 0 and rc2 == 2, "scope can go back to instrument at any status; an unknown study is exit 2")
+
+# a study from before scope existed behaves as collect
+p = Proj()
+p.run("init", "rs-old", "--method", "survey", "--scope", "collect", "--question", "q", "--role", "courier")
+p.run("plan", "rs-old", "--file", os.path.join(FIX, "survey-plan.json"))
+p.run("approve", "rs-old", *SKIP)
+d = p.data()
+for k in ("scope", "setup"):
+    del d["research"]["studies"][0][k]
+p.save(d)
+rc, out, err = p.run("import", "rs-old", CSV, "--kind", "responses", "--consent", "yes", "--drop-columns", "Email Address")
+check(rc == 0 and "scope" not in p.study("rs-old"), "a study with no `scope` key behaves as collect: import works, no migration writes the key")
+rc, out, err = p.run("list")
+check(out["studies"][0]["scope"] == "collect", "list reports a study with no scope key as collect")
+rc, out, err = p.run("check", "rs-old")
+check(rc == 0, "check passes on a study with no scope key")
+d = p.data()
+d["research"]["studies"][0]["scope"] = "somewhere"
+p.save(d)
+rc, out, err = p.run("check", "rs-old")
+check(rc == 1 and "C-SCOPE" in codes(out["errors"]), "check error C-SCOPE: a stored scope that is neither instrument nor collect")
+
+# ═════════════════════════════════════════════════════════════════════════════
+section("9. standard metric templates")
+SUS_WORDING = ["I think that I would like to use this system frequently.",
+               "I found the system unnecessarily complex.",
+               "I thought the system was easy to use.",
+               "I think that I would need the support of a technical person to be able to use this system.",
+               "I found the various functions in this system were well integrated.",
+               "I thought there was too much inconsistency in this system.",
+               "I would imagine that most people would learn to use this system very quickly.",
+               "I found the system very cumbersome to use.",
+               "I felt very confident using the system.",
+               "I needed to learn a lot of things before I could get going with this system."]
+
+
+def template_plan(extra=None, lang="en"):
+    plan = jload("survey-plan.json")
+    plan["instrument"]["lang"] = lang
+    qs = [{"id": "q9", "template": "ces", "subject": "settling cash at the door", "tests": ["h2"]},
+          {"id": "q10", "template": "seq", "tests": ["h2"]},
+          {"id": "q11", "template": "csat", "subject": "the cash screen", "tests": ["h2"]},
+          {"id": "q12", "template": "nps", "tests": ["h2"]},
+          {"id": "q13", "template": "sus", "tests": ["h2"]}]
+    plan["instrument"]["sections"].append({"title": "Ratings", "purpose": "main", "questions": qs + (extra or [])})
+    return plan
+
+
+def template_study(plan=None, lang="en"):
+    p = Proj()
+    p.run("init", "rs-tpl", "--method", "survey", "--scope", "collect", "--question", "q", "--role", "courier")
+    p.write("tpl.json", plan or template_plan(lang=lang))
+    rc, out, err = p.run("plan", "rs-tpl", "--file", p.path("tpl.json"))
+    return p, rc, out, err
+
+
+p, rc, out, err = template_study()
+inst = p.study("rs-tpl")["instrument"]
+byid = {q["id"]: q for s in inst["sections"] for q in s["questions"]}
+check(rc == 0 and all(i in byid for i in ["q9", "q10", "q11", "q12"] + ["q13-%d" % n for n in range(1, 11)]) and "q13" not in byid,
+      "plan expands ces/seq/csat/nps to one question each and sus to q13-1 .. q13-10")
+check(byid["q9"]["text"] == "Settling cash at the door was easy to handle." and byid["q9"]["type"] == "scale"
+      and byid["q9"]["scale"] == {"min": 1, "max": 7, "minLabel": "Strongly disagree", "maxLabel": "Strongly agree"}
+      and byid["q9"]["template"] == "ces" and byid["q9"]["tests"] == ["h2"], "ces: wording from the subject (capitalised), scale 1-7, template kept")
+check(byid["q10"]["text"] == "Overall, how difficult or easy was this task to complete?"
+      and byid["q10"]["scale"] == {"min": 1, "max": 7, "minLabel": "Very difficult", "maxLabel": "Very easy"}, "seq: standard wording and 1-7 labels")
+check(byid["q11"]["text"] == "How satisfied are you with the cash screen?"
+      and byid["q11"]["scale"] == {"min": 1, "max": 5, "minLabel": "Very dissatisfied", "maxLabel": "Very satisfied"}, "csat: subject in the wording, 1-5 labels")
+check(byid["q12"]["text"] == "How likely are you to recommend this to a friend or colleague?"
+      and byid["q12"]["scale"] == {"min": 0, "max": 10, "minLabel": "Not at all likely", "maxLabel": "Extremely likely"},
+      "nps: default subject 'this', 0-10 labels")
+check([byid["q13-%d" % n]["text"] for n in range(1, 11)] == SUS_WORDING
+      and all(byid["q13-%d" % n]["scale"] == {"min": 1, "max": 5, "minLabel": "Strongly disagree", "maxLabel": "Strongly agree"}
+              and byid["q13-%d" % n]["template"] == "sus" and byid["q13-%d" % n]["templateItem"] == n for n in range(1, 11)),
+      "sus: the ten Brooke items in order, scale 1-5, each keeps template + templateItem")
+rc, out, err = p.run("check", "rs-tpl")
+check(rc == 0 and "W-TEMPLATE-TEXT" not in codes(out["warnings"]) and "W-DOUBLE" not in codes(out["warnings"])
+      and not [w for w in out["warnings"] if w["where"].endswith(("q12", "q13-2", "q9"))],
+      "check: standard wording draws no W-TEMPLATE-TEXT, and template questions are exempt from the wording heuristics (nps text holds ' or ')")
+
+# the wording heuristics DO fire on a hand-written question of the same shape (so the exemption is real)
+hand = template_plan()
+hand["instrument"]["sections"][-1]["questions"].append({"id": "q14", "text": "Would you recommend this to a friend or colleague?",
+                                                       "tests": ["h2"], "type": "text"})
+p2, rc, out, err = template_study(hand)
+rc, out, err = p2.run("check", "rs-tpl")
+check({"W-HYPOTHETICAL", "W-DOUBLE"} <= set(codes(out["warnings"])), "(control) a hand-written 'would you … or …' still warns")
+
+# re-planning an already expanded instrument is stable
+again = p.study("rs-tpl")["instrument"]
+p.write("again.json", {"instrument": again})
+rc, out, err = p.run("plan", "rs-tpl", "--file", p.path("again.json"))
+check(rc == 0 and p.study("rs-tpl")["instrument"] == again, "plan of an already expanded instrument leaves it unchanged (no q13-1-1)")
+
+# translated wording, unknown template, tests rule, bad entries
+vi = template_plan(lang="vi")
+vi["instrument"]["sections"][-1]["questions"][0]["text"] = "Việc thu tiền tại cửa rất dễ xử lý."
+pv, rc, out, err = template_study(vi)
+rc2, out2, err2 = pv.run("check", "rs-tpl")
+tw = [w for w in out2["warnings"] if w["code"] == "W-TEMPLATE-TEXT"]
+check(rc == 0 and rc2 == 0 and len(tw) == 1 and tw[0]["where"].endswith("q9") and pv.study("rs-tpl")["instrument"]["sections"][-1]["questions"][0]["text"] == "Việc thu tiền tại cửa rất dễ xử lý.",
+      "lang vi + a translated `text`: kept, and check warns W-TEMPLATE-TEXT for that question only (not validated)")
+en_text = template_plan()
+en_text["instrument"]["sections"][-1]["questions"][0]["text"] = "Settling was a breeze."
+pe, rc, out, err = template_study(en_text)
+check(rc == 1 and "lang" in out.get("error", ""), "REFUSED a `text` override while lang is en (it is for a translation)")
+bad = template_plan(extra=[{"id": "q15", "template": "foo", "tests": ["h2"]}])
+pb_, rc, out, err = template_study(bad)
+rc2, out2, err2 = pb_.run("check", "rs-tpl")
+check(rc == 0 and rc2 == 1 and "C-TEMPLATE" in codes(out2["errors"]), "an unknown template is stored as written and `check` reports C-TEMPLATE")
+rc3, out3, err3 = pb_.run("approve", "rs-tpl", *SKIP)
+check(rc3 == 1 and pb_.study("rs-tpl")["status"] == "draft", "REFUSED approve while a template is unknown")
+nt = template_plan()
+nt["instrument"]["sections"][-1]["questions"][3]["tests"] = []
+pn, rc, out, err = template_study(nt)
+rc2, out2, err2 = pn.run("check", "rs-tpl")
+check(rc2 == 1 and any(e["code"] == "C-TESTS" and e["where"].endswith("q12") for e in out2["errors"]),
+      "a template question in a main section needs `tests` like any other main question")
+sc = template_plan()
+sc["instrument"]["sections"][-1]["questions"][1]["subject"] = "the task"
+ps, rc, out, err = template_study(sc)
+check(rc == 1 and "subject" in out.get("error", ""), "REFUSED a subject on seq (its wording is fixed)")
+d = p.data()
+d["research"]["studies"][0]["instrument"]["sections"][-1]["questions"][0]["scale"]["max"] = 5
+p.save(d)
+rc, out, err = p.run("check", "rs-tpl")
+check(rc == 1 and "C-TEMPLATE" in codes(out["errors"]), "check error: a template question whose scale was changed (the score would be wrong)")
+
+# scores, against values worked by hand
+HEAD = ["q1", "q2", "q9", "q10", "q11", "q12"] + ["q13-%d" % n for n in range(1, 11)]
+BEST = [5, 1, 5, 1, 5, 1, 5, 1, 5, 1]
+ROWS = [["Yes", "Under 1 year", 7, 7, 5, 10] + [3] * 10,                        # SUS all 3s            -> 50
+        ["Yes", "Under 1 year", 6, 5, 4, 9] + BEST,                              # SUS best case         -> 100
+        ["Yes", "Under 1 year", 5, 6, 3, 9] + [3] * 9 + [""],                    # item 10 missing       -> not scored
+        ["Yes", "1 to 3 years", 4, 3, 3, 8] + [4, 2, 4, 2, 4, 2, 4, 2, 4, 2],    # odd 4 -> 3 x5, even 2 -> 3 x5 = 30 -> 75
+        ["Yes", "1 to 3 years", 2, 4, 1, 3] + [""] * 10]                         # no SUS at all         -> not scored
+buf = io.StringIO()
+w = csv.writer(buf, lineterminator="\n")
+w.writerow(HEAD)
+w.writerows(ROWS)
+p, rc, out, err = template_study()
+open(p.path("scores.csv"), "w", encoding="utf-8").write(buf.getvalue())
+p.run("approve", "rs-tpl", *SKIP)
+rc, out, err = p.run("import", "rs-tpl", p.path("scores.csv"), "--kind", "responses", "--consent", "yes")
+check(rc == 0 and len(out["matched"]) == 16, "import: the 16 score columns match the question ids (including q13-1 .. q13-10)")
+rc, out, err = p.run("tally", "rs-tpl")
+bq = p.study("rs-tpl")["tally"]["byQuestion"]
+# CES [7,6,5,4,2]: mean 24/5 = 4.8; 5-7 are 7,6,5 = 3 of 5 = 60 %
+check(rc == 0 and bq["q9"]["score"] == {"metric": "ces", "value": 4.8, "pct": 60.0, "n": 5}, "tally: CES [7,6,5,4,2] -> mean 4.8, 60% answering 5-7")
+# SEQ [7,5,6,3,4]: 25/5 = 5.0
+check(bq["q10"]["score"] == {"metric": "seq", "value": 5.0, "n": 5}, "tally: SEQ [7,5,6,3,4] -> mean 5.0")
+# CSAT [5,4,3,3,1]: 4 or 5 are 5,4 = 2 of 5 = 40 %
+check(bq["q11"]["score"] == {"metric": "csat", "value": 40.0, "n": 5}, "tally: CSAT [5,4,3,3,1] -> 40% answering 4 or 5")
+# NPS [10,9,9,8,3]: promoters 10,9,9 = 60 %, detractors (0-6) 3 = 20 % -> 40
+check(bq["q12"]["score"] == {"metric": "nps", "value": 40, "n": 5} and isinstance(bq["q12"]["score"]["value"], int),
+      "tally: NPS [10,9,9,8,3] -> 60% promoters - 20% detractors = 40 (an integer)")
+# SUS: all 3s = (10 + 10) x 2.5 = 50 ; best case = (20 + 20) x 2.5 = 100 ; [4,2,...] = (15 + 15) x 2.5 = 75 ; two incomplete respondents left out
+sus_one = lambda a: R.sus_respondent(a)
+check(sus_one([3] * 10) == 50 and sus_one(BEST) == 100 and sus_one([4, 2] * 5) == 75 and sus_one([3] * 9 + [None]) is None
+      and sus_one([1, 5] * 5) == 0, "sus_respondent: all 3s = 50, best case = 100, [4,2,..] = 75, worst case = 0, an incomplete set = None")
+check(bq["q13"]["score"] == {"metric": "sus", "value": 75.0, "n": 3} and bq["q13"]["n"] == 3 and bq["q13"]["type"] == "sus",
+      "tally: SUS over 3 complete respondents (50, 100, 75) -> mean 75, n 3 (under the base id q13)")
+check(bq["q13-1"]["n"] == 4 and "score" not in bq["q13-1"] and bq["q13-1"]["type"] == "scale", "tally: each sus item is still an ordinary scale question (n 4, no score)")
+check("score" not in bq.get("q1", {}) and "score" not in bq.get("q2", {}), "tally: ordinary questions carry no score")
+
+# verify: a correct citation of every score is clean; a wrong one fails
+syn = {"verdicts": {"h1": {"verdict": "inconclusive", "why": "not asked"}, "h2": {"verdict": "inconclusive", "why": "n is 5"},
+                    "h3": {"verdict": "inconclusive", "why": "not asked"}},
+       "findings": [{"id": "f1", "text": "Settling cash is rated moderately easy.", "hypotheses": ["h2"],
+                     "evidence": [{"tally": "q9", "stat": "ces", "value": 4.8, "of": 5},
+                                  {"tally": "q9", "stat": "ces", "value": 4.8, "pct": 60, "of": 5},
+                                  {"tally": "q10", "stat": "seq", "value": 5.0, "of": 5},
+                                  {"tally": "q11", "stat": "csat", "value": 40, "of": 5},
+                                  {"tally": "q12", "stat": "nps", "value": 40, "of": 5},
+                                  {"tally": "q13", "stat": "sus", "value": 75, "of": 3}]}],
+       "refill": {"quantitative": "CES 4.8, NPS 40 and SUS 75 (n 3 complete respondents)."}}
+p.write("syn.json", syn)
+rc, out, err = p.run("synthesize", "rs-tpl", "--file", p.path("syn.json"))
+check(rc == 0 and out["ok"] and p.study("rs-tpl")["status"] == "analysed" and "W-NUMBER" not in codes(out["warnings"]),
+      "synthesize: all six score citations verify (value at the cited precision), and the refill numbers (4.8, 40, 75, 3) count as known")
+syn_n = json.loads(json.dumps(syn))
+syn_n["refill"]["quantitative"] = "SUS 76 from 3 respondents."
+p.write("syn_n.json", syn_n)
+rc, out, err = p.run("synthesize", "rs-tpl", "--file", p.path("syn_n.json"))
+check(rc == 0 and any(w["code"] == "W-NUMBER" and "76" in w["msg"] for w in out["warnings"]), "refill: a number that is no score or count (76) still warns W-NUMBER")
+
+
+def wrong(ev, why):
+    s = json.loads(json.dumps(syn))
+    s["findings"][0]["evidence"] = [ev]
+    p.write("w.json", s)
+    rc, out, err = p.run("synthesize", "rs-tpl", "--file", p.path("w.json"))
+    check(rc == 1 and "V-TALLY" in codes(out["errors"]), "REFUSED " + why)
+
+
+wrong({"tally": "q9", "stat": "ces", "value": 4.9, "of": 5}, "a CES citation off by a tenth (4.9 vs 4.8)")
+wrong({"tally": "q9", "stat": "ces", "value": 4.8, "pct": 80, "of": 5}, "a CES percent that is wrong (80 vs 60)")
+wrong({"tally": "q11", "stat": "csat", "value": 60, "of": 5}, "a CSAT citation of 60 (the tally says 40)")
+wrong({"tally": "q12", "stat": "nps", "value": 41, "of": 5}, "an NPS citation of 41 (the tally says 40)")
+wrong({"tally": "q13", "stat": "sus", "value": 75, "of": 5}, "a SUS citation with of=5 (3 respondents were complete)")
+wrong({"tally": "q13", "stat": "sus", "value": 70, "of": 3}, "a SUS citation of 70 (the tally says 75)")
+wrong({"tally": "q11", "stat": "nps", "value": 40, "of": 5}, "a citation naming the wrong metric for the question (nps on a csat question)")
+wrong({"tally": "q3", "stat": "ces", "value": 4.8, "of": 5}, "a score citation of a question that has none")
+
+# a template question in an interview: in the guide, never scored
+iv = jload("interview-plan.json")
+iv["instrument"]["sections"][2]["questions"].append({"id": "q4", "template": "seq", "tests": ["h1"]})
+p = Proj()
+p.run("init", "rs-handover", "--method", "interview", "--scope", "collect", "--question", "q", "--role", "dispatcher",
+      "--target", "screen:handover", "--target", "job:confirm-handover")
+p.write("iv.json", iv)
+rc, out, err = p.run("plan", "rs-handover", "--file", p.path("iv.json"))
+rc2, out2, err2 = p.run("approve", "rs-handover", *SKIP)
+guide = open(p.path("memory", "research", "rs-handover", "instrument", "interview-guide.md"), encoding="utf-8").read()
+rc3, out3, err3 = p.run("tally", "rs-handover")
+check(rc == 0 and rc2 == 0 and "Overall, how difficult or easy was this task to complete?" in guide and rc3 == 1,
+      "interview: a template question is expanded into the guide, and tally (the only scorer) is refused for an interview")
+
+# ═════════════════════════════════════════════════════════════════════════════
+section("10. the independent bias review")
+MARKS = {"title": "TITLE-MARK-31", "question": "QUESTION-MARK-32", "hyp": "HYP-MARK-33", "thresh": "THRESH-MARK-34",
+         "target": "TARGET-MARK-35", "setup": "SETUP-MARK-36", "section": "SECTION-TITLE-MARK-37", "segment": "SEGMENT-MARK-38",
+         "intro": "INTRO-MARK-39", "consent": "CONSENT-MARK-40", "closing": "CLOSING-MARK-41", "refuted": "REFUTED-MARK-42"}
+
+
+def marked_plan():
+    plan = jload("survey-plan.json")
+    for h in plan["hypotheses"]:
+        h["statement"] += " " + MARKS["hyp"]
+        h["supportedIf"] += " " + MARKS["thresh"]
+        h["refutedIf"] += " " + MARKS["refuted"]
+    plan["instrument"]["intro"] += " " + MARKS["intro"]
+    plan["instrument"]["consent"] += " " + MARKS["consent"]
+    plan["instrument"]["closing"] += " " + MARKS["closing"]
+    for s in plan["instrument"]["sections"]:
+        s["title"] += " " + MARKS["section"]
+    return plan
+
+
+def review_project():
+    p = Proj()
+    p.run("init", "rs-rev", "--method", "survey", "--scope", "collect", "--setup", MARKS["setup"], "--title", MARKS["title"],
+          "--question", MARKS["question"], "--segment", MARKS["segment"], "--role", "courier", "--target", "feature:" + MARKS["target"])
+    p.write("plan.json", marked_plan())
+    assert p.run("plan", "rs-rev", "--file", p.path("plan.json"))[0] == 0
+    return p
+
+
+BR = ("memory", "research", "rs-rev", "instrument", "bias-review.md")
+
+
+def rows_for(items, overrides=None, evidence="\"quoted words\""):
+    ov = overrides or {}
+    return "\n".join("%s · %s · %s" % (i, ov.get(i, "yes"), evidence) for i in items) + "\n"
+
+
+p = review_project()
+snap = p.raw()
+rc, out, err = p.run("review-plan", "rs-rev")
+body = open(p.path(*BR), "rb").read()
+items = out["items"]
+check(rc == 0 and out["file"] == "memory/research/rs-rev/instrument/bias-review.md" and p.raw() == snap,
+      "review-plan: writes bias-review.md and leaves the registry untouched")
+rc2, out2, err2 = p.run("review-plan", "rs-rev")
+check(rc2 == 0 and open(p.path(*BR), "rb").read() == body, "bias-review.md is byte-identical across two runs")
+p_other = review_project()
+p_other.run("review-plan", "rs-rev")
+check(open(p_other.path(*BR), "rb").read() == body, "bias-review.md is byte-identical across two separate projects with the same instrument")
+text = body.decode("utf-8")
+leaks = [name for name, mark in MARKS.items() if mark in text]
+check(not leaks, "bias-review.md holds none of the planted title / study question / hypothesis / threshold / target / setup / "
+      "segment / intro / consent / closing / section-title text (leaked: %s)" % leaks)
+check("rs-rev" not in text and "supportedIf" not in text and "tests" not in text.lower() and "qualifies" not in text.lower()
+      and "target" not in text.lower() and "hypothes" not in text.lower() and "h1" not in text,
+      "bias-review.md names no study id, hypothesis, test, target or qualifier")
+plan_q = jload("survey-plan.json")["instrument"]["sections"]
+check(all(q["text"] in text for s in plan_q for q in s["questions"]) and "options: Yes | No" in text
+      and "scale: 1 to 5, 1 = No effort, 5 = A lot of effort" in text and "purpose: screener" in text and "purpose: main" in text
+      and text.index("**q1**") < text.index("**q3**") < text.index("**q7**"),
+      "bias-review.md has every question's text, options and scale, the section purpose, in order")
+check("`<id> · yes|no|blocked · <evidence quoting the words>`" in text and "yes` means the check held" in text,
+      "bias-review.md says at the top how to answer (the row format; yes = the check held)")
+want = ["q1.neutral", "q1.single", "q1.plain", "q1.options", "q2.neutral", "q2.single", "q2.plain", "q2.options",
+        "q3.neutral", "q3.single", "q3.actual", "q3.plain", "q3.unnamed", "q3.options",
+        "q4.neutral", "q4.single", "q4.actual", "q4.plain", "q4.unnamed", "q4.scale",
+        "q5.neutral", "q5.single", "q5.actual", "q5.plain", "q5.unnamed", "q5.options",
+        "q6.neutral", "q6.single", "q6.actual", "q6.plain", "q6.unnamed",
+        "q7.neutral", "q7.single", "q7.actual", "q7.plain", "q7.unnamed", "order.general-first"]
+check(items == want, "items: screener questions skip actual + unnamed; options only on choice questions; scale only on scales; one order item "
+      "(got %d, want %d)" % (len(items), len(want)))
+item_lines = [l for l in text.split("## Items")[1].strip().splitlines()]
+check(len(item_lines) == len(want) and all(l.split(" · ")[0] == i and l.rstrip().endswith("?") for l, i in zip(item_lines, want)),
+      "each item is one line `<id> · <closed question>` and every one ends in a question mark")
+
+# template questions get no items, but stay in the question list
+pt, rc, out, err = template_study()
+rc, out, err = pt.run("review-plan", "rs-tpl")
+ttext = open(pt.path("memory", "research", "rs-tpl", "instrument", "bias-review.md"), encoding="utf-8").read()
+check(rc == 0 and not [i for i in out["items"] if i.split(".")[0] in ("q9", "q10", "q11", "q12") or i.startswith("q13")]
+      and "How likely are you to recommend this" in ttext and out["items"][-1] == "order.general-first",
+      "template questions (ces, seq, csat, nps, sus) get no per-question items, yet appear in the question list")
+
+# an interview is reviewed too (no options / scale items)
+pi = Proj()
+pi.run("init", "rs-iv", "--method", "interview", "--scope", "collect", "--question", "q", "--role", "dispatcher")
+pi.run("plan", "rs-iv", "--file", os.path.join(FIX, "interview-plan.json"))
+rc, out, err = pi.run("review-plan", "rs-iv")
+check(rc == 0 and "q2.goal" in out["items"] and not [i for i in out["items"] if i.endswith((".options", ".scale"))],
+      "review-plan on an interview: closed items, none about options or scales")
+check(not [i for i in out["items"] if i.startswith("q2.") and i.endswith((".actual", ".plain", ".unnamed", ".single"))],
+      "…and a task is asked about its goal, never whether it is past behaviour or needs no product knowledge")
+
+# review: refusals first
+rc, out, err = p.run("review", "rs-rev", "--file", p.path("none.txt"))
+check(rc == 2, "review: a rows file that does not exist is exit 2")
+
+
+def put_rows(name, text_):
+    open(p.path(name), "w", encoding="utf-8").write(text_)
+    return p.path(name)
+
+
+good = rows_for(items)
+rc, out, err = p.run("review", "rs-rev", "--file", put_rows("unk.txt", good + "q99.neutral · yes · \"x\"\n"))
+check(rc == 1 and "q99.neutral" in json.dumps(out) and "biasReview" not in p.study("rs-rev"), "REFUSED review rows with an unknown id; nothing stored")
+rc, out, err = p.run("review", "rs-rev", "--file", put_rows("miss.txt", rows_for([i for i in items if i != "q4.scale"])))
+check(rc == 1 and "q4.scale" in json.dumps(out) and "biasReview" not in p.study("rs-rev"), "REFUSED review rows with a missing id; nothing stored")
+rc, out, err = p.run("review", "rs-rev", "--file", put_rows("mal.txt", good.replace("q3.plain · yes", "q3.plain · maybe", 1)))
+check(rc == 1 and "biasReview" not in p.study("rs-rev"), "REFUSED a malformed row (answer is not yes|no|blocked)")
+rc, out, err = p.run("review", "rs-rev", "--file", put_rows("noev.txt", good.replace("q3.plain · yes · \"quoted words\"", "q3.plain · yes ·", 1)))
+check(rc == 1 and "biasReview" not in p.study("rs-rev"), "REFUSED a row with no evidence")
+rc, out, err = p.run("review", "rs-rev", "--file", put_rows("dup.txt", good + "q1.neutral · no · \"again\"\n"))
+check(rc == 1 and "biasReview" not in p.study("rs-rev"), "REFUSED an item answered twice")
+
+# approve without a review
+rc, out, err = p.run("approve", "rs-rev")
+check(rc == 1 and "review" in out.get("error", "") and p.study("rs-rev")["status"] == "draft",
+      "REFUSED approve with no bias review (and no --skip-review): still a draft")
+rc, out, err = p.run("approve", "rs-rev", "--skip-review", " ")
+check(rc == 2 and p.study("rs-rev")["status"] == "draft", "--skip-review without a reason is a usage error (exit 2)")
+
+# a clean review is stored, with the hash of this instrument
+rc, out, err = p.run("review", "rs-rev", "--file", put_rows("ok.txt", "# rows\n\n" + good))
+br = p.study("rs-rev").get("biasReview", {})
+check(rc == 0 and br["summary"] == {"yes": len(items), "no": 0, "blocked": 0} and [r["id"] for r in br["rows"]] == items
+      and br["rows"][0] == {"id": "q1.neutral", "answer": "yes", "evidence": "\"quoted words\""}
+      and br["instrumentHash"] == R.instrument_hash(p.study("rs-rev")) and br["at"].endswith("Z"),
+      "review: stores {at, instrumentHash, rows[{id, answer, evidence}], summary{yes,no,blocked}} (a # line and blanks are skipped)")
+rc, out, err = p.run("approve", "rs-rev", "--note", "ok")
+g = p.study("rs-rev")["gates"][-1]
+check(rc == 0 and p.study("rs-rev")["status"] == "approved" and g["gate"] == "G-STUDY" and "skipReview" not in g and "acceptReview" not in g
+      and g["review"]["summary"]["yes"] == len(items), "approve passes with a current all-yes review; the gate records the review summary")
+
+# plan clears the review, and a stale review is refused
+p.run("plan", "rs-rev", "--file", p.path("plan.json"))
+check("biasReview" not in p.study("rs-rev"), "plan clears the stored review")
+rc, out, err = p.run("approve", "rs-rev")
+check(rc == 1 and p.study("rs-rev")["status"] == "draft", "REFUSED approve again after the plan (the review is gone)")
+p.run("review", "rs-rev", "--file", put_rows("ok.txt", good))
+d = p.data()
+d["research"]["studies"][0]["instrument"]["sections"][1]["questions"][0]["text"] += " Please answer carefully."
+p.save(d)
+rc, out, err = p.run("approve", "rs-rev")
+check(rc == 1 and "earlier version" in out.get("error", ""), "REFUSED approve when the stored review is for an earlier version of the instrument (hash differs)")
+rc, out, err = p.run("approve", "rs-rev", "--skip-review", "no reviewer on this machine")
+g = p.study("rs-rev")["gates"][-1]
+check(rc == 0 and g["skipReview"] == "no reviewer on this machine" and "review" not in g, "approve --skip-review records the reason in the gate entry")
+
+# a no / blocked row needs --accept-review, and it is recorded
+p = review_project()
+rc, out, err = p.run("review-plan", "rs-rev")
+items = out["items"]
+rows = rows_for(items, {"q3.neutral": "no", "q5.options": "blocked"}).replace("q3.neutral · no · \"quoted words\"", "q3.neutral · no · \"need the cash amount\" signals yes")
+rc, out, err = p.run("review", "rs-rev", "--file", put_rows("flag.txt", rows))
+check(rc == 0 and p.study("rs-rev")["biasReview"]["summary"] == {"yes": len(items) - 2, "no": 1, "blocked": 1}
+      and "q3.neutral" in err + json.dumps(out), "review: a no and a blocked row are stored and reported back")
+rc, out, err = p.run("approve", "rs-rev")
+check(rc == 1 and p.study("rs-rev")["status"] == "draft" and "accept-review" in out.get("error", "")
+      and {f["id"] for f in out["flags"]} == {"q3.neutral", "q5.options"}, "REFUSED approve with a `no`/`blocked` row and no --accept-review (the flagged rows are returned)")
+p = review_project()
+p.run("review-plan", "rs-rev")
+p.run("review", "rs-rev", "--file", put_rows("flag.txt", rows))
+rc, out, err = p.run("approve", "rs-rev", "--accept-review", " ")
+check(rc == 2 and p.study("rs-rev")["status"] == "draft", "--accept-review without words is a usage error (exit 2)")
+rc, out, err = p.run("approve", "rs-rev", "--accept-review", "the user keeps q3 because the wording is the product's own term")
+g = p.study("rs-rev")["gates"][-1]
+check(rc == 0 and p.study("rs-rev")["status"] == "approved" and g["acceptReview"] == "the user keeps q3 because the wording is the product's own term"
+      and g["review"]["summary"]["no"] == 1 and {f["id"] for f in out["reviewFlags"]} == {"q3.neutral", "q5.options"},
+      "approve --accept-review passes, records the reason in the gate entry, and returns the flagged rows")
+rc, out, err = p.run("review", "rs-rev", "--file", p.path("flag.txt"))
+check(rc == 1 and "approved" in out.get("error", ""), "REFUSED a review of a study that is no longer a draft")
 
 shutil.rmtree(TMP, ignore_errors=True)
 print()

@@ -10,24 +10,52 @@ transcript comes back. The model NEVER simulates respondents and NEVER writes ev
 
 State is the optional `research` slice of registry.json (absent = empty state, no schema bump):
 
-    research = { populated, studies: [ { id, title, question, method, status, audience, targets,
-                 hypotheses, instrument, evidence, tally?, findings, refill?, refilled?, gates } ] }
+    research = { populated, studies: [ { id, title, question, method, status, scope, setup, audience,
+                 targets, hypotheses, instrument, biasReview?, evidence, tally?, findings, refill?,
+                 refilled?, gates } ] }
 
 and, per study, files under memory/research/<id>/:
 
     instrument/survey.md · responses-template.csv     (survey)
     instrument/interview-guide.md                     (interview)
+    instrument/bias-review.md                         (review-plan: the questions only, for a reviewer who knows nothing else)
     evidence/e1-<name>.<ext> …                        read-only (chmod 444), hashed, never edited
+
+Scope (per study, the user's call): `instrument` = the user wants the questions and the setup and the study
+legitimately ends at `approved` (import is refused); `collect` = results will come back. `setup` is free text
+(the survey tool, the panel, where results live): it is stored on the study and never written into an exported
+file. A study with no `scope` key behaves as `collect` (no migration).
+
+Standard metrics: a plan question may be {"id","template":"ces|seq|csat|nps|sus","subject"?,"tests"?}.
+`plan` expands it with fixed wording and scale (sus: the ten Brooke items, ids <id>-1 .. <id>-10, each
+carrying `templateItem`) and keeps `template`. `tally` scores a survey (byQuestion.<id>.score, SUS under
+the base id) and `verify` recomputes a {"tally","stat":<template>,"value","of"} citation. An interview
+reads a template question aloud and does not score it. A translated `text` (lang other than en) is accepted
+and draws W-TEMPLATE-TEXT: the translated wording is not validated.
+
+Bias review: `review-plan` writes bias-review.md (each question's text, type, options and scale, its
+section purpose and order, and yes/no items; no hypothesis, threshold, target, title or study question),
+a fresh reviewer answers it, `review` stores the rows with the instrument hash, and `approve` demands a
+review of the current instrument (or --skip-review "<reason>") and --accept-review "<why>" when any row is
+`no` or `blocked`. `plan` clears the review.
 
 Subcommands (all take --registry PATH, default ./registry.json, and --json):
 
   gaps [--role R]                 read-only: the ranked list of what is unsure
   seed <kind:id>...               read-only: the job / story / rule / screen facts a question is written from
-  init <id> --method survey|interview --question Q [--title T] [--role R]... [--segment S]
-        [--target kind:id]... [--target-n N]          a draft study; it always names who it asks
-  plan <id> --file F              merge {hypotheses, instrument, audience?}; refused once evidence exists
+  init <id> --method survey|interview --scope instrument|collect [--setup T] --question Q [--title T]
+        [--role R]... [--segment S] [--target kind:id]... [--target-n N]
+                                  a draft study; it always names who it asks
+  scope <id> [--scope S] [--setup T]    change the scope and/or setup at any time; writes no gate
+  plan <id> --file F              merge {hypotheses, instrument, audience?}; refused once evidence exists;
+                                  expands template questions; clears any bias review
   check <id>                      lint the study (errors block G-STUDY; warnings are heuristics)
-  approve <id> [--note N]         G-STUDY: check must be clean; writes the instrument files
+  review-plan <id>                write instrument/bias-review.md (deterministic; questions only)
+  review <id> --file ROWS         store the reviewer's rows: <item id> · yes|no|blocked · <evidence>
+  approve <id> [--note N] [--skip-review R] [--accept-review W]
+                                  G-STUDY: check must be clean and a review of this instrument stored
+                                  (or --skip-review); a `no`/`blocked` row needs --accept-review;
+                                  writes the instrument files
   export <id>                     rewrite the instrument files (deterministic; no timestamps)
   import <id> <file> --kind K --consent yes|unknown|no [--participant P] [--role R] [--segment S]
         [--date D] [--drop-columns A,B] [--keep-pii]  store evidence (copy, chmod 444, sha256)
@@ -50,6 +78,7 @@ import hashlib
 import importlib
 import io
 import json
+import math
 import os
 import posixpath
 import re
@@ -84,6 +113,29 @@ TEXT_EXTS = (".csv", ".tsv", ".txt", ".md", ".markdown", ".json", ".vtt", ".srt"
 OTHER = "(other)"
 DEFAULT_N = {"survey": 30, "interview": 5}
 GAP_BASE = 30
+SCOPES = ("instrument", "collect")
+TEMPLATES = ("ces", "seq", "csat", "nps", "sus")
+# (min, max, minLabel, maxLabel) — fixed: a score is only comparable on the standard scale.
+TEMPLATE_SCALES = {"ces": (1, 7, "Strongly disagree", "Strongly agree"),
+                   "seq": (1, 7, "Very difficult", "Very easy"),
+                   "csat": (1, 5, "Very dissatisfied", "Very satisfied"),
+                   "nps": (0, 10, "Not at all likely", "Extremely likely"),
+                   "sus": (1, 5, "Strongly disagree", "Strongly agree")}
+# The System Usability Scale (Brooke, 1996), item order and wording as published. Odd items are
+# positive, even items negative; the score depends on that order.
+SUS_ITEMS = ("I think that I would like to use this system frequently.",
+             "I found the system unnecessarily complex.",
+             "I thought the system was easy to use.",
+             "I think that I would need the support of a technical person to be able to use this system.",
+             "I found the various functions in this system were well integrated.",
+             "I thought there was too much inconsistency in this system.",
+             "I would imagine that most people would learn to use this system very quickly.",
+             "I found the system very cumbersome to use.",
+             "I felt very confident using the system.",
+             "I needed to learn a lot of things before I could get going with this system.")
+# type + scale are tolerated so an already-expanded question can be planned again; they are replaced by the standard ones.
+TEMPLATE_KEYS = {"id", "template", "subject", "text", "tests", "required", "probes", "type", "scale"}
+REVIEW_ANSWERS = ("yes", "no", "blocked")
 
 
 class ResearchError(Exception):
@@ -479,6 +531,144 @@ def _num(s):
             return None
 
 
+def scope_of(study):
+    """The study's scope. A study with no `scope` key is a `collect` study (no migration)."""
+    return study.get("scope") if study.get("scope") in SCOPES else "collect"
+
+
+# ── standard metric templates ────────────────────────────────────────────────
+
+def is_en(lang):
+    k = key(sstr(lang))
+    return k in ("", "en") or k.startswith("en-") or k.startswith("en_")
+
+
+def template_text(name, subject=None, item=None):
+    """The standard wording of one template question (item = 1..10 for sus)."""
+    subj = squash(subject)
+    if name == "ces":
+        s = subj or "This task"
+        return "%s was easy to handle." % (s[:1].upper() + s[1:])
+    if name == "seq":
+        return "Overall, how difficult or easy was this task to complete?"
+    if name == "csat":
+        return "How satisfied are you with %s?" % (subj or "this")
+    if name == "nps":
+        return "How likely are you to recommend %s to a friend or colleague?" % (subj or "this")
+    if name == "sus" and isinstance(item, int) and 1 <= item <= len(SUS_ITEMS):
+        return SUS_ITEMS[item - 1]
+    return ""
+
+
+def template_scale(name):
+    lo, hi, minl, maxl = TEMPLATE_SCALES[name]
+    return {"min": lo, "max": hi, "minLabel": minl, "maxLabel": maxl}
+
+
+def _template_one(entry, name, qid, text, item=None):
+    q = {"id": qid, "text": text, "tests": entry.get("tests", []), "type": "scale", "scale": template_scale(name),
+         "required": entry.get("required", True), "template": name}
+    if squash(entry.get("subject")):
+        q["subject"] = squash(entry.get("subject"))
+    if item is not None:
+        q["templateItem"] = item
+    if "probes" in entry:
+        q["probes"] = entry["probes"]
+    return q
+
+
+def expand_template_entry(entry, en):
+    """A plan question {id, template, subject?, text?, tests?} -> the normal question(s). An unknown template
+    and an already-expanded sus item are returned as they are (`check` reports the first)."""
+    name = entry.get("template")
+    if name not in TEMPLATES or isinstance(entry.get("templateItem"), int):
+        return [entry]
+    qid = sstr(entry.get("id"))
+    if not ITEM_ID.match(qid):
+        raise ResearchError("template question id %r is malformed (lowercase letters, digits, - _)" % entry.get("id"))
+    extra = sorted(set(entry) - TEMPLATE_KEYS)
+    if extra:
+        raise ResearchError("template question %s takes {%s}; unexpected: %s" % (qid, ", ".join(sorted(TEMPLATE_KEYS)), ", ".join(extra)))
+    if name in ("seq", "sus") and squash(entry.get("subject")):
+        raise ResearchError("template %s (%s) has fixed wording and takes no subject" % (name, qid))
+    over = entry.get("text")
+    if name == "sus":
+        if over is None:
+            texts = list(SUS_ITEMS)
+        elif en:
+            raise ResearchError("%s: `text` overrides a template only when the instrument's lang is not en" % qid)
+        else:
+            if not (isinstance(over, list) and len(over) == len(SUS_ITEMS) and all(squash(t) for t in over)
+                    and all(isinstance(t, str) for t in over)):
+                raise ResearchError("%s: a translated sus `text` is a list of the %d items, in order" % (qid, len(SUS_ITEMS)))
+            texts = [squash(t) for t in over]
+        return [_template_one(entry, name, "%s-%d" % (qid, i), texts[i - 1], i) for i in range(1, len(SUS_ITEMS) + 1)]
+    canon = template_text(name, entry.get("subject"))
+    if over is None:
+        text = canon
+    elif not isinstance(over, str) or not squash(over):
+        raise ResearchError("%s: `text` must be a non-empty string" % qid)
+    elif en and squash(over) != canon:
+        raise ResearchError("%s: `text` overrides a template only when the instrument's lang is not en" % qid)
+    else:
+        text = squash(over)
+    return [_template_one(entry, name, qid, text)]
+
+
+def expand_templates(instrument):
+    """A copy of the instrument with every template question expanded."""
+    inst = json.loads(json.dumps(instrument))
+    en = is_en(inst.get("lang"))
+    for sec in as_list(inst.get("sections")):
+        if isinstance(sec, dict) and isinstance(sec.get("questions"), list):
+            out = []
+            for q in sec["questions"]:
+                out += expand_template_entry(q, en) if isinstance(q, dict) and "template" in q else [q]
+            sec["questions"] = out
+    return inst
+
+
+def score_scale(name, vals):
+    """The score of one scale template from the numeric answers. value is None with no answers."""
+    n = len(vals)
+    if not n:
+        return {"metric": name, "value": None, "n": 0}
+    if name in ("ces", "seq"):
+        s = {"metric": name, "value": round(sum(vals) / n, 4)}
+        if name == "ces":
+            s["pct"] = round(100.0 * sum(1 for v in vals if v >= 5) / n, 4)
+    elif name == "csat":
+        s = {"metric": name, "value": round(100.0 * sum(1 for v in vals if v >= 4) / n, 4)}
+    else:                                           # nps: % promoters (9-10) minus % detractors (0-6)
+        prom, det = sum(1 for v in vals if v >= 9), sum(1 for v in vals if v <= 6)
+        s = {"metric": name, "value": int(math.floor(100.0 * (prom - det) / n + 0.5))}
+    s["n"] = n
+    return s
+
+
+def sus_respondent(answers):
+    """One respondent's SUS (0-100) from the ten answers in item order, or None unless all ten are 1-5."""
+    if len(answers) != len(SUS_ITEMS):
+        return None
+    total = 0
+    for i, v in enumerate(answers, 1):
+        if v is None or v != int(v) or not 1 <= v <= 5:
+            return None
+        total += (v - 1) if i % 2 else (5 - v)
+    return total * 2.5
+
+
+def sus_groups(study):
+    """{base id: [item question ids in order 1..10]} for every complete set of sus items."""
+    groups = {}
+    for _s, q in all_questions(study):
+        it = q.get("templateItem")
+        if q.get("template") == "sus" and isinstance(it, int) and sstr(q.get("id")):
+            groups.setdefault(q["id"].rsplit("-", 1)[0], {})[it] = q["id"]
+    return {b: [m[i] for i in range(1, len(SUS_ITEMS) + 1)] for b, m in groups.items()
+            if sorted(m) == list(range(1, len(SUS_ITEMS) + 1))}
+
+
 def tally_questions(study, rows, mapped):
     by = {}
     for _sec, q in all_questions(study):
@@ -520,6 +710,21 @@ def tally_questions(study, rows, mapped):
         else:
             n = len(cells)
         by[qid] = {"type": typ, "n": n, "counts": counts, "mean": mean}
+        if typ == "scale" and q.get("template") in ("ces", "seq", "csat", "nps"):
+            by[qid]["score"] = score_scale(q["template"], vals)
+    for base, ids in sorted(sus_groups(study).items()):
+        if not any(i in mapped for i in ids):
+            continue
+        scores = []
+        if all(i in mapped for i in ids):
+            for r in rows:
+                ans = [_num(r.get(i, "")) for i in ids]
+                s = sus_respondent([a if a is not None and math.isfinite(a) else None for a in ans])
+                if s is not None:
+                    scores.append(s)
+        score = ({"metric": "sus", "value": round(sum(scores) / len(scores), 4), "n": len(scores)} if scores
+                 else {"metric": "sus", "value": None, "n": 0})
+        by[base] = {"type": "sus", "n": score["n"], "counts": {}, "mean": None, "score": score}
     return by
 
 
@@ -590,6 +795,27 @@ def _finding(level, code, where, msg):
     return {"level": level, "code": code, "where": where, "msg": msg}
 
 
+def _check_template(q, tpl, where, E, W):
+    """A template question must be a known template, on its standard scale; its wording is checked
+    against the standard and a difference (a translation) is a warning, not an error."""
+    qid = q.get("id")
+    if tpl not in TEMPLATES:
+        E("C-TEMPLATE", where, "%s: unknown template %r (known: %s)" % (qid, tpl, ", ".join(TEMPLATES)))
+        return
+    item = q.get("templateItem")
+    if tpl == "sus" and not (isinstance(item, int) and 1 <= item <= len(SUS_ITEMS)):
+        E("C-TEMPLATE", where, "%s: a sus question is one of ten items — let `plan` expand {\"template\": \"sus\"}" % qid)
+        return
+    sc = as_dict(q.get("scale"))
+    want = template_scale(tpl)
+    if q.get("type") != "scale" or sc.get("min") != want["min"] or sc.get("max") != want["max"]:
+        E("C-TEMPLATE", where, "%s: a %s question is a scale %s to %s — its score is only valid on that scale"
+          % (qid, tpl, want["min"], want["max"]))
+    if squash(q.get("text")) != template_text(tpl, q.get("subject"), item):
+        W("W-TEMPLATE-TEXT", where, "%s: the wording differs from the standard %s wording (a translation?) — the "
+          "translated wording is not validated, so its score is not comparable with published norms" % (qid, tpl))
+
+
 def check_study(reg, study):
     errs, warns = [], []
 
@@ -605,6 +831,8 @@ def check_study(reg, study):
 
     if not STUDY_ID.match(sstr(study.get("id"))):
         E("C-ID", "study", "study id %r is not rs-<kebab>" % study.get("id"))
+    if "scope" in study and study.get("scope") not in SCOPES:
+        E("C-SCOPE", "study", "scope %r is not one of %s" % (study.get("scope"), "|".join(SCOPES)))
     for t in as_list(study.get("targets")):
         p = target_problem(reg, t)
         if p:
@@ -702,6 +930,9 @@ def check_study(reg, study):
                 else:
                     tested.add(h)
             lk = key(text).replace("’", "'")
+            tpl = q.get("template")
+            if "template" in q:
+                _check_template(q, tpl, w, E, W)
             if method == "survey":
                 typ = q.get("type")
                 opts = q.get("options")
@@ -725,7 +956,7 @@ def check_study(reg, study):
                     bad = [v for v in as_list(q.get("qualifies")) if key(v) not in ol]
                     if bad:
                         E("C-QUALIFIES", w, "%s qualifies %s, which are not among its options" % (qid, bad))
-                if CONJ.search(" " + lk + " ") and "," not in lk and typ != "multi":
+                if CONJ.search(" " + lk + " ") and "," not in lk and typ != "multi" and "template" not in q:
                     W("W-DOUBLE", w, "%s may ask two things at once (' and ' / ' or ') — one question, one thing" % qid)
             else:
                 if purpose == "main" and not as_list(q.get("probes")):
@@ -744,6 +975,8 @@ def check_study(reg, study):
                         E("C-TASK", w, "%s: task entry %r is not in meta.demo.entries" % (qid, tk["entry"]))
                     if not squash(tk.get("success")):
                         E("C-TASK", w, "%s: a task needs `success` — what done looks like" % qid)
+            if "template" in q:         # standard wording: exempt from the wording heuristics and the priming check
+                continue
             for p in HYPOTHETICAL:
                 if re.search(p, lk):
                     W("W-HYPOTHETICAL", w, "%s asks what people WOULD do — ask what they DID, last time" % qid)
@@ -883,6 +1116,10 @@ def verify_study(reg, study, base):
         m = as_dict(q).get("mean")
         if isinstance(m, (int, float)):
             allowed.update((round(m, 1), round(m, 2), round(m)))
+        for fld in ("value", "pct", "n"):                 # a template score is a known number
+            sv = as_dict(as_dict(q).get("score")).get(fld)
+            if isinstance(sv, (int, float)):
+                allowed.update((round(float(sv), 4), round(sv, 1), round(sv, 2), float(round(sv))))
     people = {e.get("participant") for e in live_evidence(study) if e.get("participant")}
     allowed.update((float(len(people)), float(len(live_evidence(study)))))
 
@@ -975,7 +1212,25 @@ def _verify_tally_ref(ref, where, study, tally_now, E):
         return
     if ref.get("of") != q["n"]:
         E("V-TALLY", where, "%s: cited of=%r but the tally has n=%d" % (ref.get("tally"), ref.get("of"), q["n"]))
-    if ref.get("stat") == "mean":
+    if ref.get("stat") in TEMPLATES:
+        sc = as_dict(q.get("score"))
+        if sc.get("metric") != ref["stat"] or sc.get("value") is None:
+            E("V-TALLY", where, "%s: no %s score to cite (the tally holds %s)" %
+              (ref.get("tally"), ref["stat"], sc.get("metric") or "none"))
+            return
+        for fld in ("value", "pct"):
+            if fld not in ref and fld == "value":
+                E("V-TALLY", where, "%s: a score citation needs `value` and `of`" % ref.get("tally"))
+                continue
+            if fld not in ref:
+                continue
+            v = ref[fld]
+            if not isinstance(v, (int, float)) or isinstance(v, bool) or not isinstance(sc.get(fld), (int, float)):
+                E("V-TALLY", where, "%s: no %s %s to cite" % (ref.get("tally"), ref["stat"], fld))
+            elif abs(sc[fld] - v) > 0.5 * 10 ** -min(_decimals(v), 4) + 1e-9:
+                E("V-TALLY", where, "%s: cited %s %s %r but the tally says %s" %
+                  (ref.get("tally"), ref["stat"], fld, v, round(sc[fld], 2)))
+    elif ref.get("stat") == "mean":
         v = ref.get("value")
         if not isinstance(v, (int, float)) or q.get("mean") is None:
             E("V-TALLY", where, "%s: no mean to cite" % ref.get("tally"))
@@ -1199,6 +1454,8 @@ def collect_gaps(reg):
             add("feature", squash(d.get("title") or note)[:80], squash(d.get("title") or note)[:80], [],
                 "uncovered (%s): %s" % (d.get("category", "gap"), note[:140]), 15)
     for st in studies_of(reg):
+        if scope_of(st) == "instrument":        # it legitimately ends at `approved`: no results are due, so nothing is open
+            continue
         for h in as_list(st.get("hypotheses")):
             if isinstance(h, dict) and h.get("verdict") == "inconclusive":
                 ts = [t for t in as_list(h.get("targets")) + as_list(st.get("targets")) if isinstance(t, dict)][:1] \
@@ -1376,7 +1633,8 @@ def cmd_init(a):
             audience["segment"] = segment
         audience["targetN"] = a.target_n if a.target_n is not None else DEFAULT_N[a.method]
         study = {"id": sid, "title": squash(a.title) or squash(a.question)[:80], "question": squash(a.question),
-                 "method": a.method, "status": "draft", "createdAt": now_iso(), "audience": audience,
+                 "method": a.method, "status": "draft", "scope": a.scope, "setup": squash(a.setup),
+                 "createdAt": now_iso(), "audience": audience,
                  "targets": targets, "hypotheses": [],
                  "instrument": {"lang": "en", "intro": "", "consent": "", "durationMin": None, "closing": "", "sections": []},
                  "evidence": [], "findings": [], "gates": []}
@@ -1386,8 +1644,28 @@ def cmd_init(a):
         res["populated"] = True
         res.setdefault("studies", []).append(study)
         pbslice._write(a.registry, reg)
-    return {"created": sid, "study": study}, ["created draft study %s (%s) — next: write hypotheses + instrument, then `plan %s --file …`"
-                                              % (sid, a.method, sid)], EXIT_OK
+    return {"created": sid, "study": study}, ["created draft study %s (%s, scope %s) — next: write hypotheses + instrument, then `plan %s --file …`"
+                                              % (sid, a.method, a.scope, sid)], EXIT_OK
+
+
+def cmd_scope(a):
+    if a.scope is None and a.setup is None:
+        raise ResearchError("scope needs --scope instrument|collect and/or --setup \"<text>\"", EXIT_USAGE)
+    with locked(a.registry, "research.py scope") as reg:
+        st = find_study(reg, a.id)
+        was = (scope_of(st), st.get("setup", ""))
+        if a.scope is not None:
+            st["scope"] = a.scope
+        if a.setup is not None:
+            st["setup"] = squash(a.setup)
+        elif "setup" not in st:
+            st["setup"] = ""
+        pbslice._write(a.registry, reg)
+    now = (scope_of(st), st["setup"])
+    lines = ["%s: scope %s, setup %s" % (a.id, now[0], repr(now[1]) if now[1] else "none")]
+    if was[0] != now[0]:
+        lines.append("scope changed %s -> %s (no gate written)" % (was[0], now[0]))
+    return {"scope": now[0], "setup": now[1], "was": {"scope": was[0], "setup": was[1]}}, lines, EXIT_OK
 
 
 def _read_json_arg(path):
@@ -1416,6 +1694,8 @@ def cmd_plan(a):
         raise ResearchError("audience must be an object", EXIT_USAGE)
     if not (set(data) & {"hypotheses", "instrument", "audience"}):
         raise ResearchError("the plan file has nothing to merge", EXIT_USAGE)
+    if "instrument" in data:
+        data["instrument"] = expand_templates(data["instrument"])     # raises a ResearchError on a bad template entry
     with locked(a.registry, "research.py plan") as reg:
         st = find_study(reg, a.id)
         if st.get("evidence"):
@@ -1443,6 +1723,7 @@ def cmd_plan(a):
             st["hypotheses"] = hs
         if "instrument" in data:
             st["instrument"] = data["instrument"]
+        st.pop("biasReview", None)          # a review answers one instrument; any plan makes it stale
         withdrawn = st.get("status") == "approved"
         if withdrawn:
             st["status"] = "draft"
@@ -1478,7 +1759,195 @@ def copy_study(s):
     return json.loads(json.dumps(s))
 
 
+# ── bias review (an independent read of the questions alone) ─────────────────
+
+REVIEW_FILE = "bias-review.md"
+ORDER_ITEM = "order.general-first"
+# code -> the closed question. `yes` always means the check held.
+REVIEW_ITEMS = {
+    "neutral": "Is the wording neutral — does nothing in it signal a preferred answer?",
+    # A prompt and its follow-up ("Tell me about it. What happened?") are one thing, and read as two without this.
+    "single": "Does it ask about one thing only, counting a follow-up on that same thing as part of it?",
+    "actual": "Does it ask what the person did or experienced, rather than what they would do?",
+    "plain": "Can someone who has never used the product understand it without explanation?",
+    "unnamed": "Does it avoid naming or describing a specific product feature, screen or control before any task has been shown?",
+    "goal": "Does it state a goal without saying which steps, screens or controls to use?",
+    "options": "Do the options cover the answers people may give, without overlapping each other?",
+    "scale": "Is the scale balanced, with both ends labelled?",
+}
+# Screener questions set the topic on purpose, so they are not held against the order.
+ORDER_QUESTION = ("Leaving the screener aside, do the general questions come before the specific ones, and does no "
+                  "earlier question reveal the answer to a later one?")
+
+
+def instrument_hash(study):
+    inst = json.dumps(as_dict(study.get("instrument")), sort_keys=True, ensure_ascii=False, separators=(",", ":"))
+    return sha256_bytes(inst.encode("utf-8"))
+
+
+def _review_questions(study):
+    """[(section index, purpose, question)] in order. Refuses a question that has no usable, unique id."""
+    out, seen = [], set()
+    for si, sec in enumerate(as_list(as_dict(study.get("instrument")).get("sections")), 1):
+        if not isinstance(sec, dict):
+            continue
+        for q in as_list(sec.get("questions")):
+            if not isinstance(q, dict):
+                continue
+            qid = q.get("id")
+            if not ITEM_ID.match(sstr(qid)) or qid in seen:
+                raise ResearchError("question id %r is missing, malformed or duplicated — run `check` first" % qid)
+            seen.add(qid)
+            out.append((si, sstr(sec.get("purpose")), q))
+    return out
+
+
+def review_items(study):
+    """[(item id, question text)] — the closed yes/no items, deterministic. Template questions get none."""
+    items = []
+    for _si, purpose, q in _review_questions(study):
+        if "template" in q:
+            continue
+        qid, typ = q["id"], q.get("type") if study.get("method") == "survey" else None
+        if purpose == "task":
+            # A task is a scenario on the product by design, so the questions about past behaviour and about
+            # product knowledge do not apply. What can go wrong in one is giving the route away.
+            codes = ["neutral", "goal"]
+        else:
+            codes = ["neutral", "single"]
+            if purpose != "screener":
+                codes.append("actual")
+            codes.append("plain")
+            if purpose != "screener":
+                codes.append("unnamed")
+        if typ in ("single", "multi"):
+            codes.append("options")
+        if typ == "scale":
+            codes.append("scale")
+        items += [("%s.%s" % (qid, c), REVIEW_ITEMS[c]) for c in codes]
+    items.append((ORDER_ITEM, ORDER_QUESTION))
+    return items
+
+
+def render_bias_review(study):
+    """The reviewer's whole world: each question's text, type, options and scale, its section purpose and
+    order. Nothing about the study (no title, question, hypothesis, threshold, test, target, audience or setup)."""
+    qs = _review_questions(study)
+    survey = study.get("method") == "survey"
+    L = ["# Question review", "",
+         "You are reading the questions of a research instrument cold. You have been told nothing else about it,",
+         "and you need nothing else: judge each item from the words of the question alone.", "",
+         "## How to answer", "",
+         "- Answer every item under *Items*, one row per item, in exactly this form and nothing else:",
+         "",
+         "  `<id> · yes|no|blocked · <evidence quoting the words>`", "",
+         "- `yes` means the check held. `no` means it did not. `blocked` means you could not tell (say why).",
+         "- Evidence quotes the words of the question that decided your answer.",
+         "- Do not reword a question or an item, and do not add items.", "",
+         "## Questions, in the order they are asked"]
+    cur = None
+    for si, purpose, q in qs:
+        if si != cur:
+            cur = si
+            L += ["", "### Section %d — purpose: %s" % (si, purpose or "unspecified")]
+        L += ["", "**%s** — type: %s%s" % (q["id"], (sstr(q.get("type")) or "unspecified") if survey else "asked aloud",
+                                         "  (standard wording; no items below)" if "template" in q else ""),
+              "  text: %s" % squash(q.get("text"))]
+        opts = [squash(o) for o in as_list(q.get("options")) if isinstance(o, str)]
+        if survey and opts:
+            L.append("  options: %s" % " | ".join(opts))
+        sc = q.get("scale")
+        if survey and isinstance(sc, dict):
+            L.append("  scale: %s to %s, %s = %s, %s = %s" % (sc.get("min"), sc.get("max"), sc.get("min"), squash(sc.get("minLabel")),
+                                                              sc.get("max"), squash(sc.get("maxLabel"))))
+    L += ["", "## Items", ""]
+    L += ["%s · %s" % (iid, text) for iid, text in review_items(study)]
+    return "\n".join(L) + "\n"
+
+
+def parse_review_rows(text, expected):
+    """(rows in item order, problems). A row is `<id> · yes|no|blocked · <evidence>`."""
+    got, problems = {}, []
+    for n, line in enumerate(text.splitlines(), 1):
+        s = line.strip()
+        if not s or s.startswith("#"):
+            continue
+        s = re.sub(r"^(?:[-*]\s+)", "", s)
+        if len(s) > 1 and s[0] == "`" and s[-1] == "`":
+            s = s[1:-1].strip()
+        parts = s.split("·", 2)
+        if len(parts) < 3 or key(parts[1]) not in REVIEW_ANSWERS or not squash(parts[2]):
+            problems.append("line %d is not `<id> · yes|no|blocked · <evidence>`: %r" % (n, line.strip()[:100]))
+            continue
+        iid, ans, ev = squash(parts[0]), key(parts[1]), squash(parts[2])
+        if iid not in expected:
+            problems.append("line %d: %r is not an item of this instrument" % (n, iid))
+        elif iid in got:
+            problems.append("line %d: %r is answered twice" % (n, iid))
+        else:
+            got[iid] = {"id": iid, "answer": ans, "evidence": ev}
+    missing = [i for i in expected if i not in got]
+    if missing:
+        problems.append("%d item(s) have no row: %s" % (len(missing), ", ".join(missing[:12]) + (" …" if len(missing) > 12 else "")))
+    return [got[i] for i in expected if i in got], problems
+
+
+def review_flags(review):
+    return [r for r in as_list(as_dict(review).get("rows")) if isinstance(r, dict) and r.get("answer") in ("no", "blocked")]
+
+
+def cmd_review_plan(a):
+    reg = load_registry(a.registry)
+    st = find_study(reg, a.id)
+    if not all_questions(st):
+        raise ResearchError("%s has no questions to review — `plan` first" % a.id)
+    text = render_bias_review(st)
+    base = base_of(a.registry)
+    ensure_dir(base, study_rel(a.id))
+    ensure_dir(base, study_rel(a.id) + "/instrument")
+    rel = "%s/instrument/%s" % (study_rel(a.id), REVIEW_FILE)
+    path = under(base, rel)
+    if os.path.islink(path):
+        raise ResearchError("%s is a symlink — refusing to write through it" % rel)
+    pbslice.atomic_write_text(path, text)
+    items = review_items(st)
+    return ({"file": rel, "path": path, "items": [i for i, _t in items]},
+            [rel, "%d item(s). Hand the reviewer this file and nothing else; save its rows and run "
+                  "`review %s --file <rows>`." % (len(items), a.id)], EXIT_OK)
+
+
+def cmd_review(a):
+    try:
+        with open(a.file, encoding="utf-8-sig") as f:
+            text = f.read()
+    except FileNotFoundError:
+        raise ResearchError("file not found: %s" % a.file, EXIT_USAGE)
+    except (OSError, UnicodeDecodeError) as e:
+        raise ResearchError("cannot read %s: %s" % (a.file, e), EXIT_USAGE)
+    with locked(a.registry, "research.py review") as reg:
+        st = find_study(reg, a.id)
+        if st.get("status") != "draft":
+            raise ResearchError("%s is %s — a review is stored on a draft, before G-STUDY" % (a.id, st.get("status")))
+        expected = [i for i, _t in review_items(st)]
+        rows, problems = parse_review_rows(text, expected)
+        if problems:
+            raise ResearchError("the review was not stored: %d problem(s)" % len(problems),
+                                data={"problems": problems, "errors": [{"code": "R-ROWS", "where": a.file, "msg": p} for p in problems]})
+        summary = {k: sum(1 for r in rows if r["answer"] == k) for k in REVIEW_ANSWERS}
+        st["biasReview"] = {"at": now_iso(), "instrumentHash": instrument_hash(st), "rows": rows, "summary": summary}
+        pbslice._write(a.registry, reg)
+    flags = review_flags(st["biasReview"])
+    lines = ["review stored for %s: %d yes, %d no, %d blocked" % (a.id, summary["yes"], summary["no"], summary["blocked"])]
+    lines += ["  %s %s · %s" % (r["answer"].upper(), r["id"], r["evidence"]) for r in flags]
+    if flags:
+        lines.append("approve will need --accept-review \"<why it stands>\" for the %d flagged row(s)" % len(flags))
+    return {"reviewed": a.id, "summary": summary, "flags": flags}, lines, EXIT_OK
+
+
 def cmd_approve(a):
+    for flag, val in (("--skip-review", a.skip_review), ("--accept-review", a.accept_review)):
+        if val is not None and not squash(val):
+            raise ResearchError("%s needs a reason in words" % flag, EXIT_USAGE)
     with locked(a.registry, "research.py approve") as reg:
         st = find_study(reg, a.id)
         if st.get("status") != "draft":
@@ -1488,13 +1957,37 @@ def cmd_approve(a):
         if errs:
             raise ResearchError("G-STUDY refused: %d check error(s) — fix them first" % len(errs),
                                 data={"errors": errs, "warnings": warns})
+        rev = st.get("biasReview") if isinstance(st.get("biasReview"), dict) else None
+        current = bool(rev) and rev.get("instrumentHash") == instrument_hash(st)
+        gate = {"gate": "G-STUDY", "at": now_iso(), "note": squash(a.note)}
+        flags = []
+        if current:
+            flags = review_flags(rev)
+            gate["review"] = {"instrumentHash": rev["instrumentHash"], "summary": rev.get("summary")}
+            if flags and a.accept_review is None:
+                raise ResearchError(
+                    "G-STUDY refused: the bias review has %d row(s) answered no or blocked. A human decides at the gate: "
+                    "fix the question (`plan`, `review-plan`, `review`), or keep it and pass --accept-review \"<why it stands>\"." % len(flags),
+                    data={"flags": flags, "errors": [{"code": "R-REVIEW", "where": r["id"], "msg": "%s · %s" % (r["answer"], r["evidence"])} for r in flags]})
+            if flags:
+                gate["acceptReview"] = squash(a.accept_review)
+        elif a.skip_review is not None:
+            gate["skipReview"] = squash(a.skip_review)
+        else:
+            raise ResearchError(
+                "G-STUDY refused: %s. Run `review-plan %s`, have a fresh reviewer answer bias-review.md, then `review %s --file <rows>`; "
+                "or pass --skip-review \"<the reason>\"." %
+                ("the stored bias review is for an earlier version of the instrument" if rev else "the instrument has no bias review", a.id, a.id))
         st["status"] = "approved"
-        st.setdefault("gates", []).append({"gate": "G-STUDY", "at": now_iso(), "note": squash(a.note)})
+        st.setdefault("gates", []).append(gate)
         files = write_instrument_files(base_of(a.registry), st)
         pbslice._write(a.registry, reg)
-    return ({"approved": a.id, "files": files, "warnings": warns},
-            ["G-STUDY approved %s" % a.id] + files + ["warn  %s %s: %s" % (w["code"], w["where"], w["msg"]) for w in warns],
-            EXIT_OK)
+    lines = ["G-STUDY approved %s" % a.id] + files
+    if "skipReview" in gate:
+        lines.append("bias review SKIPPED: %s" % gate["skipReview"])
+    lines += ["review %s %s · %s" % (r["answer"], r["id"], r["evidence"]) for r in flags]
+    lines += ["warn  %s %s: %s" % (w["code"], w["where"], w["msg"]) for w in warns]
+    return ({"approved": a.id, "files": files, "warnings": warns, "gate": gate, "reviewFlags": flags}, lines, EXIT_OK)
 
 
 def cmd_export(a):
@@ -1520,6 +2013,10 @@ def cmd_import(a):
     drop = [squash(c) for c in (a.drop_columns or "").split(",") if squash(c)]
     with locked(a.registry, "research.py import") as reg:
         st = find_study(reg, a.id)
+        if scope_of(st) == "instrument":
+            raise ResearchError("%s has scope `instrument`: the study ends at the approved questions and no results are expected, "
+                                "so nothing is imported. If results will come back after all, change it first: "
+                                "`research.py scope %s --scope collect`." % (a.id, a.id))
         if st.get("status") == "draft":
             raise ResearchError("%s is still a draft — approve it (G-STUDY) before any evidence is stored" % a.id)
         declared = role_ids(reg)
@@ -1634,8 +2131,12 @@ def _qtable(tally):
     lines = []
     for qid, q in tally["byQuestion"].items():
         body = ", ".join("%s=%s" % kv for kv in q["counts"].items()) if q["counts"] else ""
-        lines.append("  %s (%s) n=%d%s%s" % (qid, q["type"], q["n"], "  " + body if body else "",
-                                            "  mean=%s" % round(q["mean"], 2) if q["mean"] is not None else ""))
+        sc = as_dict(q.get("score"))
+        lines.append("  %s (%s) n=%d%s%s%s" % (qid, q["type"], q["n"], "  " + body if body else "",
+                                              "  mean=%s" % round(q["mean"], 2) if q["mean"] is not None else "",
+                                              "  %s=%s%s" % (sc.get("metric"), sc.get("value"),
+                                                             " (%s%% at 5-7)" % round(sc["pct"], 1) if sc.get("pct") is not None else "")
+                                              if sc else ""))
     return lines
 
 
@@ -1815,15 +2316,15 @@ def _summary(st):
         v[k] = v.get(k, 0) + 1
     ev = [e for e in as_list(st.get("evidence")) if isinstance(e, dict)]
     return {"id": st.get("id"), "title": st.get("title"), "method": st.get("method"), "status": st.get("status"),
-            "audience": st.get("audience"), "evidence": len(ev), "dropped": sum(1 for e in ev if e.get("dropped")),
+            "scope": scope_of(st), "audience": st.get("audience"), "evidence": len(ev), "dropped": sum(1 for e in ev if e.get("dropped")),
             "n": as_dict(st.get("tally")).get("n"), "verdicts": v}
 
 
 def cmd_list(a):
     reg = load_registry(a.registry)
     rows = [_summary(s) for s in studies_of(reg)]
-    lines = ["%-28s %-9s %-10s evidence=%d  %s" % (r["id"], r["method"], r["status"], r["evidence"],
-                                                  ", ".join("%s %d" % kv for kv in sorted(r["verdicts"].items())))
+    lines = ["%-28s %-9s %-10s %-10s evidence=%d  %s" % (r["id"], r["method"], r["scope"], r["status"], r["evidence"],
+                                                        ", ".join("%s %d" % kv for kv in sorted(r["verdicts"].items())))
              for r in rows]
     return {"studies": rows}, lines or ["no studies yet — `gaps` shows what is unsure, `init` starts one"], EXIT_OK
 
@@ -1832,8 +2333,10 @@ def cmd_show(a):
     reg = load_registry(a.registry)
     st = find_study(reg, a.id)
     s = _summary(st)
-    lines = ["%s — %s" % (st["id"], st.get("title")), "  %s · %s · %s" % (st.get("method"), st.get("status"), json.dumps(st.get("audience"), ensure_ascii=False)),
+    lines = ["%s — %s" % (st["id"], st.get("title")), "  %s · %s · %s · %s" % (st.get("method"), scope_of(st), st.get("status"), json.dumps(st.get("audience"), ensure_ascii=False)),
              "  question: %s" % st.get("question")]
+    if squash(st.get("setup")):
+        lines.append("  setup: %s" % squash(st["setup"]))
     for h in as_list(st.get("hypotheses")):
         h = as_dict(h)
         lines.append("  %s [%s] %s" % (h.get("id"), h.get("verdict") or "open", h.get("statement")))
@@ -1862,17 +2365,27 @@ def build_parser():
     p.add_argument("targets", nargs="+", metavar="kind:id")
     p = sp("init", "id")
     p.add_argument("--method", required=True, choices=METHODS)
+    p.add_argument("--scope", required=True, choices=SCOPES)
+    p.add_argument("--setup", default="")
     p.add_argument("--question", required=True)
     p.add_argument("--title", default="")
     p.add_argument("--role", action="append")
     p.add_argument("--segment", default="")
     p.add_argument("--target", action="append")
     p.add_argument("--target-n", type=int)
+    p = sp("scope", "id")
+    p.add_argument("--scope", choices=SCOPES)
+    p.add_argument("--setup")
     p = sp("plan", "id")
     p.add_argument("--file", required=True)
     sp("check", "id")
+    sp("review-plan", "id")
+    p = sp("review", "id")
+    p.add_argument("--file", required=True)
     p = sp("approve", "id")
     p.add_argument("--note", default="")
+    p.add_argument("--skip-review")
+    p.add_argument("--accept-review")
     sp("export", "id")
     p = sp("import", "id", "file")
     p.add_argument("--kind", required=True, choices=EVIDENCE_KINDS)
@@ -1898,8 +2411,8 @@ def build_parser():
     return ap
 
 
-COMMANDS = {"gaps": cmd_gaps, "seed": cmd_seed, "init": cmd_init, "plan": cmd_plan, "check": cmd_check,
-            "approve": cmd_approve, "export": cmd_export, "import": cmd_import, "drop-evidence": cmd_drop,
+COMMANDS = {"gaps": cmd_gaps, "seed": cmd_seed, "init": cmd_init, "scope": cmd_scope, "plan": cmd_plan,
+            "check": cmd_check, "review-plan": cmd_review_plan, "review": cmd_review, "approve": cmd_approve, "export": cmd_export, "import": cmd_import, "drop-evidence": cmd_drop,
             "tally": cmd_tally, "synthesize": cmd_synthesize, "verify": cmd_verify, "refill": cmd_refill,
             "list": cmd_list, "show": cmd_show}
 

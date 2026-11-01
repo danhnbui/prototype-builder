@@ -88,7 +88,7 @@ STUDY_A = {
                            {"id": "q1", "text": "Do you deliver parcels?", "tests": [], "type": "single", "options": ["Yes", "No"], "qualifies": ["Yes"]}]},
                        {"title": "Paying", "purpose": "main", "questions": [
                            {"id": "q2", "text": "Which do you open first?", "tests": ["h1"], "type": "single", "options": ["COD", "Wallet"]},
-                           {"id": "q5", "text": "How easy is the fee to read?", "tests": ["h2"], "type": "scale",
+                           {"id": "q5", "text": "How easy is the fee to read?", "tests": ["h2"], "type": "scale", "template": "ces",
                             "scale": {"min": 1, "max": 5, "minLabel": "hard", "maxLabel": "easy"}}]}]},
     "evidence": [
         {"id": "e1", "file": "memory/research/rs-cod-payment/evidence/e1-responses.csv", "kind": "responses", "sha256": "a1b2c3d4e5f60718",
@@ -99,17 +99,25 @@ STUDY_A = {
          "importedAt": "2026-11-05T10:00:00Z", "date": "2026-11-05", "participant": "P03", "role": "member", "consent": "unknown", "responses": None,
          "dropped": {"at": "2026-11-09T10:00:00Z", "reason": GONE}},
     ],
-    "tally": {"n": 30, "excluded": 4, "excludedWhy": {"q1": 4}, "byQuestion": {"q2": {"type": "single", "n": 30, "counts": {"COD": 18, "Wallet": 12}, "mean": None}}},
+    "tally": {"n": 30, "excluded": 4, "excludedWhy": {"q1": 4}, "byQuestion": {
+        "q2": {"type": "single", "n": 30, "counts": {"COD": 18, "Wallet": 12}, "mean": None},
+        "q9": {"type": "scale", "n": 12, "score": {"metric": "ces", "value": 5.4, "pct": 77, "n": 12}}}},
+    "biasReview": {"at": "2026-11-02T09:00:00Z", "instrumentHash": "abc123",
+                   "rows": [{"id": "b1", "answer": "yes", "evidence": "fine"},
+                            {"id": "b3", "answer": "no", "evidence": "Leading wording in q2 " + IMG},
+                            {"id": "b4", "answer": "blocked", "evidence": "no access"}],
+                   "summary": {"yes": 5, "no": 1, "blocked": 1}},
     "findings": [
         {"id": "f1", "text": "Most couriers open COD first", "hypotheses": ["h1"], "targets": [{"kind": "job", "id": "pay-cod"}, {"kind": "rule", "id": "cod-first"}],
          "evidence": [{"evidence": "e2", "quote": "I always check COD first " + XSS, "participant": "P02"},
                       {"tally": "q2", "option": "COD", "count": 18, "of": 30}]},
         {"id": "f2", "text": "The fee is hard to read", "hypotheses": ["h2"], "targets": [],
-         "evidence": [{"tally": "q5", "stat": "mean", "value": 3.8, "of": 30}]},
+         "evidence": [{"tally": "q5", "stat": "mean", "value": 3.8, "of": 30},
+                                                                {"tally": "q9", "stat": "ces", "value": 5.4, "of": 12}]},
     ],
     "refill": {"quantitative": "18 of 30 open COD first.", "researchSummary": "", "executiveSummary": ""},
     "refilled": {"at": "2026-11-10T10:00:00Z", "fields": {"quantitative": "18 of 30 open COD first. [rs-cod-payment]"}},
-    "gates": [{"gate": "G-STUDY", "at": "2026-11-02T10:00:00Z", "note": ""}],
+    "gates": [{"gate": "G-STUDY", "at": "2026-11-02T10:00:00Z", "note": "", "acceptReview": "Wording kept on purpose"}],
 }
 STUDY_B = {
     "id": "rs-first-screen-vi", "title": VI_TITLE, "question": "Bạn thấy màn hình đầu tiên có đủ rõ không?",
@@ -128,6 +136,18 @@ STUDY_B = {
     "findings": [{"id": "f1", "text": "Hai người tìm nút trước", "hypotheses": ["h1"], "targets": [],
                   "evidence": [{"evidence": "e1", "quote": "Tôi tìm nút đăng nhập ngay", "participant": "P01"}]}],
     "refill": {}, "refilled": None, "gates": [],
+}
+
+
+STUDY_C = {
+    "id": "rs-ask-only", "title": "Questions for the pay screen", "question": "Is the fee clear?",
+    "method": "survey", "status": "approved", "scope": "instrument", "setup": "Use the staging link " + IMG,
+    "createdAt": "2026-11-04T10:00:00Z", "audience": {"roles": ["member"], "segment": "", "targetN": 30},
+    "targets": [], "hypotheses": [{"id": "h1", "statement": "Fee is clear", "supportedIf": "a", "refutedIf": "b", "targets": [], "verdict": None, "why": ""}],
+    "instrument": {"lang": "en", "intro": "", "consent": "", "durationMin": 3, "closing": "",
+                   "sections": [{"title": "Fee", "purpose": "main", "questions": [{"id": "q1", "text": "How easy was it?", "tests": ["h1"], "type": "scale"}]}]},
+    "evidence": [], "tally": None, "findings": [], "refill": {}, "refilled": None,
+    "gates": [{"gate": "G-STUDY", "at": "2026-11-04T10:00:00Z", "note": "", "skipReview": ""}],
 }
 
 
@@ -155,7 +175,7 @@ def build_project(tmp, name, research="full", overview=True):
         b = copy.deepcopy(STUDY_B)
         b["targets"][0]["id"] = screens[0]
         b["instrument"]["sections"][1]["questions"][0]["task"]["screen"] = screens[0]
-        reg["research"] = {"populated": True, "studies": [copy.deepcopy(STUDY_A), b]}
+        reg["research"] = {"populated": True, "studies": [copy.deepcopy(STUDY_A), b, copy.deepcopy(STUDY_C)]}
     elif research == "empty":
         reg["research"] = {"populated": False, "studies": []}
     else:
@@ -197,7 +217,7 @@ def study_rows(pg):
     pg.evaluate("setSummarySubTab('research')")
     pg.wait_for_timeout(200)
     n = pg.locator(".pb-scan--rs .pb-scan-tr").count()
-    check(n == 2, f"one row per study ({n})")
+    check(n == 3, f"one row per study ({n})")
     check(pg.locator("h2.meta-h2").first.inner_text().strip() == "2.3 Research", "the section is numbered 2.3 Research")
     check(pg.locator(f"{ROW('rs-cod-payment')} > .pb-disc-b").is_hidden() and pg.locator(f"{ROW('rs-first-screen-vi')} > .pb-disc-b").is_hidden(),
           "every study is closed until opened")
@@ -273,6 +293,56 @@ def escaping(pg):
     qt = pg.locator(f"{body} .rs-quote").first.inner_text()
     check("<script>window.__xss=1</script>" in qt, "a quote holding <script> displays it as text")
     check("<img" in pg.locator(f"{body} .rs-list").first.inner_text(), "a hypothesis holding <img> displays it as text")
+
+
+def scope_scores_bias(pg):
+    print("3b · scope, setup, scores, bias review")
+    a, c, b = ROW("rs-cod-payment"), ROW("rs-ask-only"), ROW("rs-first-screen-vi")
+    pg.locator(f"{c} > .pb-disc-t").click()
+    pg.wait_for_timeout(120)
+    kvc = pg.locator(f"{c} dl.pb-kv").first.inner_text()
+    kva = pg.locator(f"{a} dl.pb-kv").first.inner_text()
+    kvb = pg.locator(f"{b} dl.pb-kv").first.inner_text()
+    check("Scope" in kvc and "Questions only" in kvc, "an instrument study says Scope: Questions only")
+    check("Setup" in kvc and "Use the staging link" in kvc, "…and shows its Setup")
+    check("Questions and results" in kva and "Setup" not in kva, "a collect study says Questions and results, with no Setup row when absent")
+    check("Questions and results" in kvb, "an old study with no scope reads as collect")
+    check("Answers" not in kvc and "0 of" not in kvc, "an approved instrument study shows no Answers line")
+    check("Answers" in kva, "a collect study keeps its Answers line")
+    rowc = pg.locator(f"{c} > .pb-disc-t").inner_text()
+    check("0 of" not in rowc and "open" not in rowc and "supported" not in rowc.lower() and pg.locator(f"{c} > .pb-disc-t .vd .lgc-b").count() == 0,
+          f"…and its row shows no n or verdict tally ({rowc.split(chr(10))[:6]})")
+    check(pg.evaluate("window.__xss") is None and pg.locator(f"{c} script, {c} img").count() == 0, "setup text with markup is escaped")
+    check("<img" in pg.locator(f"{c} dl.pb-kv").first.inner_text(), "…and shown as text")
+
+    sc = pg.evaluate(f"[...document.querySelectorAll('{a} .rs-score')].map(x => x.innerText.replace(/\\s+/g,' ').trim())")
+    check(len(sc) == 1 and "q9" in sc[0] and "Customer Effort Score (CES)" in sc[0] and "5.4" in sc[0] and "n 12" in sc[0], f"a Scores block lists each score with its question id ({sc})")
+    order = pg.evaluate(f"(() => {{ const hs = [...document.querySelectorAll('{a} .rs-h')].map(h => h.textContent.trim()); return hs; }})()")
+    lines = pg.evaluate(f"(() => {{ const li = document.querySelector('{a} .rs-score'); const cs = getComputedStyle(li); return Math.round(li.getBoundingClientRect().height / parseFloat(cs.lineHeight || 20)); }})()")
+    check(lines <= 3, f"…and a score reads as a line, not its parts stacked ({lines} lines tall)")
+    check("77% answered 5 to 7" in sc[0], f"…with its percentage saying what it counts ({sc[0]})")
+    check(order.index("Scores") < order.index("Findings"), f"Scores sits above Findings ({order})")
+    check(pg.locator(f"{b} .rs-scores").count() == 0, "a study with no score has no Scores block")
+    stats = pg.evaluate(f"[...document.querySelectorAll('{a} .rs-stat')].map(q => q.innerText.replace(/\\s+/g,' ').trim())")
+    check(any(s.startswith("CES 5.4 of 12") for s in stats), f"a score citation reads CES 5.4 of 12 ({stats})")
+    pg.locator(f"{a} .rs-inst > .pb-disc-b").first.inner_text()
+    ins = pg.locator(f"{a} .rs-inst > .pb-disc-b").inner_text()
+    check("Customer Effort Score" in ins, "the instrument marks a template question with its metric name")
+
+    bias = pg.locator(f"{a} .rs-bias")
+    check(bias.count() == 1 and pg.evaluate(f"document.querySelector('{a} .rs-bias').classList.contains('is-open')") is False
+          and pg.locator(f"{a} .rs-bias > .pb-disc-b").is_hidden(), "the Bias review is closed by default")
+    check("5 yes" in pg.locator(f"{a} .rs-bias > .pb-disc-t").inner_text() and "1 no" in pg.locator(f"{a} .rs-bias > .pb-disc-t").inner_text(),
+          "…with summary counts")
+    pg.locator(f"{a} .rs-bias > .pb-disc-t").click()
+    pg.wait_for_timeout(100)
+    bt = pg.locator(f"{a} .rs-bias > .pb-disc-b").inner_text()
+    check("b3" in bt and "Leading wording" in bt and "b4" in bt and "blocked" in bt and "b1" not in bt, f"…opens to the no and blocked rows only ({bt!r})")
+    check("Accepted: Wording kept on purpose" in bt, "…and an accepted reason is shown plainly")
+    check("<img" in bt and pg.locator(f"{a} .rs-bias img").count() == 0, "…evidence is escaped")
+    ct = pg.locator(f"{c} .rs-bias").inner_text()
+    check("Not reviewed" in ct, f"an approved study with no review reads Not reviewed ({ct!r})")
+    check(pg.locator(f"{b} .rs-bias").count() == 0, "a draft study with no review shows nothing")
 
 
 def insights_links(pg):
@@ -388,7 +458,7 @@ def empty_states(tmp, pw):
           "a project with only research populated still shows the Summary and the tab")
     pg.evaluate("setSummarySubTab('research')")
     pg.wait_for_timeout(200)
-    check(pg.locator(".pb-scan--rs .pb-scan-tr").count() == 2, "…with its studies")
+    check(pg.locator(".pb-scan--rs .pb-scan-tr").count() == 3, "…with its studies")
     check(errs == [], f"…no JS errors ({errs[:2]})")
     br.close()
 
@@ -424,6 +494,7 @@ def main():
             study_rows(pg)
             findings_and_evidence(pg)
             escaping(pg)
+            scope_scores_bias(pg)
             if os.environ.get("RESEARCH_SHOTS"):
                 shots(pg, os.environ["RESEARCH_SHOTS"])
             insights_links(pg)

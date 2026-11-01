@@ -3455,10 +3455,12 @@
     .rs-list { list-style: none; margin: 0; padding: 0; display: grid; }
     .rs-list > li { display: grid; gap: var(--pb-s2); padding: var(--pb-s3) 0; border-bottom: var(--pb-hair-w) solid var(--pb-hair); }
     .rs-list > li:last-child { border-bottom: 0; }
+    .rs-list > li.rs-score { display: block; }
     .rs-hd { display: flex; flex-wrap: wrap; gap: var(--pb-s2); align-items: baseline; min-width: 0; }
     .rs-hd code, .rs-qs code, .rs-tbl code { font-family: var(--pb-mono); font-size: var(--pb-t-sm); color: var(--pb-ink-3); }
     .rs-ht { flex: 1 1 14rem; min-width: 0; font-weight: var(--pb-w-bold); overflow-wrap: anywhere; }
     .rs-kv { gap: var(--pb-s1) var(--pb-s3); }
+    .rs-body dl.pb-kv dd, .rs-bias .pb-disc-b, .rs-score { min-width: 0; overflow-wrap: anywhere; }
     .rs-quote { margin: 0; padding: var(--pb-s1) 0 var(--pb-s1) var(--pb-s3); border-left: var(--pb-rule-w) solid var(--pb-hair-2); overflow-wrap: anywhere; }
     .rs-quote p { margin: 0; }
     .rs-quote footer { margin-top: var(--pb-s0); font-size: var(--pb-t-sm); color: var(--pb-ink-3); }
@@ -3505,6 +3507,27 @@
     /* ⌘K lands on an item: it scrolls into view and is outlined for a moment */
     .pb-flash { animation: pb-flash 1.6s ease-out; }
     @keyframes pb-flash { 0%, 60% { box-shadow: 0 0 0 2px var(--pb-ink); } 100% { box-shadow: 0 0 0 2px transparent; } }
+    /* ---- Live fill (v2.6): the Prototype tab before any screen is an undesigned outline inside the device frame.
+       It is the PROJECT's subtree (.pb-product), so it speaks in the product's own variables — with plain fallbacks for a
+       project that has no tokens yet — and the tool's --pb-* colours never appear in it. ---- */
+    .pb-draft { display: flex; min-height: 100%; font: 14px/1.5 var(--font-family, system-ui, sans-serif); color: var(--text-primary, #1f2937); background: var(--neutral-0, #fff); }
+    .pb-draft-side { flex: 0 0 220px; display: flex; flex-direction: column; gap: 8px; padding: 16px 0; border-right: 1px solid var(--neutral-200, #e5e7eb); background: var(--neutral-50, #f9fafb); }
+    .pb-draft-brand { padding: 0 16px 8px; font-weight: 600; }
+    .pb-draft-nav { display: block; width: 100%; padding: 6px 16px; border: 0; border-radius: 0; background: none; font: inherit; color: inherit; text-align: left; cursor: pointer; }
+    .pb-draft-nav:hover, .pb-draft-nav.is-on { background: var(--neutral-100, #f3f4f6); }
+    .pb-draft-nav.is-on { font-weight: 600; }
+    .pb-draft-main { flex: 1 1 auto; min-width: 0; max-width: 760px; padding: 24px 32px; }
+    .pb-draft-flag { margin: 0 0 16px; padding: 8px 12px; border: 1px dashed var(--neutral-300, #d1d5db); border-radius: 8px; font-size: 12px; color: var(--text-tertiary, #6b7280); }
+    .pb-draft-h1 { margin: 0 0 8px; font-size: 22px; line-height: 1.25; }
+    .pb-draft-lead { margin: 0 0 16px; color: var(--text-secondary, #4b5563); }
+    .pb-draft-sec { margin: 16px 0 0; }
+    .pb-draft-sec h2 { margin: 0 0 8px; font-size: 12px; letter-spacing: .04em; text-transform: uppercase; color: var(--text-tertiary, #6b7280); }
+    .pb-draft-list { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+    .pb-draft-list li { padding: 8px 10px; border: 1px solid var(--neutral-200, #e5e7eb); border-radius: 8px; }
+    .pb-draft-dim, .pb-draft-none { color: var(--text-tertiary, #6b7280); }
+    .pb-draft-tbl { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .pb-draft-tbl th, .pb-draft-tbl td { padding: 6px 8px; border-bottom: 1px solid var(--neutral-200, #e5e7eb); text-align: left; }
+    .pb-draft .pb-draft-chip { background: var(--neutral-100, #f3f4f6); color: var(--text-tertiary, #6b7280); border-color: var(--neutral-300, #d1d5db); }
     /* ---- Sparse pages (T2.7): too few sections for a table of contents → one column, 760px ---- */
     .pb-content--single { display: flex; flex-direction: column; }
     .pb-content--single .summary-main { flex: 1 1 auto; width: 100%; max-width: 760px; min-height: 0; display: flex; flex-direction: column; }
@@ -3672,17 +3695,19 @@
       // them says which prototype it is) and opens the project's settings. Shared with the DS site
       // (runtime.js), so both sites carry the same thing in the same place.
       const onProto = state.metaView === 'prototype';
+      delete PB_LIVE.fresh[state.metaView];          // opening a tab reads its new content: the blue dot is done
       if (!onProto && pbPickOn) pbPickSet(false);   // pick mode belongs to the preview; leaving it ends it
       const isMac = /Mac|iPhone|iPad/.test((navigator.platform || '') + ' ' + (navigator.userAgent || ''));
       const kbd = isMac ? '⌘K' : 'Ctrl K';
       el.innerHTML = `<div class="pb-bar-start" id="pb-pj-host"></div><span class="pb-bar-vr" aria-hidden="true"></span>`
         + `<nav class="pb-tabs" role="tablist" aria-label="Surfaces">`
         + tabs.map(([id, label]) =>
-          `<button class="meta-tab pb-tab ${state.metaView === id ? 'active' : ''}" role="tab"
+          `<button class="meta-tab pb-tab ${state.metaView === id ? 'active' : ''}${PB_LIVE.fresh[id] ? ' has-new' : ''}" role="tab"
                    aria-selected="${state.metaView === id}" data-t="${label}"
-                   data-meta-view="${escapeHtmlAttr(id)}" onclick="setMetaView(this.dataset.metaView)">${label}</button>`
+                   data-meta-view="${escapeHtmlAttr(id)}" onclick="setMetaView(this.dataset.metaView)">${label}<i class="pb-tab-dot" aria-hidden="true"></i></button>`
         ).join('') + `</nav>`
         + `<div class="pb-bar-end">`
+        + pbProgHTML()
         + `<button class="meta-search pb-bar-item" type="button" onclick="pbOpenSearch()" aria-keyshortcuts="${isMac ? 'Meta+K' : 'Control+K'}"
                    aria-label="Search everything (${kbd})" title="Search rules, jobs, screens, components, test cases, terms and commands (${kbd})">`
         + `${pbUiIcon('search')}<span class="pb-bar-lb">Search</span><span class="pb-kbd" aria-hidden="true">${kbd}</span></button>`
@@ -5070,6 +5095,8 @@
       const header = pbPageHeader({ title: 'Prototype', infoKey: 'prototype' });
 
       if (!screens.length) {
+        // No screen yet: show what is known as an undesigned draft in the device frame (a view-only hand-off keeps the plain card).
+        if (!VIEW_ONLY) return pbRenderDraftPrototype();
         $('#app').innerHTML = `
           <div class="pb-page">
             ${header}
@@ -6479,7 +6506,39 @@
        never fetched or inlined. A study is one scan row (the shared multi-open disclosure). */
     const PB_RS_VERDICT = { supported: ['ok', 'Supported'], refuted: ['bad', 'Refuted'], mixed: ['warn', 'Mixed'], inconclusive: ['n', 'Inconclusive'] };
     const PB_RS_STATUS = { draft: 'hollow', approved: 'hollow', fielding: 'open', analysed: '', applied: 'pass' };
+    const PB_RS_METRIC = { ces: ['CES', 'Customer Effort Score'], seq: ['SEQ', 'Single Ease Question'], csat: ['CSAT', 'Customer Satisfaction'], nps: ['NPS', 'Net Promoter Score'], sus: ['SUS', 'System Usability Scale'] };
     const pbRsStudies = () => (((PB_DATA || {}).research || {}).studies || []).filter(s => s && s.id);
+    /* A study that only asks (scope instrument) and is approved is complete: no answers are due. */
+    const pbRsAskOnly = s => s.scope === 'instrument';
+    const pbRsDone = s => pbRsAskOnly(s) && s.status === 'approved';
+    /* The metric scores the tally holds: [{qid, metric, value, pct, n}]. */
+    function pbRsScores(s) {
+      const bq = (s.tally || {}).byQuestion || {};
+      return Object.keys(bq).filter(q => bq[q] && bq[q].score && bq[q].score.metric).map(q => Object.assign({ qid: q }, bq[q].score));
+    }
+    function pbRsScoresHTML(s) {
+      const sc = pbRsScores(s);
+      if (!sc.length) return '';
+      return `<h4 class="rs-h">Scores</h4><ul class="rs-list rs-scores">${sc.map(x => {
+        const m = PB_RS_METRIC[x.metric];
+        return `<li class="rs-score"><code>${pbEscape(x.qid)}</code> ${pbEscape(m ? m[1] + ' (' + m[0] + ')' : x.metric)} <b class="pb-num">${pbEscape(x.value)}</b>`
+          + `${x.pct != null ? ` <span class="lg-dim">· ${pbEscape(x.pct)}%${x.metric === 'ces' ? ' answered 5 to 7' : ''}</span>` : ''} <span class="lg-dim">· n ${pbEscape(x.n)}</span></li>`;
+      }).join('')}</ul>`;
+    }
+    /* The bias review of the instrument: closed; counts, then only the rows that are not a plain yes. */
+    function pbRsBiasHTML(s) {
+      const r = s.biasReview, g = (s.gates || []).find(x => x && (x.skipReview || x.acceptReview)) || {};
+      const why = g.skipReview ? 'Skipped: ' + g.skipReview : g.acceptReview ? 'Accepted: ' + g.acceptReview : '';
+      if (!r && s.status === 'draft' && !why) return '';
+      const reason = why ? `<p class="meta-p">${pbEscape(why)}</p>` : '';
+      if (!r) return pbDiscHTML({ id: 'rs-bias-' + s.id, level: 'row', open: false, cls: 'rs-bias',
+        summary: `<span class="rs-insth">Bias review</span> <span class="lg-dim">Not reviewed</span>`, body: reason || `<p class="sum-empty">Not reviewed.</p>` });
+      const sm = r.summary || {}, bad = (r.rows || []).filter(x => x && (x.answer === 'no' || x.answer === 'blocked'));
+      return pbDiscHTML({ id: 'rs-bias-' + s.id, level: 'row', open: false, cls: 'rs-bias',
+        summary: `<span class="rs-insth">Bias review</span> <span class="lg-dim">${pbEscape(sm.yes || 0)} yes · ${pbEscape(sm.no || 0)} no · ${pbEscape(sm.blocked || 0)} blocked</span>`,
+        body: `${reason}${bad.length ? `<ul class="rs-list">${bad.map(x => `<li><div class="rs-hd"><code>${pbEscape(x.id)}</code><span class="rs-ht">${pbEscape(x.answer)}</span></div>`
+          + `${x.evidence ? `<div class="lg-dim">${pbEscape(x.evidence)}</div>` : ''}</li>`).join('')}</ul>` : '<p class="sum-empty">Nothing flagged.</p>'}` });
+    }
     const pbRsDay = d => String(d || '').slice(0, 10);
     const pbRsVerdictBadge = (v, n) => { const k = PB_RS_VERDICT[v] || ['n', 'No verdict']; return lgcBadge(k[0], (n != null ? n + ' ' : '') + pbEscape(n != null ? k[1].toLowerCase() : k[1])); };
     /* A target is a jump when what it names exists in the project; otherwise it is plain text. */
@@ -6569,6 +6628,7 @@
           x = x || {};
           if (x.quote != null) return `<blockquote class="rs-quote"><p>“${pbEscape(x.quote)}”</p><footer>${pbEscape([x.participant, x.evidence].filter(Boolean).join(' · '))}</footer></blockquote>`;
           const ref = `<span class="lg-dim" title="${escapeHtmlAttr(pbRsQuestionText(s, x.tally))}">${pbEscape(x.tally)}</span>`;
+          if (x.stat && PB_RS_METRIC[x.stat]) return `<p class="rs-stat">${pbEscape(PB_RS_METRIC[x.stat][0])} <b class="pb-num">${pbEscape(x.value)}</b> of ${pbEscape(x.of)} ${ref}</p>`;
           if (x.stat) return `<p class="rs-stat">${pbEscape(x.stat)} <b class="pb-num">${pbEscape(x.value)}</b> of ${pbEscape(x.of)} answers ${ref}</p>`;
           return `<p class="rs-stat"><b class="pb-num">${pbEscape(x.count)}</b> of ${pbEscape(x.of)} answered “${pbEscape(x.option)}” ${ref}</p>`;
         }).join('')}
@@ -6581,7 +6641,8 @@
       if (!secs.length && !ins.intro) return '';
       const qs = secs.map(sec => `<div class="rs-sec"><div class="rs-sech">${pbEscape(sec.title || sec.purpose || '')} <span class="lg-dim">${pbEscape(sec.purpose || '')}</span></div>
         <ol class="rs-qs">${(sec.questions || []).map(q => {
-          const meta = [q.type, (q.options || []).length ? (q.options || []).join(' / ') : '', (q.tests || []).length ? 'tests ' + q.tests.join(', ') : ''].filter(Boolean).join(' · ');
+          const tm = q.template ? ((PB_RS_METRIC[q.template] || PB_RS_METRIC[(((s.tally || {}).byQuestion || {})[q.id] || {}).score && s.tally.byQuestion[q.id].score.metric] || [0, q.template])[1]) : '';
+          const meta = [tm, q.type, (q.options || []).length ? (q.options || []).join(' / ') : '', (q.tests || []).length ? 'tests ' + q.tests.join(', ') : ''].filter(Boolean).join(' · ');
           const tk = q.task ? `<div class="lg-dim">Task: ${pbEscape([q.task.screen && 'screen ' + q.task.screen, q.task.role && 'role ' + q.task.role, q.task.success && 'done when ' + q.task.success].filter(Boolean).join(' · '))}</div>` : '';
           return `<li><code>${pbEscape(q.id)}</code><div><div>${pbEscape(q.text)}</div>${meta ? `<div class="lg-dim">${pbEscape(meta)}</div>` : ''}`
             + `${(q.probes || []).length ? `<div class="lg-dim">Probes: ${pbEscape(q.probes.join(' · '))}</div>` : ''}${tk}</div></li>`;
@@ -6612,12 +6673,14 @@
         <dl class="pb-kv">
           <dt>Method</dt><dd>${pbEscape(pbCap(s.method || ''))} · ${pbEscape(pbCap(s.status || 'draft'))}</dd>
           <dt>Who</dt><dd>${[roles, a.segment ? pbEscape(a.segment) : ''].filter(Boolean).join(' · ') || '—'}</dd>
-          <dt>Answers</dt><dd>${n}${a.targetN ? ' of ' + pbEscape(a.targetN) : ''}${t.excluded ? ` <span class="lg-dim">· ${pbEscape(t.excluded)} excluded by the screener</span>` : ''}</dd>
+          <dt>Scope</dt><dd>${pbRsAskOnly(s) ? 'Questions only' : 'Questions and results'}</dd>
+          ${s.setup ? `<dt>Setup</dt><dd>${pbEscape(s.setup)}</dd>` : ''}
+          ${pbRsDone(s) ? '' : `<dt>Answers</dt><dd>${n}${a.targetN ? ' of ' + pbEscape(a.targetN) : ''}${t.excluded ? ` <span class="lg-dim">· ${pbEscape(t.excluded)} excluded by the screener</span>` : ''}</dd>`}
           ${(s.targets || []).length ? `<dt>About</dt><dd class="pb-tags">${s.targets.map(pbRsTargetHTML).join('')}</dd>` : ''}
           ${gates ? `<dt>Approved</dt><dd>${gates}</dd>` : ''}
           ${s.refilled && s.refilled.at ? `<dt>In Insights</dt><dd>${pbEscape(pbRsDay(s.refilled.at))}</dd>` : ''}
         </dl>
-        ${pbRsHypothesesHTML(s)}${pbRsFindingsHTML(s)}${pbRsInstrumentHTML(s)}${pbRsEvidenceTable(s)}
+        ${pbRsHypothesesHTML(s)}${pbRsScoresHTML(s)}${pbRsFindingsHTML(s)}${pbRsInstrumentHTML(s)}${pbRsBiasHTML(s)}${pbRsEvidenceTable(s)}
       </div>`;
     }
     function pbRenderResearch() {
@@ -6631,9 +6694,9 @@
       const rows = studies.map(s => {
         const a = s.audience || {}, n = pbRsCount(s), hs = s.hypotheses || [];
         const tally = {}; hs.forEach(h => { const k = h.verdict || ''; tally[k] = (tally[k] || 0) + 1; });
-        const vd = Object.keys(PB_RS_VERDICT).concat(['']).filter(k => tally[k]).map(k => k ? pbRsVerdictBadge(k, tally[k]) : lgcBadge('n', tally[k] + ' open')).join('');
+        const vd = pbRsDone(s) ? '' : Object.keys(PB_RS_VERDICT).concat(['']).filter(k => tally[k]).map(k => k ? pbRsVerdictBadge(k, tally[k]) : lgcBadge('n', tally[k] + ' open')).join('');
         const st = String(s.status || 'draft'), who = (a.roles || []).map(pbRoleName).join(', ') || a.segment || '';
-        const kd = [pbCap(s.method || ''), 'n ' + n + (a.targetN ? ' of ' + a.targetN : '')].join(' · ');
+        const kd = pbRsDone(s) ? pbCap(s.method || '') : [pbCap(s.method || ''), 'n ' + n + (a.targetN ? ' of ' + a.targetN : '')].join(' · ');
         return pbScanRowHTML('rs', s.id, [
           `<span class="id">${pbEscape(s.id)}</span>`,
           `<span class="ti" title="${escapeHtmlAttr([s.title || s.id, who].filter(Boolean).join(' — '))}">${(a.roles || []).map(pbRoleDot).join('')}${pbEscape(s.title || s.id)}</span>`,
@@ -6905,7 +6968,10 @@
       // placed still showed "No jobs yet". Each half now answers for itself.
       const N = L && L.nav;
       const hasMap = !!(N && N.depth && Object.keys(N.depth).length);
-      if (!allJobs.length && !hasMap) {
+      // Until a hub has a render body there is nothing to derive a map from; the nodes /pb:clarify has saved
+      // so far (ia.sitemap[], drafts included) are drawn instead, one at a time. Once the derived map exists it takes over.
+      const draftNodes = hasMap ? [] : pbDraftSitemap(ia);
+      if (!allJobs.length && !hasMap && !draftNodes.length) {
         return pbUxEmpty('No jobs yet',
           'List what each role needs done, as "when … I want to … so I can …". Each job maps to the screens that serve it, so a job with no screen shows up as unfinished work and a screen with no job as a question worth asking. /pb:clarify captures the jobs and /pb:plan maps them to screens and layers.'
             + (N && N.reason ? ' ' + pbSiteMapWhy(N) : ''),
@@ -6933,7 +6999,7 @@
 
       return `<div class="summary-scroll ia-scroll" id="ia-scroll">
           <div class="ia-head"><h2 class="meta-h2">3.2 Information Architecture</h2></div>
-          <section class="ia-map" aria-label="Site map">${pbRenderSiteMap(ia, allJobs)}</section>
+          <section class="ia-map" aria-label="Site map">${draftNodes.length ? pbRenderDraftMap(draftNodes, allJobs) : pbRenderSiteMap(ia, allJobs)}</section>
           <section class="ia-jobs" aria-label="Jobs">${jobsBody}</section>
         </div>`;
     }
@@ -9457,7 +9523,7 @@
           </dl>${actions}`;
         return pbScanRowHTML('ia', j.id, [
           `<span class="id">${pbEscape(j.id)}</span>`,
-          `<span class="ti" title="${escapeHtmlAttr([j.title, j.want].filter(Boolean).join(' — '))}">${(j.roles || []).map(pbRoleDot).join('')}${pbEscape(label)}</span>`,
+          `<span class="ti" title="${escapeHtmlAttr([j.title, j.want].filter(Boolean).join(' — '))}">${(j.roles || []).map(pbRoleDot).join('')}${pbEscape(label)}${j._draft ? ' ' + pbDraftChip() : ''}</span>`,
           `<span class="kd">${pbEscape(j.priority || '—')}</span>`,
           `<span class="st">${n ? `<span class="pb-dot"></span><span class="w">${n} screen${n > 1 ? 's' : ''}</span>`
             : `<span class="pb-dot pb-dot--open" title="No screen yet"></span><span class="w">No screen</span>`}</span>`,
@@ -9592,6 +9658,7 @@
           <div class="ct-term-h">
             <strong>${pbEscape(t.term || t.id || '')}</strong>
             ${t.en ? `<span class="ct-en">${pbEscape(t.en)}</span>` : ''}
+            ${t._draft ? pbDraftChip() : ''}
           </div>
           <p class="ct-def">${pbEscape(t.definition || '')}</p>
           ${(t.aka || []).length ? `<div class="ct-line"><span class="lg-dim">also called</span> ${t.aka.map(a => `<span class="ct-aka">${pbEscape(a)}</span>`).join('')}</div>` : ''}
@@ -9618,7 +9685,7 @@
           <div class="ct-group-h">${pbEscape(label)} <span class="meta-subtab-count">${rows.length}</span></div>
           <table class="lg-table ct-table"><tbody>${rows.map(s => `
             <tr data-ck="${pbEscape(((s.key || '') + ' ' + (s.text || '') + ' ' + (s.note || '')).toLowerCase())}">
-              <td class="ct-key"><code>${pbEscape(s.key || '')}</code></td>
+              <td class="ct-key"><code>${pbEscape(s.key || '')}</code>${s._draft ? ' ' + pbDraftChip() : ''}</td>
               <td class="ct-text">${pbEscape(s.text || '')}</td>
               <td class="ct-note">${pbEscape(s.note || '')}</td>
             </tr>`).join('')}</tbody></table>
@@ -11655,7 +11722,8 @@
        Edit the Mermaid source below to model your domain.
        ========================================================================= */
     function renderMetaERD() {
-      const populated = !!(PB_DATA.erd && PB_DATA.erd.populated);
+      // A row is enough: the tab fills as rows are saved one at a time, before anyone sets `populated`.
+      const populated = !!(PB_DATA.erd && (PB_DATA.erd.populated || (PB_DATA.erd.table || []).length));
       const header = pbPageHeader({ title: 'Data', infoKey: 'erd' });
 
       if (!populated) {
@@ -11678,7 +11746,7 @@
       const rows = e.table || [];
       const byEntity = {};
       rows.forEach(r => { (byEntity[r.entity] = byEntity[r.entity] || []).push(r); });
-      if (!state.erdView) state.erdView = 'diagram';
+      if (!state.erdView) state.erdView = (e.mermaid || !rows.length) ? 'diagram' : 'table';   // rows before a diagram: show the rows
 
       // v1.5 — Data is single-column now (4.2): the table view carries the variants (4.4),
       // the diagram view carries the relationship legend (4.5). No right aside.
@@ -12181,6 +12249,482 @@
       if (q.get('embed') === '1') document.body.classList.add('pb-embed');
     })();
 
+    /* =====================================================================================
+       LIVE FILL (v2.6) — the preview fills in as the work is saved, one line at a time.
+
+       /pb:preview used to reload the page on every save, which put you back on the Prototype tab at the
+       top. Now serve.py tells the page what kind of change it was: `update` (only registry.json or the
+       drafts — data) is taken in place by pbApplyData() below; `reload` (a body, the shell, the runtime,
+       a stylesheet — compiled into the page) is still a reload, but pbSavePlace() first keeps the tab,
+       the segment and the scroll so the page comes back where you were.
+
+       Nothing here writes: the page paints what GET /__pb_data returns (the registry as the render inlines
+       it, the unapproved drafts folded in and marked `_draft`, the derived logic graph, and whether Claude
+       is working). The page never opens a tab for you; a tab with new content gets a dot until you open it.
+       ===================================================================================== */
+    const PB_LIVE = {
+      sig: null, logicSig: null, sub: null,   // JSON of each registry slice as last painted
+      inflight: null, again: false,           // one fetch at a time; a second request while one runs refetches once
+      ready: false,                           // the first /__pb_data has been applied: from then on a change is news
+      fresh: {},                              // tab id -> true: new content nobody has opened yet
+      counts: null, cur: null,                // the progress item: lines per step, and the step the latest line landed in
+      drafts: 0, activity: null, timer: null, // unapproved lines; { state, age, rx } from the hook; the 90 s fallback timer
+    };
+    function pbLiveOk() {
+      return /^https?:$/.test(location.protocol) && !VIEW_ONLY && !!(window.PB_PREVIEW && window.PB_PREVIEW.data);
+    }
+    /* An explore option or a compare-page frame shows ANOTHER registry (the option's overlay), not this one. */
+    function pbLiveEmbedded() {
+      return document.body.classList.contains('pb-embed') || !!(window.PB_EXPLORE && window.PB_EXPLORE.current);
+    }
+
+    /* ---- 1. keep your place across a reload -------------------------------------------------- */
+    const PB_PLACE_KEY = 'pb:place', PB_PLACE_MAX_AGE = 20000;
+    function pbPlaceOk() {
+      return /^https?:$/.test(location.protocol) && !VIEW_ONLY && !document.body.classList.contains('view-only') && !pbLiveEmbedded();
+    }
+    function pbSavePlace() {
+      if (!pbPlaceOk()) return;
+      try {
+        sessionStorage.setItem(PB_PLACE_KEY, JSON.stringify({
+          t: Date.now(), view: state.metaView, ux: state.uxView, sub: state.summarySubTab, erd: state.erdView,
+          logic: state.logicView, content: state.contentView, screen: state.protoScreenId,
+          open: Array.from(state.scanOpen || []), scroll: pbScrollSnap(),
+        }));
+      } catch (e) { /* storage is a convenience: a private window or a full quota only loses the place */ }
+    }
+    /* Read once, and only when it is fresh: a place left behind by a reload that happened a minute ago is not a
+       place to return to. Returns the saved scroll (to put back after the first paint) or null. */
+    function pbRestorePlace() {
+      if (!pbPlaceOk() || /[?&](screen|embed)=/.test(location.search)) return null;
+      let p = null;
+      try { p = JSON.parse(sessionStorage.getItem(PB_PLACE_KEY) || 'null'); sessionStorage.removeItem(PB_PLACE_KEY); } catch (e) { return null; }
+      if (!p || typeof p !== 'object' || Date.now() - (+p.t || 0) > PB_PLACE_MAX_AGE) return null;
+      if (['prototype', 'summary', 'flow', 'erd'].indexOf(p.view) >= 0) state.metaView = p.view;
+      if (UX_SUBTABS.some(([id]) => id === p.ux)) state.uxView = p.ux;
+      if (SUMMARY_SUBTABS.some(([id]) => id === p.sub)) state.summarySubTab = p.sub;
+      if (p.erd === 'diagram' || p.erd === 'table') state.erdView = p.erd;
+      if (p.logic === 'rules' || p.logic === 'ripple') state.logicView = p.logic;
+      if (p.content === 'terms' || p.content === 'strings') state.contentView = p.content;
+      if (typeof p.screen === 'string' && (PB_REGISTRY.screens || []).some(s => s.id === p.screen)) state.protoScreenId = p.screen;
+      if (Array.isArray(p.open)) p.open.forEach(id => { if (typeof id === 'string') state.scanOpen.add(id); });
+      return p.scroll && typeof p.scroll === 'object' ? p.scroll : null;
+    }
+    /* Content below the fold is laid out a beat after the first paint (a canvas fits itself, a list measures), so the
+       scroll is put back a few times — until the reader moves it themselves. */
+    function pbScrollRestoreSoon(snap) {
+      let moved = false;
+      const stop = () => { moved = true; };
+      ['wheel', 'touchstart', 'keydown', 'mousedown'].forEach(ev => window.addEventListener(ev, stop, { once: true, passive: true }));
+      const put = () => { if (!moved) { try { pbScrollPut(snap); } catch (e) { /* the element is gone: nothing to restore */ } } };
+      put(); requestAnimationFrame(put); setTimeout(put, 150); setTimeout(put, 600);
+    }
+
+    /* ---- 3. take the data in place ------------------------------------------------------------ */
+    function pbApplyData(payload) {
+      if (!pbLiveOk() || pbLiveEmbedded()) { pbSavePlace(); location.reload(); return Promise.resolve(); }
+      if (payload) return Promise.resolve(pbLiveApply(payload, PB_LIVE.ready));
+      if (PB_LIVE.inflight) { PB_LIVE.again = true; return PB_LIVE.inflight; }
+      PB_LIVE.inflight = fetch(window.PB_PREVIEW.data, { cache: 'no-store', credentials: 'same-origin' })
+        .then(r => r.ok ? r.json() : Promise.reject(new Error('GET ' + window.PB_PREVIEW.data + ' -> ' + r.status)))
+        .then(d => { const was = PB_LIVE.ready; PB_LIVE.ready = true; return pbLiveApply(d, was); })
+        .finally(() => {
+          PB_LIVE.inflight = null;
+          if (PB_LIVE.again) { PB_LIVE.again = false; return pbApplyData(); }
+        });
+      return PB_LIVE.inflight;
+    }
+    /* The hook wrote .preview/activity.json: nothing re-rendered, the data route says who is working. */
+    function pbApplyActivity() { return pbApplyData(); }
+
+    /* Which tab a changed registry slice fills. `components` fills the design-system site, not a tab here. */
+    const PB_SLICE_TAB = { ia: 'flow', flow: 'flow', content: 'flow', erd: 'erd', research: 'summary', screens: 'prototype' };
+    const PB_ARRIVE_Q = '#app .pb-scan-tr, #app .ct-term, #app .ct-table tr, #app .erd-entity-table tbody tr, #app .ia-node[data-screen], #app .sum-pr, #app .sum-lead, #app .pb-draft-row';
+
+    function pbLiveApply(d, announce) {
+      const reg = d && d.registry;
+      if (!reg || typeof reg !== 'object') throw new Error('no registry in the data');
+      const a = d.activity;
+      PB_LIVE.activity = (a && (a.state === 'working' || a.state === 'idle') && typeof a.at === 'number')
+        ? { state: a.state, age: Math.max(0, (+d.now || a.at) - a.at), rx: performance.now() } : null;
+      PB_LIVE.drafts = (d.drafts && +d.drafts.count) || 0;
+
+      const keys = Object.keys(Object.assign({}, PB_REGISTRY, reg));
+      const sig = (R, k) => JSON.stringify(R[k]);
+      const metaSub = R => { const m = (R && R.meta) || {}; return { ov: JSON.stringify(m.overview), ui: JSON.stringify(m.userInsights) }; };
+      if (!PB_LIVE.sig) { PB_LIVE.sig = {}; keys.forEach(k => { PB_LIVE.sig[k] = sig(PB_REGISTRY, k); }); PB_LIVE.sub = metaSub(PB_REGISTRY); }
+      const next = {}; keys.forEach(k => { next[k] = sig(reg, k); });
+      const changed = keys.filter(k => next[k] !== PB_LIVE.sig[k]);
+      const sub = metaSub(reg);
+      const briefChanged = sub.ov !== PB_LIVE.sub.ov || sub.ui !== PB_LIVE.sub.ui;
+      const metaChanged = changed.indexOf('meta') >= 0;
+      const logicSig = JSON.stringify(d.logic == null ? null : d.logic);
+      const logicChanged = (PB_LIVE.logicSig == null ? JSON.stringify(window.PB_LOGIC == null ? null : window.PB_LOGIC) : PB_LIVE.logicSig) !== logicSig;
+
+      const screensBefore = ((PB_DATA.handoff && PB_DATA.handoff.screens) || []).length > 0;
+      if (announce) {
+        // Compiled into the page (the project's own runtime modules, config), or a change under a running prototype
+        // session: a screen, a component, a token. Painting those in place would either do nothing or reset the session
+        // quietly, so it is the honest reload, with the place kept.
+        const hard = changed.some(k => k === 'runtime' || k === 'config');
+        const resets = state.metaView === 'prototype' && screensBefore && changed.some(k => k === 'screens' || k === 'components' || k === 'tokens');
+        if (hard || resets) { pbSavePlace(); location.reload(); return; }
+      }
+
+      const before = announce ? pbRowTexts() : null, keyBefore = pbScrollKey();
+      Object.keys(PB_REGISTRY).forEach(k => { delete PB_REGISTRY[k]; });
+      Object.assign(PB_REGISTRY, reg);
+      const nd = adaptRegistryToPBData(PB_REGISTRY);
+      ['overview', 'userInsights', 'flow', 'erd', 'content', 'research'].forEach(k => { PB_DATA[k] = nd[k]; });
+      PB_DATA.handoff.organisms = nd.handoff.organisms;
+      PB_DATA.handoff.screens = nd.handoff.screens;
+      window.PB_LOGIC = d.logic || Object.assign({}, window.PB_LOGIC || {}, reg.ia ? { ia: reg.ia, rules: reg.ia.rules || [] } : {});
+      PB_LIVE.sig = next; PB_LIVE.sub = sub; PB_LIVE.logicSig = logicSig;
+      if (changed.indexOf('tokens') >= 0) applyRegistryTokens(PB_REGISTRY);
+
+      // the progress item: which step the newest line landed in
+      const counts = pbProgCounts(PB_REGISTRY);
+      if (announce && PB_LIVE.counts) PB_STEPS.forEach(([id]) => { if ((counts[id] || 0) > (PB_LIVE.counts[id] || 0)) PB_LIVE.cur = id; });
+      PB_LIVE.counts = counts;
+
+      // a tab other than the one you are on has something new: a dot, until you open it
+      if (announce) {
+        const mark = tab => { if (tab && tab !== state.metaView) PB_LIVE.fresh[tab] = true; };
+        changed.forEach(k => mark(PB_SLICE_TAB[k]));
+        if (briefChanged) mark('summary');
+      }
+
+      const protoLive = state.metaView === 'prototype' && screensBefore;   // a running session is left exactly as it is
+      const flip = pbLiveLoadingFlip();
+      if (!protoLive && (changed.length || logicChanged || flip)) pbLiveRepaint(before, keyBefore);
+      pbBarSync(metaChanged);
+    }
+    /* The site map draws a loading node while the structure step is working. That is a state of the hook, not of the data,
+       so when it flips (Stop fired, or 90 s passed) and the draft map is on screen, the map is painted again. */
+    function pbLiveLoadingFlip() {
+      const on = pbProgStatus() === 'working' && pbProgCurrent().id === 'structure';
+      const flipped = on !== !!PB_LIVE.loading;
+      PB_LIVE.loading = on;
+      return flipped && state.metaView === 'flow' && pbUxView() === 'ia';
+    }
+
+    function pbLiveFocus() {
+      const a = document.activeElement, app = document.getElementById('app');
+      if (!a || !app || !/^(INPUT|TEXTAREA)$/.test(a.tagName) || !app.contains(a)) return null;
+      return { tag: a.tagName.toLowerCase(), id: a.id, ph: a.getAttribute('placeholder') || '', s: a.selectionStart, e: a.selectionEnd };
+    }
+    function pbLiveRefocus(f) {
+      if (!f) return;
+      const q = f.id ? '#' + CSS.escape(f.id) : f.tag + (f.ph ? '[placeholder="' + f.ph.replace(/"/g, '\\"') + '"]' : '');
+      const el = document.querySelector('#app ' + q);
+      if (!el || el === document.activeElement) return;
+      el.focus();
+      try { el.setSelectionRange(f.s, f.e); } catch (e) { /* a search box has no range in some engines */ }
+    }
+    /* Paint the open tab again from the new data, and put the reader back: scroll, the typed filter, the caret. Open
+       disclosures and filters live in state, so the rebuilt rows come back as they were. */
+    function pbLiveRepaint(before, keyBefore) {
+      const snap = pbScrollSnap(), focus = pbLiveFocus();
+      const run = () => { if (state.metaView === 'prototype') renderPrototype(); else renderMetaPanel(); };
+      if (state.metaView === 'flow') pbKeepScroll(run); else run();
+      pbScrollPut(snap);
+      pbLiveRefocus(focus);
+      if (before && pbScrollKey() === keyBefore) pbMarkArrivals(before);
+    }
+    /* A row is "new" when its text was not in the page before: found by comparing the rows' texts before and after
+       the repaint, so no tab needs code of its own. */
+    function pbRowKey(el) { return String(el.className).split(/\s+/)[0] + '|' + (el.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 200); }
+    function pbRowTexts() {
+      const m = new Map();
+      document.querySelectorAll(PB_ARRIVE_Q).forEach(el => { const k = pbRowKey(el); m.set(k, (m.get(k) || 0) + 1); });
+      return m;
+    }
+    function pbMarkArrivals(before) {
+      const left = new Map(before), fresh = [];
+      document.querySelectorAll(PB_ARRIVE_Q).forEach(el => {
+        const k = pbRowKey(el), n = left.get(k) || 0;
+        if (n > 0) left.set(k, n - 1); else fresh.push(el);
+      });
+      fresh.forEach(el => { el.classList.remove('pb-arrive'); void el.offsetWidth; el.classList.add('pb-arrive'); });
+      if (fresh.length) setTimeout(() => fresh.forEach(el => el.classList.remove('pb-arrive')), 1000);
+    }
+
+    /* ---- 6. progress in the bar --------------------------------------------------------------- */
+    /* The eight steps of a project's first hour, and what counts in each (the registry and the drafts, nothing else). */
+    const PB_STEPS = [['brief', 'Brief'], ['ds', 'Design system'], ['jobs', 'Jobs and glossary'], ['structure', 'Structure'],
+                      ['flows', 'Flows and test cases'], ['wording', 'Wording'], ['data', 'Data'], ['screen', 'First screen']];
+    function pbTokenLeaves(node) {
+      if (!node || typeof node !== 'object') return 0;
+      if ('$value' in node || ('value' in node && 'kind' in node)) return 1;
+      return Object.keys(node).reduce((n, k) => n + (k.charAt(0) === '$' ? 0 : pbTokenLeaves(node[k])), 0);
+    }
+    function pbProgCounts(R) {
+      R = R || PB_REGISTRY || {};
+      const meta = R.meta || {}, o = meta.overview || {}, ui = meta.userInsights || {}, ds = meta.designSystem || {};
+      const ia = R.ia || {}, flow = R.flow || {}, content = R.content || {}, erd = R.erd || {};
+      const len = x => Array.isArray(x) ? x.length : 0;
+      const planned = {};
+      (ia.jobs || []).forEach(j => ((j && j.screens) || []).forEach(s => { planned[s] = 1; }));
+      return {
+        brief: (o.objectives ? 1 : 0) + len(o.principles) + ((ui.executiveSummary || ui.researchSummary || ui.quantitative) ? 1 : 0),
+        ds: (ds.linked || ds.name || meta.dsSource) ? Math.max(1, pbTokenLeaves(R.tokens)) : 0,
+        jobs: len(ia.jobs) + len(content.terms),
+        structure: len(ia.sitemap) || Object.keys(planned).length,
+        flows: len(flow.stories) + (flow.stories || []).reduce((n, s) => n + len(s && s.scenarios), 0) + len(ia.rules),
+        wording: len(content.strings),
+        data: len(erd.table),
+        screen: len(R.screens),
+      };
+    }
+    /* The step being worked on: the one the newest line landed in, else the first with nothing yet. */
+    function pbProgCurrent() {
+      const c = pbProgCounts();
+      let id = PB_LIVE.cur;
+      if (!id) { const first = PB_STEPS.find(([k]) => !c[k]); id = first ? first[0] : 'screen'; }
+      const st = PB_STEPS.find(([k]) => k === id) || PB_STEPS[0];
+      return { id: st[0], name: st[1], count: c[st[0]] || 0, counts: c };
+    }
+    /* working: the hook said so within 90 s · waiting: it said working and then went quiet (Stop does not fire on Esc) ·
+       your turn: Stop fired · done: Stop fired and every step before the first screen holds something. null: no hook. */
+    function pbProgStatus() {
+      const a = PB_LIVE.activity;
+      if (!a) return null;
+      if (a.state === 'working') return pbProgAge() < 90 ? 'working' : 'waiting';
+      const c = pbProgCounts();
+      return PB_STEPS.slice(0, -1).every(([k]) => c[k] > 0) ? 'done' : 'turn';
+    }
+    function pbProgAge() { const a = PB_LIVE.activity; return a ? a.age + (performance.now() - a.rx) / 1000 : 0; }
+    const PB_STATUS_LABEL = { working: 'Working', turn: 'Your turn', waiting: 'Waiting', done: 'Done' };
+    /* Hidden once a screen exists (a project with screens sees no change), on a view-only page, and off the preview server. */
+    function pbProgShow() {
+      return pbLiveOk() && !pbLiveEmbedded() && !document.body.classList.contains('view-only') && !((PB_REGISTRY && PB_REGISTRY.screens) || []).length;
+    }
+    const PB_PROG_ICON = '<svg class="pb-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 6h10M10 12h10M10 18h10"/><path d="M4 6l1 1 2-2M4 12l1 1 2-2M4 18l1 1 2-2"/></svg>';
+    function pbProgButtonHTML() {
+      const cur = pbProgCurrent(), st = pbProgStatus();
+      return `${PB_PROG_ICON}<span class="pb-bar-lb">${pbEscape(cur.name)}</span><span class="pb-prog-n">${cur.count}</span>`
+        + (st ? `<span class="pb-prog-st" data-status="${st}">${PB_STATUS_LABEL[st]}</span>` : '');
+    }
+    function pbProgLabel() {
+      const cur = pbProgCurrent(), st = pbProgStatus();
+      return `Progress: ${cur.name}, ${cur.count} so far${st ? ', ' + PB_STATUS_LABEL[st].toLowerCase() : ''}`;
+    }
+    function pbProgMenuHTML() {
+      const cur = pbProgCurrent();
+      return `<span class="pb-menu-head">Steps</span>` + PB_STEPS.map(([id, name]) => {
+        const n = cur.counts[id] || 0, s = id === cur.id ? 'cur' : n ? 'done' : 'todo';
+        return `<button type="button" class="pb-menu-it" role="menuitem" data-pb-menu-item data-step="${id}" onclick="pbProgGo(this.dataset.step)">`
+          + `<span class="pb-prog-mk" data-s="${s}" aria-hidden="true"></span><span>${pbEscape(name)}</span>`
+          + `<span class="pb-menu-n">${n}</span></button>`;
+      }).join('');
+    }
+    function pbProgHTML() {
+      if (!pbProgShow()) return '';
+      return `<div class="pb-prog-wrap" id="pb-prog-wrap">`
+        + `<button class="pb-bar-item" id="pb-prog" type="button" aria-haspopup="menu" aria-expanded="false" aria-controls="pb-prog-menu"
+                   aria-label="${escapeHtmlAttr(pbProgLabel())}" title="Progress — the step being worked on, and what each step holds so far" onclick="pbProgToggle()">${pbProgButtonHTML()}</button>`
+        + `<div class="pb-menu pb-menu--end" id="pb-prog-menu" role="menu" aria-label="Progress" hidden>${pbProgMenuHTML()}</div></div>`;
+    }
+    function pbProgItems() { return Array.from(document.querySelectorAll('#pb-prog-menu [data-pb-menu-item]')); }
+    function pbProgClose(refocus) {
+      const m = document.getElementById('pb-prog-menu'), b = document.getElementById('pb-prog');
+      if (!m || m.hidden) return;
+      m.hidden = true; if (b) b.setAttribute('aria-expanded', 'false');
+      document.removeEventListener('mousedown', pbProgOutside, true);
+      document.removeEventListener('keydown', pbProgKey, true);
+      if (refocus && b) b.focus();
+    }
+    function pbProgOutside(e) { const w = document.getElementById('pb-prog-wrap'); if (w && !w.contains(e.target)) pbProgClose(false); }
+    function pbProgKey(e) {
+      if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); pbProgClose(true); return; }
+      if (e.key === 'Tab') { pbProgClose(false); return; }
+      const list = pbProgItems(), i = list.indexOf(document.activeElement);
+      const n = e.key === 'ArrowDown' ? list[(i + 1) % list.length] : e.key === 'ArrowUp' ? list[(i - 1 + list.length) % list.length]
+        : e.key === 'Home' ? list[0] : e.key === 'End' ? list[list.length - 1] : null;
+      if (n) { e.preventDefault(); n.focus(); }
+    }
+    function pbProgToggle() {
+      const m = document.getElementById('pb-prog-menu'), b = document.getElementById('pb-prog');
+      if (!m || !b) return;
+      if (!m.hidden) { pbProgClose(true); return; }
+      m.hidden = false; b.setAttribute('aria-expanded', 'true');
+      document.addEventListener('mousedown', pbProgOutside, true);
+      document.addEventListener('keydown', pbProgKey, true);
+      const list = pbProgItems(); if (list.length) list[0].focus();
+    }
+    /* Each step jumps to where its content lands. Only a click does it: the page never changes tab by itself. */
+    function pbProgGo(step) {
+      pbProgClose(false);
+      const c = pbProgCounts();
+      if (step === 'brief') { state.summarySubTab = 'overview'; setMetaView('summary'); }
+      else if (step === 'ds') window.open('/design-system', '_blank', 'noopener');
+      else if (step === 'jobs') { if (!c.jobs || (PB_REGISTRY.ia && (PB_REGISTRY.ia.jobs || []).length)) pbGoUx('ia'); else { state.contentView = 'terms'; pbGoUx('content'); } }
+      else if (step === 'structure') pbGoUx('ia');
+      else if (step === 'flows') pbGoUx(((PB_REGISTRY.flow || {}).stories || []).length ? 'tests' : 'logic');
+      else if (step === 'wording') { state.contentView = 'strings'; pbGoUx('content'); }
+      else if (step === 'data') setMetaView('erd');
+      else if (step === 'screen') setMetaView('prototype');
+    }
+    /* Update the bar without rebuilding it (an open menu stays open): dots on the tabs, the progress item's words. */
+    function pbBarSync(rebuild) {
+      const wrap = document.getElementById('pb-prog-wrap');
+      if (rebuild || pbProgShow() !== !!wrap) { renderMetaNav(); pbProgTimer(); return; }
+      document.querySelectorAll('#meta-nav .meta-tab').forEach(b => b.classList.toggle('has-new', !!PB_LIVE.fresh[b.dataset.metaView]));
+      if (wrap) {
+        const b = document.getElementById('pb-prog'), m = document.getElementById('pb-prog-menu');
+        b.innerHTML = pbProgButtonHTML(); b.setAttribute('aria-label', pbProgLabel());
+        m.innerHTML = pbProgMenuHTML();
+      }
+      pbProgTimer();
+    }
+    /* Stop does not fire when the turn is cancelled, so "working" is believed for 90 s after the hook last wrote. */
+    function pbProgTimer() {
+      clearTimeout(PB_LIVE.timer);
+      if (PB_LIVE.activity && PB_LIVE.activity.state === 'working' && pbProgAge() < 90) {
+        PB_LIVE.timer = setTimeout(() => { pbBarSync(false); if (pbLiveLoadingFlip()) pbLiveRepaint(null, null); }, Math.max(250, (90 - pbProgAge()) * 1000 + 150));
+      }
+    }
+
+    /* ---- 5. sitemap nodes, one at a time ------------------------------------------------------- */
+    const pbDraftChip = () => '<span class="lg-chip pb-draft-chip" title="Not approved yet — shown while the work is still being written">Draft</span>';
+    function pbDraftSitemap(ia) { return ((ia && ia.sitemap) || []).filter(n => n && n.id); }
+    function pbDraftDepth(n, byId, guard) {
+      if (n.depth !== undefined && n.depth !== null && n.depth !== '' && isFinite(+n.depth)) return +n.depth;
+      const p = n.parent && byId[n.parent];
+      return p && (guard || 0) < 24 ? pbDraftDepth(p, byId, (guard || 0) + 1) + 1 : 0;
+    }
+    /* The site map before there is a hub to derive one from: ia.sitemap[] = { id, name, depth, parent }, drawn on the
+       same chart as the derived map (same ids, same pan and zoom). While the structure step is working, a dashed node
+       of the same size shows where the next one will land. */
+    function pbRenderDraftMap(nodes, jobs) {
+      const byId = {}; nodes.forEach(n => { byId[n.id] = n; });
+      const loading = pbProgStatus() === 'working' && pbProgCurrent().id === 'structure';
+      const list = nodes.slice();
+      if (loading) { const last = nodes[nodes.length - 1]; list.push({ id: '__next', name: '', depth: last.depth, parent: last.parent, _loading: true }); }
+      const N = { depth: {}, children: {}, hubs: [] }, S = {};
+      list.forEach(n => {
+        S[n.id] = n; N.depth[n.id] = pbDraftDepth(n, byId);
+        if (n.parent && byId[n.parent]) (N.children[n.parent] = N.children[n.parent] || []).push(n.id);
+      });
+      const T = pbIaTreeLayout(N, S, () => true);
+      const title = id => (S[id] && (S[id].name || S[id].title)) || id;
+      const jobsOf = id => jobs.filter(j => (j.screens || []).includes(id));
+      const NH = IA_NH_BASE + (Math.max(...T.nodes.map(n => pbIaLines(title(n.id), 26))) - 1) * IA_TITLE_LH
+        + (Math.max(...T.nodes.map(n => pbIaLines(n.id, 32))) - 1) * IA_ID_LH;
+      const W = IA_GUT + T.width + IA_PAD * 2, H = IA_PAD * 2 + (T.maxRow + 1) * (NH + IA_VGAP) - IA_VGAP;
+      const cx = x => IA_GUT + IA_PAD + x, ry = r => IA_PAD + r * (NH + IA_VGAP);
+      const edges = T.edges.map(e => {
+        const y1 = ry(e.r1) + NH, y2 = ry(e.r2), my = y1 + IA_VGAP / 2;
+        return `<path class="ia-edge" data-from="${pbEscape(e.from)}" data-to="${pbEscape(e.to)}" d="M${cx(e.x1)} ${y1} V${my} H${cx(e.x2)} V${y2}"/>`;
+      }).join('');
+      const layers = (((PB_REGISTRY || {}).ia || {}).layers || []);
+      const rowLines = [], rowLabs = [];
+      for (let r = 0; r <= T.maxRow; r++) {
+        const l = layers.find(x => x.depth === r) || { name: 'Layer ' + r, purpose: '' };
+        rowLines.push(`<line class="ia-rowline" x1="0" y1="${ry(r) - 16}" x2="${W}" y2="${ry(r) - 16}"/>`);
+        rowLabs.push(`<div class="ia-rowlab" style="top:${ry(r)}px;width:${IA_GUT - 14}px" title="${pbEscape(l.purpose || '')}">L${r} · ${pbEscape(l.name)}<span class="ia-rowlab-n">${T.nodes.filter(x => x.row === r && !S[x.id]._loading).length}</span></div>`);
+      }
+      const nodeEls = T.nodes.map(n => {
+        const s = S[n.id], pos = `left:${cx(n.x) - IA_NW / 2}px;top:${ry(n.row)}px;width:${IA_NW}px;height:${NH}px`;
+        if (s._loading) return `<div class="ia-node ia-node--card ia-node--loading" aria-hidden="true" style="${pos}"></div>`;
+        const js = jobsOf(n.id);
+        return `<div class="ia-node ia-node--card ${js.length ? '' : 'ia-node--empty'}" data-screen="${pbEscape(n.id)}" style="${pos}"
+            title="${pbEscape(js.length ? js.map(j => '• ' + (j.want || j.job || '')).join('\n') : 'No job maps to this screen yet')}">
+            <div class="ia-node-t"><strong>${pbEscape(title(n.id))}</strong>${s._draft ? pbDraftChip() : ''}</div>
+            <div class="lg-dim ia-node-id">${pbEscape(n.id)}</div>
+            <div class="ia-node-m"><span>${js.length ? js.length + ' job' + (js.length > 1 ? 's' : '') : '<span class="lg-warn">no job</span>'}</span></div>
+          </div>`;
+      }).join('');
+      const real = T.nodes.filter(n => !S[n.id]._loading).length;
+      return `<div class="meta-h3 ia-map-title">Site map <span class="meta-subtab-count">${real} screen${real === 1 ? '' : 's'} planned · ${T.maxRow + 1} layer${T.maxRow ? 's' : ''}</span><span class="meta-subtab-count ia-map-live" id="iamap-live" aria-live="polite"></span></div>
+        <div class="flow-canvas ia-canvas" id="iamap-canvas">
+          <div class="flow-viewport" id="iamap-viewport">
+            <div class="flow-stage ia-stage" id="iamap-stage" data-w="${W}" data-h="${H}"
+                 style="width:${W}px;height:${H}px;margin-top:${-H / 2}px;margin-left:${-W / 2}px">
+              <svg class="ia-edges" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">${rowLines.join('')}${edges}</svg>
+              ${rowLabs.join('')}
+              ${nodeEls}
+            </div>
+          </div>
+          <div class="flow-zoom-controls">
+            <button class="flow-zoom-btn" id="iamap-zoom-in" title="Zoom in" aria-label="Zoom in">+</button>
+            <button class="flow-zoom-btn" id="iamap-zoom-out" title="Zoom out" aria-label="Zoom out">−</button>
+            <button class="flow-zoom-btn" id="iamap-zoom-fit" title="Fit / reset" aria-label="Fit / reset">⊙</button>
+          </div>
+          <div class="flow-zoom-readout" id="iamap-zoom-readout">100%</div>
+          <div class="flow-hint">A draft site map, built from the nodes saved so far · the derived map takes over once the hub has a body</div>
+        </div>`;
+    }
+
+    /* ---- 7. the Prototype tab before any screen ------------------------------------------------- */
+    /* Everything known so far, as an undesigned outline inside the device frame: the product's name and objective, a
+       sidebar of the planned screens (ia.sitemap, else the screens the jobs name) you can click, each screen's jobs, and —
+       once they exist — the paths (flow stories) and sample rows (erd). Code only; nothing here is designed. */
+    function pbDraftScreens() {
+      const R = PB_REGISTRY || {}, ia = R.ia || {}, byId = {}, out = [];
+      const nodes = pbDraftSitemap(ia);
+      nodes.forEach(n => { byId[n.id] = n; });
+      const seen = {};
+      const walk = (n, d) => { if (seen[n.id] || d > 24) return; seen[n.id] = 1; out.push({ id: n.id, name: n.name || n.title || n.id, depth: pbDraftDepth(n, byId), draft: !!n._draft });
+        nodes.filter(c => c.parent === n.id).forEach(c => walk(c, d + 1)); };
+      nodes.filter(n => !n.parent || !byId[n.parent]).forEach(n => walk(n, 0));
+      nodes.forEach(n => walk(n, 0));
+      if (!out.length) (ia.jobs || []).forEach(j => ((j && j.screens) || []).forEach(s => { if (!seen[s]) { seen[s] = 1; out.push({ id: s, name: s, depth: 0, draft: false }); } }));
+      return out;
+    }
+    function pbDraftGo(id) { state.draftScreen = id; renderPrototype(); }
+    function pbDraftBodyHTML(screens, sel) {
+      const R = PB_REGISTRY || {}, meta = R.meta || {}, jobs = (R.ia || {}).jobs || [], stories = (R.flow || {}).stories || [], rows = (R.erd || {}).table || [];
+      const name = meta.name || 'Untitled product', objective = (meta.overview || {}).objectives || '';
+      const mine = sel ? jobs.filter(j => (j.screens || []).includes(sel.id)) : jobs;
+      const side = screens.length
+        ? screens.map(s => `<button type="button" class="pb-draft-nav pb-draft-row${sel && s.id === sel.id ? ' is-on' : ''}" style="padding-left:${12 + s.depth * 14}px"
+              data-draft-screen="${escapeHtmlAttr(s.id)}" onclick="pbDraftGo(this.dataset.draftScreen)">${pbEscape(s.name)}${s.draft ? ' ' + pbDraftChip() : ''}</button>`).join('')
+        : `<p class="pb-draft-none">No screens planned yet.</p>`;
+      const jobsHTML = mine.length
+        ? `<ul class="pb-draft-list">${mine.map(j => `<li class="pb-draft-row">When <em>${pbEscape(j.when || '…')}</em>, I want to <strong>${pbEscape(j.want || j.job || j.title || '')}</strong>, so I can <em>${pbEscape(j.so || '…')}</em>${j._draft ? ' ' + pbDraftChip() : ''}</li>`).join('')}</ul>`
+        : `<p class="pb-draft-none">${jobs.length ? 'No job is placed on this screen yet.' : 'No jobs saved yet.'}</p>`;
+      const paths = stories.length ? `<section class="pb-draft-sec"><h2>Paths</h2><ul class="pb-draft-list">${stories.map(s => `<li class="pb-draft-row">${pbEscape((s && (s.title || s.story || s.id)) || '')}${s && (s.scenarios || []).length ? ` <span class="pb-draft-dim">· ${s.scenarios.length} scenario${s.scenarios.length > 1 ? 's' : ''}</span>` : ''}</li>`).join('')}</ul></section>` : '';
+      const sample = rows.length ? `<section class="pb-draft-sec"><h2>Sample data</h2><table class="pb-draft-tbl"><thead><tr><th>Entity</th><th>Field</th><th>Type</th><th>Example</th></tr></thead><tbody>${rows.slice(0, 8).map(r => `<tr class="pb-draft-row"><td>${pbEscape(r.entity || '')}</td><td>${pbEscape(r.field || '')}</td><td>${pbEscape(r.type || '')}</td><td>${pbEscape(r.example || '')}</td></tr>`).join('')}</tbody></table></section>` : '';
+      return `<div class="pb-draft" data-pb-draft>
+          <aside class="pb-draft-side" aria-label="Planned screens"><div class="pb-draft-brand">${pbEscape(name)}</div><nav>${side}</nav></aside>
+          <main class="pb-draft-main">
+            <p class="pb-draft-flag" role="note">Undesigned draft — built from what has been saved so far. No screen has been designed yet.</p>
+            <h1 class="pb-draft-h1">${pbEscape(sel ? sel.name : name)}</h1>
+            ${objective ? `<p class="pb-draft-lead">${pbEscape(objective)}</p>` : ''}
+            <section class="pb-draft-sec"><h2>Jobs</h2>${jobsHTML}</section>${paths}${sample}
+          </main>
+        </div>`;
+    }
+    function pbRenderDraftPrototype() {
+      const meta = (PB_REGISTRY && PB_REGISTRY.meta) || {};
+      const screens = pbDraftScreens();
+      const sel = screens.find(s => s.id === state.draftScreen) || screens[0] || null;
+      state.draftScreen = sel ? sel.id : null;
+      const supported = pbNormalizeDeviceList(meta.devices);
+      if (!state.protoDevice) state.protoDevice = pbNormalizeDevice(meta.device || 'laptop');
+      if (supported.indexOf(state.protoDevice) === -1) state.protoDevice = supported[0] || 'laptop';
+      if (!state.protoShell) state.protoShell = PB_SHELLS[meta.shell] || 'browser';
+      const device = state.protoDevice, fitted = (device === 'tablet' || device === 'mobile');
+      $('#app').innerHTML = `
+        <div class="pb-page pb-page--viewport pb-page--proto">
+          <div class="pb-content pb-content--fill">
+            <div class="pb-main proto-main" id="proto-main">
+              <div class="proto-stage" id="proto-stage">
+                <div class="proto-fit${fitted ? ' is-fitted' : ''}" id="proto-fit">
+                  <div class="proto-pair-box" id="proto-pair-box">
+                    <div class="proto-pair" id="proto-pair">
+                      ${protoFrameSlot('a', device, { id: 'draft', name: sel ? sel.name : (meta.name || 'Draft') }, meta, state.protoShell, pbDraftBodyHTML(screens, sel), false)}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>`;
+      requestAnimationFrame(function () { fitProtoFrame(); pbSetStatusBarContrast(); pbWatchStage(); });
+    }
+
     /* Boot */
     applyRegistryTokens(PB_REGISTRY);
     if (VIEW_ONLY) {
@@ -12194,7 +12738,11 @@
         document.body.insertBefore(_cov, document.body.firstChild);
       }
     }
+    const _place = pbRestorePlace();    // after a reload: the tab, the segment and the scroll you were on
     render();
+    if (_place) pbScrollRestoreSoon(_place);
+    // Drafts and activity that were already there when the page opened (the served HTML is rendered from the files alone).
+    if (pbLiveOk() && !pbLiveEmbedded()) pbApplyData().catch(function () { /* the page already shows the files; the next update retries */ });
   </script>
 </body>
 </html>

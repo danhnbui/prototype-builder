@@ -12,6 +12,12 @@ proof attached. A project that runs no study behaves as before.*
   asked about), or takes your question. It writes falsifiable hypotheses with the thresholds set up front, then a
   **survey or an interview guide** for a chosen role or segment, seeded from the jobs, the flow and the rules.
   A job's *when* becomes "tell me about the last time…", and a story's path becomes a task on the prototype.
+- **Every run asks what you need first.** Just the questions and the setup, or questions plus results, and what your
+  setup is. A questions-only study is complete at approval and refuses imports.
+- **Standard metrics.** CES, SEQ, CSAT, NPS and SUS as templates with their standard wording. The tool calculates the
+  scores for a survey; in an interview they are read out and not scored.
+- **An independent bias review.** A `pb-tester` agent reads only the questions, with no design context, and answers
+  yes/no per question. Approval needs a current review, and a `no` left in place needs a stated reason.
 - **Two gates.** **G-STUDY** approves the whole instrument before anyone is asked. **G-INSIGHT** approves the findings and
   the exact text before it reaches the insights.
 - **pb hosts nothing.** Field the survey in any tool, or run the interview, then import the result. A CSV export
@@ -43,6 +49,41 @@ slice, left jobs with no story, and needed `registry.json` hand-edited past `sli
   stray `ia.ia`; `set components|screens <id>` appends a new entry when the patch carries that `id`; an id-less element of
   a mixed list is reachable by position. The template seeds `flow.stories` and an empty `content`.
 - **Lint (advisory).** `R-COVERAGE`, `R-CONTENT` and `R-IA-NEST` are WARNs that never raise the exit code.
+
+*Additive, no schema change. The preview was empty while a command wrote, then reloaded onto the Prototype tab at the
+top. Now every line a command saves shows in place, and a project that has screens sees no change.*
+
+- **Every saved line fills the page, in place.** A change to `registry.json` or to the new drafts is an `update` the
+  prototype shell paints without a reload: the tab, the UX segment, the scroll, the open rows and the filters stay, and
+  a newly arrived row settles in (no motion under reduced motion). A body, the shell, the runtime or a stylesheet still
+  reloads; the design-system and explore pages still reload on both. `serve.py` adds `GET /__pb_data` (the registry as
+  the render inlines it, drafts folded in, the logic graph, the hook's activity) and tells `update` from `reload` on
+  `/__pb_events`.
+- **A reload keeps your place.** The tab, segment, sub-tab, data view, scroll and open rows are kept across it
+  (`sessionStorage`, over http only, never on a view-only page).
+- **A running Prototype session is never reset by a content write.** A change to `screens`, `components` or
+  `tokens` under a running session is the real reload it always was, and only that.
+- **Drafts.** `slice.py set … --draft` and `append … --draft` write the unapproved lines to `.preview/drafts.json`
+  under the registry lock, never to `registry.json`; the page shows a Draft chip on them. `slice.py drafts --clear`
+  empties it. `render.py` never reads the file, so the render stays deterministic.
+- **`slice.py append`.** One element onto a list that has no ids: a wording, an ERD row, a story's scenarios.
+  `--key a,b` makes a repeat a merge. `ia.sitemap` joined the lists `--create-list` knows.
+- **Site-map nodes arrive one at a time** on UX Design → Information Architecture from a draft `ia.sitemap[]`
+  (`{ id, name, depth, parent }`), with a loading node while the step is working, until the hub has a body and the
+  derived map takes over. `/pb:clarify` §1c writes them after G-IA, one call each.
+- **The Prototype tab before any screen** is an undesigned outline in the device frame (name, objective, planned
+  screens you can click, their jobs, then paths and sample rows), not the empty card. A view-only page keeps the card.
+- **Progress in the bar.** A `.pb-bar-item` before Search: the step being worked on, its count and *Working* /
+  *Your turn* / *Done*, opening the eight steps (Brief · Design system · Jobs and glossary · Structure · Flows and
+  test cases · Wording · Data · First screen), each a jump. A tab with new content gets a blue dot until opened; the page
+  never switches tab itself. A new plugin hook (`hooks/activity.py`, on `UserPromptSubmit` and `Stop`) writes
+  `.preview/activity.json`; since Stop does not fire on Esc, *Working* reads *Waiting* after 90 s. Gone once `screens`
+  is non-empty and on view-only pages.
+- **Commands save one line per call.** `canon.md` § *Line by line*; cited from `/pb:init` (the preview starts with the
+  first answer, the registry is seeded there), `/pb:specify`, `/pb:clarify`, `/pb:plan` and `/pb:pull-ds`. The cost is
+  stated: about 2.5 s a line. Rule 2 is untouched — the preview renders in memory.
+- **Data** shows `erd.table[]` rows as a table as soon as there is one, before any diagram or `populated` flag.
+- **Tests.** New `live_fill.py` (a real browser against a real `serve.py`); `slice_cli.py` and `hook_advice.py` extended.
 
 ## [2.5.0] — 2026-10-31
 

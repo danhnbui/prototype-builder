@@ -1,6 +1,6 @@
 ---
 name: ref-research
-description: The method for validating what a project is unsure about with real people in Product Builder — choosing survey or interview, turning a job's when/want/so and a flow's path into past-behaviour questions and prototype tasks, the question-writing rules and the bias list, building a screener, a scale or an interview guide, honest sample-size rules of thumb, and reading results without fooling yourself. Use when writing a study's hypotheses and instrument and when synthesizing its evidence — loaded by /pb:research §1. Not for the tool's commands and gates (/pb:research), usability heuristics on a design (think-layout), or scoring design options (ref-design-compare).
+description: The method for validating what a project is unsure about with real people in Product Builder — choosing survey or interview, turning a job's when/want/so and a flow's path into past-behaviour questions and prototype tasks, the question-writing rules and the bias list, building a screener, a scale or an interview guide, honest sample-size rules of thumb, the five standard metrics (CES, SEQ, CSAT, NPS, SUS), and reading results without fooling yourself. Use when writing a study's hypotheses and instrument and when synthesizing its evidence — loaded by /pb:research §1. Not for the tool's commands and gates (/pb:research), usability heuristics on a design (think-layout), or scoring design options (ref-design-compare).
 user-invocable: false
 ---
 
@@ -172,3 +172,29 @@ These are rules of thumb, not statistics. They set what you may claim.
   recruit people who could not freely say no (someone whose manager is watching).
 - **Never invent people.** A made-up respondent, however plausible, is not research. Real people, or no
   claim.
+
+## 9 · Five standard metrics
+
+Use a standard metric when the question is what it measures, because the wording is fixed and scores can be
+compared across studies. Use the template as written: a reworded standard question is no longer the
+standard, and a translation is a different instrument (the tool flags it). Only a survey is scored; in an
+interview the question is read out and not scored.
+
+| Template | Measures | When not to use it | How to read it |
+|---|---|---|---|
+| `ces` | The **effort** of getting something done over a whole flow | One small step (use `seq`); when you want to know *why* it was hard | The mean, and the share who found it hard. Lower effort is better |
+| `seq` | The **ease** of one task, asked straight after it | A whole journey (use `ces`); any time later than right after the task, when memory has blurred | The mean per task. Compare tasks with each other; a low one points at where to look |
+| `csat` | **Satisfaction** with an experience | To predict behaviour, or on a prototype nobody has used for real | The share of the top ratings and the mean. It records a mood, not a cause |
+| `nps` | Whether people would **recommend** a product they have really used | **A prototype they just saw**: nobody has a basis to recommend it. Also when n is small: the score swings on one person | Promoters minus detractors, with n beside it. Read it with the reasons people give |
+| `sus` | **Overall usability** after real use; ten items | Early sketches or a single screen; before people have used it enough to judge the whole | One 0 to 100 score from the ten items, which the tool computes; never read a single item alone |
+
+- **A benchmark is context, not a pass mark.** Published averages come from other products, other
+  audiences and other methods. If you mention one, say where it comes from and that it is not a target; if
+  you are not sure of a figure, leave it out. The hypothesis's own threshold, written at G-STUDY, is what
+  decides a verdict. The score's real use is a comparison: this flow against that one, this version against the last.
+- **Report n beside every score**, and call a score from under about 30 people directional (§6).
+- **Scores say how much, not why.** Pair a score with a task or an open question that lets people say what
+  made it that way.
+- **Agree-format is an accepted exception.** `sus`, and some other standard items, ask people to agree or
+  disagree, which §4 warns invites a "yes". For these metrics comparability is the point, so keep the
+  standard wording and note the exception. Do not copy the format into questions of your own.
