@@ -1,0 +1,9 @@
+Interview P02 - dispatcher - notes taken with consent
+Interviewer: Tell me about the last time you handled returned parcels.
+P02: Yesterday evening, a whole box of them came in late.
+Interviewer: What are you looking at right now?
+P02: Tôi luôn mở lại ảnh trước khi bấm xác nhận, vì có lần ảnh bị mờ.
+Interviewer: What would you do next?
+P02: I would love to confirm all of them with a single tap, honestly.
+Interviewer: When did a confirmation last go wrong for you?
+P02: Last week the list reloaded and I lost my place in the queue.

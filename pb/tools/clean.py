@@ -52,8 +52,9 @@ One more flag does not delete, it moves:
 
 Report only: `.claude/worktrees/*` (count and size). Never deleted here, by any flag.
 
-Never touched, by any flag: an OPEN round (memory/explore/<target>.json, its folder, its candidates)
-and the running preview server (stop it with `serve.py --stop`). Every path is checked to resolve to
+Never touched, by any flag: an OPEN round (memory/explore/<target>.json, its folder, its candidates),
+research evidence (memory/research/, the proof behind the project's insights) and the running preview
+server (stop it with `serve.py --stop`). Every path is checked to resolve to
 somewhere inside the project folder immediately before it is deleted; a symlink that leads outside
 is refused, and nothing outside is ever followed or removed.
 

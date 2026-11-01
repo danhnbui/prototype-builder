@@ -1,0 +1,73 @@
+{
+  "_about": "Research fixture: a synthetic parcel-desk project with two roles, three screens, three jobs, two rules (one open question, one ASSUMPTION, one assumed parameter), a flow with one open coverage warning, and demo entries. Invented names only. Drives tests/research_tool.py.",
+  "meta": {
+    "name": "Parcel desk (research fixture)",
+    "schemaVersion": 13,
+    "entry": "prd",
+    "platform": "web",
+    "device": "mobile",
+    "devices": ["mobile"],
+    "responsive": false,
+    "roles": [
+      {"id": "courier", "name": "Courier"},
+      {"id": "dispatcher", "name": "Dispatcher"},
+      {"id": "admin", "name": "Admin", "isAdmin": true}
+    ],
+    "defaultRole": "courier",
+    "userInsights": {
+      "quantitative": "Existing note: 41 deliveries were logged in the pilot week.",
+      "researchSummary": null,
+      "executiveSummary": "Existing note: the pilot ran for one week."
+    },
+    "demo": {
+      "entries": [
+        {"id": "courier-start", "name": "Courier, start of route", "screen": "route", "role": "courier", "default": true},
+        {"id": "cod-demo", "name": "Collecting cash", "screen": "pay", "role": "courier"},
+        {"id": "dispatcher-start", "name": "Dispatcher, handover queue", "screen": "handover", "role": "dispatcher"}
+      ]
+    }
+  },
+  "tokens": {},
+  "components": [
+    {"id": "pay-button", "name": "Pay button", "level": "atom", "scope": "local"},
+    {"id": "parcel-card", "name": "Parcel card", "level": "molecule", "scope": "local"}
+  ],
+  "screens": [
+    {"id": "route", "name": "Route", "roles": ["courier"]},
+    {"id": "pay", "name": "Pay", "roles": ["courier"]},
+    {"id": "handover", "name": "Handover", "roles": ["dispatcher"]}
+  ],
+  "ia": {
+    "populated": true,
+    "jobs": [
+      {"id": "pay-cod", "roles": ["courier"], "priority": "P1", "when": "the customer opens the door", "want": "see how much cash to collect", "so": "I do not ask them twice", "screens": ["pay"], "gap": "We assume the amount must be on the first screen."},
+      {"id": "confirm-handover", "roles": ["dispatcher"], "priority": "P2", "when": "a courier returns a parcel", "want": "confirm the handover", "so": "the parcel leaves my queue", "screens": ["handover"]},
+      {"id": "report-failure", "roles": ["courier"], "priority": "P3", "when": "nobody answers the door", "want": "report a failed delivery", "so": "the hub can reschedule", "screens": ["route"]}
+    ],
+    "layers": [],
+    "rules": [
+      {"id": "cod-limit", "title": "Cash limit per courier", "kind": "decision", "summary": "A courier carries at most a fixed amount of cash.",
+       "decision": {"question": "What is the cash limit?", "chose": "A fixed limit", "why": "ASSUMPTION: couriers rarely carry more than the limit.", "stillOpen": ["Does the limit differ by region?"]},
+       "displayedIn": ["pay"],
+       "blocks": [{"type": "params", "items": [{"name": "limit", "value": 500, "unit": "units", "source": "assumed"}, {"name": "warn-at", "value": 400, "unit": "units", "source": "sourced"}]}]},
+      {"id": "handover-state", "title": "Handover states", "kind": "decision", "summary": "A parcel is handed over once.",
+       "decision": {"question": "When is a parcel handed over?", "chose": "On dispatcher confirmation", "why": "Matches the pilot."},
+       "displayedIn": ["handover"]}
+    ]
+  },
+  "flow": {
+    "populated": true,
+    "mermaid": "flowchart LR\n  Start([Start]) --> Route[Route]\n  Route --> Pay[Pay]\n  Pay --> Handover[Handover]\n  Handover --> End([End])",
+    "stories": [
+      {"id": "collect-cash", "title": "Collect cash on delivery", "priority": "P1", "jtbd": "As a courier I want the amount first so I collect the right cash.", "path": "Start → Route → Pay → Handover",
+       "scenarios": ["The amount is shown before payment.", {"text": "A wrong amount can be corrected.", "category": "function"}]},
+      {"id": "return-parcel", "title": "Return a failed parcel", "priority": "P3", "jtbd": "As a courier I want to return a parcel I could not deliver.", "path": "Route → Handover", "scenarios": []}
+    ],
+    "coverageWarnings": [
+      {"category": "system-edge", "title": "Collect cash on delivery", "note": "Nothing says what happens when the customer pays less than the amount.", "status": "open"},
+      {"category": "business", "note": "Refunds after a handover are not modelled.", "status": "resolved"}
+    ]
+  },
+  "erd": {"populated": false, "table": [], "mermaid": ""},
+  "research": {"populated": false, "studies": []}
+}

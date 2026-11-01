@@ -31,6 +31,11 @@ holding a glossary over the canonical wording for every action, status and messa
 **keeps the flow and data slices in sync** after any structural patch — no Sync button, no second
 command.
 
+**New in v2.6 — check what you're unsure of with real users, and keep the proof.** **`/pb:research`** turns an
+unproven job, flow or rule into a survey or interview guide for a chosen role or segment. Field it in any tool and
+import the results; the raw files are kept read-only as evidence, every number and quote is checked against them,
+and the approved findings refill User Insights with a citation back to the study.
+
 **New in v2.2 — pb bounds its own footprint.** Tests reuse the running preview and run their three browser
 modes in one browser (`test_run.py --all`); no more than 3 headless browsers run at once on the machine; a
 preview server stops itself after 8 idle hours; agents look at a screen with `shot.py` instead of
@@ -67,7 +72,7 @@ state stays in each prototype's folder.)
 **only** thing pb needs on your machine is **Python 3** (already present on most Macs and Linux; on Windows
 install it from python.org and tick "Add to PATH"). No other setup, no `pip install`. The one optional dependency is **Playwright** (`pip install playwright`, then `playwright install chromium`): `/pb:test`'s browser modes and `shot.py` need it, and they report *blocked* with one line when it is absent; everything else works without it.
 
-Those skills are **internal**: each sets `user-invocable: false`, so only the 14 commands appear in the `/`
+Those skills are **internal**: each sets `user-invocable: false`, so only the 15 commands appear in the `/`
 menu. `think-clarify`, for example, is how `/pb:init` and `/pb:specify` decide what to ask — it is not a
 second `/pb:clarify`. `tests/skill_refs_lint.py` keeps it that way.
 
@@ -99,6 +104,7 @@ Fourteen commands. Flags narrow a command; they are not commands of their own.
 | `/pb:build` | The cheap loop: targeted `registry.json` patches, trio-gated, no per-tweak render. Runs the DS-first reuse → variant → local check on every new component, and keeps flow + data in sync. `--render` to regenerate both sites |
 | `/pb:preview` | Live preview dev server: watch `registry.json` → render → live-reload. One server, two routes — the prototype at `/`, the design-system workbench at `/design-system`. Stops itself after 8 idle hours; `serve.py --status` / `--stop` |
 | `/pb:test` | **Check everything.** No flag = scenarios · roles · server · security · drift · health · shell coherence · DS drift, one verdict. Writes a yes/no test plan, then delegates it to subagents that never saw the design. A flag narrows it (`--drift`, `--roles`, `--security`, …) |
+| `/pb:research` | Generate a survey or interview guide to test what you're unsure of, for any role or segment, seeded from your jobs and flows. Keeps the raw results as read-only evidence and refills User Insights with citations. |
 | `/pb:report` | A retrospective for the pb maintainer: scans the project's decisions log, `memory/`, backups, explore rounds and (opt-in, `--sessions`) session transcripts, then writes one report of facts and ranked proposals for the next pb release to `memory/reports/`. Read-only on the project |
 | `/pb:explore` | An **id** → N agents diverge that render body, scored against a rubric, keep one. A **goal sentence** → the gated discovery pipeline |
 | `/pb:clean` | What the project has piled up — open and closed explore rounds, backups, the preview log, screenshots, scratch candidate folders — as a dry run, then pruned on request. Bare `--apply` does only the always-safe set; a backup or a closed round goes only with an explicit `--keep-backups N` / `--keep-closed N` |

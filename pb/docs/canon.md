@@ -412,3 +412,39 @@ Real project modules call these, so they keep their names and meaning: `renderPr
 
 Data scope rules and approval routing stay project logic; personas carry `scope` so those rules have what
 they need.
+
+## Research evidence
+
+`/pb:research` validates what a project is unsure about with real people and keeps what comes back as
+evidence a later reader can check. The registry's optional `research` slice holds the studies (hypotheses,
+the instrument, the evidence index, the tally, the findings); the raw files live on disk. Absent means an
+empty state, not a schema bump. The method is in the `ref-research` skill; these are the rules that do not move.
+
+- **Evidence is immutable.** A raw file is copied to `memory/research/<id>/evidence/`, hashed (sha256) and
+  made read-only. Nothing edits it. A mistake is fixed by dropping the evidence and importing a corrected
+  one; a drop deletes the file and keeps its row, struck out, with the hash and the reason.
+- **Numbers by the tool, quotes verified verbatim.** Every count, mean and percentage comes from
+  `research.py tally`; the model computes none. Every quote must appear verbatim in the cited evidence file,
+  and `verify` fails a finding whose quote or number does not match. A failing `verify` is fixed, never
+  presented around.
+- **Two gates, both blocking.** **▛ G-STUDY ▟** approves the instrument and the hypotheses with their
+  thresholds before anyone is asked; **▛ G-INSIGHT ▟** approves the verdicts and the exact refill text
+  before `meta.userInsights` changes. Each presents the artifact, not a summary; silence is not approval.
+  Editing an approved instrument withdraws the first; and a change after the second re-opens it.
+- **Thresholds are fixed before data.** `supportedIf` and `refutedIf` are written at G-STUDY and never
+  moved after seeing results. Inconclusive is an honest verdict.
+- **The model never simulates respondents.** No synthetic users, no invented answers, no placeholder
+  evidence, labelled or not. An instrument is fielded with real people, or the study is not run.
+- **Consent and pseudonyms.** A file is imported only with consent recorded as `yes` or `unknown`
+  (`no` is refused, and `unknown` is carried as a warning to G-INSIGHT). Participants are `P01`, `P02`;
+  no real names are asked for or stored, and PII columns are dropped on import. A participant who
+  withdraws is dropped, and no finding may rest on them.
+- **A verdict is a proposal.** A finding that changes a job, a rule or the structure is routed
+  (`/pb:clarify`, `/pb:clarify` § 2, `/pb:explore`), never applied by `/pb:research`. The only automatic
+  write to the project's prose is the approved `refill` into `meta.userInsights`, with a citation and a
+  backup.
+- **Hand-off.** Mode 1 (everything) carries `memory/research/` in the bundle, since the recipient keeps
+  building. Mode 2 (engineering) carries only the findings and verdicts in the registry, **never raw
+  evidence**: participants' words do not leave the team that has their consent. Mode 3 (Figma) carries none.
+- **`/pb:clean` never prunes it.** Evidence is the one thing in `memory/` that exists to outlive the
+  tool's housekeeping; removing it is a human act, on a named study.

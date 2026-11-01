@@ -1,0 +1,37 @@
+{
+  "audience": {"targetN": 10},
+  "hypotheses": [
+    {"id": "h1", "statement": "Couriers want the cash amount shown before they reach the customer's door.",
+     "targets": [{"kind": "job", "id": "pay-cod"}],
+     "supportedIf": "At least 60% of qualified respondents answer Yes to q3.",
+     "refutedIf": "Fewer than 40% of qualified respondents answer Yes to q3."},
+    {"id": "h2", "statement": "Counting cash at the door is a high-effort step.",
+     "targets": [{"kind": "job", "id": "pay-cod"}],
+     "supportedIf": "The mean effort rating on q4 is 3.5 or more.",
+     "refutedIf": "The mean effort rating on q4 is under 2.5."},
+    {"id": "h3", "statement": "Most customers pay in cash.",
+     "targets": [{"kind": "rule", "id": "cod-limit"}],
+     "supportedIf": "Cash is chosen by more than half of qualified respondents in q5.",
+     "refutedIf": "Another method is chosen more often than cash in q5."}
+  ],
+  "instrument": {
+    "lang": "en",
+    "intro": "This is a five minute survey about collecting cash at the door. There are no right answers.",
+    "consent": "Your answers are used only to improve the courier app. You can stop at any time. Do you agree to take part?",
+    "durationMin": 5,
+    "closing": "Thank you. Your answers help us decide what the first screen shows.",
+    "sections": [
+      {"title": "Who you are", "purpose": "screener", "questions": [
+        {"id": "q1", "text": "Do you currently deliver parcels as a courier?", "tests": [], "type": "single", "options": ["Yes", "No"], "qualifies": ["Yes"], "required": true},
+        {"id": "q2", "text": "How long have you been a courier?", "tests": [], "type": "single", "options": ["Under 1 year", "1 to 3 years", "Over 3 years"], "qualifies": ["Under 1 year", "1 to 3 years"], "required": true}
+      ]},
+      {"title": "Collecting cash", "purpose": "main", "questions": [
+        {"id": "q3", "text": "Do you need the cash amount shown before you reach the customer's door?", "tests": ["h1"], "type": "single", "options": ["Yes", "No"], "required": true},
+        {"id": "q4", "text": "How much effort does counting cash at the door take?", "tests": ["h2"], "type": "scale", "scale": {"min": 1, "max": 5, "minLabel": "No effort", "maxLabel": "A lot of effort"}, "required": true},
+        {"id": "q5", "text": "Which ways do customers pay you?", "tests": ["h3"], "type": "multi", "options": ["Cash", "Bank transfer", "E-wallet", "Cash, counted at the door"], "required": true},
+        {"id": "q6", "text": "What is the hardest part of taking payment at the door?", "tests": ["h1"], "type": "text", "required": false},
+        {"id": "q7", "text": "How many cash parcels do you deliver on a normal day?", "tests": ["h2"], "type": "number", "required": false}
+      ]}
+    ]
+  }
+}

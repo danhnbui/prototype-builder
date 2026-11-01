@@ -383,7 +383,22 @@ def _block_md(b):
     return out
 
 
-def _rule_md(r):
+def _rule_evidence(reg, rule_id):
+    """What research says about one rule: `study · finding` for each finding that targets it.
+    Findings only: raw evidence (memory/research/) never travels to engineering."""
+    research = reg.get("research") if isinstance(reg.get("research"), dict) else {}
+    out = []
+    for study in research.get("studies") or []:
+        if not isinstance(study, dict):
+            continue
+        for f in study.get("findings") or []:
+            if isinstance(f, dict) and any(isinstance(t, dict) and t.get("kind") == "rule" and t.get("id") == rule_id
+                                           for t in f.get("targets") or []):
+                out.append("%s (`%s`)" % (_esc(f.get("text") or f.get("id")), _esc(study.get("id"))))
+    return out
+
+
+def _rule_md(r, evidence=()):
     """A rule as the Logic tab shows it: the lead, its structure, then how it was decided."""
     out = [_h(3, _esc(r.get("title") or r.get("id") or "rule"))]
     d = r.get("decision") if isinstance(r.get("decision"), dict) else {}
@@ -426,6 +441,8 @@ def _rule_md(r):
     open_ = d.get("stillOpen") if d.get("stillOpen") is not None else r.get("stillOpen")
     for q in (open_ if isinstance(open_, list) else ([open_] if open_ else [])):
         out.append("- **Still open** — %s" % _cell(q))
+    for item in evidence:
+        out.append("- **Evidence** — %s" % item)
     for label, key in (("Superseded by", "supersededBy"), ("Supersedes", "supersedes")):
         v = d.get(key) or r.get(key)
         if v:
@@ -500,7 +517,7 @@ def build_rules_md(reg, graph, has_constitution=False):
             if not isinstance(r, dict):
                 out.append("- %s" % _esc(r))
                 continue
-            out += _rule_md(r)
+            out += _rule_md(r, _rule_evidence(reg, r.get("id")))
     else:
         out.append(_h(2, "Declared rules"))
         out.append("None declared. Rules live in `registry.json` → `ia.rules[]`; author them with "

@@ -1,0 +1,26 @@
+{
+  "verdicts": {
+    "h1": {"verdict": "supported", "why": "8 of 12 qualified couriers answered Yes to q3, above the 60% line."},
+    "h2": {"verdict": "supported", "why": "The mean effort rating is above the 3.5 line."},
+    "h3": {"verdict": "supported", "why": "Cash is the most common way to pay."}
+  },
+  "findings": [
+    {"id": "f1", "text": "8 of 12 qualified couriers want the cash amount shown before they reach the door.",
+     "hypotheses": ["h1"], "targets": [{"kind": "job", "id": "pay-cod"}],
+     "evidence": [
+       {"tally": "q3", "option": "Yes", "count": 8, "of": 12},
+       {"evidence": "e1", "quote": "Customers hand over big notes and I have no change", "participant": "R01"}
+     ]},
+    {"id": "f2", "text": "Counting cash is rated 3.9 on a 1 to 5 effort scale.",
+     "hypotheses": ["h2"], "targets": [{"kind": "job", "id": "pay-cod"}],
+     "evidence": [{"tally": "q4", "stat": "mean", "value": 3.9, "of": 12}]},
+    {"id": "f3", "text": "Cash is chosen by 8 of 12 qualified couriers' customers.",
+     "hypotheses": ["h3"], "targets": [{"kind": "rule", "id": "cod-limit"}],
+     "evidence": [{"tally": "q5", "option": "Cash", "count": 8, "of": 12}]}
+  ],
+  "refill": {
+    "quantitative": "8 of 12 qualified rural couriers (67%) want the cash amount before the door; counting cash is rated 3.9 on a 1 to 5 effort scale.",
+    "researchSummary": "Couriers new to the job want the amount before they arrive, and most customers still pay in cash.",
+    "executiveSummary": "Show the cash amount on the first screen."
+  }
+}
