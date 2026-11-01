@@ -6574,7 +6574,7 @@
       const ids = new Set(pbRsStudies().map(s => s.id));
       if (!ids.size) return html;
       return html.replace(/\[(rs-(?:[^\]<]|<\/?b[^>]*>)*)\]/g, (m, raw) => {
-        const id = raw.replace(/<[^>]*>/g, '');
+        const id = raw.replace(/<[^>]*>/g, '').replace(/[<>]/g, '');   // a study id never holds < or >: no tag can survive
         return ids.has(id) ? `[<a class="lg-link" href="#" data-rs="${escapeHtmlAttr(id)}" onclick="pbGoStudy(this.dataset.rs);return false">${pbEscape(id)}</a>]` : m;
       });
     }
@@ -12415,7 +12415,7 @@
     }
     function pbLiveRefocus(f) {
       if (!f) return;
-      const q = f.id ? '#' + CSS.escape(f.id) : f.tag + (f.ph ? '[placeholder="' + f.ph.replace(/"/g, '\\"') + '"]' : '');
+      const q = f.id ? '#' + CSS.escape(f.id) : f.tag + (f.ph ? '[placeholder="' + CSS.escape(f.ph) + '"]' : '');
       const el = document.querySelector('#app ' + q);
       if (!el || el === document.activeElement) return;
       el.focus();
