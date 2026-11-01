@@ -2,7 +2,7 @@
 
 All notable changes to Product Builder. Format follows [Keep a Changelog](https://keepachangelog.com/).
 
-## [Unreleased]
+## [2.6.0] — 2026-11-01
 
 *Additive, no schema change. Insights were whatever someone typed into `/pb:clarify`, and nothing separated what a
 user had said from what the team assumed. Now an unsure job, flow or rule can go to real users and come back with
