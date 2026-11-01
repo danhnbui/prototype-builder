@@ -262,7 +262,7 @@ in any pb project (a folder with `registry.json` and a `render/` folder or `memo
 working directory or under `.prototype/`): `session_rules.py` prints a short digest of these rules at session
 start, and `bash_advice.py` adds one line of advice before a shell command that matches a rule above. They
 only advise — never block, never decide a permission — and print nothing outside a pb project. A fourth,
-`activity.py`, runs on `UserPromptSubmit` and `Stop`: it prints nothing and writes `.preview/activity.json`
+`activity.py`, runs on `UserPromptSubmit`, `PostToolUse` (so a long turn stays Working) and `Stop`: it prints nothing and writes `.preview/activity.json`
 (only where a preview has already made `.preview/`), which is how the open preview knows whether Claude is
 working (*Line by line*, below).
 

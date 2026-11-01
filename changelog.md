@@ -76,7 +76,7 @@ top. Now every line a command saves shows in place, and a project that has scree
 - **Progress in the bar.** A `.pb-bar-item` before Search: the step being worked on, its count and *Working* /
   *Your turn* / *Done*, opening the eight steps (Brief · Design system · Jobs and glossary · Structure · Flows and
   test cases · Wording · Data · First screen), each a jump. A tab with new content gets a blue dot until opened; the page
-  never switches tab itself. A new plugin hook (`hooks/activity.py`, on `UserPromptSubmit` and `Stop`) writes
+  never switches tab itself. A new plugin hook (`hooks/activity.py`, on `UserPromptSubmit`, every finished tool call and `Stop`) writes
   `.preview/activity.json`; since Stop does not fire on Esc, *Working* reads *Waiting* after 90 s. Gone once `screens`
   is non-empty and on view-only pages.
 - **Commands save one line per call.** `canon.md` § *Line by line*; cited from `/pb:init` (the preview starts with the

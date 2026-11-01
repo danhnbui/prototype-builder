@@ -239,6 +239,62 @@
   border-left: var(--pb-hair-w) solid var(--pb-hair);
 }
 
+/* ---------- Live fill (v2.6): what the preview shows while the work is still being saved ----------
+   A tab with new content you have not opened carries a blue dot (--pb-info, the tool's one status
+   hue); opening the tab clears it, and the page never opens a tab for you. */
+.pb-tab { position: relative; }
+.pb-tab-dot {
+  display: none; position: absolute; left: 100%; top: 50%; margin-left: var(--pb-s1);
+  width: calc(var(--pb-dot) * .8); height: calc(var(--pb-dot) * .8); border-radius: 50%;
+  background: var(--pb-info); transform: translateY(-130%);
+}
+.pb-tab.has-new .pb-tab-dot { display: block; }
+/* A line that has just arrived settles in: it comes up from a quarter-rem below on a wash, then rests on its own
+   surface (no end state is set, so the row keeps whatever background it had). Reduced motion: it simply appears. */
+.pb-arrive { animation: pb-arrive .6s ease-out backwards; }
+@keyframes pb-arrive { from { background-color: var(--pb-wash); opacity: 0; transform: translateY(var(--pb-s1)); } 55% { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .pb-arrive { animation: none; } }
+/* a line nobody has approved yet */
+.pb-draft-chip { background: var(--pb-wash); color: var(--pb-ink-3); border: var(--pb-hair-w) dashed var(--pb-hair-2); font-weight: var(--pb-w-bold); }
+/* the site map's next node while a step is still working: the shape of a card, without its words */
+.ia-node--loading { border-style: dashed; cursor: default; pointer-events: none; }
+.ia-node--loading::before, .ia-node--loading::after {
+  content: ""; display: block; height: var(--pb-s2); border-radius: var(--pb-r); background: var(--pb-wash);
+  animation: pb-pulse 1.4s ease-in-out infinite;
+}
+.ia-node--loading::before { width: 55%; margin: var(--pb-s1) 0 var(--pb-s2); }
+.ia-node--loading::after { width: 35%; }
+@keyframes pb-pulse { 0%, 100% { opacity: .45; } 50% { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .ia-node--loading::before, .ia-node--loading::after { animation: none; } }
+
+/* the progress item, before Search: the step being worked on, how many lines it holds, and whose turn it is */
+.pb-prog-wrap { position: relative; display: flex; align-items: center; }
+.pb-prog-wrap + .pb-bar-item { position: relative; }
+.pb-prog-wrap + .pb-bar-item::before {
+  content: ""; position: absolute; left: 0; top: 30%; bottom: 30%;
+  border-left: var(--pb-hair-w) solid var(--pb-hair);
+}
+.pb-prog-n { font-variant-numeric: tabular-nums; color: var(--pb-ink-3); }
+.pb-prog-st { display: inline-flex; align-items: center; gap: var(--pb-s1); color: var(--pb-ink-3); }
+.pb-prog-st::before {
+  content: ""; width: calc(var(--pb-dot) * .8); height: calc(var(--pb-dot) * .8); border-radius: 50%;
+  background: currentColor; flex: none;
+}
+.pb-prog-st[data-status="working"] { color: var(--pb-ink); }
+.pb-prog-st[data-status="working"]::before { animation: pb-pulse 1.2s ease-in-out infinite; }
+.pb-prog-st[data-status="turn"] { color: var(--pb-ink); }
+.pb-prog-st[data-status="done"] { color: var(--pb-pass); }
+@media (prefers-reduced-motion: reduce) { .pb-prog-st[data-status="working"]::before { animation: none; } }
+.pb-menu--end { left: auto; right: 0; min-width: 18rem; }
+.pb-menu-head { display: block; padding: var(--pb-s2) var(--pb-s2) var(--pb-s1); color: var(--pb-ink-3); font-size: var(--pb-t-sm); }
+.pb-menu-n { margin-left: auto; font-variant-numeric: tabular-nums; color: var(--pb-ink-3); }
+.pb-prog-mk {
+  flex: none; width: calc(var(--pb-dot) * .9); height: calc(var(--pb-dot) * .9); border-radius: 50%;
+  border: var(--pb-hair-w) solid var(--pb-hair-2); box-sizing: border-box;
+}
+.pb-prog-mk[data-s="done"] { background: var(--pb-ink); border-color: var(--pb-ink); }
+.pb-prog-mk[data-s="cur"] { border-color: var(--pb-ink); border-width: var(--pb-rule-w); }
+
 /* ---------- Small primitives shared by every shell ---------- */
 /* A label that never changes width when it turns bold: the hidden bold twin reserves the room,
    so selecting a segment never nudges its neighbours. */

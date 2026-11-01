@@ -69,6 +69,17 @@ Never start empty. Source it one of two ways:
 
 Write a short PRD (objective + key screens + success criteria) to `memory/prd.md`.
 
+**Start the preview with the first answer, and seed the registry there** (`${CLAUDE_PLUGIN_ROOT}/docs/canon.md`
+§ *Line by line*). The moment the user has said what the product is — question 1 of the Q&A, or the PRD's
+title when a file was given — and before asking anything else: do §3's copy now (the registry template →
+`registry.json`, `meta.name` set), then run
+`python3 ${CLAUDE_PLUGIN_ROOT}/tools/serve.py registry.json --ensure` and give the user the URL it prints.
+From here the page fills as the intake goes, **one `slice.py` call per line, saved as soon as it is
+written**: the objective `slice.py set meta overview.objectives`, each principle
+`slice.py append meta overview.principles`, each job the user confirms in §1b
+`slice.py set ia jobs.<id> --create-list` (a job confirmed with the user in the conversation is approved:
+write it for real, not `--draft`). About 2.5 s a line; no render, no reload — the preview renders in memory.
+
 ## 1b · Jobs intake — what each role needs done
 
 Seeds `registry.ia`, which drives the **Information Architecture** sub-tab: every job a role needs
@@ -125,6 +136,8 @@ skip, leave `meta.dsSource: null` and set `meta.platform` from the DS Lock answe
 
 ## 3 · Seed the registry
 Copy `${CLAUDE_PLUGIN_ROOT}/template/registry.template.json` → `registry.json`; set `meta.name`.
+(Already done at §1 when intake started — the preview has been showing it since the first answer. Do it
+here only if it was not, e.g. for `--import` or `--figma`, and start the preview then.)
 The template already carries `meta.schemaVersion: 13` (= `CURRENT_SCHEMA` from
 `pb/migrations/manifest.py`) and a pre-seeded `danger` token (the validation runtime needs it).
 Leave `components` / `screens` empty — `/pb:build` fills them and creates their

@@ -17,6 +17,9 @@ written only in a command file never reached a free-form session. Checked here, 
       outside; speaks on the first call of a session and every 25th, not between; a broken counter
       folder is silent with exit 0; no permissionDecision; hooks.json matches the MCP tool names.
   H4  bad stdin, empty stdin, a missing command and a non-object payload print nothing and exit 0.
+  H6  activity.py (UserPromptSubmit / PostToolUse / Stop): writes .preview/activity.json {state, at} atomically, only inside a
+      pb project whose .preview/ already exists, prints nothing, ignores any other event, exits 0 on anything;
+      hooks.json declares both events (the live-fill progress item reads that file).
 
 Usage:  python3 tests/hook_advice.py
 Exit:   0 = pass · 1 = a failure
@@ -261,6 +264,60 @@ with tempfile.TemporaryDirectory() as tmp:
     for stdin in ("", "not json", "[]", "{}", '{"cwd": 5}'):
         code, out, err = run(BROWSER, stdin, cwd=plain)
         check(code == 0 and out == "", "browser_advice silent, exit 0 on %r" % stdin)
+
+    # ------------------------------------------------------------ H6
+    print("H6 · activity.py (UserPromptSubmit / PostToolUse / Stop → .preview/activity.json)")
+    ACTIVITY = os.path.join(HOOKS, "activity.py")
+    live = os.path.join(tmp, "live")                    # a pb project whose preview has run (.preview/ exists)
+    cold = os.path.join(tmp, "cold")                    # a pb project nobody has previewed
+    make_pb(live, "memory")
+    make_pb(cold, "memory")
+    os.makedirs(os.path.join(live, ".preview"))
+    act = os.path.join(live, ".preview", "activity.json")
+
+    def ev(name, cwd):
+        return json.dumps({"hook_event_name": name, "cwd": cwd, "session_id": "s"})
+
+    t0 = __import__("time").time()
+    code, out, err = run(ACTIVITY, ev("UserPromptSubmit", live), cwd=plain)
+    got = json.load(open(act, encoding="utf-8")) if os.path.isfile(act) else {}
+    check(code == 0 and out == "" and err == "", "UserPromptSubmit: exit 0 and nothing printed (nothing added to the model's context)")
+    check(got.get("state") == "working" and got.get("event") == "UserPromptSubmit" and abs(got.get("at", 0) - t0) < 15,
+          "…writes {state: working, at: now} to .preview/activity.json (%s)" % got)
+    code, out, err = run(ACTIVITY, ev("Stop", live), cwd=plain)
+    check(code == 0 and out == "" and json.load(open(act, encoding="utf-8")).get("state") == "idle", "Stop: writes {state: idle}")
+    check(sorted(os.listdir(os.path.join(live, ".preview"))) == ["activity.json"], "…atomically: no temp file is left in .preview/")
+    code, out, err = run(ACTIVITY, ev("PostToolUse", live), cwd=plain)
+    got = json.load(open(act, encoding="utf-8"))
+    check(code == 0 and out == "" and got.get("state") == "working" and got.get("event") == "PostToolUse",
+          "PostToolUse: a finished tool call writes {state: working} again (a long turn never reads Waiting)")
+    code, out, err = run(ACTIVITY, ev("Stop", live), cwd=plain)
+    code, out, err = run(ACTIVITY, ev("SessionStart", live), cwd=plain)
+    check(code == 0 and json.load(open(act, encoding="utf-8")).get("state") == "idle", "any other event is ignored")
+    code, out, err = run(ACTIVITY, ev("UserPromptSubmit", cold), cwd=plain)
+    check(code == 0 and out == "" and not os.path.exists(os.path.join(cold, ".preview")),
+          "a project with no .preview/ gets no new folder (nobody has previewed it)")
+    code, out, err = run(ACTIVITY, ev("UserPromptSubmit", plain), cwd=plain)
+    check(code == 0 and out == "" and not os.path.exists(os.path.join(plain, ".preview")), "silent outside a pb project")
+    code, out, err = run(ACTIVITY, json.dumps({"cwd": inner}) , cwd=plain)
+    check(code == 0 and out == "", "no event name and no argument: silent, exit 0")
+    os.makedirs(os.path.join(inner, ".prototype", ".preview"), exist_ok=True)
+    code, out, err = run(ACTIVITY, ev("UserPromptSubmit", inner), cwd=plain)
+    check(code == 0 and os.path.isfile(os.path.join(inner, ".prototype", ".preview", "activity.json")),
+          ".prototype/ inside a repo is a pb project: its .preview/ is written")
+    for stdin in ("", "not json", "[]", "null", '{"cwd": 5}'):
+        code, out, err = run(ACTIVITY, stdin, cwd=plain)
+        check(code == 0 and out == "", "activity.py silent, exit 0 on %r" % stdin)
+    if cfg:
+        hooks = cfg.get("hooks", {})
+        for event in ("UserPromptSubmit", "PostToolUse", "Stop"):
+            groups = hooks.get(event, [])
+            cmds = [h for g in groups for h in g.get("hooks", [])]
+            check(len(cmds) == 1 and cmds[0].get("type") == "command" and "args" in cmds[0]
+                  and any(a == "${CLAUDE_PLUGIN_ROOT}/hooks/activity.py" for a in cmds[0]["args"]),
+                  "hooks.json declares %s → activity.py (an exec-style command with args)" % event)
+            check(all("matcher" not in g for g in groups) and "onFailure" not in (cmds[0] if cmds else {}),
+                  "  no matcher, no onFailure")
 
     # ------------------------------------------------------------ H4
     print("H4 · bad input never breaks anything")

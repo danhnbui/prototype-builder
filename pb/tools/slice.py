@@ -79,9 +79,23 @@ O_NOFOLLOW and must be a regular file: a symlink or any other kind of file at `<
 refused (`LockFileUnsafe`), never followed and never truncated, because the holder's note is written
 into it.
 
+Line by line (v2.6, `pb/docs/canon.md` § *Line by line*). While a command is authoring, each job, term, sitemap node,
+rule, story, scenario, wording and ERD row is saved by its own call as soon as it is written, so the open preview
+fills in place as the work goes (about 2.5 s a line, a tool call each):
+  set ... --draft    — the same path syntax, but the patch goes to `.preview/drafts.json` (under the registry's lock),
+                       never to registry.json. A draft is a line nobody has approved yet: the preview folds it into what
+                       it shows with a Draft chip, and `render.py` and every file on disk never see it. A real `set`
+                       writes the approved line; `drafts --clear` empties the file once they are all written.
+  append             — add ONE element to a list that has no ids to select by (`content strings` with a `key`,
+                       `erd table` rows, a story's `scenarios`): the list is created if it is missing, `--key a,b` makes
+                       a repeat of the same line a merge instead of a duplicate. `--draft` works here too.
+  drafts             — `--clear` empties the drafts, `--list` prints what they hold.
+
 Usage:
   python3 slice.py get  <kind> <id> [--registry PATH] [--no-prose] [--fields a,b,c]
-  python3 slice.py set  <kind> <id> [--registry PATH] [--patch FILE] [--create-list]   # patch from FILE or stdin
+  python3 slice.py set  <kind> <id> [--registry PATH] [--patch FILE] [--create-list] [--draft]   # patch from FILE or stdin
+  python3 slice.py append <kind> <path> [--registry PATH] [--patch FILE] [--key a,b] [--draft]  # one element, from FILE or stdin
+  python3 slice.py drafts [--registry PATH] [--clear | --list]
   python3 slice.py list <kind> [path] [--registry PATH]   # no path: top-level keys; a list path: its ids
 
 Exit: 0 on success; non-zero with a message on error (unknown kind, missing id/key,
@@ -89,6 +103,7 @@ unknown --fields name, bad JSON).
 """
 import argparse
 import contextlib
+import copy
 import errno
 import json
 import os
@@ -107,7 +122,7 @@ LIST_KINDS = ("components", "screens")   # id-keyed lists
 # (~15 lines) without pulling every story's scenarios[] into context.
 DICT_KINDS = ("tokens", "meta", "flow", "erd", "content", "ia", "research")   # dotted-key dicts
 # Lists a `set` must never create by accident (a missing one is an error, not a new `{}`).
-LIST_PATHS = {"ia": ("jobs", "rules", "layers"), "flow": ("stories",), "content": ("terms", "strings"),
+LIST_PATHS = {"ia": ("jobs", "rules", "layers", "sitemap"), "flow": ("stories",), "content": ("terms", "strings"),
               "research": ("studies",)}
 KINDS = LIST_KINDS + DICT_KINDS
 
@@ -157,6 +172,79 @@ def _write(reg_path, reg):
     # unicode preserved, one trailing newline. Keeps `set` byte-stable / idempotent.
     # Atomic (see atomic_write_text); the caller holds registry_lock around its read-modify-write.
     atomic_write_text(reg_path, json.dumps(reg, indent=2, ensure_ascii=False) + "\n")
+
+
+# ── drafts (v2.6) — unapproved lines the preview shows and the registry never holds ─────────────────
+DRAFTS_FILE = os.path.join(".preview", "drafts.json")
+
+
+def drafts_path(reg_path):
+    """.preview/drafts.json beside the registry — runtime state like server.json, gitignored with the folder."""
+    return os.path.join(os.path.dirname(os.path.realpath(reg_path)), DRAFTS_FILE)
+
+
+def load_drafts(path):
+    """The drafts document — {<kind>: {…}} in the registry's own shape, holding only the draft lines — or {}
+    when there is none, it is unreadable, or it is not an object. A bad drafts file is no drafts, never an error."""
+    try:
+        with open(path, encoding="utf-8") as f:
+            doc = json.load(f)
+    except (OSError, ValueError):
+        return {}
+    return doc if isinstance(doc, dict) else {}
+
+
+def _write_drafts(path, doc):
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    atomic_write_text(path, json.dumps(doc, indent=2, ensure_ascii=False) + "\n")
+
+
+def _overlay(dst, src):
+    """Fold the drafts `src` into `dst` (both mutated-in-place: dst is a private copy). Dicts merge, a list of
+    objects merges by `id` (an id that exists is merged into, else the element is appended) and any element without
+    an id is appended; every list element a draft touches carries `_draft: true`. A scalar replaces."""
+    for k, v in src.items():
+        if isinstance(v, dict):
+            if isinstance(dst.get(k), dict):
+                _overlay(dst[k], v)
+            else:
+                dst[k] = copy.deepcopy(v)
+        elif isinstance(v, list):
+            cur = dst.get(k)
+            if not isinstance(cur, list):
+                cur = dst[k] = []
+            for el in v:
+                if not isinstance(el, dict):
+                    cur.append(copy.deepcopy(el))
+                    continue
+                i = next((n for n, x in enumerate(cur)
+                          if isinstance(x, dict) and "id" in el and x.get("id") == el["id"]), None)
+                if i is None:
+                    cur.append(dict(copy.deepcopy(el), _draft=True))
+                else:
+                    _overlay(cur[i], el)
+                    cur[i]["_draft"] = True
+        else:
+            dst[k] = v
+    return dst
+
+
+def overlay_drafts(reg, drafts):
+    """A copy of the registry with the drafts folded in (see `_overlay`), each draft list element marked
+    `_draft: true`. Pure: nothing is written, `reg` is not changed. No drafts → an equal copy."""
+    out = copy.deepcopy(reg)
+    return _overlay(out, drafts) if isinstance(drafts, dict) and drafts else out
+
+
+def draft_summary(drafts):
+    """How many draft lines there are (list elements anywhere in the drafts document), for the preview's badge."""
+    def count(node):
+        if isinstance(node, list):
+            return sum(1 + count(el) if isinstance(el, dict) else 1 for el in node)
+        if isinstance(node, dict):
+            return sum(count(v) for v in node.values())
+        return 0
+    return {"count": count(drafts) if isinstance(drafts, dict) else 0}
 
 
 DEFAULT_LOCK_TIMEOUT = 5.0
@@ -373,10 +461,21 @@ def cmd_get(args):
     print(json.dumps(entry, indent=2, ensure_ascii=False))
 
 
-def _apply_set(args, patch):
+def _apply_set(args, patch, draft=False):
     """The read-modify-write of `set`, run with the registry lock held. Returns the one-line
-    result. Exits (non-zero) on a bad patch before anything is written."""
-    reg = _load(args.registry)
+    result. Exits (non-zero) on a bad patch before anything is written. `draft` runs the very same
+    code over `.preview/drafts.json` instead of registry.json: the draft document is registry-shaped
+    but holds only the lines nobody has approved, so a list it lacks is always created."""
+    if draft:
+        if args.kind in LIST_KINDS:
+            sys.exit(f"slice: --draft covers {', '.join(DICT_KINDS)} — a {args.kind[:-1]} is built, not drafted")
+        out_path = drafts_path(args.registry)
+        reg = load_drafts(out_path)
+        args.create_list = True
+    else:
+        out_path = args.registry
+        reg = _load(args.registry)
+    _write_out = (lambda path, doc: _write_drafts(path, doc)) if draft else _write
 
     if args.kind in LIST_KINDS:
         if (isinstance(patch, dict) and patch.get("id") == args.id
@@ -386,7 +485,7 @@ def _apply_set(args, patch):
             if not isinstance(reg.get(args.kind), list):
                 reg[args.kind] = []
             reg[args.kind].append(patch)
-            _write(args.registry, reg)
+            _write_out(out_path, reg)
             return f"✓ appended {args.kind[:-1]} {args.id}  ({', '.join(patch.keys())})"
         entry = _find_entry(reg, args.kind, args.id)
         if isinstance(patch, dict):
@@ -463,9 +562,72 @@ def _apply_set(args, patch):
                 changed = json.dumps(parent.get(leaf), sort_keys=True) != before
                 keys = leaf
 
-    _write(args.registry, reg)
+    _write_out(out_path, reg)
     target = args.id if args.kind in DICT_KINDS else f"{args.kind[:-1]} {args.id}"
-    return f"{'✓ patched' if changed else '· no change'} {target}" + (f"  ({keys})" if changed else "")
+    verb = "drafted" if draft else "patched"
+    return f"{'✓ ' + verb if changed else '· no change'} {target}" + (f"  ({keys})" if changed else "")
+
+
+def _apply_append(args, patch, draft=False):
+    """The read-modify-write of `append`, run with the registry lock held: add ONE element to the list at
+    `path`, creating the list (and any plain object above it) when it is missing. Walks the same dotted paths
+    as `set`; a segment on a list selects an element by id. With `--key a,b` an element that already has the
+    same values for those fields is merged into instead of duplicated, so repeating a line is harmless."""
+    if args.kind in LIST_KINDS:
+        sys.exit(f"slice: append adds to a list inside {', '.join(DICT_KINDS)}; use `set {args.kind} <id>` for a {args.kind[:-1]}")
+    if not isinstance(patch, dict):
+        sys.exit("slice: append takes one JSON object — the element to add")
+    if draft:
+        out_path = drafts_path(args.registry)
+        reg = load_drafts(out_path)
+    else:
+        out_path = args.registry
+        reg = _load(args.registry)
+    parts = [p for p in _strip_kind(reg, args.kind, args.path).split(".") if p]
+    if not parts:
+        sys.exit("slice: append needs the path of a list, e.g. `append content strings`")
+    node, trail = reg.setdefault(args.kind, {}), args.kind
+    for seg in parts[:-1]:
+        if isinstance(node, list):
+            i = _list_index(node, seg)
+            if i is None:
+                hint = (" — a draft path is reached through the elements the drafts already hold; draft the "
+                        "parent first") if draft else ""
+                sys.exit(f"slice: no element {seg!r} in {trail} (by id){hint}")
+            node = node[i]
+        elif isinstance(node, dict):
+            if seg not in node and seg in LIST_PATHS.get(trail, ()):
+                # a list this document does not hold: the next segment names an element of it, and there is none
+                hint = (" — a draft path is reached through the elements the drafts already hold; draft the "
+                        "parent first") if draft else ""
+                sys.exit(f"slice: no list {trail}.{seg} to select an element of{hint}")
+            node = node.setdefault(seg, {})
+        else:
+            sys.exit(f"slice: {trail} is not an object")
+        trail += "." + seg
+        if not isinstance(node, (dict, list)):
+            sys.exit(f"slice: {trail} is not an object")
+    leaf = parts[-1]
+    if not isinstance(node, dict):
+        sys.exit(f"slice: {trail} is a list; name the list inside the element, e.g. `{trail}.<id>.{leaf}`")
+    lst = node.setdefault(leaf, [])
+    if not isinstance(lst, list):
+        sys.exit(f"slice: {trail}.{leaf} is not a list")
+    keys = [k.strip() for k in (getattr(args, "key", None) or "").split(",") if k.strip()]
+    dup = next((el for el in lst if keys and isinstance(el, dict)
+                and all(k in el and k in patch and el[k] == patch[k] for k in keys)), None)
+    if dup is not None:
+        before = json.dumps(dup, sort_keys=True)
+        _deep_merge(dup, patch)
+        changed = json.dumps(dup, sort_keys=True) != before
+        line = f"{'✓ merged into' if changed else '· no change in'} {trail}.{leaf}[{lst.index(dup)}]"
+    else:
+        lst.append(patch)
+        changed = True
+        line = f"✓ {'drafted' if draft else 'appended'} {trail}.{leaf}[{len(lst) - 1}]"
+    if changed:
+        (_write_drafts if draft else _write)(out_path, reg)
+    return line
 
 
 def cmd_set(args):
@@ -474,10 +636,41 @@ def cmd_set(args):
     patch = _read_patch(args.patch)
     try:
         with registry_lock(args.registry, "slice set"):
-            line = _apply_set(args, patch)
+            line = _apply_set(args, patch, draft=getattr(args, "draft", False))
     except RegistryLocked as e:
         sys.exit(f"slice: {e}")
     print(line)
+
+
+def cmd_append(args):
+    if not os.path.isfile(args.registry):
+        sys.exit(f"slice: no registry at {args.registry}")
+    patch = _read_patch(args.patch)
+    try:
+        with registry_lock(args.registry, "slice append"):
+            line = _apply_append(args, patch, draft=args.draft)
+    except RegistryLocked as e:
+        sys.exit(f"slice: {e}")
+    print(line)
+
+
+def cmd_drafts(args):
+    """`drafts --clear` empties .preview/drafts.json (under the registry's lock), `--list` prints what it holds."""
+    if not os.path.isfile(args.registry):
+        sys.exit(f"slice: no registry at {args.registry}")
+    path = drafts_path(args.registry)
+    if args.clear:
+        try:
+            with registry_lock(args.registry, "slice drafts"):
+                n = draft_summary(load_drafts(path))["count"]
+                if os.path.exists(path):
+                    _write_drafts(path, {})
+        except RegistryLocked as e:
+            sys.exit(f"slice: {e}")
+        print(f"✓ cleared {n} draft line{'' if n == 1 else 's'}" if n else "· no drafts")
+        return
+    doc = load_drafts(path)
+    print(json.dumps(doc, indent=2, ensure_ascii=False) if doc else "· no drafts")
 
 
 def cmd_list(args):
@@ -542,9 +735,29 @@ def main():
     add_common(s)
     s.add_argument("--patch", help="JSON patch file (default: read stdin)")
     s.add_argument("--create-list", action="store_true",
-                   help="create a missing ia.jobs/rules/layers, flow.stories or content.terms/strings list "
+                   help="create a missing ia.jobs/rules/layers/sitemap, flow.stories or content.terms/strings list "
                         "(and its parent object) and append to it; without it a missing list is refused")
+    s.add_argument("--draft", action="store_true",
+                   help="write the patch to .preview/drafts.json instead of registry.json: a line nobody has approved "
+                        "yet. The open preview shows it with a Draft chip; no render or file on disk ever sees it")
     s.set_defaults(func=cmd_set)
+
+    a = sub.add_parser("append", help="add ONE element to a list that has no ids (content strings, erd table, a story's scenarios)")
+    a.add_argument("kind", choices=DICT_KINDS)
+    a.add_argument("path", help="dotted path of the list, e.g. `strings`, `table`, `stories.<id>.scenarios` (the kind is not part of it)")
+    a.add_argument("--registry", default="registry.json", help="path to registry.json")
+    a.add_argument("--patch", help="JSON file holding the one element (default: read stdin)")
+    a.add_argument("--key", help="comma-separated fields that identify the element: one that already matches on all of "
+                                 "them is merged into, not duplicated (e.g. `--key key` for a wording)")
+    a.add_argument("--draft", action="store_true", help="append to .preview/drafts.json instead (see `set --draft`)")
+    a.set_defaults(func=cmd_append)
+
+    d = sub.add_parser("drafts", help="empty or print .preview/drafts.json — the unapproved lines")
+    d.add_argument("--registry", default="registry.json", help="path to registry.json")
+    dm = d.add_mutually_exclusive_group()
+    dm.add_argument("--clear", action="store_true", help="empty the drafts (once every line is approved and written for real)")
+    dm.add_argument("--list", action="store_true", help="print what the drafts hold (the default)")
+    d.set_defaults(func=cmd_drafts)
 
     l = sub.add_parser("list", help="enumerate ids/keys for a kind")
     add_common(l, with_id=False)

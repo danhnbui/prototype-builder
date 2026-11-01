@@ -63,6 +63,9 @@ never authors, regroups or re-derives it. `ref-ia` §6 says what `promote` wrote
    - **A job the IA left unhandled** is scope this plan does not cover. List it, with
      `/pb:plan --ia <job-id>` as the way to place it later.
    - **A registry screen no job points at** is a screen nobody has justified. Ask whether it is needed.
+   When the hub has a body, the site map is derived from it and from the render bodies; the **draft** site map
+   `/pb:clarify` §1c saved as `ia.sitemap[]` is no longer drawn. It is harmless to leave; `slice.py drafts --clear`
+   removes it when no other unapproved line is waiting.
 5. **Link both directions.** Give each `flow.stories[]` entry a `jobs[]` list of the ids it exercises.
    Leave the story's prose `jtbd` untouched — a narrative and a standing need are not the same thing.
    A job no story links is a coverage gap, not a detail — §4b's contract.
@@ -214,6 +217,15 @@ To add scenarios to a story, `get` its `scenarios`, then `set` that story's `sce
 entries **verbatim** followed by the new ones — a scenario you did not add is byte-for-byte what it was,
 `lastResult` included.
 
+**Line by line** (`${CLAUDE_PLUGIN_ROOT}/docs/canon.md` § *Line by line*; about 2.5 s a line). On a first authoring,
+each story is saved the moment it is written and **each of its scenarios is its own call** —
+`slice.py set flow stories.<id> --create-list` with the story and an empty `scenarios`, then
+`slice.py append flow stories.<id>.scenarios` with one scenario per call (add `--key text` so a repeat merges) —
+so the Test Cases tab fills while the checklist is written. A story or scenario still waiting for G-DESIGN is a draft
+(`--draft`): write it for real after the gate and `slice.py drafts --clear`. Set `flow.populated` with the first
+story (`slice.py set flow populated`, `true`). On a gap-fill of a populated flow, `append` is also how one missing
+scenario is added without rewriting the list. The wireflow (`mermaid`) is one value: write it once, when complete.
+
 > `flow.html` is **legacy only** — a pre-baked fallback used when `flow.mermaid` is absent. Do not author it.
 
 ---
@@ -248,6 +260,13 @@ Write into `registry.json` → `erd`:
   "warnings": [ … ] }
 ```
 
+**Line by line** (`${CLAUDE_PLUGIN_ROOT}/docs/canon.md` § *Line by line*; about 2.5 s a line). Each `table[]` row is its own
+call as soon as it is written — `slice.py append erd table` with `{ entity, field, type, example, notes }`, with
+`--key entity,field` so a repeat merges — and the first one is followed by `slice.py set erd populated` (`true`).
+The Data tab shows the rows as a table while they arrive; the `mermaid` diagram is one value, written once the
+entities are final. A row waiting for G-DESIGN is a draft (`--draft`), written for real after the gate, then
+`slice.py drafts --clear`.
+
 ### 5c · Mock data-set variants (`--mock` only)
 ```
 "mock": [ { "entity": "<PascalCase>", "label": "<New user|Empty|Returning|…>",
@@ -281,9 +300,11 @@ scenario asserts, the toast a `test{}` expects, the empty state a `ux` scenario 
 (`aka[]` words are what the team says, not what the screen shows).
 
 **Gap-fill, never rewrite.** `slice.py get content strings` first; a `key` already there is left exactly
-as written. Append only what is missing, as one write whose patch is the existing list followed by the
-new entries: `slice.py set content strings --create-list`. Set `content.populated` to `true` the same way
-(`slice.py set content populated`, patch `true`).
+as written. Append only what is missing, **one wording per call, as it is written** (*Line by line*, about 2.5 s a
+line): `slice.py append content strings --key key` with `{ key, text, kind, note? }` — a repeat of a `key` merges
+instead of duplicating, and the list is created if it is missing. (Writing the existing list followed by the new
+entries in one `slice.py set content strings --create-list` is still correct; it just does not stream.) Set
+`content.populated` to `true` with the first one (`slice.py set content populated`, patch `true`).
 
 **No glossary yet** (`content.terms` empty or absent — an older project, or `/pb:clarify` skipped): draft the
 terms the wordings use as `content.terms[]` (shape: `/pb:clarify` §1b1, one per `id`, `--create-list`),

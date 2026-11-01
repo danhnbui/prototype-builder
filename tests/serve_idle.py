@@ -8,7 +8,7 @@ browser once per file write of a burst, and could only be ended with `kill`. Now
   1. idle exit     a server started with a tiny --idle-exit stops by itself and takes its
                    .preview/server.json record with it; a connected tab (an open /__pb_events
                    stream) keeps it alive, and it stops once the stream closes; --idle-exit 0 never stops
-  2. coalescing    10 saves 30 ms apart → exactly one `reload` event; one save → one, within 1 s;
+  2. coalescing    10 saves 30 ms apart → exactly one `update`/`reload` event; one save → one, within 1 s;
                    --debounce-ms 0 still reloads
   3. never stale   after 2 s with nobody connected, a save followed at once by GET / returns the new page
   4. poll rate     0.3 s while a tab is connected or a request is recent, 2 s otherwise (unit)
@@ -175,7 +175,9 @@ class Events:
                     block, self._buf = self._buf.split(b"\n\n", 1)
                     if b": connected" in block:
                         self.connected.set()
-                    if b"data: reload" in block:
+                    # v2.6: a registry.json save is `update` (painted in place), a body save `reload`;
+                    # either way one burst must be exactly one event, which is what this counts.
+                    if b"data: reload" in block or b"data: update" in block:
                         self.reloads.append(time.monotonic())
         except OSError:
             return

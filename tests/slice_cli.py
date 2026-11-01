@@ -495,6 +495,90 @@ with tempfile.TemporaryDirectory() as d:
     check(r.returncode == 0 and "patched" in r.stdout and len(got["screens"]) == 1 and got["screens"][0]["name"] == "Home 2",
           "an id that exists is merged, not appended twice")
 
+    # ── line by line (v2.6): --draft, append, drafts ────────────────────────────────────────────
+    print("set --draft — a line nobody has approved: the same paths, a different file")
+    drafts = os.path.join(d, ".preview", "drafts.json")
+    dump({"meta": {"name": "T"}, "ia": {"jobs": [{"id": "j0", "want": "real"}]}, "content": {"terms": []}, "erd": {"populated": False}})
+    snap = open(reg, encoding="utf-8").read()
+    r = run("set", "ia", "jobs.j1", "--draft", *R, stdin='{"id": "j1", "want": "drafted"}')
+    check(r.returncode == 0 and "drafted" in r.stdout and open(reg, encoding="utf-8").read() == snap,
+          "set --draft writes nothing to registry.json (byte-identical)")
+    check(json.load(open(drafts)) == {"ia": {"jobs": [{"id": "j1", "want": "drafted"}]}}, "…it goes to .preview/drafts.json in the registry's own shape")
+    r = run("set", "ia", "jobs.j1", "--draft", *R, stdin='{"so": "merged"}')
+    check(r.returncode == 0 and json.load(open(drafts))["ia"]["jobs"] == [{"id": "j1", "want": "drafted", "so": "merged"}],
+          "a second --draft set on the same path merges into the same draft element")
+    r = run("set", "ia", "sitemap.n1", "--draft", *R, stdin='{"id": "n1", "name": "Home", "depth": 0}')
+    check(r.returncode == 0 and json.load(open(drafts))["ia"]["sitemap"][0]["name"] == "Home", "--draft creates a missing list (ia.sitemap) with no --create-list")
+    r = run("set", "ia", "jobs.j2", *R, stdin='{"id": "j2", "want": "no"}')
+    check(r.returncode == 0 and [j["id"] for j in json.load(open(reg))["ia"]["jobs"]] == ["j0", "j2"], "a plain set is the real write, and it does not touch the drafts")
+    r = run("set", "components", "x", "--draft", *R, stdin='{"id": "x"}')
+    check(r.returncode != 0 and "--draft covers" in r.stderr, "--draft on a component or screen is refused: they are built, not drafted")
+    stray = os.path.join(d, ".preview", "stray")
+    open(stray, "w").write("kept")
+    check(os.path.isfile(stray), "(a file beside drafts.json is not the tool's to touch)")
+
+    print("the drafts are folded into what the preview shows — never into a file on disk")
+    sl = importlib.util.spec_from_file_location("pbslice", SLICE)
+    pbslice = importlib.util.module_from_spec(sl)
+    sl.loader.exec_module(pbslice)
+    real = json.load(open(reg))
+    merged = pbslice.overlay_drafts(real, pbslice.load_drafts(drafts))
+    check([j["id"] for j in merged["ia"]["jobs"]] == ["j0", "j2", "j1"] and merged["ia"]["jobs"][2].get("_draft") is True
+          and "_draft" not in merged["ia"]["jobs"][0], "overlay_drafts appends a draft element and marks it _draft; real ones are not marked")
+    check(real == json.load(open(reg)) and "_draft" not in json.dumps(real), "…the registry it was given is not changed")
+    check(pbslice.overlay_drafts(real, {}) == real, "no drafts → an equal copy")
+    check(pbslice.draft_summary(pbslice.load_drafts(drafts))["count"] == 2, "draft_summary counts the draft lines")
+    open(drafts, "w").write("{not json")
+    check(pbslice.load_drafts(drafts) == {} and pbslice.overlay_drafts(real, pbslice.load_drafts(drafts)) == real,
+          "a corrupt drafts file is no drafts, not an error")
+    # the render does not see them: same registry on disk → same HTML, drafts or none
+    sys.path.insert(0, os.path.join(ROOT, "pb", "tools"))
+    import render as _render
+    shell = open(os.path.join(ROOT, "pb", "template", "prototype.html"), encoding="utf-8").read()
+    html_a, _ = _render.build_html(json.load(open(reg)), shell, "t")
+    run("set", "ia", "jobs.j9", "--draft", *R, stdin='{"id": "j9", "want": "late draft"}')
+    html_b, _ = _render.build_html(json.load(open(reg)), shell, "t")
+    check(html_a == html_b and "late draft" not in html_b, "render.build_html is byte-identical with a draft written (determinism holds)")
+
+    print("drafts --clear / --list")
+    r = run("drafts", "--list", *R)
+    check(r.returncode == 0 and "j9" in r.stdout, "drafts --list prints what they hold")
+    r = run("drafts", "--clear", *R)
+    check(r.returncode == 0 and "cleared" in r.stdout and json.load(open(drafts)) == {}, "drafts --clear empties them")
+    check(run("drafts", "--clear", *R).stdout.startswith("· no drafts"), "…and clearing nothing says so")
+    check(os.path.isfile(stray) and open(reg, encoding="utf-8").read().count("j9") == 0, "…leaving every other file, and the registry, alone")
+    os.remove(drafts)
+    check(run("drafts", "--list", *R).stdout.startswith("· no drafts"), "with no drafts file at all, --list says so")
+
+    print("append — one element onto a list that has no ids")
+    dump({"meta": {"name": "T"}, "content": {"strings": []}, "erd": {"populated": False},
+          "flow": {"stories": [{"id": "s1", "title": "S", "scenarios": []}]}})
+    r = run("append", "content", "strings", *R, stdin='{"key": "a.b", "text": "x"}')
+    check(r.returncode == 0 and json.load(open(reg))["content"]["strings"] == [{"key": "a.b", "text": "x"}], "append adds one element to a list")
+    r = run("append", "content", "strings", *R, stdin='{"key": "c.d", "text": "y"}')
+    check([s["key"] for s in json.load(open(reg))["content"]["strings"]] == ["a.b", "c.d"], "…and a second one after it")
+    r = run("append", "content", "strings", "--key", "key", *R, stdin='{"key": "a.b", "text": "x2"}')
+    got = json.load(open(reg))["content"]["strings"]
+    check(r.returncode == 0 and "merged" in r.stdout and got[0]["text"] == "x2" and len(got) == 2, "--key makes a repeat of the same line a merge, not a duplicate")
+    r = run("append", "erd", "table", *R, stdin='{"entity": "E", "field": "f", "type": "text"}')
+    check(r.returncode == 0 and json.load(open(reg))["erd"]["table"] == [{"entity": "E", "field": "f", "type": "text"}], "append creates a missing list (erd.table)")
+    r = run("append", "flow", "stories.s1.scenarios", *R, stdin='{"text": "does X"}')
+    check(r.returncode == 0 and json.load(open(reg))["flow"]["stories"][0]["scenarios"] == [{"text": "does X"}], "append reaches a story's scenarios through the story id")
+    r = run("append", "flow", "stories.nope.scenarios", *R, stdin='{"text": "x"}')
+    check(r.returncode != 0 and "no element 'nope'" in r.stderr, "…and an unknown story is an error")
+    r = run("append", "content", "strings", *R, stdin='["not", "an", "object"]')
+    check(r.returncode != 0 and "one JSON object" in r.stderr, "append takes one object, not a list")
+    r = run("append", "components", "x", *R, stdin="{}")
+    check(r.returncode != 0, "append does not take components or screens (argparse refuses the kind)")
+    snap = open(reg, encoding="utf-8").read()
+    r = run("append", "content", "strings", "--draft", *R, stdin='{"key": "z.z", "text": "draft wording"}')
+    check(r.returncode == 0 and open(reg, encoding="utf-8").read() == snap
+          and json.load(open(drafts))["content"]["strings"] == [{"key": "z.z", "text": "draft wording"}], "append --draft goes to the drafts, not the registry")
+    r = run("append", "flow", "stories.s1.scenarios", "--draft", *R, stdin='{"text": "x"}')
+    check(r.returncode != 0 and "draft the parent first" in r.stderr, "append --draft under a story the drafts do not hold says to draft the parent first")
+    if os.path.exists(drafts):
+        os.remove(drafts)
+
 print()
 if fails:
     print(f"FAIL — {len(fails)} regression(s)")

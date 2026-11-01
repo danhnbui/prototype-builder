@@ -20,6 +20,13 @@ Honor the Stack Lock + DS Lock in `memory/constitution.md`.
 Write the spec's **Objective** into `registry.json` → `meta.overview.objectives`. (Replaces the v0.4.0
 `after_specify` → `sync-tab2` hook.) **Do not render.**
 
+**Line by line.** Save it as it is written, not after the spec is done (`${CLAUDE_PLUGIN_ROOT}/docs/canon.md`
+§ *Line by line*): the Objective the moment it is settled — `slice.py set meta overview.objectives` — and each
+principle the spec states as its own call, `slice.py append meta overview.principles`. Run
+`serve.py registry.json --ensure` first if no preview is open, so there is a page to fill. An objective the
+user has not agreed yet is a draft: `slice.py set meta overview.objectives --draft`, written for real once agreed,
+then `slice.py drafts --clear`. About 2.5 s a line; never render.
+
 ## Result
 `memory/spec.md` written; Tab-2 Objective synced. Next: `/pb:clarify` or `/pb:plan`.
 
