@@ -1,0 +1,24 @@
+{
+  "verdicts": {
+    "h1": {"verdict": "supported", "why": "Both dispatchers re-open the photo before confirming, unprompted."},
+    "h2": {"verdict": "mixed", "why": "One dispatcher asked for a single-tap confirm; the other is content with one at a time."}
+  },
+  "findings": [
+    {"id": "f1", "text": "Both dispatchers re-open the handover photo before they confirm.",
+     "hypotheses": ["h1"], "targets": [{"kind": "job", "id": "confirm-handover"}],
+     "evidence": [
+       {"evidence": "e1", "quote": "I always open the handover photo again before I press confirm, because a couriers photo is sometimes blurred.", "participant": "P01"},
+       {"evidence": "e2", "quote": "Tôi luôn mở lại ảnh trước khi bấm xác nhận", "participant": "P02"}
+     ]},
+    {"id": "f2", "text": "Only one dispatcher asked for a bulk confirm.",
+     "hypotheses": ["h2"], "targets": [{"kind": "screen", "id": "handover"}],
+     "evidence": [
+       {"evidence": "e2", "quote": "I would love to confirm all of them with a single tap", "participant": "P02"},
+       {"evidence": "e1", "quote": "I confirm them one at a time. It is fine for four parcels.", "participant": "P01"}
+     ]}
+  ],
+  "refill": {
+    "researchSummary": "Both dispatchers check the handover photo again before they confirm a parcel; one of them also wants a single-tap confirm.",
+    "executiveSummary": "Keep the handover photo one tap away from the confirm button."
+  }
+}

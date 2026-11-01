@@ -526,6 +526,20 @@ def scan(reg, base_dir):
             done.add(file_path)
             _scan_file(add, file_path, os.path.relpath(file_path, base_dir).replace(os.sep, "/"))
 
+    # 4) research evidence: memory/research/<study>/evidence/… — what participants said, kept as
+    #    raw files outside the registry, is where a real name or phone number is likeliest to land.
+    research_root = os.path.join(base_dir, "memory", "research")
+    for dirpath, dirnames, filenames in os.walk(research_root):
+        dirnames.sort()
+        if os.path.basename(dirpath) != "evidence":
+            continue
+        for name in sorted(filenames):
+            file_path = os.path.normpath(os.path.join(dirpath, name))
+            if file_path in done or os.path.islink(file_path):
+                continue
+            done.add(file_path)
+            _scan_file(add, file_path, os.path.relpath(file_path, base_dir).replace(os.sep, "/"))
+
     return findings
 
 

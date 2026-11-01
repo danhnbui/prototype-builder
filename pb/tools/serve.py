@@ -33,6 +33,15 @@ POST /api/meta  the Project settings dialog's save (localhost + same-origin only
 under slice.py's registry lock and replace-atomically; every bad request is a 400 with a message, a
 busy registry a 503, a response may carry `warnings`.
 
+Live fill. A change to registry.json or to .preview/drafts.json (the unapproved lines `slice.py set --draft`
+keeps) is sent to the open pages as the SSE message `update`, not `reload`: GET /__pb_data returns the registry
+exactly as the render inlines it, the drafts folded in (each marked `_draft: true`; nothing is written), the
+derived logic graph over that, and the plugin hook's activity (.preview/activity.json — whether Claude is
+working). The prototype shell paints it in place (window.pbApplyData); a page without one — the design system, an
+explore option — reloads as before. A body, the shell, the runtime or a stylesheet is compiled into the page,
+so those stay `reload`; a reload keeps the reader's place (window.pbSavePlace). The hook's file alone sends
+`activity` and re-renders nothing.
+
 Who may ask. Every request, GET and POST, is checked first: its Host header must name this server — a
 loopback name, the concrete --host it is bound to, or a name given with --allow-host — or it is a 403
 that names the flag. That is what stops a page on another site (DNS rebinding: its name resolves to
@@ -98,6 +107,9 @@ HEALTH_TIMEOUT = 1.0       # seconds a peer's /__pb_health may take when the cap
 SSE_SLICE = 1.0           # an SSE stream looks for a vanished client this often; it pings every SSE_PING
 SSE_PING = 15.0
 STOP_WAIT = 5.0            # --stop waits this long for the server to go away
+DRAFTS_FILE = os.path.join(".preview", "drafts.json")    # unapproved lines, written by `slice.py set --draft`
+HOOK_FILE = os.path.join(".preview", "activity.json")    # whether Claude is working, written by pb/hooks/activity.py
+KIND_HISTORY = 256         # bumps remembered, so a stream that missed some can still say update or reload
 
 
 # The live-reload client. Injected before </body> in the served HTML only — never written
@@ -106,9 +118,28 @@ STOP_WAIT = 5.0            # --stop waits this long for the server to go away
 LIVE_RELOAD = """<script>
 /* pb-serve live-reload — injected by serve.py, not part of the render */
 (function () {
+  /* A real reload keeps the reader's place: the prototype shell (window.pbSavePlace) writes its tab, segment
+     and scroll to sessionStorage first, and reads them back on boot. Pages without one just reload. */
+  function reload() {
+    try { if (typeof window.pbSavePlace === 'function') window.pbSavePlace(); } catch (e) { /* keep going */ }
+    location.reload();
+  }
   function connect() {
     var es = new EventSource('/__pb_events');
-    es.onmessage = function (e) { if (e.data === 'reload') location.reload(); };
+    es.onmessage = function (e) {
+      if (e.data === 'reload') return reload();
+      /* `update`: only registry.json or the drafts changed. A page that can take the new data in place
+         (the prototype shell: window.pbApplyData) does; any other page — the design system, an explore
+         option — reloads, exactly as before. */
+      if (e.data === 'update') {
+        if (typeof window.pbApplyData !== 'function') return reload();
+        try { Promise.resolve(window.pbApplyData()).catch(reload); } catch (err) { reload(); }
+        return;
+      }
+      if (e.data === 'activity' && typeof window.pbApplyActivity === 'function') {
+        try { window.pbApplyActivity(); } catch (err) { /* the progress item is a convenience */ }
+      }
+    };
     es.onerror = function () { es.close(); setTimeout(connect, 1000); };
   }
   connect();
@@ -135,7 +166,7 @@ def inject_explore(html, payload):
 # What the page needs to know about the server it came from. Its presence is how the Project
 # settings dialog tells "served by /pb:preview, so Save can write" from a shared file (file://)
 # or a plain static server, where the same dialog is read-only. Served HTML only.
-PREVIEW_API = {"meta": "/api/meta"}
+PREVIEW_API = {"meta": "/api/meta", "data": "/__pb_data"}
 
 
 def inject_preview_api(html):
@@ -357,6 +388,13 @@ class State:
                  explore_shell_path=None, idle_exit_min=IDLE_EXIT_MIN, debounce_ms=DEBOUNCE_MS):
         self.reg_path = reg_path
         self.shell_path = shell_path
+        # — the live-fill files (v2.6): both live in .preview/, beside server.json, and are runtime state —
+        self.drafts_path = os.path.join(os.path.dirname(reg_path), DRAFTS_FILE)   # slice.py set --draft writes it
+        self.hook_path = os.path.join(os.path.dirname(reg_path), HOOK_FILE)       # the plugin hook writes it
+        self.kinds = []                       # [(version, "update" | "reload")], newest last: what each bump was
+        self.hook_version = 0                 # bumps when only the hook's file changed — nothing to re-render
+        self._cache_data_version = -1
+        self._cache_data = None
         self.explore_shell_path = explore_shell_path  # the /explore/<target> compare page template
         self._slot_cache = {}                          # (target, slot) -> (version, html, err)
         self.ds_shell_path = ds_shell_path      # the design-system.html template (2nd site)
@@ -438,14 +476,32 @@ class State:
     def watched(self):
         # body_files is recomputed each poll so newly added/removed .js files are noticed.
         extra = [p for p in (self.ds_shell_path, self.runtime_path) if p]
-        return ([self.reg_path, self.shell_path, self.render_path] + extra
+        return ([self.reg_path, self.shell_path, self.render_path, self.drafts_path, self.hook_path] + extra
                 + self.body_files + self.runtime_files)
 
-    def bump(self):
+    def bump(self, kind="reload"):
+        """A watched file changed. `kind` is what the browsers are told: "update" when only data the page can
+        take in place changed (registry.json, the drafts), "reload" for anything compiled into the page."""
         with self.cond:
             self.version += 1
+            self.kinds.append((self.version, kind))
+            del self.kinds[:-KIND_HISTORY]
             self.cond.notify_all()
         self.prune_slot_cache()
+
+    def bump_hook(self):
+        """The plugin hook wrote .preview/activity.json: tell the pages, render nothing."""
+        with self.cond:
+            self.hook_version += 1
+            self.cond.notify_all()
+
+    def message_since(self, last):
+        """What a stream that has seen version `last` must be told now: "update" when every bump since was a
+        data-only one, else "reload" — also when the history cannot vouch for a bump (it only keeps the latest)."""
+        newer = [k for v, k in self.kinds if v > last]
+        if len(newer) < self.version - last or "reload" in newer:
+            return "reload"
+        return "update"
 
     def prune_slot_cache(self):
         """Forget the rendered options of an exploration that is no longer open (promoted, rejected)."""
@@ -539,6 +595,61 @@ def render_ds_current(state):
         state._cache_ds_html = html
         state._cache_ds_err = err
     return html, err
+
+
+def read_hook(state):
+    """What the plugin hook last wrote to .preview/activity.json — {state: "working"|"idle", at: <epoch s>} —
+    or None when there is none, it is unreadable or it is not that shape. A bad file is no activity, never an error."""
+    try:
+        with open(state.hook_path, encoding="utf-8") as f:
+            d = json.load(f)
+    except (OSError, ValueError):
+        return None
+    if not isinstance(d, dict) or d.get("state") not in ("working", "idle"):
+        return None
+    at = d.get("at")
+    if isinstance(at, bool) or not isinstance(at, (int, float)):
+        return None
+    return {"state": d["state"], "at": at}
+
+
+def data_current(state):
+    """What a live page needs to repaint without a reload → (payload dict, error_str). The registry exactly as the
+    render inlines it (specs loaded, bodies and styles left out), with the drafts folded in — each draft element
+    marked `_draft: true`, nothing written anywhere — and the derived logic graph over that same merged registry.
+    Cached per version, like the page; the hook's activity is read fresh on every request (it is tiny and has no version)."""
+    with state._cache_lock:
+        if state._cache_data_version == state.version and state._cache_data is not None:
+            data, err = state._cache_data, None
+        else:
+            data, err = None, None
+    if data is None:
+        try:
+            with open(state.reg_path, encoding="utf-8") as f:
+                reg = json.load(f)
+            reg = render.load_specs(reg, state.base_dir)
+            drafts = pbslice.load_drafts(state.drafts_path)
+            merged = pbslice.overlay_drafts(reg, drafts)
+            logic = render.load_logic(state.base_dir, merged)   # fails open; the cached derived half is reused
+            data = {"registry": render._strip_render(merged),
+                    "logic": render._logic_for_shell(logic) if logic else None,
+                    "drafts": pbslice.draft_summary(drafts), "version": state.version}
+        except FileNotFoundError as e:
+            err = "File not found: %s" % e
+        except json.JSONDecodeError as e:
+            err = "%s is not valid JSON — line %d, column %d: %s" % (
+                os.path.basename(state.reg_path), e.lineno, e.colno, e.msg)
+        except render.RenderError as e:
+            err = "Render error: %s" % e
+        except Exception:
+            err = traceback.format_exc()
+        if data is not None:
+            with state._cache_lock:
+                state._cache_data_version = state.version
+                state._cache_data = data
+    if data is None:
+        return None, err
+    return dict(data, activity=read_hook(state), now=time.time()), None
 
 
 def render_slot(state, man, slot):
@@ -636,13 +747,22 @@ def refresh(state):
             return []
         for p in changed:
             state.seen[p] = now[p]
-        state.bump()
+        rest = [p for p in changed if p != state.hook_path]
+        if len(rest) < len(changed):      # the plugin hook wrote its file: the pages hear of it, nothing re-renders
+            state.bump_hook()
+        if not rest:
+            return changed
+        # Only registry.json and the drafts are data a page can take in place; a body, the shell, the
+        # runtime or a stylesheet is compiled into it, so those still reload.
+        soft = (state.reg_path, state.drafts_path)
+        kind = "update" if all(p in soft for p in rest) else "reload"
+        state.bump(kind)
         _html, err = render_current(state)
-        what = ", ".join(os.path.basename(p) for p in changed)
+        what = ", ".join(os.path.basename(p) for p in rest)
         if err:
             log("✗ %s changed — render error (preview shows it; auto-recovers on save)" % what)
         else:
-            log("✓ %s changed — re-rendered, reloading browsers" % what)
+            log("✓ %s changed — re-rendered, %s browsers" % (what, "updating" if kind == "update" else "reloading"))
         return changed
 
 
@@ -771,10 +891,12 @@ class Handler(BaseHTTPRequestHandler):
                                "pid": os.getpid(), "version": render.plugin_version(),
                                "clients": st.sse_clients, "idleSeconds": int(st.idle_seconds()),
                                "startedAt": st.started_at})
-        is_page = (path in ("/", "/index.html", "/design-system", "/design-system/", "/design-system.html")
+        is_page = (path in ("/", "/index.html", "/design-system", "/design-system/", "/design-system.html", "/__pb_data")
                    or path == "/explore" or path.startswith("/explore/"))
         if is_page:
             refresh(self.state)   # the watcher may be on its slow poll: look at the disk now, never render stale
+        if path == "/__pb_data":
+            return self.serve_data()
         if path in ("/", "/index.html"):
             return self.serve_preview()
         if path in ("/design-system", "/design-system/", "/design-system.html"):
@@ -793,6 +915,17 @@ class Handler(BaseHTTPRequestHandler):
         body = (error_page(err, self.state.reg_path) if err is not None
                 else inject_reload(html)).encode("utf-8")
         self._send(body)
+
+    def serve_data(self):
+        """GET /__pb_data — the registry (and logic graph, drafts folded in, activity) a page repaints from when
+        the SSE stream says `update`. Same door as the page it belongs to: the Host guard already ran, and the
+        answer carries nothing the page does not already hold inlined. A registry that will not parse is a 500
+        with the sentence — the client then reloads, and the reload shows the error page, as it always did."""
+        data, err = data_current(self.state)
+        if data is None:
+            return self._json({"ok": False, "error": err or "no data"}, status=500)
+        body = json.dumps(data, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+        self._send(body, ctype="application/json; charset=utf-8")
 
     # ── /pb:explore — one compare page per exploration, on this server (never another port) ──
     def serve_explore(self, parts):
@@ -988,7 +1121,8 @@ class Handler(BaseHTTPRequestHandler):
             return True
 
     def serve_events(self):
-        """One long-lived SSE stream per browser tab; emits `reload` when the version bumps. Counted in
+        """One long-lived SSE stream per browser tab; emits `update` (registry/drafts only) or `reload` when the
+        version bumps, and `activity` when only the hook's file changed. Counted in
         state.sse_clients for exactly as long as it is open — the decrement is in a `finally`, so a
         client that vanishes mid-write cannot leave the count (and with it the server) stuck."""
         st = self.state
@@ -1004,15 +1138,22 @@ class Handler(BaseHTTPRequestHandler):
             if not self._write(b": connected\n\n"):
                 return
             last = st.version
+            last_hook = st.hook_version
             pinged = time.monotonic()
             while not st.stop.is_set():
                 with st.cond:
-                    st.cond.wait_for(lambda: st.version != last or st.stop.is_set(), timeout=SSE_SLICE)
+                    st.cond.wait_for(lambda: st.version != last or st.hook_version != last_hook or st.stop.is_set(),
+                                     timeout=SSE_SLICE)
                 if st.stop.is_set():
                     break
                 if st.version != last:
+                    msg = st.message_since(last)
                     last = st.version
-                    ok = self._write(b"data: reload\n\n")
+                    last_hook = st.hook_version
+                    ok = self._write(("data: %s\n\n" % msg).encode("ascii"))
+                elif st.hook_version != last_hook:
+                    last_hook = st.hook_version
+                    ok = self._write(b"data: activity\n\n")
                 elif self._client_gone():
                     break
                 elif time.monotonic() - pinged >= SSE_PING:

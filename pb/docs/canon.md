@@ -261,7 +261,64 @@ The rules agents follow:
 in any pb project (a folder with `registry.json` and a `render/` folder or `memory/constitution.md`, in the
 working directory or under `.prototype/`): `session_rules.py` prints a short digest of these rules at session
 start, and `bash_advice.py` adds one line of advice before a shell command that matches a rule above. They
-only advise — never block, never decide a permission — and print nothing outside a pb project.
+only advise — never block, never decide a permission — and print nothing outside a pb project. A fourth,
+`activity.py`, runs on `UserPromptSubmit`, `PostToolUse` (so a long turn stays Working) and `Stop`: it prints nothing and writes `.preview/activity.json`
+(only where a preview has already made `.preview/`), which is how the open preview knows whether Claude is
+working (*Line by line*, below).
+
+## Line by line (v2.6)
+
+A command that authors a project used to write its slice in one go at the end, so the open preview sat
+empty for minutes and then reloaded. While a command is **authoring**, it now saves **each job, term,
+sitemap node, rule, story, scenario, wording and ERD row by its own `slice.py` call, as soon as that line
+is written**, and the preview fills in place as the lines land. Nothing here changes what the registry is
+or when anything is rendered: rule 2 is untouched, because the preview renders **in memory** (the same
+generator, ~0 model tokens), never to disk, and a save is a registry write like any other.
+
+**The cost, stated.** A line per tool call is about **2.5 s a line** (measured: median 2.5 s per call). A
+list of 12 rows is half a minute of wall clock where one write took a few seconds. That is the price of a
+page that fills while the work happens; a command that has nothing to show (a point fix to `/pb:build`) does
+not pay it, and **a write of several lines in one call is still correct** — it just does not stream. Do not
+split a list into lines to be tidy; split it because someone is watching the preview.
+
+**The rule.**
+1. **Start the preview before the first line.** `/pb:init` runs `serve.py registry.json --ensure` right
+   after the first answer and seeds the registry at that point, so the first line already has somewhere to land.
+2. **One line, one call.** `slice.py set <kind> <list>.<id> <patch>` for a line with an id (a job, a term, a
+   sitemap node, a rule, a story); `slice.py append <kind> <list> <patch>` for a line without one (a wording
+   with a `key`, an `erd.table` row, a story's `scenarios`). `append --key <field>` makes saving the same line
+   twice a merge. A missing list is created (`--create-list` on `set`, automatic on `append`).
+3. **Unapproved work is a draft.** Whatever waits behind a gate (**G-JTBD**, **G-IA**, **G-DIRECTION**, the
+   *propose, human approves* gate of a vault) is saved with `--draft`: it goes to `.preview/drafts.json`
+   under the registry's lock, **never to `registry.json`**, and the preview shows it with a Draft chip.
+   When the gate is answered, write the approved lines **for real** (one call each) and run
+   `slice.py drafts --clear`. A rejected draft is cleared the same way; nothing was ever in the registry.
+   The `/pb:clarify` rule stands: jobs enter `ia.jobs[]` only after G-JTBD.
+4. **The first call of a list says it is populated.** A tab with a populated flag (`flow`, `erd`) shows its
+   rows from the first one, but set the flag with the first row anyway (`slice.py set erd populated` with `true`).
+5. **Do not render, do not reload, do not poll.** The page takes `registry.json` and the drafts in place
+   (`GET /__pb_data`); a body, the shell, the runtime or a stylesheet still reloads it, keeping the reader's
+   tab, segment and scroll. Nothing a command does needs to ask the page to refresh.
+
+**What the page does with it** (`serve.py`, `prototype.html`; `pb/commands/preview.md`).
+- A change to `registry.json` or `.preview/drafts.json` is the SSE message `update`; anything compiled into
+  the page is `reload`. The prototype shell paints `update` in place — the open tab, its scroll, its open
+  rows and filters — and gives a newly arrived row a short arrival animation (none under
+  `prefers-reduced-motion`). **A running Prototype session is never reset by it**: a change to `screens`,
+  `components` or `tokens` while screens are running is a real reload, as before, and only that.
+- A tab other than the one you are on that gets new content carries a **blue dot** until you open it. The
+  page never changes tab by itself.
+- **Before any screen**, the Prototype tab is an undesigned outline in the device frame, built by code from
+  the registry and the drafts (name, objective, planned screens, their jobs, then paths and sample rows),
+  and the bar carries a **progress item** before Search: the step being worked on, how many lines it holds, and
+  *Working* / *Your turn* / *Done* from the hook. Stop does not fire on Esc, so *Working* is believed for 90 s
+  after the hook last wrote, then reads *Waiting*. The item is gone once `screens` is non-empty and never
+  appears on a view-only page: **a project with screens sees no change.** The eight steps are Brief · Design
+  system · Jobs and glossary · Structure · Flows and test cases · Wording · Data · First screen; their counts
+  come from the registry and the drafts only.
+- The site map of the Information Architecture tab draws `ia.sitemap[]` (`{ id, name, depth, parent }`) one
+  node at a time, with a loading node shaped like the next one while the step is working, until the hub has a
+  render body and `promote` has run: then the derived map takes over, as it always did.
 
 ## Schema compatibility
 
@@ -412,3 +469,48 @@ Real project modules call these, so they keep their names and meaning: `renderPr
 
 Data scope rules and approval routing stay project logic; personas carry `scope` so those rules have what
 they need.
+
+## Research evidence
+
+`/pb:research` validates what a project is unsure about with real people and keeps what comes back as
+evidence a later reader can check. The registry's optional `research` slice holds the studies (hypotheses,
+the instrument, the evidence index, the tally, the findings); the raw files live on disk. Absent means an
+empty state, not a schema bump. The method is in the `ref-research` skill; these are the rules that do not move.
+
+- **Evidence is immutable.** A raw file is copied to `memory/research/<id>/evidence/`, hashed (sha256) and
+  made read-only. Nothing edits it. A mistake is fixed by dropping the evidence and importing a corrected
+  one; a drop deletes the file and keeps its row, struck out, with the hash and the reason.
+- **Numbers by the tool, quotes verified verbatim.** Every count, mean and percentage comes from
+  `research.py tally`; the model computes none. Every quote must appear verbatim in the cited evidence file,
+  and `verify` fails a finding whose quote or number does not match. A failing `verify` is fixed, never
+  presented around.
+- **Two gates, both blocking.** **▛ G-STUDY ▟** approves the instrument and the hypotheses with their
+  thresholds before anyone is asked; **▛ G-INSIGHT ▟** approves the verdicts and the exact refill text
+  before `meta.userInsights` changes. Each presents the artifact, not a summary; silence is not approval.
+  Editing an approved instrument withdraws the first; and a change after the second re-opens it.
+- **Every run starts by asking what it is for.** `/pb:research` asks, at every run and before anything
+  else, whether the user wants just the questions and the setup (scope `instrument`, which ends after
+  G-STUDY and refuses `import`) or questions plus results (scope `collect`), and what survey tool, panel or
+  participant list they have. The model never picks the scope for them.
+- **The instrument is reviewed by an agent that has not seen the study.** Before G-STUDY a fresh `pb-tester`
+  gets only `bias-review.md` (the questions, as yes/no items), never the hypotheses; its rows are stored by
+  `research.py review`. The authoring context cannot overturn a `no`; `approve` refuses with no current
+  review unless the user gives `--skip-review "<reason>"`, and a `no` or `blocked` row stands only on the
+  user's `--accept-review "<why>"`. The G-STUDY gate shows every such row.
+- **Thresholds are fixed before data.** `supportedIf` and `refutedIf` are written at G-STUDY and never
+  moved after seeing results. Inconclusive is an honest verdict.
+- **The model never simulates respondents.** No synthetic users, no invented answers, no placeholder
+  evidence, labelled or not. An instrument is fielded with real people, or the study is not run.
+- **Consent and pseudonyms.** A file is imported only with consent recorded as `yes` or `unknown`
+  (`no` is refused, and `unknown` is carried as a warning to G-INSIGHT). Participants are `P01`, `P02`;
+  no real names are asked for or stored, and PII columns are dropped on import. A participant who
+  withdraws is dropped, and no finding may rest on them.
+- **A verdict is a proposal.** A finding that changes a job, a rule or the structure is routed
+  (`/pb:clarify`, `/pb:clarify` § 2, `/pb:explore`), never applied by `/pb:research`. The only automatic
+  write to the project's prose is the approved `refill` into `meta.userInsights`, with a citation and a
+  backup.
+- **Hand-off.** Mode 1 (everything) carries `memory/research/` in the bundle, since the recipient keeps
+  building. Mode 2 (engineering) carries only the findings and verdicts in the registry, **never raw
+  evidence**: participants' words do not leave the team that has their consent. Mode 3 (Figma) carries none.
+- **`/pb:clean` never prunes it.** Evidence is the one thing in `memory/` that exists to outlive the
+  tool's housekeeping; removing it is a human act, on a named study.

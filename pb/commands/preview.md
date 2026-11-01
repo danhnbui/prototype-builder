@@ -83,6 +83,12 @@ arrived in the last minute and every 2 s otherwise — and a page request (`/`, 
 A registry that won't render (invalid JSON mid-edit, a missing shell anchor) shows a recoverable
 error page with the cause — fix and save, and it reloads clean.
 
+**A save fills the page in place; it reloads it only when it must** (§2e). A change to `registry.json` or to
+the drafts is an `update` the prototype shell paints without a reload — the tab, the segment, the scroll, the
+open rows and filters stay; a body file, the shell, the runtime or a stylesheet is compiled into the page and
+still reloads it, and the reload comes back on the same tab, segment and scroll. The design-system and
+explore pages have no in-place path and reload on both, as they always did.
+
 ## 2b · The `/design-system` route — the component workbench
 
 The second route is the design-system site, and it is the same server: no second command, no second
@@ -175,6 +181,44 @@ server, **Save** posts `{ name, designSystem: { name, designLink } }` to `POST /
   `lastResult` save and `/pb:explore`'s IA promote — so two of them never lose each other's edit. The
   kernel drops it when its process exits, so a crashed writer never leaves a stale lock. It is a local
   file: it is git-ignored.
+
+## 2e · Live fill — `update`, `/__pb_data`, drafts and the progress item
+
+A command that authors a project saves one line per `slice.py` call (`canon.md` § *Line by line*); the preview
+shows each line as it lands.
+
+- **The stream says what kind of change it was** (`/__pb_events`): `update` when only `registry.json` or
+  `.preview/drafts.json` changed, `reload` when anything compiled into the page did (a render body, the shell,
+  the runtime, a stylesheet), `activity` when only the hook's `.preview/activity.json` did (nothing is
+  re-rendered for it). A burst that includes a `reload` is a `reload`. The debounce, the idle exit and the client
+  count are unchanged.
+- **`GET /__pb_data`** is what an `update` makes the page fetch: the registry exactly as the render inlines it
+  (specs loaded, no render bodies), the **drafts folded in** (each draft list element marked `_draft: true`;
+  nothing is written anywhere), the derived logic graph over that merged registry, `drafts.count`, and the hook's
+  `activity` with the server's clock. Same door as the page: the `Host` guard applies, it carries nothing the page
+  does not already hold inlined, and a registry that will not parse is a 500 that makes the page reload into the
+  error page.
+- **The page** (`window.pbApplyData`) updates `PB_REGISTRY` / `PB_DATA` in place, re-applies tokens when they
+  changed and repaints the open tab. On the **Prototype tab with built screens** nothing is repainted: a running
+  session is never reset by a `content`, `ia`, `flow` or `erd` write, and a change to `screens`, `components` or
+  `tokens` (or to `runtime` / `config`) is a real reload, with the place kept. A tab other than the open one gets
+  a blue dot until it is opened; the page never switches tab itself. Pages that define no `pbApplyData` reload.
+- **Keeping a place.** Before any reload the shell writes its tab, UX segment, summary sub-tab, data view, scroll
+  and open rows to `sessionStorage` (`pb:place`, this tab only, guarded), and reads them back once on boot if
+  they are under 20 seconds old. Only over `http(s)`, never on a view-only page, never in an explore frame.
+- **Drafts** are `.preview/drafts.json`, written by `slice.py set … --draft` / `append … --draft` under the
+  registry lock and emptied by `slice.py drafts --clear`. `render.py` and every file on disk never read them, so
+  the render stays deterministic. The Information Architecture job list, the sitemap and the Content glossary
+  show a Draft chip on them.
+- **The progress item** (before Search) names the step being worked on, how many lines it holds and whose turn it
+  is; its menu lists the eight steps and each entry jumps to where its content lands. It needs the plugin hook
+  (`hooks/activity.py`, on `UserPromptSubmit`, `PostToolUse` and `Stop`, which writes `.preview/activity.json` when that folder
+  exists): *Working* for 90 s after the last write, then *Waiting* (Stop does not fire on Esc), *Your turn* after
+  Stop, *Done* when every step before the first screen holds something. Without the hook there is no status, only
+  the step and its count. It is hidden once `screens` is non-empty, on view-only pages and off the preview server.
+- **Before any screen** the Prototype tab is an undesigned outline in the device frame, built from the registry
+  and the drafts by code: the name, the objective, the planned screens (`ia.sitemap`, else the screens the jobs
+  name) as a sidebar you can click, each screen's jobs, then the paths and sample rows once `flow` and `erd` exist.
 
 ## 3 · One canonical launcher entry (only if you use an in-app preview pane)
 Viewing in a browser needs no `launch.json`. If you use an in-app **preview pane** (which reads

@@ -1,0 +1,15 @@
+﻿Timestamp,Email Address,Do you currently deliver parcels as a courier?,How long have you been a courier?,Do you need the cash amount shown before you reach the customer's door?,How much effort does counting cash at the door take?,Which ways do customers pay you?,What is the hardest part of taking payment at the door?,How many cash parcels do you deliver on a normal day?
+2026/11/02 9:15:03 AM GMT+7,r01@example.com,Yes,Under 1 year,Yes,5,Cash,Customers hand over big notes and I have no change,20
+2026/11/02 9:20:41 AM GMT+7,r02@example.com,Yes,1 to 3 years,Yes,4,"Cash, E-wallet",Counting small bills while it rains,35
+2026/11/02 9:31:12 AM GMT+7,r03@example.com,Yes,Under 1 year,No,4,"Cash, counted at the door",The amount is not on the first screen,18
+2026/11/02 9:44:50 AM GMT+7,r04@example.com,Yes,1 to 3 years,Yes,3,"Bank transfer, Cash",Waiting for the customer to find their wallet,40
+2026/11/02 9:52:09 AM GMT+7,x01@example.com,No,Under 1 year,Yes,4,Cash,Not a courier,10
+2026/11/02 10:03:27 AM GMT+7,r05@example.com,Yes,Under 1 year,Yes,5,Cash,,25
+2026/11/02 10:12:55 AM GMT+7,r06@example.com,Yes,Under 1 year,No,4,E-wallet,Customers who say the app showed a different amount,30
+2026/11/02 10:25:36 AM GMT+7,r07@example.com,Yes,1 to 3 years,Yes,2,"Cash, Bank transfer, E-wallet",Nothing much,22
+2026/11/02 10:40:18 AM GMT+7,r08@example.com,Yes,Under 1 year,Yes,4,Cash,Giving the right change,45
+2026/11/02 10:51:02 AM GMT+7,r09@example.com,Yes,1 to 3 years,No,4,"Cash, counted at the door, E-wallet",Counting twice to be sure,28
+2026/11/02 11:02:44 AM GMT+7,x02@example.com,Yes,Over 3 years,Yes,3,Cash,I know it by heart,32
+2026/11/02 11:15:30 AM GMT+7,r10@example.com,Yes,Under 1 year,Yes,3,Cash,Not knowing the amount until I arrive,26
+2026/11/02 11:28:09 AM GMT+7,r11@example.com,Yes,1 to 3 years,Yes,4,Bank transfer,Customers who want to pay later,38
+2026/11/02 11:40:57 AM GMT+7,r12@example.com,Yes,Under 1 year,No,5,"Cash, E-wallet",Safe places to count the money,24

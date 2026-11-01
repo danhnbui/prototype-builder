@@ -106,6 +106,13 @@ def main():
     out = p.stdout + p.stderr
     check(p.returncode == 0 and "O-SLICE" not in out, f"slice: ia is accepted (got {p.returncode}; {out.strip()[:120]})")
 
+    # 6. the `content` slice (glossary + wording deck) is a real slice
+    p = run("## T1 word the flow\n- agent: pb-flow\n- deps: none\n- slice: content\n- acceptance: every action has a string\n")
+    out = p.stdout + p.stderr
+    check(p.returncode == 0 and "O-SLICE" not in out, f"slice: content is accepted (got {p.returncode}; {out.strip()[:120]})")
+    p = run("## T1 x\n- agent: pb-flow\n- deps: none\n- slice: wording\n- acceptance: y\n")
+    check("O-SLICE" in (p.stdout + p.stderr), "an unknown slice is still flagged O-SLICE")
+
     print()
     if _failures:
         print(f"✗ {len(_failures)} orchestrate assertion(s) failed.")

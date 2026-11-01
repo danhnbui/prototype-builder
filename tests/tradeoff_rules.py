@@ -200,8 +200,9 @@ def test_shell():
                 page.evaluate("setMetaView('summary')")
                 page.wait_for_timeout(350)
                 subs = page.eval_on_selector_all(".meta-subtab", "e => e.map(x => x.innerText.trim())")
-                check(subs == ["Overview", "User Insights"],
-                      f"Project Summary is Overview + User Insights, and nothing else ({subs})")
+                # D-33 retired Trade-offs and Others. Research (v2.6) is a record of its own, not a trade-off.
+                check(subs == ["Overview", "User Insights", "Research"],
+                      f"Project Summary is Overview + User Insights + Research, and nothing else ({subs})")
                 check(not errs, f"zero console errors ({errs})")
                 page.close()
 

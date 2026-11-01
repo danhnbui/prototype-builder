@@ -1,0 +1,10 @@
+Interview P01 - dispatcher - notes taken with consent
+Interviewer: Tell me about the last time you handled returned parcels.
+P01: It was Tuesday. Four parcels came back before noon.
+Interviewer: What are you looking at right now?
+P01: I always open the handover photo again before I press confirm,
+because a couriers photo is sometimes blurred.
+Interviewer: What would you do next?
+P01: I confirm them one at a time. It is fine for four parcels.
+Interviewer: When did a confirmation last go wrong for you?
+P01: Once I confirmed the wrong parcel and had to ask the hub to undo it.

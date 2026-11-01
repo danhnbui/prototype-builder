@@ -45,7 +45,20 @@ Rules (severity · default → under --strict):
                                      naming an undeclared role or level, a bad persona; with
                                      permissions, a literal data-can / pbCan() capability or level
                                      the matrix does not declare                      WARN → ERROR
-  R-EXEC (--exec only)               a body throws, returns a non-string or '' when run
+  R-RESEARCH                         research only: a study with a bad id or status, a target
+                                     the registry no longer holds, or an evidence file that is
+                                     gone. ADVISORY: research.py verify is the gate    WARN · always
+  R-COVERAGE                         a populated flow where an ia.jobs[] job has no story linking it
+                                     through jobs[], or a story has no scenarios[]. ADVISORY:
+                                     a WARN in every mode, never promoted by --strict, never
+                                     raises the exit code; /pb:plan fills the gap
+  R-CONTENT                          ia.jobs[] holds jobs but content.terms[] is empty, or a
+                                     populated flow has no content.strings[]. ADVISORY (as above);
+                                     /pb:clarify drafts the terms, /pb:plan the strings
+  R-IA-NEST                          a key ia.ia / flow.flow / content.content …: the slice's own
+                                     name nested inside it (a `slice.py set ia ia.jobs` slip).
+                                     ADVISORY (as above)
+  R-EXEC (--exec only)              a body throws, returns a non-string or '' when run
                                      with {} and once per `state` option   ERROR · always
   R-NEST-FIGMA (--figma only)        a declared nested global has no Figma instance  ERROR
 
@@ -458,6 +471,79 @@ def _check_demo_model(add, reg, meta, components, screens, base_dir, strict):
     if len(defaults) > 1:
         add(sev, "R-ENTRY", "meta.demo.entries",
             f"{len(defaults)} entries have default: true ({', '.join(repr(d) for d in defaults)}) — at most one may")
+
+
+def _check_research(add, reg, components, screens, base_dir):
+    """R-RESEARCH: the study records still point at something. A screen removed after a study closed
+    leaves a dangling target that is worth seeing and not worth failing a build over, so WARN always."""
+    research = reg.get("research")
+    if research is None:
+        return
+    if not isinstance(research, dict) or not isinstance(research.get("studies", []), list):
+        add(WARN, "R-RESEARCH", "research", "research must be an object {populated, studies[]}")
+        return
+    ia = reg.get("ia") if isinstance(reg.get("ia"), dict) else {}
+    flow = reg.get("flow") if isinstance(reg.get("flow"), dict) else {}
+    stories = [s for s in flow.get("stories") or [] if isinstance(s, dict)]
+    known = {"job": set(_ids_of(ia.get("jobs") or [])), "rule": set(_ids_of(ia.get("rules") or [])),
+             "screen": set(_ids_of(screens)), "component": set(_ids_of(components)),
+             "story": {s.get("id") for s in stories} | {s.get("title") for s in stories}}
+    for i, study in enumerate(research.get("studies") or []):
+        if not isinstance(study, dict):
+            add(WARN, "R-RESEARCH", f"research.studies[{i}]", "a study must be an object — research.py writes them")
+            continue
+        sid = study.get("id")
+        where = f"research.studies[{i}] id={sid!r}"
+        if not (isinstance(sid, str) and re.match(r"^rs-[a-z0-9-]+$", sid)):
+            add(WARN, "R-RESEARCH", where, "a study id looks like rs-<kebab>")
+        if study.get("status") not in ("draft", "approved", "fielding", "analysed", "applied"):
+            add(WARN, "R-RESEARCH", where, f"unknown status {study.get('status')!r}")
+        for t in study.get("targets") or []:
+            if isinstance(t, dict) and t.get("kind") in known and t.get("id") not in known[t.get("kind")]:
+                add(WARN, "R-RESEARCH", where, f"target {t.get('kind')}:{t.get('id')} is no longer in this registry")
+        for ev in study.get("evidence") or []:
+            if not isinstance(ev, dict) or ev.get("dropped"):
+                continue
+            src = ev.get("file")
+            if not (isinstance(src, str) and base_dir and os.path.isfile(os.path.join(base_dir, src))):
+                add(WARN, "R-RESEARCH", where, f"evidence {ev.get('id')!r} is missing on disk: {src!r}")
+
+
+def _check_coverage(add, reg):
+    """R-COVERAGE / R-CONTENT / R-IA-NEST — all advisory (ADVISORY_CODES). Every check starts from
+    "is the slice there", so a project with no `ia`, no `content` or no `flow` gets nothing."""
+    for kind in ("ia", "flow", "content", "erd"):
+        node = reg.get(kind)
+        if isinstance(node, dict) and kind in node:
+            add(WARN, "R-IA-NEST", kind,
+                f"{kind}.{kind} is a nested copy of the slice's own name — `slice.py set {kind} {kind}.x` "
+                f"writes {kind}.x, not {kind}.{kind}.x. Move its contents up and delete the key")
+    ia = reg.get("ia") if isinstance(reg.get("ia"), dict) else {}
+    flow = reg.get("flow") if isinstance(reg.get("flow"), dict) else {}
+    content = reg.get("content") if isinstance(reg.get("content"), dict) else {}
+    jobs = ia.get("jobs") if isinstance(ia.get("jobs"), list) else []
+    stories = [s for s in (flow.get("stories") if isinstance(flow.get("stories"), list) else [])
+               if isinstance(s, dict)]
+    if flow.get("populated"):
+        linked = set()
+        for s in stories:
+            js = s.get("jobs")
+            linked.update(j for j in (js if isinstance(js, list) else []) if isinstance(j, str))
+        for jid in _ids_of(jobs):
+            if jid not in linked:
+                add(WARN, "R-COVERAGE", f"ia.jobs id={jid!r}",
+                    "no story lists this job in jobs[] — run /pb:plan --flow (a gap-fill pass appends one)")
+        for i, s in enumerate(stories):
+            sc = s.get("scenarios")
+            if not (isinstance(sc, list) and sc):
+                add(WARN, "R-COVERAGE", f"flow.stories[{i}] {s.get('title') or s.get('id') or ''}".rstrip(),
+                    "story has no scenarios[] — a story with nothing to run covers nothing")
+    if jobs and not (isinstance(content.get("terms"), list) and content.get("terms")):
+        add(WARN, "R-CONTENT", "content.terms",
+            "ia.jobs[] holds jobs but the glossary is empty — /pb:clarify drafts content.terms[] from them")
+    if flow.get("populated") and not (isinstance(content.get("strings"), list) and content.get("strings")):
+        add(WARN, "R-CONTENT", "content.strings",
+            "the flow is populated but content.strings[] is empty — /pb:plan --content authors the wording deck")
 
 
 def _size_classes(meta):
@@ -1107,6 +1193,8 @@ def check(reg, strict=False, base_dir=None):
     _check_retired(add, reg.get("meta") if isinstance(reg.get("meta"), dict) else {})
     _check_demo_model(add, reg, reg.get("meta") if isinstance(reg.get("meta"), dict) else {},
                       components, screens, base_dir, strict)
+    _check_research(add, reg, components, screens, base_dir)
+    _check_coverage(add, reg)
 
     # ── tokens: W3C DTCG $type validity + legacy-shape + runtime-required presence ──
     # tokens is a DTCG document (flat or nested-with-aliases). Validate each token's $type
@@ -1511,7 +1599,7 @@ def _load_json(path):
 
 # Advisory codes are printed like any other finding but never move the exit code (and --strict does
 # not promote them): a project that keeps live data in a retired field must stay green in CI.
-ADVISORY_CODES = frozenset({"R-RETIRED"})
+ADVISORY_CODES = frozenset({"R-RETIRED", "R-COVERAGE", "R-CONTENT", "R-IA-NEST"})
 
 
 def _report(findings, label, ok_msg):

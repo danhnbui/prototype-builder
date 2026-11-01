@@ -54,6 +54,14 @@ keys + variables + variant/property metadata) — `design-system/<name>/ds-catal
 source `registry_to_figma.py` reads for the code→Figma bridge. Delete the temp export after; report
 the tool's summary.
 
+**Line by line** (`${CLAUDE_PLUGIN_ROOT}/docs/canon.md` § *Line by line*). The clone is the one place a command
+writes many lines in a single call on purpose: `clone_ds.py` is a deterministic tool, not authoring, and takes the
+registry's lock once. If the project has a preview open (`serve.py registry.json --ensure` prints its URL), the
+write reaches the page as one in-place update — the progress item's *Design system* step switches on and the
+tokens appear — and a DS that arrives as a hand-made export is not split into lines to be tidy. What the model
+does author around it, in the conversation (the platform, the source it chose), is `slice.py set meta …` one
+value at a time.
+
 ## Result
 A cloned DS: registry tokens seeded, a scannable `design-system/<name>/<name>.md`, provenance in
 `meta.dsSource`, and a `.source.json` snapshot that `/pb:test --drift` audits against the live source.

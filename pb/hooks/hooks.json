@@ -1,5 +1,5 @@
 {
-  "description": "Product Builder: put the operating rules in front of the model in any pb project (advice only; never blocks, never decides a permission)",
+  "description": "Product Builder: put the operating rules in front of the model in any pb project (advice only; never blocks, never decides a permission), and tell an open preview whether Claude is working (activity.py writes .preview/activity.json; it prints nothing)",
   "hooks": {
     "SessionStart": [
       {
@@ -20,6 +20,27 @@
         "matcher": "mcp__.*(chrome-devtools|claude-in-chrome).*",
         "hooks": [
           { "type": "command", "command": "python3", "args": ["-S", "-B", "${CLAUDE_PLUGIN_ROOT}/hooks/browser_advice.py"], "timeout": 3 }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          { "type": "command", "command": "python3", "args": ["-S", "-B", "${CLAUDE_PLUGIN_ROOT}/hooks/activity.py"], "timeout": 3 }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "hooks": [
+          { "type": "command", "command": "python3", "args": ["-S", "-B", "${CLAUDE_PLUGIN_ROOT}/hooks/activity.py"], "timeout": 3 }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          { "type": "command", "command": "python3", "args": ["-S", "-B", "${CLAUDE_PLUGIN_ROOT}/hooks/activity.py"], "timeout": 3 }
         ]
       }
     ]

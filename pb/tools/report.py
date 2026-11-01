@@ -117,13 +117,15 @@ OWNED_MEMORY = {
     "explore/": "/pb:explore",
     "backups/": "/pb:explore promote · risky writes",
     "reports/": "/pb:report",
+    "research/": "/pb:research",
     "test-plans/": "/pb:test",
     "drift-reports/": "/pb:test --save",
     "figma-pushes/": "/pb:handoff (Figma)",
     ".pb-backups/": "decisions_rotate.py",
 }
 _DECISIONS_FILE = re.compile(r"^decisions.*\.md$")
-SKIP_SCAN = {"backups", ".pb-backups", "reports"}      # copies, or this tool's own output
+# copies, this tool's own output, or what participants said: a retrospective never reads raw research
+SKIP_SCAN = {"backups", ".pb-backups", "reports", "research"}
 
 # Root entries the pb layout accounts for; everything else is listed as "outside the layout".
 ROOT_LAYOUT = {

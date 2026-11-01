@@ -27,12 +27,14 @@ Emit **every** field below on each task (all are consumed downstream — `deps:`
 - **agent** — which of the 8 `pb-*` agents runs it: `pb-clarifier` · `pb-planner` · `pb-builder` ·
   `pb-design-system` · `pb-flow` · `pb-data` · `pb-tester` · `pb-reviewer`. Route by `slice` (below):
   screen / logic → `pb-builder`; component / tokens → `pb-design-system` (or `pb-builder` for a plain build);
-  flow → `pb-flow`; erd → `pb-data`; ia → `pb-clarifier`; meta → `pb-clarifier`.
+  flow → `pb-flow`; erd → `pb-data`; ia → `pb-clarifier`; content → `pb-flow` (after the flow task it
+  words); meta → `pb-clarifier`.
 - **deps** — comma-separated task ids that must finish first, or `none` (atoms before the molecules that
   compose them, screens before flows). This is what `/pb:orchestrate` topologically sorts into waves.
 - **slice** — the one registry slice this task touches: `screen` · `component` · `logic` · `tokens` ·
-  `flow` · `erd` · `ia` · `meta`. One coherent slice per task. `ia` is the Information Architecture
-  slice — `ia.jobs[]`, their `screens[]`, `ia.layers[]` purposes and `meta.navHub`.
+  `flow` · `erd` · `ia` · `content` · `meta`. One coherent slice per task. `ia` is the Information Architecture
+  slice — `ia.jobs[]`, their `screens[]`, `ia.layers[]` purposes and `meta.navHub`. `content` is the
+  glossary + wording deck — `content.terms[]`, `content.strings[]`.
 
 ## 4 · Sequence
 Order tasks so dependencies come first and the prototype is runnable at each checkpoint. Prefer a thin

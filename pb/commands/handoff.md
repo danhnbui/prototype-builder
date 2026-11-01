@@ -90,6 +90,7 @@ handoff/
     design-system/
     memory/constitution.md
     memory/decisions*.md    #   the log AND its rotated siblings
+    memory/research/        #   when it exists: instruments and raw evidence, the proof behind the insights
   pb/                       # a copy of ${CLAUDE_PLUGIN_ROOT}
   .claude-plugin/
     marketplace.json        #   rewritten to point at ./pb
@@ -108,7 +109,9 @@ handoff/
 ### 1.2 · The portable bundle
 Copy the tree above, preserving the shape `/pb:init --import` expects. **The `decisions*.md` glob is
 load-bearing** — rotation moves older entries to dated siblings, so a bare `decisions.md` ships a
-hand-off whose history stops at the last rotation, silently.
+hand-off whose history stops at the last rotation, silently. **`memory/research/` holds what participants
+said.** Copy it for mode 1, and tell the user it is in the folder before it goes anywhere (`--people`
+leaves it behind with the rest of the bundle). Mode 2 never carries it: `rules.md` cites findings only.
 
 ### 1.3 · Vendor the plugin
 Copy `${CLAUDE_PLUGIN_ROOT}` to `handoff/pb/`, **excluding** `.venv/`, `__pycache__/`, `node_modules/`,

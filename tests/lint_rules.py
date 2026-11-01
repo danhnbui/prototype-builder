@@ -685,6 +685,56 @@ else:
         check(r.returncode == 2 and "[R-EXEC]" in r.stdout and "Code generation" in r.stdout and "Traceback" not in r.stderr,
               "CLI: an escape attempt is an R-EXEC finding (exit 2), not a crash")
 
+print("R-COVERAGE · R-CONTENT · R-IA-NEST — advisory, never an error, silent on an older project")
+
+
+def _cov(reg, strict=False):
+    return [f for f in L.check(reg, strict=strict) if f.code in ("R-COVERAGE", "R-CONTENT", "R-IA-NEST")]
+
+
+_S = {"scenarios": [{"text": "t", "category": "function"}]}
+_full = {"meta": {"name": "t"}, "tokens": {"danger": {"$value": "#dc2626", "$type": "color"}}, "components": [], "screens": [],
+         "ia": {"jobs": [{"id": "j1"}, {"id": "j2"}]},
+         "flow": {"populated": True, "mermaid": "flowchart LR", "stories": [
+             dict(_S, title="A", jobs=["j1", "j2"])]},
+         "content": {"terms": [{"id": "t1", "term": "Order"}], "strings": [{"key": "k", "text": "x", "kind": "action"}]}}
+check(_cov(_full) == [], "a fully covered project with terms and strings gets no finding")
+
+_gap = json.loads(json.dumps(_full))
+_gap["flow"]["stories"] = [dict(_S, title="A", jobs=["j1"]), {"title": "Empty", "jobs": ["j1"]}]
+_f = _cov(_gap, strict=True)
+check(sorted(f.code for f in _f) == ["R-COVERAGE", "R-COVERAGE"]
+      and any("j2" in f.where for f in _f) and any("Empty" in f.where for f in _f)
+      and all(f.severity == L.WARN for f in _f),
+      "a job no story links, and a story with no scenarios → two R-COVERAGE, WARN even under --strict")
+
+_nc = json.loads(json.dumps(_full))
+_nc["content"] = {"populated": False, "terms": [], "strings": []}
+_f = _cov(_nc, strict=True)
+check(sorted(f.where for f in _f) == ["content.strings", "content.terms"] and all(f.severity == L.WARN for f in _f),
+      "jobs but no terms, and a populated flow but no strings → R-CONTENT ×2, WARN under --strict")
+
+_old = {"meta": {"name": "t"}, "tokens": {}, "components": [], "screens": []}
+check(_cov(_old, strict=True) == [], "an older project with no ia, flow or content key gets nothing")
+_old2 = dict(_old, flow={"populated": True, "mermaid": "flowchart LR", "stories": []}, ia={"populated": False})
+check([f.where for f in _cov(_old2, strict=True)] == ["content.strings"],
+      "a populated flow with no ia and no content key → only the missing wording deck, as a WARN")
+check(_cov(dict(_old, flow={"populated": False}, content={"populated": False, "terms": [], "strings": []},
+                ia={"jobs": [], "layers": [], "rules": []}), strict=True) == [],
+      "the fresh template's empty slices get nothing")
+
+_nest = json.loads(json.dumps(_full))
+_nest["ia"]["ia"] = {"jobs": []}
+_f = _cov(_nest, strict=True)
+check([(f.code, f.where, f.severity) for f in _f] == [("R-IA-NEST", "ia", L.WARN)],
+      "a stray nested ia.ia key → R-IA-NEST, WARN")
+
+with tempfile.TemporaryDirectory() as d:
+    p = write(d, _gap)
+    r = run("--strict", p)
+    check(r.returncode == 0 and "R-COVERAGE" in r.stdout and "advisory" in r.stdout,
+          "the CLI prints them, but they are advisory: --strict exits 0 (got %d)" % r.returncode)
+
 print()
 if _fails:
     print("FAIL — %d check(s):" % len(_fails))

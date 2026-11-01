@@ -30,6 +30,7 @@ Route primarily by the task's **`slice:`**, using **`skill:`** as the tiebreaker
 | `flow` | **pb-flow** | `craft-connect-flow` (drives `/pb:plan --flow`) |
 | `erd` | **pb-data** | (drives `/pb:plan --data`) |
 | `ia` | **pb-clarifier** | `ref-prd`, `think-clarify` — jobs, their screens, layer purposes, `meta.navHub` (`/pb:plan --ia`) |
+| `content` | **pb-flow** — the glossary (`content.terms[]`) and wording deck (`content.strings[]`), `/pb:plan --content`. It is the one roster agent that both reads the stories the wording is drawn from and has Write, Edit and Bash (`pb-planner` and `pb-clarifier` have Write only); a `content` task depends on the `flow` task it words |
 | `meta` | **pb-clarifier** for Project-Summary copy / insights, and the rules behind contested UI decisions (`ref-prd`, `think-clarify`, `think-critique-prd`); **pb-planner** for plan / task upkeep (`agent-orchestrate-tasks`) |
 
 `pb-tester` and `pb-reviewer` are **not** slice owners — they run the per-wave acceptance gate (below).
