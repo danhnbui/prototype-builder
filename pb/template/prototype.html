@@ -6574,8 +6574,10 @@
       const ids = new Set(pbRsStudies().map(s => s.id));
       if (!ids.size) return html;
       return html.replace(/\[(rs-(?:[^\]<]|<\/?b[^>]*>)*)\]/g, (m, raw) => {
-        const id = raw.replace(/<[^>]*>/g, '').replace(/[<>]/g, '');   // a study id never holds < or >: no tag can survive
-        return ids.has(id) ? `[<a class="lg-link" href="#" data-rs="${escapeHtmlAttr(id)}" onclick="pbGoStudy(this.dataset.rs);return false">${pbEscape(id)}</a>]` : m;
+        // The id with any emphasis tags dropped. It is used only when it is exactly a known id in the rs-<kebab>
+        // shape (lint R-RESEARCH), so nothing that holds markup can reach the output.
+        const id = raw.split(/<[^>]*>/).join('');
+        return /^rs-[a-z0-9-]+$/.test(id) && ids.has(id) ? `[<a class="lg-link" href="#" data-rs="${escapeHtmlAttr(id)}" onclick="pbGoStudy(this.dataset.rs);return false">${pbEscape(id)}</a>]` : m;
       });
     }
     /* The findings whose targets name one job / rule, each with the verdicts of the hypotheses it answers. */
