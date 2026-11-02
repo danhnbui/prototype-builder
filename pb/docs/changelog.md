@@ -2,7 +2,7 @@
 
 All notable changes to Product Builder. Format follows [Keep a Changelog](https://keepachangelog.com/).
 
-## [Unreleased]
+## [2.6.1] — 2026-11-02
 
 *A patch: additive, no schema change. `/pb:update-version` compared schema numbers and nothing else, and v2.2 through
 v2.6 changed no schema, so it answered "Already on schema 13. Nothing to do." to a project that was several releases

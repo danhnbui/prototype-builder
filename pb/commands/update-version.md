@@ -32,7 +32,7 @@ validation, and output. Read its printed output and surface it to the user.
 4. Otherwise computes the version-update chain; prints each step's id + `describe()` text.
 5. **Release report (every run, equal schema or not).** Compares the installed plugin version with the one the
    project was last brought to — `meta.pbVersion`, else the `<!-- pb-shell vX -->` stamp in `prototype.html`, else
-   "no record" — lists the releases in between from the changelog the plugin ships (`docs/changelog.md`), and names
+   "no record" — lists the releases in between from the changelog the plugin ships (`${CLAUDE_PLUGIN_ROOT}/docs/changelog.md`), and names
    the steps no tool does: restart Claude Code, restart `/pb:preview` or `/pb:build --render`, re-run
    `tools/agents_install.py`. Most releases change no schema, so **this is what an upgrade looks like when the schema
    is already current.** Read-only.
