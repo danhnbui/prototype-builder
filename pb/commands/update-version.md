@@ -28,9 +28,16 @@ validation, and output. Read its printed output and surface it to the user.
 **Dry-run (default):**
 1. Reads `meta.schemaVersion` from `registry.json` (absent → treats as schema 2).
 2. Reads `CURRENT_SCHEMA` from `pb/migrations/manifest.py`.
-3. If equal: prints `✓ Already on schema N.` and stops.
-4. Computes the version-update chain; prints each step's id + `describe()` text.
-5. Prints `(Dry-run — nothing written. Pass --apply to execute.)` and stops.
+3. If equal: prints `✓ Already on schema N. No schema update needed.`
+4. Otherwise computes the version-update chain; prints each step's id + `describe()` text.
+5. **Release report (every run, equal schema or not).** Compares the installed plugin version with the one the
+   project was last brought to — `meta.pbVersion`, else the `<!-- pb-shell vX -->` stamp in `prototype.html`, else
+   "no record" — lists the releases in between from the changelog the plugin ships (`docs/changelog.md`), and names
+   the steps no tool does: restart Claude Code, restart `/pb:preview` or `/pb:build --render`, re-run
+   `tools/agents_install.py`. Most releases change no schema, so **this is what an upgrade looks like when the schema
+   is already current.** Read-only.
+6. Prints `(Dry-run — nothing written. Pass --apply to execute.)` and stops (when the schema is current it prints
+   only the report, ending "Pass --apply to record this version").
 
 **`--apply`:**
 0. Takes the registry lock (`registry.json.lock`, the one every registry writer takes). If another pb process
@@ -41,7 +48,9 @@ validation, and output. Read its printed output and surface it to the user.
    sidecars — `0011` does).
 2. Runs the `up()` chain — if any step fails, `registry.json` is untouched and the sidecars are put back.
 3. Validates the result via `render.py`'s `build_html` — if this fails, nothing is written.
-4. Writes `registry.json` once.
+4. Writes `registry.json` once — including `meta.pbVersion` (the installed plugin version; the only field `--apply`
+   adds beyond the chain). On a **current schema** the chain is empty, so `--apply` just backs up, records the
+   version and re-renders; run again at the same version it writes nothing.
 5. Re-renders `prototype.html`.
 6. Prints a change summary and any `memory_notes()` as an advisory block.
    The advisory is **for the user to apply by hand** to `memory/constitution.md` — the

@@ -2,6 +2,23 @@
 
 All notable changes to Product Builder. Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [Unreleased]
+
+*A patch: additive, no schema change. `/pb:update-version` compared schema numbers and nothing else, and v2.2 through
+v2.6 changed no schema, so it answered "Already on schema 13. Nothing to do." to a project that was several releases
+behind. The plugin, the shell and the commands had all moved, and the command said nothing.*
+
+- **A release report on every run.** `/pb:update-version` now prints the installed plugin version against the one the
+  project was last brought to, lists each release in between with its one-line summary, and names the steps no tool
+  does for you: restart Claude Code, restart `/pb:preview` or run `/pb:build --render`, and re-run
+  `tools/agents_install.py` if you use the bare agent names. A dry run writes nothing.
+- **`meta.pbVersion`.** `--apply` records the installed version in the registry, so the next report knows where the
+  project stands. On a current schema it only backs up, records the version and re-renders; run again at the same
+  version it writes nothing. A project that never ran `--apply` is read from the `prototype.html` stamp instead, and
+  one with neither is told there is no record, rather than guessed at.
+- **The changelog ships with the plugin** as `pb/docs/changelog.md`, so the report works from an installed copy, where
+  the repository's `changelog.md` is not present. `tests/update_version_report.py` keeps the two identical.
+
 ## [2.6.0] — 2026-11-01
 
 *Additive, no schema change. Insights were whatever someone typed into `/pb:clarify`, and nothing separated what a

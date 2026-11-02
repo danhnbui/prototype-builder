@@ -95,14 +95,14 @@ that don't alter what `registry.json` must contain.
 The runner (`pb/migrations/migrate_runner.py`) follows this sequence on `--apply`:
 
 1. Read `meta.schemaVersion` (absent → 2).
-2. If already at `CURRENT_SCHEMA`: print `✓ Already on schema N.` and stop.
+2. If already at `CURRENT_SCHEMA`: print `✓ Already on schema N. No schema update needed.` — then, as for every run, the **release report** (below). A dry run stops there; `--apply` goes on to record the version (step 7).
 3. Take the registry lock (`registry.json.lock`). A second writer waits a few seconds, then the runner
    prints one line naming the holder and **exits 1** — nothing is touched.
 4. Back up `registry.json` → `.pb-backups/registry.<from>.<ISO-ts>.json`, and `spec/components` +
    `spec/screens` → `.pb-backups/spec.<from>.<ISO-ts>/`.
 5. Run the version-update chain (it may write sidecars — `0011` does; a step that needs none is in memory only).
 6. Validate: call `render.py`'s `build_html` on the result — if it raises, abort (registry untouched).
-7. Write `registry.json` once (temp file + `os.replace`).
+7. Write `registry.json` once (temp file + `os.replace`), with `meta.pbVersion` set to the installed plugin version — an optional, additive field (no schema bump) that the release report reads next time. The report itself is read-only and runs on every dry run.
 8. Re-render `prototype.html`.
 9. Print a summary; surface any `memory_notes()` as an advisory block.
 

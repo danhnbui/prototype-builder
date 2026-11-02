@@ -303,6 +303,127 @@ def _rollback(registry_path, backup):
     print("✓ Rollback complete. Backups are preserved.")
 
 
+# ── plugin version vs. the project ───────────────────────────────────────────────────────
+# Schema is not the only thing that moves. Most releases (2.2 → 2.6) change no schema at all, so
+# the schema check alone says "nothing to do" while the plugin, the shell and the commands are all
+# new. The report below is read-only; the only thing --apply adds is `meta.pbVersion`.
+import re as _re
+
+_STAMP_RE = _re.compile(r"<!--\s*pb-shell v([0-9][^\s·]*)")
+_SEMVER_RE = _re.compile(r"^(\d+)\.(\d+)\.(\d+)$")
+_CHANGELOG_HEAD = _re.compile(r"^## \[(\d+\.\d+\.\d+)\](?:\s+—\s+(\S+))?\s*$", _re.M)
+
+
+def _semver(v):
+    m = _SEMVER_RE.match(v.strip()) if isinstance(v, str) else None
+    return tuple(int(x) for x in m.groups()) if m else None
+
+
+def _installed_version():
+    """The plugin SemVer from pb/.claude-plugin/plugin.json, or None."""
+    try:
+        with open(os.path.join(_HERE, "..", ".claude-plugin", "plugin.json"), encoding="utf-8") as f:
+            v = json.load(f).get("version")
+        return v if _semver(v) else None
+    except (OSError, ValueError, AttributeError):
+        return None
+
+
+def _recorded_version(reg, registry_path):
+    """(version, where) this project was last brought to. meta.pbVersion is written by --apply;
+    a project that has never run it falls back to the stamp in prototype.html, which is only the
+    last render and so can understate how current the project is. (None, None) when neither."""
+    v = (reg.get("meta") or {}).get("pbVersion")
+    if _semver(v):
+        return v, "meta.pbVersion"
+    html = os.path.join(os.path.dirname(os.path.abspath(registry_path)), "prototype.html")
+    try:
+        with open(html, encoding="utf-8") as f:
+            m = _STAMP_RE.search(f.read(4096))
+        if m and _semver(m.group(1)):
+            return m.group(1), "the prototype.html stamp"
+    except OSError:
+        pass
+    return None, None
+
+
+def _release_notes(after, upto):
+    """[(version, date, summary)] for every release newer than `after` up to `upto`, newest first,
+    from the changelog shipped inside the plugin (pb/docs/changelog.md — a copy of the repo's
+    changelog.md that tests/update_version_report.py keeps identical). `after` None → just `upto`."""
+    path = os.path.join(_HERE, "..", "docs", "changelog.md")
+    try:
+        with open(path, encoding="utf-8") as f:
+            text = f.read()
+    except OSError:
+        return None
+    heads = list(_CHANGELOG_HEAD.finditer(text))
+    out = []
+    for i, h in enumerate(heads):
+        ver = h.group(1)
+        sv = _semver(ver)
+        if sv is None or sv > _semver(upto):
+            continue
+        if after is None and sv != _semver(upto):          # nothing recorded: the installed release only
+            continue
+        if after is not None and sv <= _semver(after):
+            continue
+        body = text[h.end(): heads[i + 1].start() if i + 1 < len(heads) else len(text)]
+        m = _re.search(r"^\*(.+?)\*\s*$", body, _re.M | _re.S)       # the italic lead paragraph
+        summary = " ".join(m.group(1).split()) if m else ""
+        # Every entry opens "Additive, no schema change." or "A patch: …". Keep that as the label and
+        # add the sentence after it, which is what says what the release is about.
+        sentences = _re.findall(r".+?[.!?](?:\s|$)", summary + " ") or [summary]
+        summary = " ".join(x.strip() for x in sentences[:2])
+        if len(summary) > 170:
+            summary = summary[:167].rstrip() + "…"
+        out.append((ver, h.group(2) or "", summary))
+    out.sort(key=lambda r: _semver(r[0]), reverse=True)
+    return out
+
+
+def _version_gap(reg, registry_path):
+    """(installed, recorded, where, behind) — behind is True when the project predates the plugin
+    (or its version is unknowable), False when it is current, None when the plugin version is unknown."""
+    installed = _installed_version()
+    recorded, where = _recorded_version(reg, registry_path)
+    if installed is None:
+        return installed, recorded, where, None
+    if recorded is None:
+        return installed, recorded, where, True
+    return installed, recorded, where, _semver(recorded) < _semver(installed)
+
+
+def _print_release_report(reg, registry_path, applied=False):
+    installed, recorded, where, behind = _version_gap(reg, registry_path)
+    if installed is None:
+        return
+    if behind is False:
+        print(f"✓ Plugin v{installed} — this project was last brought to v{recorded} ({where}).")
+        return
+    if recorded is None:
+        print(f"· Plugin v{installed} is installed. This project has no record of the pb version it was "
+              "last updated with (no meta.pbVersion, no prototype.html stamp), so the list below is the "
+              "installed release only.")
+    else:
+        print(f"⬆ Plugin v{installed} is installed; this project was last brought to v{recorded} ({where}).")
+    notes = _release_notes(recorded, installed)
+    if notes:
+        print("  What changed since:")
+        for ver, date, summary in notes:
+            line = f"    v{ver}" + (f" · {date}" if date else "")
+            print(line + (f" — {summary}" if summary else ""))
+    elif notes is None:
+        print("  (This plugin carries no changelog; see CHANGELOG.md in the repository.)")
+    print("  By hand — no tool does these for you:")
+    print("    1. Restart Claude Code so the new commands load (a plugin update alone does not).")
+    print("    2. Restart /pb:preview, or run /pb:build --render, so the shell is the new one.")
+    print("    3. If you installed the bare agent names (tools/agents_install.py), run it again.")
+    print("    Full guide: docs/upgrading.md · per-release notes: docs/migrations/")
+    if not applied:
+        print("  Pass --apply to record this version in the project (meta.pbVersion).")
+
+
 def _plan_and_apply(registry_path, to_v, apply_mode):
     manifest = _load_manifest()
     CURRENT = manifest.CURRENT_SCHEMA
@@ -315,9 +436,15 @@ def _plan_and_apply(registry_path, to_v, apply_mode):
     if to_v is None:
         to_v = CURRENT
 
+    installed = _installed_version()
     if from_v == to_v:
-        print(f"✓ Already on schema {from_v}. Nothing to do.")
-        return
+        print(f"✓ Already on schema {from_v}. No schema update needed.")
+        _, _, _, behind = _version_gap(reg, registry_path)
+        if not apply_mode or not installed or behind is False:
+            _print_release_report(reg, registry_path)
+            return
+        # --apply on a current schema still records the version: an empty chain, same backup/write path
+        _print_release_report(reg, registry_path, applied=True)
 
     direction = "up" if to_v > from_v else "down"
 
@@ -327,16 +454,22 @@ def _plan_and_apply(registry_path, to_v, apply_mode):
         print(f"✗ {e}")
         sys.exit(1)
 
-    print(f"Version update plan: schema {from_v} → {to_v} ({direction}, {len(mods)} step(s))")
-    for mod in mods:
-        stem = getattr(mod, "__name__", "?")
-        print(f"  • {stem}: {mod.describe()}")
+    if mods:
+        print(f"Version update plan: schema {from_v} → {to_v} ({direction}, {len(mods)} step(s))")
+        for mod in mods:
+            stem = getattr(mod, "__name__", "?")
+            print(f"  • {stem}: {mod.describe()}")
 
     if not apply_mode:
+        print()
+        _print_release_report(reg, registry_path)
         print("\n(Dry-run — nothing written. Pass --apply to execute.)")
         return
 
     # ── APPLY ────────────────────────────────────────────────────────────────────
+    if from_v != to_v:                       # (a current schema printed its report above)
+        print()
+        _print_release_report(reg, registry_path, applied=True)
     sl = _slice()
     base_dir = os.path.dirname(os.path.abspath(registry_path))
 
@@ -381,6 +514,11 @@ def _plan_and_apply(registry_path, to_v, apply_mode):
             except Exception as e:
                 fail(f"✗ Version update failed at [{stem}]: {e}",
                      "  Nothing written (registry.json untouched, spec sidecars restored; backup preserved).")
+
+        # 2b. Record which pb release brought the project here (additive; the one field --apply adds
+        #     beyond the chain). Only when the plugin's own version is readable.
+        if installed:
+            working.setdefault("meta", {})["pbVersion"] = installed
 
         # 3. Validate: result must parse and render.py must not error (pre-write)
         html = None
@@ -435,7 +573,10 @@ def _plan_and_apply(registry_path, to_v, apply_mode):
 
     # 6. Summary
     new_v = working.get("meta", {}).get("schemaVersion", to_v)
-    print(f"✓ Version update complete: schema {from_v} → {new_v}")
+    if mods:
+        print(f"✓ Version update complete: schema {from_v} → {new_v}")
+    else:
+        print(f"✓ Recorded pb v{installed} in meta.pbVersion (schema {new_v}, unchanged).")
     print(f"  registry.json updated · backup kept at .pb-backups/{backup_name}")
 
     # 7. Advisory memory_notes (NEVER auto-written)
