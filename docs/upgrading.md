@@ -60,5 +60,6 @@ current version.
 | `⚠ Schema gap` banner on build | 2 behind 1 | `/pb:update-version --apply`. |
 | `⚠ Shell drift` from `/pb:test --drift` | 3 behind 1 | Re-render (`/pb:build --render`) or restart `/pb:preview`. |
 | `⚠ Shell unstamped` | 3 rendered by a plugin older than this feature | Re-render once with the current plugin. |
+| `/pb:update-version` says "Already on schema N" but you just upgraded | schema unchanged (most releases) | Read the release report it prints under that line; `--apply` records the version in `meta.pbVersion`. |
 | Commands still behave like the old version | 1 not loaded | Reload/restart the session after `/plugin`. |
 | Badge shows `pb vunknown` | `plugin.json` unreadable | Confirm `pb/.claude-plugin/plugin.json` has a string `version`. |

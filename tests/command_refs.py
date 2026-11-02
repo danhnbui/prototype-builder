@@ -49,7 +49,7 @@ RETIRED = {
     "validate",                                                          # → /pb:handoff --tier=host
 }
 
-SKIP_PREFIX = ("changelog.md", "docs/", ".venv/")
+SKIP_PREFIX = ("changelog.md", "pb/docs/changelog.md", "docs/", ".venv/")  # pb/docs/changelog.md: the shipped copy
 REF = re.compile(r"/pb:([a-z][a-z0-9-]*)")
 MD_LINK = re.compile(r"\]\(([A-Za-z0-9_.-]+\.md)\)")
 
