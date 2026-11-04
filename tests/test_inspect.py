@@ -5,6 +5,8 @@ test_inspect.py — Playwright test for the Prototype ⌥-hover inspect feature.
 Boots the golden through serve.py and verifies: ⌥-hover shows the inspect label with the
 element's structured id path; ⌥-click copies (toast) WITHOUT navigating; a normal click still
 navigates (zero regression); a non-tagged element still yields a screen-scoped fallback path.
+Spacing mode toggles, draws value chips for a padded element (and a free-space band where a box
+is bigger than its children), ends on Esc / M / leaving the tab, and never blocks a click.
 
 Usage:  python3 tests/test_inspect.py
 Exit:   0 = all passed · 1 = a failure · 2 = Playwright/browser not available
@@ -247,6 +249,85 @@ def run():
             page.wait_for_timeout(150)
             check(page.evaluate("() => pbPickOn") is False and page.locator(".meta-pick").count() == 0,
                   "leaving the Prototype tab ends pick mode and drops the button")
+
+            # Spacing mode: the bar's Spacing button (or M) outlines every element and, on hover, draws
+            # the element's margin / padding / gap as bands with value chips. It never blocks a click.
+            page.click(".meta-tab >> nth=0")
+            page.wait_for_timeout(150)
+            page.evaluate("() => setProtoScreen('login')")
+            page.wait_for_timeout(150)
+            sp = page.locator(".pb-bar-end .meta-spacing")
+            check(sp.count() == 1, "the bar carries one Spacing button on the Prototype tab")
+            pick_box, sp_box = page.locator(".meta-pick").bounding_box(), sp.bounding_box()
+            check(pick_box and sp_box and sp_box["x"] > pick_box["x"], "Spacing sits right after Pick")
+            check(sp.get_attribute("aria-pressed") == "false", "Spacing starts off")
+            sp.click()
+            page.wait_for_timeout(80)
+            check(sp.get_attribute("aria-pressed") == "true"
+                  and page.evaluate("() => document.body.classList.contains('pb-spacing')"),
+                  "Spacing is pressed once clicked, and the body carries pb-spacing")
+            # An element of the golden's login that has real padding (found, not assumed).
+            pad = page.evaluate("""() => {
+                const els = Array.from(document.querySelectorAll('#proto-frame *'));
+                const hit = els.find(e => { const r = e.getBoundingClientRect(), s = getComputedStyle(e);
+                    return r.width > 20 && r.height > 10 && parseFloat(s.paddingTop) + parseFloat(s.paddingLeft) > 0; });
+                if (!hit) return null;
+                hit.setAttribute('data-sp-probe', ''); return true; }""")
+            check(pad, "the golden's login has an element with padding to measure")
+            if pad:
+                # Aim at the element's own padding (just inside its top-left corner), so the pointer
+                # lands on it and not on a child.
+                pbox = page.locator('#proto-frame [data-sp-probe]').bounding_box()
+                page.mouse.move(pbox["x"] + 5, pbox["y"] + 5)
+                page.mouse.move(pbox["x"] + 1, pbox["y"] + 1)
+                page.wait_for_timeout(150)
+                nchips = page.locator("#pb-sp-layer .pb-sp-chip").count()
+                check(nchips >= 1, f"hovering a padded element draws at least one value chip (got {nchips})")
+                check(page.evaluate("() => getComputedStyle(document.getElementById('pb-sp-layer')).pointerEvents") == "none",
+                      "the spacing overlay never takes the pointer")
+            # Free space: a column flex box with min-height 40 centring a 28px child leaves 6 above and 6
+            # below. That is not margin, padding or gap, so it is its own 'free' band (cyan, never grey).
+            free = page.evaluate("""() => {
+                const f = document.querySelector('#proto-frame .proto-screen') || document.getElementById('proto-frame'); const box = document.createElement('div');
+                box.style.cssText = 'display:flex;flex-direction:column;justify-content:center;min-height:40px;width:200px';
+                box.innerHTML = '<div style="height:28px"></div>'; f.appendChild(box);
+                const bands = pbSpacingMeasure(box).filter(b => b[0] === 'free').map(b => [b[3], Math.round(b[2])]);
+                const probe = document.createElement('div'); probe.className = 'pb-sp-chip--free';
+                const layer = pbSpacingLayer(); layer.appendChild(probe); const bg = getComputedStyle(probe).backgroundColor; probe.remove();
+                box.remove(); return { bands, bg }; }""")
+            check(sorted(free["bands"]) == [["bottom", 6], ["top", 6]],
+                  f"a min-height box centring a shorter child shows 6px free bands above and below (got {free['bands']})")
+            check(free["bg"] == "rgb(14, 116, 144)", f"the free-space chip is cyan #0e7490, not grey (got {free['bg']})")
+            # Spacing does not block the preview: a valid submit still navigates.
+            inp = page.locator('#proto-frame .field__input')
+            inp.nth(0).fill("ada@example.com")
+            inp.nth(1).fill("hunter2hunter2")
+            page.click('#proto-frame [data-action="submit"]')
+            try:
+                page.wait_for_function("() => state.protoScreenId === 'dashboard'", timeout=5000)
+                landed = "dashboard"
+            except Exception:
+                landed = page.evaluate("() => state.protoScreenId")
+            check(landed == "dashboard", f"a normal click under Spacing still acts and navigates (got {landed!r})")
+            page.keyboard.press("Escape")
+            page.wait_for_timeout(60)
+            check(sp.get_attribute("aria-pressed") == "false"
+                  and not page.evaluate("() => document.body.classList.contains('pb-spacing')")
+                  and page.locator("#pb-sp-layer .pb-sp-chip").count() == 0,
+                  "Esc ends Spacing, drops pb-spacing and clears the chips")
+            page.keyboard.press("m")
+            page.wait_for_timeout(60)
+            check(sp.get_attribute("aria-pressed") == "true", "M toggles Spacing on")
+            page.keyboard.press("m")
+            page.wait_for_timeout(60)
+            check(sp.get_attribute("aria-pressed") == "false", "M toggles Spacing off")
+            page.keyboard.press("m")
+            page.wait_for_timeout(60)
+            page.click(".meta-tab >> nth=1")
+            page.wait_for_timeout(150)
+            check(page.evaluate("() => pbSpacingOn") is False and page.locator(".meta-spacing").count() == 0
+                  and not page.evaluate("() => document.body.classList.contains('pb-spacing')"),
+                  "leaving the Prototype tab ends Spacing and drops the button")
 
             page.close()
         browser.close()

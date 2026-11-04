@@ -132,6 +132,9 @@ card that owns the CTA — no dead controls. (Replaces the old `meta-tag`/`meta-
   The overlay is in the tool's own colour, `--pb-pick` (fuchsia, never the product's `--brand`), and its one-line
   label sits **outside** the framed box (above, below, right, left, kept on screen; inside only when the box fills
   the view); a pick-click answers "Copied" in the label itself.
+  **Spacing** (the next button, or **M**) outlines every element and shows the hovered one's margin, padding and
+  gap as tinted bands with value chips, plus the free space alignment leaves inside a taller/wider flex or grid box
+  (hatched cyan); it never blocks a click, and Esc (after Pick), M again or leaving the tab ends it.
   *Sandbox — the inspector.* A 20rem panel on the right, closed by default, opened by the bar's **hourglass** or by
   **S** (under exactly R's guards: never while typing, never with Cmd/Ctrl held, not on key-repeat). **Esc closes it
   unless it is pinned**; the **pin** docks it and **pushes the stage** aside (closing a pinned inspector unpins it).
