@@ -193,6 +193,31 @@ def run():
             page.mouse.move(bx, by)
             page.wait_for_timeout(100)
             check(page.locator("#pb-inspect-label").is_visible(), "picking shows the label without holding ⌥")
+            # The label never covers what it names (it used to sit 30px up but be taller than that), and
+            # the tool's colour is its own, not the product's --brand.
+            geo = page.evaluate("""() => { const b = document.getElementById('pb-inspect-box').getBoundingClientRect(),
+                l = document.getElementById('pb-inspect-label').getBoundingClientRect(), cs = getComputedStyle(document.documentElement);
+                const over = !(l.right <= b.left || l.left >= b.right || l.bottom <= b.top || l.top >= b.bottom);
+                const on = l.left >= 0 && l.top >= 0 && l.right <= innerWidth && l.bottom <= innerHeight;
+                const probe = document.createElement('i'); document.body.appendChild(probe);
+                probe.style.color = 'var(--brand)'; const brand = getComputedStyle(probe).color; probe.remove();
+                return { over, on, box: getComputedStyle(document.getElementById('pb-inspect-box')).borderTopColor, brand,
+                         pick: cs.getPropertyValue('--pb-pick').trim() !== '' }; }""")
+            check(not geo["over"] and geo["on"], f"the pick label sits outside the framed component, on screen ({geo})")
+            check(geo["pick"] and geo["box"] != geo["brand"], f"the pick box is drawn in --pb-pick, not --brand ({geo})")
+            # Every visible element of the screen: the label is outside its box unless the box fills the view.
+            bad = page.evaluate("""() => { let bad = []; for (const el of document.querySelectorAll('#proto-frame .proto-screen *')) {
+                const r = el.getBoundingClientRect(); if (r.width < 8 || r.height < 8 || r.bottom < 0 || r.top > innerHeight) continue;
+                pbInspectShow(el); const b = document.getElementById('pb-inspect-box').getBoundingClientRect(),
+                l = document.getElementById('pb-inspect-label').getBoundingClientRect();
+                const fills = b.top - l.height - 6 < 0 && b.bottom + l.height + 6 > innerHeight;
+                if (!fills && !(l.right <= b.left || l.left >= b.right || l.bottom <= b.top || l.top >= b.bottom)) bad.push(el.className || el.tagName);
+                if (l.left < 0 || l.top < 0 || l.right > innerWidth || l.bottom > innerHeight) bad.push('offscreen:' + (el.className || el.tagName)); }
+                return bad; }""")
+            check(bad == [], f"no element's pick label covers its box or leaves the view ({bad[:5]})")
+            page.mouse.move(bx + 1, by)
+            page.mouse.move(bx, by)
+            page.wait_for_timeout(60)
             before = page.evaluate("() => state.protoScreenId")
             page.mouse.click(bx, by)
             page.wait_for_timeout(150)
