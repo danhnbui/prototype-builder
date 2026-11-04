@@ -1,4 +1,4 @@
-# Product Builder v2.6.1 — router (read first)
+# Product Builder v2.6.2 — router (read first)
 
 Standalone, CLAUDE.md-native prototype builder. **No SpecKit** — no `extension.yml`,
 `preset.yml`, or `after_*` hooks. State lives in `registry.json`; commands are native
@@ -129,6 +129,9 @@ card that owns the CTA — no dead controls. (Replaces the old `meta-tag`/`meta-
   close it. ⌥-click in the preview is the tool for *what is this element*, and it answers from the DOM.
   **Pick** (the bar's cursor button after Search, or **I** under R's guards) keeps that on without ⌥: hover frames
   the component, a click **copies its name** (and only copies — no nav, no submit), Esc or leaving the tab ends it.
+  The overlay is in the tool's own colour, `--pb-pick` (fuchsia, never the product's `--brand`), and its one-line
+  label sits **outside** the framed box (above, below, right, left, kept on screen; inside only when the box fills
+  the view); a pick-click answers "Copied" in the label itself.
   *Sandbox — the inspector.* A 20rem panel on the right, closed by default, opened by the bar's **hourglass** or by
   **S** (under exactly R's guards: never while typing, never with Cmd/Ctrl held, not on key-repeat). **Esc closes it
   unless it is pinned**; the **pin** docks it and **pushes the stage** aside (closing a pinned inspector unpins it).

@@ -2,6 +2,21 @@
 
 All notable changes to Product Builder. Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [2.6.2] — 2026-11-04
+
+*A patch: shell only, no schema change. Pick's label covered the thing it named, so you could not see whether you
+were on the right component.*
+
+- **The label never covers what it names.** It was placed 30px above the framed box but was taller than that, so it
+  always sat on the box's top edge. It is now measured and placed outside the box (above, then below, right, left),
+  kept on screen. Only a box that fills the view gets the label inside, in the corner away from the pointer. The same
+  placement serves ⌥-hover inspect.
+- **Its own colour.** The box and label use `--pb-pick` (fuchsia), not the product's `--brand`, which melted into the
+  product's own buttons. Fuchsia is clear of Spacing's margin, padding and gap colours too, since both can be on.
+- **The tool's chrome.** One line in the toast's style (pb sans, `r-lg`, pb shadow), cut with … when long: the
+  component name first, its id dimmed in mono after it. A pick-click says "Copied" in the label itself for a moment,
+  in place of a toast in the far corner.
+
 ## [2.6.1] — 2026-11-02
 
 *A patch: additive, no schema change. `/pb:update-version` compared schema numbers and nothing else, and v2.2 through

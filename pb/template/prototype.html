@@ -2268,15 +2268,23 @@
       border-radius:999px; padding:var(--pb-s0) calc(var(--pb-s1) + var(--pb-s0)); }
     .proto-role-item-desc { font: var(--font-weight-medium) var(--font-size-xs)/1.4 var(--font-body); color:var(--text-tertiary); }
     /* v1.5 — inspect overlay (⌥-hover): highlight box + name-path label, both fixed & click-through */
+    /* Tool colour for Pick / ⌥-inspect: fuchsia, a hue nothing else on the page uses. Not --brand (the
+       product's own colour melts into its buttons) and not Spacing's margin/padding/gap trio, which can
+       be on at the same time. */
+    :root { --pb-pick: light-dark(#c026d3, #e879f9); --pb-on-pick: light-dark(#ffffff, #2a0a2e); }
     .pb-inspect-box { position:fixed; z-index:1400; pointer-events:none; display:none;
-      border:2px solid var(--brand); border-radius:4px;
-      background:color-mix(in srgb, var(--brand) 8%, transparent); }   /* a tint, never a cover: the element stays readable */
-    .pb-inspect-label { position:fixed; z-index:1401; pointer-events:none; display:none; flex-direction:column; gap:var(--pb-s0);
-      max-width:60vw; background:var(--pb-ink); color:var(--pb-on-ink); border-radius:6px; padding:calc(var(--pb-s1) + var(--pb-s0)) var(--pb-s2);
-      font-family:ui-monospace, SFMono-Regular, Menlo, monospace; font-size:var(--font-size-xs); line-height:1.35;
-      box-shadow:var(--pb-shadow); }
-    .pb-inspect-label .pb-inspect-path { white-space:nowrap; }
-    .pb-inspect-label .pb-inspect-hint { color:color-mix(in srgb, var(--pb-on-ink) 70%, transparent); white-space:normal; font-size:0.6875rem; }
+      border:2px solid var(--pb-pick); border-radius:4px;
+      background:color-mix(in srgb, var(--pb-pick) 8%, transparent); }   /* a tint, never a cover: the element stays readable */
+    /* The label in the tool's own chrome (chrome.css .pb-toast): a chip in pb sans, r-lg, pb shadow. One
+       line, cut with … when long; the name reads first, the id / real element after it dims. */
+    .pb-inspect-label { position:fixed; z-index:1401; pointer-events:none; display:none; box-sizing:border-box;
+      max-width:min(40rem, calc(100vw - 8px)); background:var(--pb-pick); color:var(--pb-on-pick);
+      border-radius:var(--pb-r-lg); box-shadow:var(--pb-shadow); padding:var(--pb-s1) var(--pb-s3);
+      font:var(--pb-w-bold) var(--pb-t-sm)/1.4 var(--pb-font);
+      white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .pb-inspect-label .pb-inspect-el, .pb-inspect-label .pb-inspect-hint { margin-left:var(--pb-s2); font-weight:var(--pb-w-reg);
+      color:color-mix(in srgb, var(--pb-on-pick) 78%, transparent); }
+    .pb-inspect-label .pb-inspect-el { font-family:var(--pb-mono); }
     /* Pick mode (the bar's cursor button, or I): every part of the preview says "click copies". */
     body.pb-picking .proto-screen, body.pb-picking .proto-screen * { cursor:copy !important; }
     .proto-device-btn { display:inline-flex; align-items:center; justify-content:center; width:44px; height:32px;
@@ -6218,11 +6226,19 @@
       if (pbPickOn && pbInspectLast) pbInspectShow(pbInspectLast); else if (!pbPickOn) pbInspectHide();
     }
     function pbPickToggle() { pbPickSet(!pbPickOn); }
+    // The label itself answers a pick-click ("Copied") for a moment, then goes back to the name: the
+    // eye is already on it, and a toast in the far corner was easy to miss.
+    var pbPickNotice = null, pbPickFlash = 0;
     function pbPickCopy(el) {
-      var c = pbInspectComponent(el);
-      if (!c) { var info = pbInspectName(el); copyCommandToClipboard(info.path); pbUiToast('No component here — copied the reference', { note: info.path }); return; }
-      copyCommandToClipboard(c.name);
-      pbUiToast('Copied “' + c.name + '”', { note: c.id });
+      var c = pbInspectComponent(el), text, msg;
+      if (c) { text = c.name; msg = 'Copied'; }
+      else { text = pbInspectName(el).path; msg = 'No component here — copied the reference'; }
+      var say = function (m) {
+        pbPickNotice = m; if (pbPickOn) pbInspectShow(el);
+        clearTimeout(pbPickFlash);
+        pbPickFlash = setTimeout(function () { pbPickNotice = null; if (pbPickOn && pbInspectLast) pbInspectShow(pbInspectLast); }, 1200);
+      };
+      Promise.resolve(copyCommandToClipboard(text)).then(function () { say(msg); }, function () { say('Copy failed'); });
     }
     function pbInspectShow(el) {
       var frame = (el && el.closest && el.closest('.proto-screen')) || document.getElementById('proto-frame');
@@ -6230,7 +6246,8 @@
       var info = pbInspectName(el);
       // Picking frames the whole component it would copy, and names it the way it will paste.
       var pick = pbPickOn ? pbInspectComponent(el) : null;
-      if (pick) { info = { path: pick.name, hint: pick.id + ' · click to copy the name' }; if (frame.contains(pick.root)) el = pick.root; }
+      if (pick) { info = pbPickNotice ? { path: pbPickNotice } : { path: pick.name, el: pick.id }; if (frame.contains(pick.root)) el = pick.root; }
+      else if (pbPickOn && pbPickNotice) info = { path: pbPickNotice };
       var r = el.getBoundingClientRect();
       var e = pbInspectEls();
       e.box.style.display = 'block';
@@ -6238,10 +6255,36 @@
       e.box.style.width = r.width + 'px'; e.box.style.height = r.height + 'px';
       e.label.innerHTML = '';
       var p = document.createElement('span'); p.className = 'pb-inspect-path'; p.textContent = info.path; e.label.appendChild(p);
+      if (info.el) { var q = document.createElement('span'); q.className = 'pb-inspect-el'; q.textContent = info.el; e.label.appendChild(q); }
       if (info.hint) { var h = document.createElement('span'); h.className = 'pb-inspect-hint'; h.textContent = info.hint; e.label.appendChild(h); }
-      e.label.style.display = 'flex';
-      var ly = r.top - 30; if (ly < 4) ly = r.bottom + 6;
-      e.label.style.top = ly + 'px'; e.label.style.left = Math.max(4, r.left) + 'px';
+      e.label.style.display = 'block';
+      pbInspectPlace(e.label, r);
+    }
+    // The label never covers what it names. It was pinned 30px above the box but is taller than that,
+    // so it always sat on the box's top edge. Now it is measured and goes outside the box (above,
+    // below, right, left), kept in the viewport; only a box that leaves no room outside (it fills the
+    // view) gets it inside, in the corner away from the pointer.
+    var pbInspectPtr = { x: 0, y: 0 };
+    function pbInspectPlace(label, r) {
+      var G = 2, M = 4, vw = window.innerWidth, vh = window.innerHeight;
+      label.style.top = '0px'; label.style.left = '0px';
+      var lr = label.getBoundingClientRect(), w = lr.width, h = lr.height;
+      var clampX = function (x) { return Math.min(Math.max(M, x), vw - w - M); };
+      var clampY = function (y) { return Math.min(Math.max(M, y), vh - h - M); };
+      var spots = [
+        [r.top - G - h >= M, clampX(r.left), r.top - G - h],          // above
+        [r.bottom + G + h <= vh - M, clampX(r.left), r.bottom + G],   // below
+        [r.right + G + w <= vw - M, r.right + G, clampY(r.top)],      // right
+        [r.left - G - w >= M, r.left - G - w, clampY(r.top)]          // left
+      ];
+      var s = spots.filter(function (q) { return q[0]; })[0], x, y;
+      if (s) { x = s[1]; y = s[2]; }
+      else {
+        var cx = Math.max(r.left, 0) + Math.min(r.right, vw), cy = Math.max(r.top, 0) + Math.min(r.bottom, vh);
+        x = clampX(pbInspectPtr.x * 2 > cx ? Math.max(r.left, 0) + G : Math.min(r.right, vw) - w - G);
+        y = clampY(pbInspectPtr.y * 2 > cy ? Math.max(r.top, 0) + G : Math.min(r.bottom, vh) - h - G);
+      }
+      label.style.left = x + 'px'; label.style.top = y + 'px';
     }
     function pbInspectHide() {
       var box = document.getElementById('pb-inspect-box'); if (box) box.style.display = 'none';
@@ -6306,7 +6349,7 @@
         if (e.target.closest('[data-step-go]')) { e.preventDefault(); pbStepClick(e.target); return; }
       });
       frame.addEventListener('mousemove', function (e) {
-        pbInspectLast = e.target;
+        pbInspectLast = e.target; pbInspectPtr.x = e.clientX; pbInspectPtr.y = e.clientY;
         if (e.altKey || pbPickOn) pbInspectShow(e.target); else pbInspectHide();
       });
       frame.addEventListener('mouseleave', function () { pbInspectLast = null; pbInspectHide(); });
