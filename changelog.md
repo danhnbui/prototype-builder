@@ -2,7 +2,7 @@
 
 All notable changes to Product Builder. Format follows [Keep a Changelog](https://keepachangelog.com/).
 
-## [Unreleased]
+## [2.6.2] — 2026-11-04
 
 *A patch: shell only, no schema change. Pick's label covered the thing it named, so you could not see whether you
 were on the right component.*
