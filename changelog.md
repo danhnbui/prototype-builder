@@ -2,6 +2,21 @@
 
 All notable changes to Product Builder. Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [Unreleased]
+
+*Additive, no schema change. The preview's bar gains a second inspection tool beside Pick, after Solum Studio's.*
+
+- **Spacing mode.** A **Spacing** button after Pick in the bar (or **M**) draws a hairline dashed outline round every
+  element of the preview and, for the one under the pointer, its margin, padding and flex/grid gap as tinted bands,
+  each with its value. A padding with some sides set shows a "0" on the side that is zero. It never blocks a click,
+  redraws on scroll and resize, and works beside Pick. Esc (after Pick), **M** again, or leaving the Prototype tab
+  ends it.
+- **Free space.** A flex or grid box that is taller or wider than its children (a `min-height`, a fixed size, a
+  stretch) leaves room that is not margin, padding or gap, so the space read as unexplained — a page header lead
+  with `min-height: 40px` centring a 28px title showed nothing for its 6px above and below. That room is now drawn
+  as a fourth band, hatched in its own cyan (`--pb-spec-free`, #0e7490): never grey, which melted into the
+  product's own borders and fills.
+
 ## [2.6.2] — 2026-11-04
 
 *A patch: shell only, no schema change. Pick's label covered the thing it named, so you could not see whether you

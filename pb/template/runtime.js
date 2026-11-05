@@ -355,6 +355,7 @@
       auto: '<circle cx="12" cy="12" r="8.5"/><path d="M12 3.5v17"/><path d="M12 3.5a8.5 8.5 0 0 1 0 17z" fill="currentColor"/>',
       search: '<circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.2-4.2"/>',
       cursor: '<path d="M5 3l6 16.5 2.4-6.6 6.6-2.4z"/><path d="M13.6 13.6l5.4 5.4"/>',
+      spacing: '<rect x="3.5" y="3.5" width="17" height="17" rx="2"/><rect x="8" y="8" width="8" height="8" rx="1" stroke-dasharray="2 2"/>',
       hourglass: '<path d="M6.5 3h11M6.5 21h11"/><path d="M8 3v3.2a4 4 0 0 0 1.5 3.1L12 11.5l2.5-2.2A4 4 0 0 0 16 6.2V3"/><path d="M8 21v-3.2a4 4 0 0 1 1.5-3.1L12 12.5l2.5 2.2a4 4 0 0 1 1.5 3.1V21"/>',
       pin: '<path d="M12 16v5.5M8 3h8M9 3.5l.6 5.7L6.5 13v2.5h11V13l-3.1-3.8.6-5.7"/>',
       pinOff: '<path d="M12 16v5.5M8 3h8M9 3.5l.6 5.7L6.5 13v2.5h11V13l-3.1-3.8.6-5.7"/><path d="M4 4l16 16"/>',
