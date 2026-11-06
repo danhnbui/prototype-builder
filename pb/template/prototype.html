@@ -2335,6 +2335,12 @@
     .proto-fit:not(.is-fitted) .proto-pair,
     .proto-fit:not(.is-fitted) .proto-frame-slot { min-width:0; max-width:100%; }
     .proto-fit:not(.is-fitted) .proto-frame-slot { flex:0 1 auto; }
+    /* Laptop and monitor keep their TRUE size (never scaled, real fonts) but sit in the stage with the inset a
+       fitted device gets — 32px, 24px when the stage is under 900px tall (fitProtoFrame's rule; the bar is 44px).
+       So the whole window, corners and bottom edge included, is always on screen, and below <device width> plus
+       the two insets its width follows the viewport and the product reflows (its container queries answer it). */
+    .proto-fit:not(.is-fitted) { box-sizing:border-box; padding:32px; }
+    @media (max-height: 943px) { .proto-fit:not(.is-fitted) { padding:24px; } }
     .proto-fit.is-compare, .proto-fit.is-compare .proto-pair-box,
     .proto-fit.is-compare .proto-pair, .proto-fit.is-compare .proto-frame-slot { height:auto; }
     /* color-scheme: light — everything inside the frame (the browser/app mock and the product)
@@ -3545,6 +3551,8 @@
     .pb-draft-side { flex: 0 0 220px; display: flex; flex-direction: column; gap: 8px; padding: 16px 0; border-right: 1px solid var(--neutral-200, #e5e7eb); background: var(--neutral-50, #f9fafb); }
     .pb-draft-brand { padding: 0 16px 8px; font-weight: 600; }
     .pb-draft-nav { display: block; width: 100%; padding: 6px 16px; border: 0; border-radius: 0; background: none; font: inherit; color: inherit; text-align: left; cursor: pointer; }
+    /* the sidebar's one left edge is 16px: the name, a depth-0 page and the empty line all start on it */
+    .pb-draft-side .pb-draft-none { margin: 0; padding: 6px 16px; }
     .pb-draft-nav:hover, .pb-draft-nav.is-on { background: var(--neutral-100, #f3f4f6); }
     .pb-draft-nav.is-on { font-weight: 600; }
     .pb-draft-main { flex: 1 1 auto; min-width: 0; max-width: 760px; padding: 24px 32px; }
@@ -3758,7 +3766,30 @@
         meta: (PB_REGISTRY && PB_REGISTRY.meta) || {}, version: PB_SHELL_VERSION,
         onSettings: function (btn) { pbOpenProjectSettings(btn); },
       });
+      pbBarFit(el);
       pbTabsFit(el.querySelector('.pb-tabs'));
+    }
+
+    /* Does the bar fit with every item's words? Measured, not guessed from a width: which items show depends on the
+       tab (Pick, Spacing and Sandbox are the Prototype's) and on the project (the progress item, until a screen
+       exists), so no single breakpoint is right. Too full: the tool items keep only their glyphs (.is-compact),
+       then the progress item drops its step name (.is-tight), then the project button keeps only its initials and
+       the tabs become a sideways strip (.is-narrow, as under 48em); chrome.css does each.
+       Each item keeps its aria-label and title, so nothing loses its name. */
+    function pbBarFit(bar) {
+      bar = bar || document.getElementById('meta-nav');
+      if (!bar) return;
+      const tabs = bar.querySelector('.pb-tabs');
+      const over = () => bar.scrollWidth > bar.clientWidth + 1 || !!(tabs && tabs.scrollWidth > tabs.clientWidth + 1);
+      bar.classList.remove('is-compact', 'is-tight', 'is-narrow');
+      if (!over()) return;
+      bar.classList.add('is-compact');
+      if (over()) bar.classList.add('is-tight');
+      if (over()) bar.classList.add('is-narrow');   // still too full: initials only, and the tabs scroll sideways
+      if (!pbBarFit._fonts && document.fonts && document.fonts.ready) {
+        pbBarFit._fonts = true;   // a web font that arrives late changes every label's width
+        document.fonts.ready.then(() => pbBarFit());
+      }
     }
 
     /* A narrow bar scrolls its tabs sideways (chrome.css). A scroller with no sign of more looked
@@ -3779,7 +3810,7 @@
       mark();
       if (!pbTabsFit._rs) {
         pbTabsFit._rs = true;
-        window.addEventListener('resize', function () { pbTabsFit(document.querySelector('#meta-nav .pb-tabs')); });
+        window.addEventListener('resize', function () { pbBarFit(); pbTabsFit(document.querySelector('#meta-nav .pb-tabs')); });
       }
     }
 
@@ -5681,8 +5712,8 @@
     // correctly through the CSS transform. Collapses the wrapper height to the scaled height.
     function fitProtoFrame() {
       // Laptop and monitor render at TRUE size (no scale): fonts are real, the width is responsive
-      // (width:<device>px; max-width:100%) and the frame fills the stage's height, its content
-      // scrolling inside. A phone or a tablet is a DEVICE — an object — so it is fitted WHOLE:
+      // (width:<device>px; max-width:100%) and the frame fills the stage's height inside the same
+      // inset a device gets (CSS on .proto-fit:not(.is-fitted)), its content scrolling inside. A phone or a tablet is a DEVICE — an object — so it is fitted WHOLE:
       // one transform, never past 1:1, leaving a 32px inset on every side (24px when the stage is
       // under 900px tall) so the frame never touches the bar. Compare mode fits the PAIR the same
       // way, with one shared transform: per-frame fitting would draw a 429px phone and a 1280px
@@ -12776,6 +12807,7 @@
         const b = document.getElementById('pb-prog'), m = document.getElementById('pb-prog-menu');
         b.innerHTML = pbProgButtonHTML(); b.setAttribute('aria-label', pbProgLabel());
         m.innerHTML = pbProgMenuHTML();
+        pbBarFit();   // "Structure" → "Flows and test cases" is a wider item
       }
       pbProgTimer();
     }
@@ -12880,7 +12912,7 @@
       const name = meta.name || 'Untitled product', objective = (meta.overview || {}).objectives || '';
       const mine = sel ? jobs.filter(j => (j.screens || []).includes(sel.id)) : jobs;
       const side = screens.length
-        ? screens.map(s => `<button type="button" class="pb-draft-nav pb-draft-row${sel && s.id === sel.id ? ' is-on' : ''}" style="padding-left:${12 + s.depth * 14}px"
+        ? screens.map(s => `<button type="button" class="pb-draft-nav pb-draft-row${sel && s.id === sel.id ? ' is-on' : ''}" style="padding-left:${16 + s.depth * 14}px"
               data-draft-screen="${escapeHtmlAttr(s.id)}" onclick="pbDraftGo(this.dataset.draftScreen)">${pbEscape(s.name)}${s.draft ? ' ' + pbDraftChip() : ''}</button>`).join('')
         : `<p class="pb-draft-none">No screens planned yet.</p>`;
       const jobsHTML = mine.length

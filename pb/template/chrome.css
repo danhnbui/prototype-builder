@@ -547,6 +547,11 @@ dialog.pb-dlg::backdrop { background: var(--pb-scrim); }
 /* Narrow bars: the project button keeps its square + chevron; a bar item that has a glyph keeps
    only the glyph (its aria-label and title still name it). */
 @media (max-width: 899px) { .pb-bar-item .pb-bar-lb, .pb-bar-item .pb-kbd { display: none; } }
+/* A bar too full for its words at any width (the prototype's pbBarFit measures it, so it holds for whichever
+   items are showing): first the tool items keep only their glyphs, then the progress item drops its step name.
+   Without this the tabs, which may shrink, were painted over by the items on the right. */
+.pb-bar.is-compact .pb-bar-end > .pb-bar-item .pb-bar-lb, .pb-bar.is-compact .pb-bar-item .pb-kbd,
+.pb-bar.is-tight .pb-bar-item .pb-bar-lb { display: none; }
 @media (max-width: 599px) { .pb-pj-nm { display: none; } .pb-cmdk-f-r { display: none; } }
 
 /* ---------- Shared primitives (round 3 · wave A) ----------
@@ -673,12 +678,19 @@ dialog.pb-dlg::backdrop { background: var(--pb-scrim); }
   .pb-id { max-width: 8rem; }
   .pb-tabs { gap: var(--pb-s3); overflow-x: auto; scrollbar-width: none; }
   .pb-tabs::-webkit-scrollbar { display: none; }
-  /* the clipped edge fades so a sideways-scrolling strip reads as "more this way" (pbTabsFit) */
-  .pb-tabs.is-clip-r { -webkit-mask-image: linear-gradient(to right, var(--pb-mask) calc(100% - 2rem), transparent); mask-image: linear-gradient(to right, var(--pb-mask) calc(100% - 2rem), transparent); }
-  .pb-tabs.is-clip-l { -webkit-mask-image: linear-gradient(to left, var(--pb-mask) calc(100% - 2rem), transparent); mask-image: linear-gradient(to left, var(--pb-mask) calc(100% - 2rem), transparent); }
-  .pb-tabs.is-clip-l.is-clip-r { -webkit-mask-image: linear-gradient(to right, transparent, var(--pb-mask) 2rem, var(--pb-mask) calc(100% - 2rem), transparent); mask-image: linear-gradient(to right, transparent, var(--pb-mask) 2rem, var(--pb-mask) calc(100% - 2rem), transparent); }
   .pb-tab { flex: none; }
 }
+/* The same sideways strip when the bar is measured too full even with every label gone (pbBarFit's last step,
+   .is-narrow): the project button keeps only its square, and the tabs scroll instead of being painted over. */
+.pb-bar.is-narrow .pb-pj-nm { display: none; }
+.pb-bar.is-narrow .pb-tabs { overflow-x: auto; scrollbar-width: none; }
+.pb-bar.is-narrow .pb-tabs::-webkit-scrollbar { display: none; }
+.pb-bar.is-narrow .pb-tab { flex: none; }
+/* the clipped edge fades so a sideways-scrolling strip reads as "more this way"; pbTabsFit sets the classes
+   only when the strip is wider than its box, which is only ever a scrolling strip (under 48em, or .is-narrow) */
+.pb-tabs.is-clip-r { -webkit-mask-image: linear-gradient(to right, var(--pb-mask) calc(100% - 2rem), transparent); mask-image: linear-gradient(to right, var(--pb-mask) calc(100% - 2rem), transparent); }
+.pb-tabs.is-clip-l { -webkit-mask-image: linear-gradient(to left, var(--pb-mask) calc(100% - 2rem), transparent); mask-image: linear-gradient(to left, var(--pb-mask) calc(100% - 2rem), transparent); }
+.pb-tabs.is-clip-l.is-clip-r { -webkit-mask-image: linear-gradient(to right, transparent, var(--pb-mask) 2rem, var(--pb-mask) calc(100% - 2rem), transparent); mask-image: linear-gradient(to right, transparent, var(--pb-mask) 2rem, var(--pb-mask) calc(100% - 2rem), transparent); }
 
 /* ---------- Spec layers (round 3 · wave B5) ----------
    The Layers control, and the overlay the spec engine (pbSpecMount, runtime.js) draws over a live
