@@ -325,6 +325,43 @@ with tempfile.TemporaryDirectory() as tmp:
     code, out, err = run(ACTIVITY, ev("Stop", live), cwd=plain)
     code, out, err = run(ACTIVITY, ev("SessionStart", live), cwd=plain)
     check(code == 0 and json.load(open(act, encoding="utf-8")).get("state") == "idle", "any other event is ignored")
+    # `since`: when the turn began — set by UserPromptSubmit, kept by PostToolUse (while working) and by Stop
+    _time = __import__("time")
+
+    def read_act():
+        return json.load(open(act, encoding="utf-8"))
+    t1 = _time.time()
+    run(ACTIVITY, ev("UserPromptSubmit", live), cwd=plain)
+    s1 = read_act()
+    check(isinstance(s1.get("since"), (int, float)) and abs(s1["since"] - t1) < 15 and s1["since"] <= s1["at"],
+          "since: UserPromptSubmit writes since ≈ now, never after `at` (%s)" % s1)
+    _time.sleep(0.05)
+    run(ACTIVITY, ev("PostToolUse", live), cwd=plain)
+    s2 = read_act()
+    check(s2.get("state") == "working" and s2.get("since") == s1["since"] and s2["at"] > s1["at"],
+          "…a following PostToolUse keeps the same since (and moves `at`)")
+    run(ACTIVITY, ev("Stop", live), cwd=plain)
+    s3 = read_act()
+    check(s3.get("state") == "idle" and s3.get("since") == s1["since"], "…Stop keeps the same since")
+    _time.sleep(0.05)
+    run(ACTIVITY, ev("PostToolUse", live), cwd=plain)
+    s4 = read_act()
+    check(s4.get("state") == "working" and isinstance(s4.get("since"), (int, float)) and s4["since"] >= s1["since"]
+          and s4["since"] != s1["since"] and s4["since"] <= s4["at"],
+          "…a PostToolUse after Stop (idle on file) starts a fresh turn: a newer since (%s)" % s4)
+    with open(act, "w", encoding="utf-8") as f:
+        json.dump({"state": "working", "at": 1, "event": "PostToolUse", "since": "yesterday"}, f)
+    code, out, err = run(ACTIVITY, ev("PostToolUse", live), cwd=plain)
+    s5 = read_act()
+    check(code == 0 and isinstance(s5.get("since"), (int, float)) and not isinstance(s5.get("since"), bool),
+          "…a non-number since on file does not crash PostToolUse and is replaced by a number (%s)" % s5)
+    with open(act, "w", encoding="utf-8") as f:
+        json.dump({"state": "working", "at": 1, "event": "UserPromptSubmit", "since": "yesterday"}, f)
+    code, out, err = run(ACTIVITY, ev("UserPromptSubmit", live), cwd=plain)
+    s6 = read_act()
+    check(code == 0 and isinstance(s6.get("since"), (int, float)) and abs(s6["since"] - _time.time()) < 15,
+          "…a non-number since does not crash UserPromptSubmit: the next one writes a numeric since (%s)" % s6)
+    code, out, err = run(ACTIVITY, ev("Stop", live), cwd=plain)
     code, out, err = run(ACTIVITY, ev("UserPromptSubmit", cold), cwd=plain)
     check(code == 0 and out == "" and not os.path.exists(os.path.join(cold, ".preview")),
           "a project with no .preview/ gets no new folder (nobody has previewed it)")

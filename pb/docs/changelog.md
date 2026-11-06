@@ -32,6 +32,21 @@ tool beside Pick, after Solum Studio's.*
   with `min-height: 40px` centring a 28px title showed nothing for its 6px above and below. That room is now drawn
   as a fourth band, hatched in its own cyan (`--pb-spec-free`, #0e7490): never grey, which melted into the
   product's own borders and fills.
+- **The activity strip: what Claude is doing, in words.** While Claude worked, the preview's only sign was a 6 px
+  pulsing dot and "Working" in the bar, and a step that had saved nothing yet looked finished or broken. A row under
+  the bar now says it: **Thinking** (three dots in a calm wave, a thin beam along its edge, the time since the turn
+  began), **Writing · Jobs and glossary · 3 saved**, **Waiting · no word from Claude** after 90 s without a write, and
+  **Your turn · 7 drafts to approve — reply in Claude Code** (or *Claude finished this turn · in 1:42*). It shows on
+  every project and tab while a session is live and goes once the activity is 30 minutes old; never on a view-only
+  page. New lines also come in left to right as they land. Chosen from three options rated side by side
+  (`/pb:explore`, a page round). The gate is still generic: naming it ("G-JTBD — approve 4 jobs and 3 terms") needs
+  each gated command to write it, which comes next. `.preview/activity.json` gains `since` (when the turn began),
+  written by `hooks/activity.py`; an older file without it still works, with no clock.
+- **The laptop and monitor frames sit inside the stage.** They kept their true size but filled the stage edge to edge
+  and ran off its bottom, so below about 1340 px the window looked cut off. They now get the margin a phone or tablet
+  gets (32 px, 24 px on a short screen) and their width follows the viewport. Below about 1060 px the bar's items
+  painted over the tabs and the page scrolled sideways; the bar now measures itself and drops labels, then the step
+  name, then the project name, and finally scrolls its tabs. The undesigned draft's sidebar lines up on one edge.
 
 - **Hooks that send the common rules down the safe path.** A new `route.py` runs before and after Bash, Agent, Read,
   Edit and Write in a pb project. A built-in generic subagent call (general-purpose, Explore, Plan, claude, or no

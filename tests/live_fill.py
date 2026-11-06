@@ -481,6 +481,91 @@ def run():
                 on_disk = json.load(open(reg, encoding="utf-8"))
                 check(not any(j.get("_draft") or j["id"] == "sse2" for j in on_disk["ia"]["jobs"]), "…while registry.json never holds a draft or a _draft key")
 
+        # ── the activity strip (v2.7): one row under the bar that says what Claude is doing ──────────
+        print("the activity strip:")
+        with tempfile.TemporaryDirectory() as tmp:
+            reg = fresh_project(tmp)
+            os.makedirs(os.path.join(tmp, ".preview"), exist_ok=True)
+            act_file = os.path.join(tmp, ".preview", "activity.json")
+            with Server(reg) as srv:
+                page = open_page(srv)
+                has_agent = "document.documentElement.classList.contains('pb-has-agent')"
+                strip_text = "(document.querySelector('#pb-agent .pb-agent-line') || {innerText: ''}).innerText"
+
+                def write_act(doc):
+                    with open(act_file, "w", encoding="utf-8") as f:
+                        json.dump(doc, f)
+
+                # a · no activity file → hidden
+                check(not os.path.exists(act_file), "no activity file yet")
+                check(page.evaluate("document.getElementById('pb-agent').hidden") and not page.evaluate(has_agent),
+                      "a · no activity → #pb-agent is hidden and <html> lacks pb-has-agent")
+
+                # b · UserPromptSubmit → Thinking, and the stage gives up a row
+                hook("UserPromptSubmit", tmp)
+                page.wait_for_function("!document.getElementById('pb-agent').hidden", timeout=8000)
+                check(page.evaluate("document.getElementById('pb-agent').dataset.mode") == "working",
+                      "b · UserPromptSubmit → #pb-agent is visible with data-mode=working")
+                check(page.inner_text("#pb-agent .pb-agent-verb") == "Thinking", "…verb Thinking")
+                check(page.evaluate(has_agent), "…<html> has pb-has-agent")
+                page.wait_for_function("document.querySelector('.pb-page--viewport') && "
+                                       "Math.round(document.querySelector('.pb-page--viewport').getBoundingClientRect().height) === window.innerHeight - 77",
+                                       timeout=8000)
+                vh = page.evaluate("[Math.round(document.querySelector('.pb-page--viewport').getBoundingClientRect().height), window.innerHeight]")
+                check(vh[0] == vh[1] - 77, f"…the Prototype tab's .pb-page--viewport is innerHeight − 77 (44px bar + 33px strip): {vh}")
+                check(same_document(page), "…and the page was not reloaded for it")
+
+                # c · a saved line → Writing · step · N saved, with a m:ss clock
+                sl(reg, "set", "ia", "sitemap.n-home", "--draft", patch=json.dumps({"id": "n-home", "name": "Home", "depth": 0}))
+                page.wait_for_function("document.querySelector('#pb-agent .pb-agent-verb') && document.querySelector('#pb-agent .pb-agent-verb').textContent === 'Writing'", timeout=8000)
+                check(True, "c · a saved line → verb Writing")
+                line = page.evaluate(strip_text)
+                check("Structure" in line and "1 saved" in line, f"…the line names the step and says 1 saved ({line!r})")
+                sl(reg, "set", "ia", "sitemap.n-orders", "--draft", patch=json.dumps({"id": "n-orders", "name": "Orders", "depth": 1, "parent": "n-home"}))
+                page.wait_for_function(f"({strip_text}).includes('2 saved')", timeout=8000)
+                check(True, "…a second line → 2 saved")
+                clock = page.inner_text("#pb-agent .pb-agent-time")
+                check(re.match(r"^\d+:\d\d$", clock) is not None, f"…the clock reads m:ss ({clock!r})")
+
+                # d · Stop with drafts waiting → Your turn, N drafts to approve
+                hook("Stop", tmp)
+                page.wait_for_function("document.getElementById('pb-agent').dataset.mode === 'turn'", timeout=8000)
+                check(page.inner_text("#pb-agent .pb-agent-verb") == "Your turn", "d · Stop with drafts → data-mode=turn, verb Your turn")
+                check("drafts to approve" in page.evaluate(strip_text), f"…{page.evaluate(strip_text)!r} says how many drafts wait")
+                check(page.inner_text("#pb-agent .pb-agent-time").startswith("Waiting "), "…the clock reads Waiting m:ss")
+
+                # e · Stop with nothing to approve → done, and how long the turn took
+                sl(reg, "drafts", "--clear")
+                page.wait_for_function("document.getElementById('pb-agent').dataset.mode === 'done'", timeout=8000)
+                check("Claude finished this turn" in page.evaluate(strip_text), "e · drafts cleared → data-mode=done, 'Claude finished this turn'")
+                check(page.inner_text("#pb-agent .pb-agent-time").startswith("in "),
+                      f"…the clock says how long the turn took ({page.inner_text('#pb-agent .pb-agent-time')!r})")
+
+                # g · a content write neither resets nor removes the strip
+                hook("UserPromptSubmit", tmp)
+                page.wait_for_function("document.getElementById('pb-agent').dataset.mode === 'working'", timeout=8000)
+                sl(reg, "set", "content", "terms.t-strip", patch=json.dumps(
+                    {"id": "t-strip", "term": "Strip", "definition": "the row that says what Claude is doing", "aka": [], "avoid": []}))
+                page.wait_for_selector('.meta-tab[data-meta-view="flow"].has-new', timeout=8000)
+                check(not page.evaluate("document.getElementById('pb-agent').hidden") and page.evaluate(has_agent)
+                      and page.evaluate("document.getElementById('pb-agent').dataset.mode") == "working",
+                      "g · a content write does not remove or reset the strip")
+                check(same_document(page), "…no navigation either")
+
+                # h · one live region, and no fifth tab
+                check(page.locator('#pb-agent [role="status"]').count() == 1, "h · exactly one role=status inside #pb-agent")
+                check(page.locator(".meta-tab").count() == 4, "…the strip adds no fifth .meta-tab")
+
+                # f · the 90 s fallback, then a session that has gone cold
+                write_act({"state": "working", "at": time.time() - 100, "event": "UserPromptSubmit"})
+                page.wait_for_function("document.getElementById('pb-agent').dataset.mode === 'waiting'", timeout=8000)
+                check(page.inner_text("#pb-agent .pb-agent-verb") == "Waiting", "f · working but silent for 100 s → data-mode=waiting, verb Waiting")
+                write_act({"state": "idle", "at": time.time() - 2000, "event": "Stop"})
+                page.wait_for_function("document.getElementById('pb-agent').hidden", timeout=8000)
+                check(not page.evaluate(has_agent), "…an idle session older than 30 min → hidden again, pb-has-agent removed")
+                check(not page.errors, f"zero console errors ({page.errors})")
+                page.close()
+
         # ── the same page, a second tab type: the design-system page keeps reloading as before ──────
         print("the design-system page:")
         with tempfile.TemporaryDirectory() as tmp:
@@ -515,6 +600,14 @@ def run():
                       "…and the field the reader typed in is still filled (the prototype was not repainted)")
                 check(page.evaluate("document.querySelector('.meta-tab.active').dataset.metaView") == "prototype",
                       "…the Prototype tab stays; the UX Design tab gets the dot instead")
+                # the activity strip shows on a project with screens too, and the running session is left alone
+                hook("UserPromptSubmit", tmp)
+                page.wait_for_function("!document.getElementById('pb-agent').hidden", timeout=8000)
+                check(page.evaluate("document.getElementById('pb-agent').dataset.mode") == "working"
+                      and page.evaluate("document.documentElement.classList.contains('pb-has-agent')"),
+                      "g · a project with screens shows the activity strip too")
+                check(same_document(page) and page.locator("#proto-frame .field__input").nth(0).input_value() == "typed-by-test@example.com",
+                      "…and it does not touch the running Prototype session")
                 sl(reg, "set", "screens", first_screen, patch=json.dumps({"name": "Renamed by the test"}))
                 page.wait_for_function("window.__pbMarker !== 'same-document'", timeout=10000)
                 page.wait_for_selector(".meta-tab", timeout=10000)
@@ -531,6 +624,14 @@ def run():
                 page = open_page(srv)
                 check(page.evaluate("document.body.classList.contains('view-only')"), "the page is view-only")
                 check(page.locator("#pb-prog").count() == 0, "no progress item on a view-only page")
+                os.makedirs(os.path.join(tmp, ".preview"), exist_ok=True)
+                hook("UserPromptSubmit", tmp)
+                _, adata = get_json(srv.url, "/__pb_data")
+                check(adata.get("activity") and adata["activity"].get("state") == "working", "…the server does see the hook's activity")
+                page.wait_for_timeout(1800)
+                check(page.evaluate("document.getElementById('pb-agent').hidden") and
+                      not page.evaluate("document.documentElement.classList.contains('pb-has-agent')"),
+                      "g · a view-only page never shows the activity strip")
                 check(page.locator(".meta-tab").count() == 4, "…4 tabs")
                 check(page.locator("[data-pb-draft]").count() == 0 and page.locator(".empty-state").count() == 1,
                       "…the Prototype tab keeps the plain empty state, not the outline")

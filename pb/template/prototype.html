@@ -261,7 +261,7 @@
        META-PANEL — typography + layout for the 4 documentation tabs
        ======================================================================== */
     .meta-panel {
-      min-height: calc(100vh - 44px);
+      min-height: calc(100vh - var(--pb-top));
       background: var(--bg-soft);
       padding: 48px 60px;
       max-width: 960px;
@@ -679,7 +679,7 @@
     .pb-cover em { font-size: var(--font-size-xs); opacity: 0.8; font-style: normal; margin-top: 2px; }
     .sync-toast {
       position: fixed;
-      top: 60px;                       /* just below the 44px meta-nav + 16px gap */
+      top: calc(var(--pb-top) + 16px); /* just below the bar (and the activity strip) + 16px gap */
       left: 50%;
       transform: translate(-50%, -12px);
       opacity: 0;
@@ -910,7 +910,7 @@
        Replaces the per-tab meta-tag / meta-h1 / meta-sub headers.
        ======================================================================== */
     .pb-page {
-      min-height: calc(100vh - 44px);
+      min-height: calc(100vh - var(--pb-top));
       background: var(--bg-soft);
       display: flex; flex-direction: column;
     }
@@ -952,7 +952,7 @@
     /* v1.5 — viewport-locked pages (Prototype, UX Design): the page fills exactly one
        viewport with no body scroll; the split columns stretch to full height and scroll
        internally if needed. */
-    .pb-page--viewport { height: calc(100vh - 44px); overflow: hidden; }
+    .pb-page--viewport { height: calc(100vh - var(--pb-top)); overflow: hidden; }
     .pb-content--fill { flex: 1 1 auto; min-height: 0; overflow: hidden; display: flex; flex-direction: row; }
     .pb-content--fill.pb-content--split { display: grid; align-items: stretch; grid-template-rows: minmax(0, 1fr); }
     .pb-content--fill .pb-aside { position: static; top: auto; max-height: none; height: 100%; align-self: stretch; }
@@ -982,7 +982,7 @@
     .pb-aside {
       position: sticky; top: 24px;
       align-self: start;
-      max-height: calc(100vh - 44px - 72px);
+      max-height: calc(100vh - var(--pb-top) - 72px);
       overflow: auto;
       background: var(--pb-surface);
       border: 1px solid var(--border);
@@ -1289,7 +1289,7 @@
 
     .handoff-shell {
       display: flex; align-items: stretch;
-      height: calc(100vh - 44px);   /* fixed frame below the 44px meta-nav */
+      height: calc(100vh - var(--pb-top));   /* fixed frame below the bar (and the activity strip) */
       overflow: hidden;             /* the shell never scrolls — its two panes do */
     }
     .handoff-main-col {
@@ -3298,7 +3298,7 @@
        the hooks that drove the menu it replaced; .pb-insp is what styles it. Lengths are tokens
        or rem; the 720px breakpoint is the one in pbSandboxDocked(), and media queries cannot read a token. */
     .copy-popover.pb-insp {
-      position: fixed; top: var(--pb-bar-h); right: 0; bottom: 0; left: auto; width: 20rem; max-width: 100vw;
+      position: fixed; top: var(--pb-top); right: 0; bottom: 0; left: auto; width: 20rem; max-width: 100vw;
       padding: 0; border: 0; border-left: var(--pb-hair-w) solid var(--pb-hair); border-radius: 0;
       background: var(--pb-page); color: var(--pb-ink); box-shadow: var(--pb-shadow);
       z-index: 1050; opacity: 1; transform: none; transition: none;
@@ -3582,6 +3582,7 @@
 
 <body>
   <div id="meta-nav"></div>
+  <div id="pb-agent" class="pb-agent" hidden></div>
   <div id="app"></div>
 
   <script>
@@ -12577,9 +12578,12 @@
     function pbLiveApply(d, announce) {
       const reg = d && d.registry;
       if (!reg || typeof reg !== 'object') throw new Error('no registry in the data');
-      const a = d.activity;
+      const a = d.activity, prevState = PB_LIVE.activity && PB_LIVE.activity.state;
+      // `turn`: seconds since the turn began (the hook's `since`), measured at `rx` like `age`; null from an older hook
       PB_LIVE.activity = (a && (a.state === 'working' || a.state === 'idle') && typeof a.at === 'number')
-        ? { state: a.state, age: Math.max(0, (+d.now || a.at) - a.at), rx: performance.now() } : null;
+        ? { state: a.state, age: Math.max(0, (+d.now || a.at) - a.at), rx: performance.now(),
+            since: typeof a.since === 'number' ? a.since : null,
+            turn: typeof a.since === 'number' ? Math.max(0, (+d.now || a.at) - a.since) : null } : null;
       PB_LIVE.drafts = (d.drafts && +d.drafts.count) || 0;
 
       const keys = Object.keys(Object.assign({}, PB_REGISTRY, reg));
@@ -12619,6 +12623,7 @@
       const counts = pbProgCounts(PB_REGISTRY);
       if (announce && PB_LIVE.counts) PB_STEPS.forEach(([id]) => { if ((counts[id] || 0) > (PB_LIVE.counts[id] || 0)) PB_LIVE.cur = id; });
       PB_LIVE.counts = counts;
+      pbAgentNote(counts, prevState, announce);
 
       // a tab other than the one you are on has something new: a dot, until you open it
       if (announce) {
@@ -12631,6 +12636,7 @@
       const flip = pbLiveLoadingFlip();
       if (!protoLive && (changed.length || logicChanged || flip)) pbLiveRepaint(before, keyBefore);
       pbBarSync(metaChanged);
+      pbAgentPaint();
     }
     /* The site map draws a loading node while the structure step is working. That is a state of the hook, not of the data,
        so when it flips (Stop fired, or 90 s passed) and the draft map is on screen, the map is painted again. */
@@ -12818,6 +12824,85 @@
         PB_LIVE.timer = setTimeout(() => { pbBarSync(false); if (pbLiveLoadingFlip()) pbLiveRepaint(null, null); }, Math.max(250, (90 - pbProgAge()) * 1000 + 150));
       }
     }
+
+    /* ---- 7. the activity strip (v2.7) ------------------------------------------------------------ */
+    /* One row under the bar that says in words what Claude is doing (the pick of /pb:explore ai-working, "Agent
+       presence"). Thinking: the hook says working and no line has landed in the last few seconds. Writing · <step> ·
+       N saved: a line landed (N counts this turn's lines). Waiting: working, but the hook has been quiet for 90 s (a
+       turn cancelled with Esc). Your turn: Stop fired; "N drafts to approve" while drafts wait, else how long the turn
+       took. It shows on every project and tab while a session is live — from the first activity until it is 30
+       minutes old — so a page does not jump a row at every turn; never on a view-only, embedded or file:// page.
+       The gate is generic: the page knows only that Claude stopped, not at which gate, until a command says so. */
+    const PB_AGENT_WRITING_S = 8, PB_AGENT_STALE_S = 30 * 60;
+    const PB_AGENT = { since: null, base: null, total: null, last: 0, tick: null, said: '' };
+    const pbAgentTotal = c => Object.keys(c || {}).reduce((n, k) => n + (+c[k] || 0), 0);
+    /* A new turn (a new `since`; or idle → working, from a hook that writes none) restarts the count of lines saved,
+       from what was there before this update. A line that lands while working is "Writing" for a few seconds. */
+    function pbAgentNote(counts, prevState, announce) {
+      const a = PB_LIVE.activity, total = pbAgentTotal(counts), before = PB_AGENT.total === null ? total : PB_AGENT.total;
+      if (PB_AGENT.base === null) PB_AGENT.base = total;
+      if (a && a.state === 'working') {
+        const fresh = a.since !== null ? a.since !== PB_AGENT.since : prevState !== 'working';
+        if (fresh) { PB_AGENT.since = a.since; PB_AGENT.base = Math.min(before, total); }
+        if (announce && total > before) PB_AGENT.last = performance.now();
+      }
+      PB_AGENT.total = total;
+    }
+    function pbAgentClock(s) {
+      s = Math.max(0, Math.floor(s));
+      const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), x = String(s % 60).padStart(2, '0');
+      return h ? `${h}:${String(m).padStart(2, '0')}:${x}` : `${m}:${x}`;
+    }
+    function pbAgentView() {
+      if (!pbLiveOk() || pbLiveEmbedded() || document.body.classList.contains('view-only')) return null;
+      const a = PB_LIVE.activity;
+      if (!a) return null;
+      const age = pbProgAge(), now = performance.now();
+      if (age > PB_AGENT_STALE_S) return null;
+      if (a.state === 'working') {
+        if (age >= 90) return { mode: 'waiting', verb: 'Waiting', parts: ['no word from Claude'], time: 'for ' + pbAgentClock(age) };
+        const c = pbProgCounts(), saved = Math.max(0, pbAgentTotal(c) - (PB_AGENT.base || 0));
+        const writing = saved > 0 && now - PB_AGENT.last < PB_AGENT_WRITING_S * 1000;
+        const cur = pbProgCurrent(), step = cur.id === 'screen' && (c.screen || 0) > 1 ? 'Screens' : cur.name;
+        return { mode: 'working', verb: writing ? 'Writing' : 'Thinking', parts: saved ? [step, saved + ' saved'] : [],
+                 time: a.turn === null ? '' : pbAgentClock(a.turn + (now - a.rx) / 1000) };
+      }
+      const d = PB_LIVE.drafts;
+      if (d) return { mode: 'turn', verb: 'Your turn', parts: [`${d} draft${d > 1 ? 's' : ''} to approve — reply in Claude Code`], time: 'Waiting ' + pbAgentClock(age) };
+      const took = a.turn === null ? null : a.turn - a.age;          // at − since: how long the turn ran
+      return { mode: 'done', verb: 'Your turn', parts: ['Claude finished this turn'], time: took === null ? '' : 'in ' + pbAgentClock(took) };
+    }
+    function pbAgentPaint() {
+      const el = document.getElementById('pb-agent');
+      if (!el) return;
+      const v = pbAgentView(), was = !el.hidden;
+      document.documentElement.classList.toggle('pb-has-agent', !!v);
+      if (!v) {
+        clearInterval(PB_AGENT.tick); PB_AGENT.tick = null;
+        if (was) { el.hidden = true; el.innerHTML = ''; PB_AGENT.said = ''; pbAgentRefit(); }
+        return;
+      }
+      if (!el.firstChild) {
+        el.innerHTML = '<span class="pb-agent-glyph" aria-hidden="true"><i></i><i></i><i></i></span><span class="pb-agent-line" aria-hidden="true"></span>'
+          + '<span class="pb-agent-time" aria-hidden="true"></span><span class="pb-agent-beam" aria-hidden="true"></span><span class="pb-agent-sr" role="status"></span>';
+      }
+      el.dataset.mode = v.mode;
+      const sep = '<span class="pb-agent-sep">·</span>';
+      el.querySelector('.pb-agent-line').innerHTML = `<strong class="pb-agent-verb">${pbEscape(v.verb)}</strong>`
+        + v.parts.map((p, i) => sep + `<span class="${/ saved$/.test(p) ? 'pb-agent-n' : i === 0 && v.mode === 'working' ? 'pb-agent-step' : 'pb-agent-detail'}">${pbEscape(p)}</span>`).join('');
+      el.querySelector('.pb-agent-time').textContent = v.time;
+      // the live region speaks when the state changes, never on a clock tick or a count
+      const said = v.mode === 'working' ? `Claude is ${v.verb.toLowerCase()}${v.parts[0] ? ': ' + v.parts[0] : ''}` : `${v.verb}: ${v.parts.join(' ')}`;
+      if (said !== PB_AGENT.said) { el.querySelector('.pb-agent-sr').textContent = said; PB_AGENT.said = said; }
+      if (!was) {
+        el.hidden = false;
+        el.classList.remove('is-enter'); void el.offsetWidth; el.classList.add('is-enter');
+        pbAgentRefit();
+      }
+      if (!PB_AGENT.tick) PB_AGENT.tick = setInterval(pbAgentPaint, 1000);
+    }
+    /* The strip takes a row from every full-height page (--pb-top): let whatever fits itself to the stage refit. */
+    function pbAgentRefit() { requestAnimationFrame(() => window.dispatchEvent(new Event('resize'))); }
 
     /* ---- 5. sitemap nodes, one at a time ------------------------------------------------------- */
     const pbDraftChip = () => '<span class="lg-chip pb-draft-chip" title="Not approved yet — shown while the work is still being written">Draft</span>';

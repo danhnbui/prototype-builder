@@ -473,11 +473,21 @@ class State:
         return sorted(glob.glob(os.path.join(glob.escape(root), "**", "*.js"), recursive=True))
 
     @property
+    def sidecar_files(self):
+        """The handoff sidecars render.py inlines: spec/**/*.json (specSrc, load_specs) and logic/**/*.json
+        (logicSrc, load_contracts). Compiled into the page, so a change to one is a reload."""
+        out = []
+        for sub in ("spec", "logic"):
+            root = os.path.join(self.base_dir, sub)
+            out += glob.glob(os.path.join(glob.escape(root), "**", "*.json"), recursive=True)
+        return sorted(out)
+
+    @property
     def watched(self):
-        # body_files is recomputed each poll so newly added/removed .js files are noticed.
-        extra = [p for p in (self.ds_shell_path, self.runtime_path) if p]
+        # body_files / runtime_files / sidecar_files are recomputed each poll so newly added/removed files are noticed.
+        extra = [p for p in (self.ds_shell_path, self.runtime_path, self.explore_shell_path) if p]
         return ([self.reg_path, self.shell_path, self.render_path, self.drafts_path, self.hook_path] + extra
-                + self.body_files + self.runtime_files)
+                + self.body_files + self.runtime_files + self.sidecar_files)
 
     def bump(self, kind="reload"):
         """A watched file changed. `kind` is what the browsers are told: "update" when only data the page can
@@ -512,6 +522,21 @@ class State:
         with self._cache_lock:
             for key in [k for k in self._slot_cache if k[0] not in open_targets]:
                 del self._slot_cache[key]
+
+
+def trim_server_log(base_dir):
+    """On start, keep only the last LOG_KEEP bytes of .preview/server.log when it is over LOG_MAX → bytes dropped.
+    Uses clean.py's in-place trim (the same limits): this process, or the one that spawned it, holds the
+    file open for append, and an atomic replace would leave it writing to an unlinked file."""
+    try:
+        import clean
+        path = os.path.join(base_dir, explore.SERVER_LOG)
+        if not os.path.isfile(path):
+            return 0
+        dropped, _err = clean._trim_log(path, os.path.realpath(base_dir))
+        return dropped
+    except Exception:
+        return 0
 
 
 def render_current(state):
@@ -598,8 +623,9 @@ def render_ds_current(state):
 
 
 def read_hook(state):
-    """What the plugin hook last wrote to .preview/activity.json — {state: "working"|"idle", at: <epoch s>} —
-    or None when there is none, it is unreadable or it is not that shape. A bad file is no activity, never an error."""
+    """What the plugin hook last wrote to .preview/activity.json — {state: "working"|"idle", at: <epoch s>, since?} —
+    or None when there is none, it is unreadable or it is not that shape. A bad file is no activity, never an error.
+    `since` (when the turn began) is passed on only when it is a number no later than `at`; otherwise it is left out."""
     try:
         with open(state.hook_path, encoding="utf-8") as f:
             d = json.load(f)
@@ -610,7 +636,11 @@ def read_hook(state):
     at = d.get("at")
     if isinstance(at, bool) or not isinstance(at, (int, float)):
         return None
-    return {"state": d["state"], "at": at}
+    out = {"state": d["state"], "at": at}
+    since = d.get("since")
+    if isinstance(since, (int, float)) and not isinstance(since, bool) and since <= at:
+        out["since"] = since
+    return out
 
 
 def data_current(state):
@@ -1684,6 +1714,7 @@ def main():
             return os.path.relpath(p)
         except OSError:
             return p
+    trim_server_log(os.path.dirname(reg_path))
     log("Product Builder preview")
     summary = startup_summary(reg_path)
     if summary:
@@ -1695,7 +1726,7 @@ def main():
     if ds_shell_path and runtime_path:
         log("  design    %sdesign-system  ·  the component workbench" % url)
     log("  explore   %sexplore  ·  /pb:explore options side by side, rated in the page" % url)
-    log("  watching  registry.json, shells, render.py, render/**/*.{js,css}, runtime/**/*.js — saving any reloads the browser")
+    log("  watching  registry.json, shells, render.py, render/**/*.{js,css}, runtime/**/*.js, spec/**/*.json, logic/**/*.json — saving any reloads the browser")
     log("  to disk   %s" % ("ON → %s" % rel(out_path) if args.write
                             else "off (in-memory preview; --write to update prototype.html)"))
     log("  idle exit %s" % ("after %g min with no tab open and no request (--idle-exit 0 keeps it running)" % args.idle_exit
