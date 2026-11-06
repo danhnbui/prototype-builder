@@ -2,7 +2,7 @@
 
 All notable changes to Product Builder. Format follows [Keep a Changelog](https://keepachangelog.com/).
 
-## [Unreleased]
+## [3.0.0] — 2026-11-06
 
 *Planned as **v3.0.0**, a major: `/pb:handoff` mode 2 (engineering) and `--tier` are removed (see **Breaking**
 below). No schema change. `/pb:handoff` gains a fourth audience, front-end developers who build from tickets, and
