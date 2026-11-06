@@ -4,7 +4,21 @@ All notable changes to Product Builder. Format follows [Keep a Changelog](https:
 
 ## [Unreleased]
 
-*Additive, no schema change. The preview's bar gains a second inspection tool beside Pick, after Solum Studio's.*
+*Additive, no schema change. `/pb:handoff` gains a fourth audience: front-end developers who build from tickets.
+The preview's bar gains a second inspection tool beside Pick, after Solum Studio's.*
+
+- **`/pb:handoff` mode 4 — tickets for front-end developers.** Tickets were improvised session by session and came
+  out different each time: no template, written from prose memory files rather than the registry, edits made in
+  Notion never came back, numbering broke when one was deleted, annotations rebuilt from scratch. Now they live in
+  the project under `handoff/tickets/`, one file each, in one template: Context · Scope · Solution · States · Edge
+  cases · Roles · Data & logic · Accessibility · Acceptance · Open · Document · Handoff notes. Solution takes one of
+  four shapes (`--kind journey|component|rules|region`); Document is a prototype deep link plus exactly one evidence
+  form, a `flow` step capture or an `annotation` table. Ids are stable (`T-<slug>`), so a deleted ticket never
+  renumbers the rest. `tools/ticket.py lint` (TK-FRONT · TK-ID · TK-TITLE · TK-SECTION · TK-EMPTY · TK-STATES ·
+  TK-DEP · TK-REF · TK-LOGIC · TK-DOC · TK-INTERNAL, and TK-STALE as a warning) gates the publish, and `stale` lists
+  the tickets whose registry sources changed. Publishing to Notion or Jira is **one-way**: the command fetches the
+  existing page first and stops to ask if it was edited there since the last publish, pull those edits in or
+  overwrite. New flags `--ticket <ID>` and `--publish notion|jira|none`; `--mode=4` (alias `tickets`).
 
 - **Spacing mode.** A **Spacing** button after Pick in the bar (or **M**) draws a hairline dashed outline round every
   element of the preview and, for the one under the pointer, its margin, padding and flex/grid gap as tinted bands,

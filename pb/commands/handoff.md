@@ -1,5 +1,5 @@
 ---
-description: The one hand-off command. Asks who is receiving the work, then delivers it — (1) everything including a vendored Product Builder, so they keep building; (2) engineering, as prototype.html + design-system.html + logic.md + rules.md + constitution.md, with an optional runnable tier; (3) Figma, lowered deterministically from the registry and written through the Figma MCP, with the DS Bridge plugin as the fallback. Replaces the four commands that used to do this: handoff-close, handoff-dev, hand-off and build-figma-handoff.
+description: The one hand-off command. Asks who is receiving the work, then delivers it — (1) everything including a vendored Product Builder, so they keep building; (2) engineering, as prototype.html + design-system.html + logic.md + rules.md + constitution.md, with an optional runnable tier; (3) Figma, lowered deterministically from the registry and written through the Figma MCP, with the DS Bridge plugin as the fallback; (4) tickets for front-end developers, one file per buildable slice in a fixed template, linted, then published one-way to Notion or Jira. Replaces the four commands that used to do this: handoff-close, handoff-dev, hand-off and build-figma-handoff.
 ---
 
 # /pb:handoff
@@ -14,7 +14,7 @@ $ARGUMENTS
 
 | Flag | Default | Effect |
 |---|---|---|
-| `--mode=1\|2\|3` | **ask** | Skip the question (also `all` · `dev` · `figma`) |
+| `--mode=1\|2\|3\|4` | **ask** | Skip the question (also `all` · `dev` · `figma` · `tickets`) |
 | `--out <dir>` | per mode | Where to write |
 | `--people` / `--context` | — | Mode 1, narrowed: the viewer artifact only / the bundle only |
 | `--tier=host\|scaffold` | ask, mode 2 | Also emit a runnable app |
@@ -27,11 +27,13 @@ $ARGUMENTS
 | `--dry-run` | false | Mode 3: run every gate, show the plan, emit nothing |
 | `--force` | false | Mode 3: skip the no-op hash check |
 | `--rematch` | false | Mode 3: re-prompt DS matches for already-bound components |
+| `--ticket <ID>` | all | Mode 4: work on one ticket |
+| `--publish notion\|jira\|none` | **ask** | Mode 4: where to publish once the tickets lint clean |
 
 ## 0 · Ask (skip only when `--mode` is given)
 
-Ask **once**, as one question with three options, and wait. Do not infer from context — the same
-project hands off to all three audiences at different times, and guessing wrong produces a folder
+Ask **once**, as one question with four options, and wait. Do not infer from context — the same
+project hands off to all four audiences at different times, and guessing wrong produces a folder
 the recipient cannot use.
 
 > **What are you handing off?**
@@ -40,6 +42,8 @@ the recipient cannot use.
 > 2. **For engineering** — `prototype.html` to run, `design-system.html` as the component usage
 >    reference, and the logic + rules as Markdown they can read, review and diff.
 > 3. **For Figma** — push the components and screens into a Figma file.
+> 4. **Tickets for front-end developers** — one ticket per buildable slice, in a fixed template,
+>    published to Notion or Jira.
 
 ## 1 · Contract gate (fail-closed — runs first, every mode)
 ```
@@ -59,11 +63,12 @@ A hand-off sends the registry, its render bodies and its mock data off this mach
 ```
 python3 "${CLAUDE_PLUGIN_ROOT}/tools/security_scan.py" registry.json
 ```
-Modes 1 and 2 also scan what was written, once the output folder exists (it skips `prototype.html`,
+Modes 1, 2 and 4 also scan what was written, once the output folder exists (it skips `prototype.html`,
 `design-system.html`, any `pb/`, `.git/` and `node_modules/`, so a vendored plugin is not scanned):
 ```
 python3 "${CLAUDE_PLUGIN_ROOT}/tools/security_scan.py" --dir handoff        # mode 1 (or --out)
 python3 "${CLAUDE_PLUGIN_ROOT}/tools/security_scan.py" --dir handoff-dev    # mode 2 (or --out)
+python3 "${CLAUDE_PLUGIN_ROOT}/tools/security_scan.py" --dir handoff/tickets # mode 4
 ```
 - **Exit 2 (errors) → STOP.** Show the findings and ask the user whether to continue. Continue only on
   `--accept-findings` or the user's explicit yes in this conversation; silence is not a yes. Then record the
@@ -73,6 +78,8 @@ python3 "${CLAUDE_PLUGIN_ROOT}/tools/security_scan.py" --dir handoff-dev    # mo
 - **Exit 1 (warnings only) → continue.** Show the count and say the prototype may contain mock personal data
   (emails, phone numbers) that the recipient will see.
 - **Exit 0 → continue**, silently.
+- Mode 4 scans `handoff/tickets` before anything is published; a finding in a ticket body or its
+  evidence images stops the publish, since a published page leaves the machine.
 - Mode 3 scans the registry only, before G-FP1 writes anything; nothing is folder-scanned there.
 
 ---
@@ -321,11 +328,124 @@ are variable-bound, every element resolved to a real instance, and token coverag
 
 ---
 
+# Mode 4 · Tickets for front-end developers
+
+```
+handoff/tickets/
+  index.md                  # Order | ID | Title | Feature | Depends | Status
+  T-<slug>.md               # one ticket per buildable slice, fixed template
+  T-<slug>/                 # its evidence: step captures or the annotated screenshot
+```
+
+Tickets live **in the project**, one file each. The file is the source; Notion or Jira holds a published
+copy. Publishing is one-way, and it refuses to overwrite edits made on the other side (4.6).
+
+`tools/ticket.py` owns the template, the ids, the lint and the export; this command decides what to
+write into it. Every call is `python3 "${CLAUDE_PLUGIN_ROOT}/tools/ticket.py" <cmd> [--project DIR]`
+(abbreviated `ticket.py` below).
+
+**The template.** Sections, in order: Context · Scope · Solution · States · Edge cases · Roles · Data &
+logic · Accessibility · Acceptance · Open · Document · Handoff notes. Required: Context, Scope, Solution,
+States, Edge cases, Acceptance, Open, Document — and Roles when the product has more than one role.
+**Solution** takes one of four shapes, chosen by `--kind`:
+
+| `--kind` | Solution reads as |
+|---|---|
+| `journey` | entry → step 1…n → commit → result |
+| `component` | anatomy and variants → a trigger table |
+| `rules` | ordered checks, each with its exact refusal copy |
+| `region` | the UI regions, top to bottom |
+
+**Writing rules.** One checkable rule per bullet. Every UI string appears verbatim in code formatting,
+disabled reasons included. Visual values are named by token, never as a raw value. **No pb-internal
+references** — no decision ids, lint codes or file paths: the recipient cannot see them.
+
+**Document** is a prototype deep link that opens the exact state, plus exactly **one** evidence form:
+`flow` (a step capture of the running prototype, one check per step) or `annotation` (an annotated
+screenshot plus a numbered `# | Part | Spec` table inside the ticket).
+
+### 4.1 · Plan the ticket set
+Read the registry — `ia.jobs[]`, `screens[]`, `components[]`, `ia.rules[]` and the `flow` scenarios — and
+cut **one ticket per buildable slice**. Behaviour shared by several slices (toasts, dialogs, status
+labels) gets its own ticket that the others depend on. Present the list, one row per ticket:
+
+```
+ID · title · kind · screens · depends · order
+T-saved-card-pay  · [Checkout] Pay with a saved card · journey · checkout, receipt · T-toast · 2
+```
+
+**Blocking gate: wait for approval.** The user may merge, split, reorder or drop rows. Silence is not
+approval. Nothing is written before it.
+
+### 4.2 · Create the skeletons
+Per approved ticket:
+```
+ticket.py new T-<slug> --title "<title>" --feature "<feature>" --kind journey|component|rules|region \
+  [--screen <id>]... [--component <id>]... [--rule <id>]... [--scenario <id>]... \
+  [--depends T-<slug>]... [--order N] [--base-url URL] [--evidence flow|annotation] [--force]
+```
+It writes the skeleton with the facts prefilled — the States table, an edge-case row per rule, the role
+matrix, acceptance items from the scenarios, the prototype link, the evidence stub and the source digest —
+and leaves `<!-- fill -->` where prose goes. `--force` overwrites an existing skeleton; use it only on a
+ticket you have not yet filled. `--ticket <ID>` limits this and every later step to that one ticket.
+
+### 4.3 · Fill the prose
+Fill every `<!-- fill -->` **from the registry and the logic contract** (`logic/**`, the render bodies,
+`content`) — never from `memory/decisions*.md` or other prose alone, which drifts from what is built. Quote
+UI strings from `content` and the render bodies, character for character. Every State row and every Edge
+case is either filled or says `None` — never left blank. Keep to the writing rules above.
+
+### 4.4 · Evidence
+Per ticket, the one form it chose, filed under `handoff/tickets/<ID>/`:
+- **`flow`** — capture the running prototype with `tools/shot.py`, one `--step …` per step ending in
+  `shot:NAME`, so each step has its own image and one check beside it.
+- **`annotation`** — one screenshot with numbered markers, and the `# | Part | Spec` table inside the
+  ticket, every marker accounted for.
+
+### 4.5 · Lint, then index
+```
+ticket.py lint [ID...] [--strict]
+ticket.py index
+```
+`lint` must exit **0** (1 = findings, 2 = usage). Fix findings in the ticket file and re-run.
+**`TK-LOGIC`** — a referenced item's logic sidecar is missing — is fixed at the source with `/pb:build`
+(regenerate the contract), then re-run; never hand off around it. `TK-STALE` is a warning: re-check the
+ticket against the registry, then `ticket.py refresh <ID>` re-stamps its digest. Once lint is clean,
+`index` writes `handoff/tickets/index.md`, and the §1b ticket scan runs.
+
+### 4.6 · Publish (one-way)
+Ask for the target if `--publish` is absent (Notion · Jira · none). `none` stops after 4.5. For each
+ticket, in `order`:
+1. **Existing page?** `ticket.py published <ID>` and the publish ledger (what `mark-published` records: target, url, digest, time `at`) say whether it was published before. If
+   so, **fetch the page first**. If it was edited after the ledger's `at`, or `published` exits 1 and the
+   user did not ask to overwrite, **STOP and ask**: pull those edits into the ticket file, or overwrite
+   them. Never pick for the user.
+2. `ticket.py export <ID> --format notion` → JSON `{properties, content}`. It refuses a ticket with lint
+   errors. For Jira, `--format md` supplies the description.
+3. Create or update the page or issue through the Notion MCP (or the Jira MCP).
+4. `ticket.py mark-published <ID> --target notion|jira --url <URL>` records the url and the digest.
+
+**The ticket file is the source.** Do not edit a ticket in Notion or Jira as the place the work lives; a
+change made there comes back through the ticket file (the pull option in step 1) or is overwritten on
+the next publish.
+
+### 4.7 · Re-run later
+```
+ticket.py stale [ID...]
+```
+lists the tickets whose registry sources changed since they were cut (exit 1 if any). Update and
+re-publish **only those**: re-read the changed sources, edit the prose, `refresh`, lint, then 4.6. A
+ticket that is no longer needed leaves a gap in the numbering: the remaining ids are never renumbered,
+and a dropped id is never reused.
+
+---
+
 ## Report
 State the mode, the output path, the file count and the total size, and the security scan result
 (clean, N warnings, or the accepted override and its codes). Mode 1: say the plugin is vendored
 and what it added. Mode 2: say whether a runnable tier was built. Mode 3: say which frames were created
-and whether anything fell back to the bridge.
+and whether anything fell back to the bridge. Mode 4: say how many tickets were written, the lint
+result, how many were published (and where) and how many are stale.
 
 ## NEVER
 - NEVER hand off a stale render — `--render` first, every mode.
@@ -346,6 +466,12 @@ and whether anything fell back to the bridge.
 - NEVER emit a non-auto-layout frame or an absolutely-positioned child (R3), and never redraw a nested
   global as a local frame.
 - NEVER write to Figma while an offline G-FP6 invariant fails, and never attempt bi-directional sync.
+- NEVER renumber or reuse a ticket id — deleting a ticket leaves its id taken.
+- NEVER publish a ticket that fails lint.
+- NEVER overwrite edits made in Notion or Jira without asking, and never treat the published page as the
+  source — the ticket file is.
+- NEVER cite pb-internal ids or paths (decision ids, lint codes, file paths) in a ticket body.
+- NEVER write a ticket's prose from memory files alone — read the registry and the logic contract.
 - NEVER hand-edit anything under the output folder — regenerate by re-running `/pb:handoff`.
 
 > **Skill degrade (NS6).** If a step's tool, skill or template fails to load, say so explicitly and

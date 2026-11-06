@@ -108,7 +108,7 @@ Fourteen commands. Flags narrow a command; they are not commands of their own.
 | `/pb:report` | A retrospective for the pb maintainer: scans the project's decisions log, `memory/`, backups, explore rounds and (opt-in, `--sessions`) session transcripts, then writes one report of facts and ranked proposals for the next pb release to `memory/reports/`. Read-only on the project |
 | `/pb:explore` | An **id** → N agents diverge that render body, scored against a rubric, keep one. A **goal sentence** → the gated discovery pipeline |
 | `/pb:clean` | What the project has piled up — open and closed explore rounds, backups, the preview log, screenshots, scratch candidate folders — as a dry run, then pruned on request. Bare `--apply` does only the always-safe set; a backup or a closed round goes only with an explicit `--keep-backups N` / `--keep-closed N` |
-| `/pb:handoff` | The one hand-off. Asks who is receiving it: **1** everything incl. a vendored Product Builder · **2** engineering (`--tier=host` runnable · `--tier=scaffold` React+Tailwind) · **3** Figma |
+| `/pb:handoff` | The one hand-off. Asks who is receiving it: **1** everything incl. a vendored Product Builder · **2** engineering (`--tier=host` runnable · `--tier=scaffold` React+Tailwind) · **3** Figma · **4** tickets for front-end developers (Notion or Jira) |
 | `/pb:update-version` | Schema version update: dry-run / `--apply` / `--rollback` / `--to <N>` |
 
 ## Quickstart
@@ -118,7 +118,7 @@ Fourteen commands. Flags narrow a command; they are not commands of their own.
 3. `/pb:preview` (start once, leave running) → `/pb:build` — the preview server live-reloads on every
    registry change; no `--render` needed during the build loop.
 4. `/pb:test` — scenarios, roles, security and drift in one verdict, graded by agents that did not build it.
-5. `/pb:handoff` — it asks who is receiving the work: a viewer, engineering, or Figma.
+5. `/pb:handoff` — it asks who is receiving the work: a viewer, engineering, Figma, or front-end developers who need tickets.
 
 `/pb:plan --flow` and `--data` author the UX Design and Data slices **once**; from then on
 `/pb:build` reconciles them itself. **Upgrading a 1.x project?** → [docs/upgrade-to-2.0.md](docs/upgrade-to-2.0.md).
