@@ -641,6 +641,13 @@
     .meta-subtabs--view .meta-subtab { height: 1.75rem; border-radius: 0; }
     .meta-subtabs--view .meta-subtab + .meta-subtab { border-left: var(--pb-hair-w) solid var(--pb-hair); }   /* segment divider: structure */
     .meta-subtabs--view .meta-subtab.active { background: transparent; box-shadow: inset 0 0 0 var(--pb-hair-w) var(--pb-ink); border-radius: var(--pb-r); }
+    /* ≤719px the segment strip is ONE row that scrolls sideways (it wrapped to three rows at 390);
+       pbSubtabsReveal() scrolls the active segment into view when the strip is drawn. */
+    @media (max-width: 719px) {
+      .meta-subtabs:not(.meta-subtabs--view) { flex-wrap: nowrap; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; }
+      .meta-subtabs:not(.meta-subtabs--view)::-webkit-scrollbar { display: none; }
+      .meta-subtabs:not(.meta-subtabs--view) .meta-subtab { flex: none; white-space: nowrap; }
+    }
 
     /* Legend on LEFT, canvas on RIGHT (only at wide viewports — narrow uses column from earlier media query). */
     @media (min-width: 1081px) {
@@ -941,6 +948,11 @@
     .pb-content { flex: 1 1 auto; padding: 24px 48px 48px; min-width: 0; }
     /* v1.9 — the Prototype tab has no page header; the device preview fills the whole tab. */
     .pb-page--proto .pb-content { padding: 0; }
+    /* ≤719px the 48px sides left 294px of content at 390: use the tool's own gutter (1rem there) and a tighter top. */
+    @media (max-width: 719px) {
+      .pb-page-header { padding: var(--pb-s5) var(--pb-gutter) 0; gap: var(--pb-s3); }
+      .pb-content { padding: var(--pb-s4) var(--pb-gutter) var(--pb-s6); }
+    }
     .pb-content--full { max-width: 960px; margin: 0 auto; width: 100%; }
     .pb-content--split {
       display: grid;
@@ -1015,6 +1027,14 @@
     .proto-struct-close:hover { background: var(--pb-wash); color: var(--pb-ink); }
     .proto-struct-close svg { width:var(--pb-ico); height:var(--pb-ico); stroke-width:var(--pb-stroke); }
     .proto-struct-panel-body { flex:1 1 auto; padding: var(--pb-s4); width: 17.5rem; overflow:auto; min-height:0; }
+    /* ≤1023px a 17.5rem panel that PUSHES the stage left 86px of it at 390. Here it overlays the stage instead,
+       on the edge where it opens today (right of the stage), full stage height; the frame keeps its full fit. */
+    @media (max-width: 1023px) {
+      .pb-page--proto .pb-content--fill { position: relative; }
+      .proto-struct-panel, .proto-struct-panel.is-open { position: absolute; top: 0; right: 0; bottom: 0; z-index: 6; margin: 0; }
+      .proto-struct-panel.is-open { flex: none; width: min(17.5rem, 85%); border-radius: var(--pb-r-lg) 0 0 var(--pb-r-lg); border-right: 0; box-shadow: var(--pb-shadow); }
+      .proto-struct-head, .proto-struct-panel-body { width: auto; }
+    }
     .pb-aside-section { margin-bottom: 22px; }
     .pb-aside-section:last-child { margin-bottom: 0; }
     .pb-entity-chips { display: flex; flex-wrap: wrap; gap: 8px; }
@@ -1798,7 +1818,7 @@
       color: var(--text-active-secondary);
     }
     .flow-doc-legend-btn:hover .flow-doc-legend-q { background: var(--text-active-secondary); color: var(--pb-on-ink); }
-    .legend-popover-row { display: grid; grid-template-columns: 34px 1fr; gap: 12px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border); }
+    .legend-popover-row { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 12px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border); }
     .legend-popover-row:last-of-type { border-bottom: 0; }
     .legend-popover-shape { display: inline-flex; align-items: center; justify-content: center; width: 1.875rem; height: 1.375rem; font-family: var(--pb-mono); font-size: var(--pb-t-sm); font-weight: var(--pb-w-bold); color: var(--pb-node-external-text); }
     /* the diagram's node palette again (see .flow-doc-swatch-*): each shape is its tokens, fill · stroke · text */
@@ -2532,12 +2552,26 @@
     .erd-entity-head { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-bottom:8px; }
     .erd-entity-head .erd-entity-title { margin:0; }
     .erd-entity-variants { display:flex; align-items:center; flex-wrap:wrap; gap:6px; }
+    /* The Diagram canvas sat at a fixed 620px inside a scrolling page, so at 1280x800 / 1024x768 its zoom
+       controls were below the fold. It takes what is left of the viewport under the bar (--pb-top: the bar
+       + the activity strip), the page header and the toolbar (~9.5rem) and the content's bottom padding
+       (~3rem), between 320px and the old 620px. */
+    #erd-canvas { height: clamp(320px, calc(100vh - var(--pb-top) - 12.5rem), 620px); }
     .erd-fixed { table-layout:fixed; }
     .erd-fixed th:nth-child(1), .erd-fixed td:nth-child(1) { width:24%; }
     .erd-fixed th:nth-child(2), .erd-fixed td:nth-child(2) { width:20%; }
     .erd-fixed th:nth-child(3), .erd-fixed td:nth-child(3) { width:28%; }
     .erd-fixed th:nth-child(4), .erd-fixed td:nth-child(4) { width:28%; }
     .erd-fixed td { word-break:break-word; }
+    .erd-scroll { overflow-x:auto; }
+    /* ≤719px: the toolbar wraps and the filter takes its own row; each entity table keeps whole words (a
+       34rem floor) and scrolls sideways inside .erd-scroll rather than breaking them mid-word. */
+    @media (max-width: 719px) {
+      .erd-toolbar { flex-wrap:wrap; }
+      .erd-search { margin-left:0; width:100%; flex:1 1 100%; }
+      .erd-fixed { min-width:34rem; }
+      .erd-fixed td { word-break:normal; overflow-wrap:break-word; }
+    }
     .erd-legend-mini svg { width:38px; height:12px; display:block; }
     .erd-legend-svgwrap { display:inline-flex; width:56px; flex-shrink:0; }
     .erd-legend-svgwrap svg { width:56px; height:14px; }
@@ -2553,6 +2587,15 @@
        lives in the column, so it drops the centered page-width framing. */
     .ia-jobs .empty-state { max-width: none; width: 100%; box-sizing: border-box; margin: var(--pb-s2) 0; padding: var(--pb-s6) var(--pb-s5); }
     .ux-flow-body { display: grid; grid-template-columns: minmax(0, 1fr) clamp(320px, 26vw, 400px); gap: 24px; align-items: stretch; }
+    /* ≤1100px the pair stacks: the canvas first at a fixed height, the stories card under it, and the
+       stacked pane scrolls. This sits AFTER the base rule — the generic stack rule up in the page-chrome block
+       is declared earlier, so at equal specificity it lost and the canvas was 0px wide at 390. */
+    @media (max-width: 1100px) {
+      .ux-flow-body, .ux-scroll-wrap > .ux-flow-body { grid-template-columns: minmax(0, 1fr); grid-template-rows: none; grid-auto-rows: auto; align-content: start; align-items: start; }
+      .ux-scroll-wrap > .ux-flow-body { overflow-x: hidden; overflow-y: auto; }
+      .ux-flow-body > .flow-main-col { height: clamp(320px, 60vh, 560px); min-height: 0; }
+      .ux-flow-body > .pb-aside { height: auto; align-self: start; }
+    }
     /* L3 — a joined, outlined toggle. The container also holds stats text and a search box, so
        the group is formed by the buttons themselves, not by boxing the container. */
     .lg-views { display: flex; flex-wrap: wrap; align-items: center; gap: var(--pb-s2) 0; margin: var(--pb-s1) 0 var(--pb-s4); }
@@ -3260,7 +3303,7 @@
     .ia-card--flat { border: 0; padding: 0; }
     /* Content — glossary + wording deck */
     .ct-filter { margin-left: auto; width: 200px; font: inherit; font-size: var(--font-size-s); padding: 5px 10px; border: 1px solid var(--border); border-radius: 8px; background: transparent; color: inherit; }
-    .ct-terms { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 14px; }
+    .ct-terms { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(320px, 100%), 1fr)); gap: 14px; }
     /* Flex column so the rule link can sit on the card's BOTTOM edge (margin-top:auto) rather
        than in the header, where a long rule title wrapped and shoved the term name around. */
     .ct-term { border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; display: flex; flex-direction: column; }
@@ -3449,6 +3492,7 @@
       --pb-scan-id: 4rem; --cols: var(--pb-scan-id) minmax(0, 1fr) 7.5rem 8rem; }
     .pb-scan--jobs { --pb-scan-id: 3rem; --cols: 3rem minmax(0, 1fr) 4.5rem 7.5rem; }
     .pb-scan--tc { --cols: 4rem minmax(0, 1fr) minmax(0, 14rem) 9.5rem; }
+    @media (max-width: 1023px) { .pb-scan--tc { --cols: 4rem minmax(0, 1fr) minmax(0, 10rem) 9.5rem; } }   /* the story gives way; the title keeps its room */
     .pb-scan--rs { --pb-scan-id: 7.5rem; --cols: minmax(0, 7.5rem) minmax(0, 1fr) 8rem 5.5rem minmax(0, 8.5rem); }
     .pb-scan--rs > .pb-scan-body > .pb-scan-tr > .pb-disc-b { padding-left: var(--pb-scan-lead); max-width: none; }
     .pb-scan--rs .pb-scan-tr > .pb-disc-t .ti { white-space: normal; padding: var(--pb-s1) 0; }
@@ -3480,6 +3524,10 @@
     .pb-dot--hollow { background: none; box-shadow: inset 0 0 0 var(--pb-rule-w) var(--pb-ink-3); }
     .pb-kv { display: grid; grid-template-columns: 8.5rem minmax(0, 1fr); gap: var(--pb-s2) var(--pb-s3); margin: 0; }
     .pb-kv dt { color: var(--pb-ink-3); } .pb-kv dd { margin: 0; }
+    @media (max-width: 599px) {   /* label above value: 8.5rem of label left a sliver for the value in a drawer */
+      .pb-kv { grid-template-columns: minmax(0, 1fr); row-gap: var(--pb-s0); }
+      .pb-kv dd + dt { margin-top: var(--pb-s2); }
+    }
     .pb-tags { display: flex; flex-wrap: wrap; gap: var(--pb-s1); }
     .pb-tag { display: inline-flex; align-items: center; height: 1.375rem; padding: 0 var(--pb-s2); border: var(--pb-hair-w) solid var(--pb-hair-2); border-radius: var(--pb-r-pill);
       font-size: var(--pb-t-sm); color: var(--pb-ink-2); white-space: nowrap; }
@@ -3531,6 +3579,8 @@
       .pb-scan, .pb-scan--tc { --cols: 2.75rem minmax(0, 1fr) 6.5rem; }
       /* a verdict's words ("Untested by design") wrap to two lines rather than clip */
       .pb-scan--tc .pb-scan-tr > .pb-disc-t .st { white-space: normal; line-height: 1.2; }
+      /* the scenario title wraps (three lines at most) instead of clipping to a few characters */
+      .pb-scan--tc .pb-scan-tr > .pb-disc-t .ti { white-space: normal; overflow-wrap: anywhere; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; line-clamp: 3; padding: var(--pb-s1) 0; }
       .pb-scan--logic { --cols: minmax(0, 4.5rem) minmax(0, 1fr) var(--pb-ico-sm); }
       .pb-scan--logic.pb-scan--noid { --cols: minmax(0, 1fr) var(--pb-ico-sm); }
       .pb-scan--logic .st .w, .pb-scan--logic .pb-scan-h span:nth-child(3) { display: none; }
@@ -3564,6 +3614,15 @@
     .pb-draft-list { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
     .pb-draft-list li { padding: 8px 10px; border: 1px solid var(--neutral-200, #e5e7eb); border-radius: 8px; }
     .pb-draft-dim, .pb-draft-none { color: var(--text-tertiary, #6b7280); }
+    /* Product-side, so it answers the frame it is drawn in (@container pb-screen), never the window: a
+       220px sidebar left ~100px for the main column in a 390px phone frame. Compact: the page list sits
+       above the content, its rows wrap, and the main column's padding drops to 16px. */
+    @container pb-screen (max-width: 599px) {
+      .pb-draft { flex-direction: column; }
+      .pb-draft-side { flex: 0 0 auto; border-right: 0; border-bottom: 1px solid var(--neutral-200, #e5e7eb); }
+      .pb-draft-side nav { max-height: 9rem; overflow-y: auto; }   /* a long page list scrolls in place; depth indents stay */
+      .pb-draft-main { flex: 1 1 auto; max-width: none; padding: 16px; }
+    }
     .pb-draft-tbl { width: 100%; border-collapse: collapse; font-size: 13px; }
     .pb-draft-tbl th, .pb-draft-tbl td { padding: 6px 8px; border-bottom: 1px solid var(--neutral-200, #e5e7eb); text-align: left; }
     .pb-draft .pb-draft-chip { background: var(--neutral-100, #f3f4f6); color: var(--text-tertiary, #6b7280); border-color: var(--neutral-300, #d1d5db); }
@@ -3781,11 +3840,19 @@
       if (!bar) return;
       const tabs = bar.querySelector('.pb-tabs');
       const over = () => bar.scrollWidth > bar.clientWidth + 1 || !!(tabs && tabs.scrollWidth > tabs.clientWidth + 1);
-      bar.classList.remove('is-compact', 'is-tight', 'is-narrow');
-      if (!over()) return;
-      bar.classList.add('is-compact');
-      if (over()) bar.classList.add('is-tight');
-      if (over()) bar.classList.add('is-narrow');   // still too full: initials only, and the tabs scroll sideways
+      /* The Prototype tab carries three more tools than the others, so it needs a tighter fit at the same
+         width — and the project name collapsing on one tab only moved every tab by ~150px. The highest
+         level any tab needed at this window width is remembered and applied to every tab; a new width
+         forgets it. */
+      const LV = ['is-compact', 'is-tight', 'is-narrow'];   // cumulative: the last is initials only + sideways tabs
+      const W = window.innerWidth;
+      if (pbBarFit._w !== W) { pbBarFit._w = W; pbBarFit._lvl = 0; }
+      const apply = n => LV.forEach((c, i) => bar.classList.toggle(c, i < n));
+      let n = pbBarFit._lvl || 0;
+      apply(n);
+      while (n < LV.length && over()) apply(++n);
+      pbBarFit._lvl = n;
+      if (!n) return;
       if (!pbBarFit._fonts && document.fonts && document.fonts.ready) {
         pbBarFit._fonts = true;   // a web font that arrives late changes every label's width
         document.fonts.ready.then(() => pbBarFit());
@@ -3813,6 +3880,33 @@
         window.addEventListener('resize', function () { pbBarFit(); pbTabsFit(document.querySelector('#meta-nav .pb-tabs')); });
       }
     }
+
+    /* The segment strip (.meta-subtabs, L2) is one row that scrolls sideways under 720px (it wrapped to three
+       rows at 390). A fresh strip starts at the left, so the segment you are on is scrolled into view the
+       first time a strip is drawn — once per strip, so a reader who scrolls it is not pulled back. The
+       renders are many (summary, UX Design, the live fill), so one observer catches every drawing. */
+    function pbSubtabsReveal() {
+      document.querySelectorAll('.meta-subtabs:not(.meta-subtabs--view)').forEach(function (strip) {
+        if (pbSubtabsReveal._seen.has(strip)) return;
+        pbSubtabsReveal._seen.add(strip);
+        if (strip.scrollWidth <= strip.clientWidth + 1) return;
+        const act = strip.querySelector('.meta-subtab.active');
+        if (!act) return;
+        const a = act.getBoundingClientRect(), s = strip.getBoundingClientRect();
+        if (a.left < s.left || a.right > s.right) {
+          strip.scrollLeft = Math.max(0, strip.scrollLeft + (a.left - s.left) - (strip.clientWidth - a.width) / 2);
+        }
+      });
+    }
+    pbSubtabsReveal._seen = new WeakSet();
+    (function () {
+      let queued = false;
+      new MutationObserver(function () {
+        if (queued) return;
+        queued = true;
+        requestAnimationFrame(function () { queued = false; pbSubtabsReveal(); });
+      }).observe(document.documentElement, { childList: true, subtree: true });
+    })();
 
     /* One registry, two sites — and until now only one of them was reachable. Links to the
        design-system site served beside this one by /pb:preview.
@@ -6324,19 +6418,27 @@
     }
     function pbSpacingMeasure(el) {
       var cs = getComputedStyle(el), r = el.getBoundingClientRect();
+      // A scaled frame (phone and tablet are fitted whole) lays out in CSS px but is MEASURED in screen px.
+      // k = screen px per CSS px: rect differences (gap, free) are divided by it so every chip reads CSS px
+      // like margin and padding, which come from the computed style; band geometry is in screen px.
+      var fe = el.closest && el.closest('.proto-screen'), k = 1;
+      if (fe && fe.offsetWidth > 0) k = fe.getBoundingClientRect().width / fe.offsetWidth;
+      else if (el.offsetWidth > 0) k = r.width / el.offsetWidth;
+      if (!(k > 0)) k = 1;
       var px = function (p) { return Math.max(0, parseFloat(cs.getPropertyValue(p)) || 0); };
       var four = function (pre, post) { return ['top', 'right', 'bottom', 'left'].map(function (s) { return px(pre + s + (post || '')); }); };
       var m = four('margin-'), b = four('border-', '-width'), p = four('padding-');
       // four bands round a box: top, bottom, left, right (left/right don't overlap top/bottom)
+      // (t, rt, bt, l are CSS px: they are the chip values; the bands are drawn k times as big)
       var sides = function (o, t, rt, bt, l) {
-        var mid = o.height - t - bt;
-        return [[{ left: o.left, top: o.top, width: o.width, height: t }, t, 'top'],
-                [{ left: o.left, top: o.top + o.height - bt, width: o.width, height: bt }, bt, 'bottom'],
-                [{ left: o.left, top: o.top + t, width: l, height: mid }, l, 'left'],
-                [{ left: o.left + o.width - rt, top: o.top + t, width: rt, height: mid }, rt, 'right']];
+        var T = t * k, RT = rt * k, BT = bt * k, L = l * k, mid = o.height - T - BT;
+        return [[{ left: o.left, top: o.top, width: o.width, height: T }, t, 'top'],
+                [{ left: o.left, top: o.top + o.height - BT, width: o.width, height: BT }, bt, 'bottom'],
+                [{ left: o.left, top: o.top + T, width: L, height: mid }, l, 'left'],
+                [{ left: o.left + o.width - RT, top: o.top + T, width: RT, height: mid }, rt, 'right']];
       };
-      var mBox = { left: r.left - m[3], top: r.top - m[0], width: r.width + m[3] + m[1], height: r.height + m[0] + m[2] };
-      var pBox = { left: r.left + b[3], top: r.top + b[0], width: r.width - b[3] - b[1], height: r.height - b[0] - b[2] };
+      var mBox = { left: r.left - m[3] * k, top: r.top - m[0] * k, width: r.width + (m[3] + m[1]) * k, height: r.height + (m[0] + m[2]) * k };
+      var pBox = { left: r.left + b[3] * k, top: r.top + b[0] * k, width: r.width - (b[3] + b[1]) * k, height: r.height - (b[0] + b[2]) * k };
       var out = sides(mBox, m[0], m[1], m[2], m[3]).map(function (s) { return ['margin'].concat(s); })
         .concat(sides(pBox, p[0], p[1], p[2], p[3]).map(function (s) { return ['padding'].concat(s); }));
       // gap: split children into lines along the main axis; the space between neighbours in a line,
@@ -6355,21 +6457,21 @@
           if (line && it.c0 < c1 - 0.5) line.push(it); else lines.push([it]);
         });
         var box = seg(r), s0 = col ? 'top' : 'left', s1 = col ? 'bottom' : 'right';
-        var inner = { m0: box.m0 + px('border-' + s0 + '-width') + px('padding-' + s0), m1: box.m1 - px('border-' + s1 + '-width') - px('padding-' + s1) };
+        var inner = { m0: box.m0 + (px('border-' + s0 + '-width') + px('padding-' + s0)) * k, m1: box.m1 - (px('border-' + s1 + '-width') + px('padding-' + s1)) * k };
         var gaps = [];
         lines.forEach(function (line, i) {
           var c0 = Math.min.apply(null, line.map(function (s) { return s.c0; })), c1 = Math.max.apply(null, line.map(function (s) { return s.c1; }));
           if (mainGap) {
             var sorted = line.slice().sort(function (a, z) { return a.m0 - z.m0; });
-            for (var k = 1; k < sorted.length; k++) {
-              var d = sorted[k].m0 - sorted[k - 1].m1;
-              if (d > 0.5) gaps.push(['gap', rect({ m0: sorted[k - 1].m1, m1: sorted[k].m0, c0: c0, c1: c1 }), d]);
+            for (var kk = 1; kk < sorted.length; kk++) {
+              var d = sorted[kk].m0 - sorted[kk - 1].m1;
+              if (d > 0.5) gaps.push(['gap', rect({ m0: sorted[kk - 1].m1, m1: sorted[kk].m0, c0: c0, c1: c1 }), d / k]);
             }
           }
           var next = lines[i + 1];
           if (crossGap && next) {
             var n0 = Math.min.apply(null, next.map(function (s) { return s.c0; }));
-            if (n0 - c1 > 0.5) gaps.push(['gap', rect({ m0: inner.m0, m1: inner.m1, c0: c1, c1: n0 }), n0 - c1]);
+            if (n0 - c1 > 0.5) gaps.push(['gap', rect({ m0: inner.m0, m1: inner.m1, c0: c1, c1: n0 }), (n0 - c1) / k]);
           }
         });
         // free: room the container leaves round its children because it is taller/wider than they are
@@ -6378,19 +6480,19 @@
         // min-height 40 and a 28px title row centred in it: 6 above and 6 below).
         var kids = Array.prototype.filter.call(el.children, function (c) { var s = getComputedStyle(c); return s.display !== 'none' && s.position !== 'absolute' && s.position !== 'fixed'; })
           .map(function (c) {
-            var s = getComputedStyle(c), q = c.getBoundingClientRect(), mv = function (p) { return parseFloat(s.getPropertyValue(p)) || 0; };
+            var s = getComputedStyle(c), q = c.getBoundingClientRect(), mv = function (p) { return (parseFloat(s.getPropertyValue(p)) || 0) * k; };
             return { l: q.left - mv('margin-left'), t: q.top - mv('margin-top'), r: q.right + mv('margin-right'), b: q.bottom + mv('margin-bottom'), w: q.width, h: q.height };
           }).filter(function (q) { return q.w > 0 || q.h > 0; });
         if (kids.length) {
-          var cB = { l: pBox.left + p[3], t: pBox.top + p[0], r: pBox.left + pBox.width - p[1], b: pBox.top + pBox.height - p[2] };
+          var cB = { l: pBox.left + p[3] * k, t: pBox.top + p[0] * k, r: pBox.left + pBox.width - p[1] * k, b: pBox.top + pBox.height - p[2] * k };
           var u = { l: Math.min.apply(null, kids.map(function (q) { return q.l; })), t: Math.min.apply(null, kids.map(function (q) { return q.t; })),
                     r: Math.max.apply(null, kids.map(function (q) { return q.r; })), b: Math.max.apply(null, kids.map(function (q) { return q.b; })) };
           var fT = u.t - cB.t, fB = cB.b - u.b, fL = u.l - cB.l, fR = cB.r - u.r, midT = cB.t + Math.max(0, fT), midH = (cB.b - Math.max(0, fB)) - midT;
           var free = [];
-          if (fT > 0.5) free.push(['free', { left: cB.l, top: cB.t, width: cB.r - cB.l, height: fT }, fT, 'top']);
-          if (fB > 0.5) free.push(['free', { left: cB.l, top: u.b, width: cB.r - cB.l, height: fB }, fB, 'bottom']);
-          if (fL > 0.5) free.push(['free', { left: cB.l, top: midT, width: fL, height: midH }, fL, 'left']);
-          if (fR > 0.5) free.push(['free', { left: u.r, top: midT, width: fR, height: midH }, fR, 'right']);
+          if (fT > 0.5) free.push(['free', { left: cB.l, top: cB.t, width: cB.r - cB.l, height: fT }, fT / k, 'top']);
+          if (fB > 0.5) free.push(['free', { left: cB.l, top: u.b, width: cB.r - cB.l, height: fB }, fB / k, 'bottom']);
+          if (fL > 0.5) free.push(['free', { left: cB.l, top: midT, width: fL, height: midH }, fL / k, 'left']);
+          if (fR > 0.5) free.push(['free', { left: u.r, top: midT, width: fR, height: midH }, fR / k, 'right']);
           out = free.concat(out);
         }
         out = gaps.concat(out);   // gaps first, so margin/padding chips sit on top
@@ -10059,12 +10161,12 @@
               stage.style.height = H + 'px';
               stage.style.marginLeft = -(W/2) + 'px';
               stage.style.marginTop  = -(H/2) + 'px';
-              initCanvas('flow', W, H);
+              initCanvas('flow', W, H, 0, { modWheel: 'auto' });
             });
           });
         }).catch(function(){ pbDiagramsUnavailable('flow-viewport'); });
       } else if (populated && document.getElementById('flow-canvas')) {
-        initCanvas('flow', 1200, 380);
+        initCanvas('flow', 1200, 380, 0, { modWheel: 'auto' });
       }
     }
 
@@ -12020,7 +12122,7 @@
               stage.style.height = H + 'px';
               stage.style.marginLeft = -(W/2) + 'px';
               stage.style.marginTop  = -(H/2) + 'px';
-              initCanvas('erd', W, H);
+              initCanvas('erd', W, H, 0, { modWheel: 'auto' });
             });
           });
         }).catch(function(){ pbDiagramsUnavailable('erd-viewport'); });
@@ -12120,7 +12222,7 @@
             `<th onclick="pbSortTable(this)" title="Sort by ${pbEscape(label)}">${pbEscape(label)}</th>`;
           return `<div class="erd-entity" data-entity="${pbEscape(ent)}">
               <div class="erd-entity-head"><h3 class="erd-entity-title">${pbEscape(ent)}</h3>${switcher}</div>
-              <table class="erd-entity-table erd-fixed">
+              <div class="erd-scroll"><table class="erd-entity-table erd-fixed">
                 <thead><tr>${th('Field')}${th('Type')}${th(exHead)}${th('Notes')}</tr></thead>
                 <tbody>${byEntity[ent].map(r => {
                   const ex = v === 'schema' ? (r.example || '') : pbErdExampleFor(e, ent, r.field, v);
@@ -12137,7 +12239,7 @@
                     + `<td>${pbEscape(ex || '—')}</td>`
                     + `<td>${pbErdNote(notes)}</td></tr>`;
                 }).join('')}</tbody>
-              </table>
+              </table></div>
             </div>`;
         }).join('') + `</div>`;
         return toolbar + pbErdOriginLegend(byEntity) + tables;
@@ -12258,6 +12360,18 @@
        trap it, and the list under it could never be reached — so it zooms only on ⌘/Ctrl + wheel,
        which is also what a trackpad pinch sends. The flow and the ERD fill their view; they keep the
        plain wheel. */
+    /* `opts.modWheel: 'auto'`: the plain wheel passes through to the page when something above the canvas can
+       scroll vertically right now (an ancestor with overflow auto/scroll that overflows, or the document), and
+       zooms when nothing can — so the desktop User Flow, whose page does not scroll, still zooms on the wheel,
+       and the same canvas stacked on a phone (a scrolling pane) no longer traps it. ⌘/Ctrl + wheel always zooms. */
+    function pageCanScroll(el) {
+      for (var n = el.parentElement; n && n !== document.body && n !== document.documentElement; n = n.parentElement) {
+        var oy = getComputedStyle(n).overflowY;
+        if ((oy === 'auto' || oy === 'scroll') && n.scrollHeight > n.clientHeight + 1) return true;
+      }
+      var d = document.scrollingElement || document.documentElement;
+      return d.scrollHeight > d.clientHeight + 1;
+    }
     function initCanvas(prefix, contentW, contentH, minFit, opts) {
       opts = opts || {};
       var viewport = document.getElementById(prefix + '-viewport');
@@ -12306,7 +12420,10 @@
       }
 
       viewport.addEventListener('wheel', function (e) {
-        if (opts.modWheel && !e.ctrlKey && !e.metaKey) return;   // the page scrolls
+        if (!e.ctrlKey && !e.metaKey) {
+          if (opts.modWheel === true) return;                            // the page scrolls (the IA map)
+          if (opts.modWheel === 'auto' && pageCanScroll(viewport)) return;   // it scrolls NOW (a stacked flow, a long page); else this zooms
+        }
         e.preventDefault();
         zoomBy(-e.deltaY * 0.0015, e.clientX, e.clientY);
       }, { passive: false });

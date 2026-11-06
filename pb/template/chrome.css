@@ -294,12 +294,16 @@
 .pb-agent[hidden], .pb-agent [hidden] { display: none; }
 /* the step name, as the steps menu's button (before the first screen): plain until hovered, a chevron after it */
 .pb-agent-steps {
-  display: inline-flex; align-items: center; gap: var(--pb-s1); height: var(--pb-hit-sm); margin: 0 calc(var(--pb-s1) * -1);
+  display: inline-flex; align-items: center; gap: var(--pb-s1); height: var(--pb-hit-sm); margin: 0;
   padding: 0 var(--pb-s1); border: 0; border-radius: var(--pb-r-md); background: none; color: var(--pb-ink-2);
   font: inherit; white-space: nowrap; cursor: pointer;
 }
 .pb-agent-steps:hover, .pb-agent-steps[aria-expanded="true"] { background: var(--pb-wash); color: var(--pb-ink); }
 .pb-agent-steps svg { flex: none; width: var(--pb-ico-sm); height: var(--pb-ico-sm); color: var(--pb-ink-3); }
+/* On a narrow strip the step gives way first (an ellipsis), never what Claude is asking: the message keeps room */
+.pb-agent .pb-prog-wrap { flex: 0 1 auto; min-width: 0; margin: 0 calc(var(--pb-s1) * -1); }   /* the button's wash bleeds; its words align */
+.pb-agent-steps { min-width: 0; }   /* no max-width: a % of a shrink-to-fit parent squeezed the name with room to spare */
+.pb-agent-steps .pb-agent-step { min-width: 0; }
 .pb-agent.is-enter { animation: pb-agent-in calc(var(--pb-t) * 3) ease-out; }
 @keyframes pb-agent-in { from { opacity: 0; transform: translateY(-30%); } }
 .pb-agent-glyph { display: flex; flex: none; align-items: center; gap: var(--pb-s0); width: calc(var(--pb-dot) * 2.4); }
@@ -310,7 +314,8 @@
 .pb-agent:not([data-mode="working"]) .pb-agent-glyph i:nth-child(n+2) { opacity: 0; }
 .pb-agent:is([data-mode="waiting"], [data-mode="done"]) .pb-agent-glyph i { background: var(--pb-ink-3); }
 @keyframes pb-agent-dot { 0%, 100% { opacity: .25; } 40% { opacity: 1; } }
-.pb-agent-line { display: flex; flex: 1 1 auto; align-items: baseline; gap: var(--pb-s2); min-width: 0; overflow: hidden; }
+.pb-agent-line { display: flex; flex: 1 1 0; align-items: baseline; gap: var(--pb-s2); min-width: min(10rem, 40vw); overflow: hidden; }
+.pb-agent-line:empty { min-width: 0; }
 .pb-agent-verb { flex: none; color: var(--pb-ink); font-weight: var(--pb-w-bold); }
 .pb-agent-sep { flex: none; color: var(--pb-ink-3); }
 .pb-agent-step, .pb-agent-detail { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
@@ -330,6 +335,12 @@
   .pb-agent[data-mode="working"] .pb-agent-glyph i:nth-child(3) { opacity: .3; }
   .pb-agent-beam { height: var(--pb-hair-w); }
   .pb-agent-beam::before { animation: none; width: 100%; background: var(--pb-info); }
+}
+/* A phone-width strip: the clock goes (the words matter more), and the steps menu spans the window under the strip
+   instead of hanging off its anchor past the right edge */
+@media (max-width: 599px) {
+  .pb-agent-time { display: none; }
+  .pb-agent .pb-menu { position: fixed; top: calc(var(--pb-top) + var(--pb-s1)); left: var(--pb-gutter); right: var(--pb-gutter); min-width: 0; max-width: none; }
 }
 .pb-prog-mk {
   flex: none; width: calc(var(--pb-dot) * .9); height: calc(var(--pb-dot) * .9); border-radius: 50%;

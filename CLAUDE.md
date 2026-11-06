@@ -126,7 +126,8 @@ card that owns the CTA — no dead controls. (Replaces the old `meta-tag`/`meta-
   on the first, and each secondary frame's radios get a form owner of their own — one document otherwise
   means one id space and **one radio group**, which silently emptied the frame whose radio lost ·
   a **Structure tree** panel — the product's **pages, by name**, indented by their depth in the derived nav
-  graph (flat when a project has none), each one a jump; it pushes the preview aside and stays until you
+  graph (flat when a project has none), each one a jump; it pushes the preview aside (below 1024px it slides
+  over the preview instead, so the frame keeps its fit) and stays until you
   close it. ⌥-click in the preview is the tool for *what is this element*, and it answers from the DOM.
   **Pick** (the bar's cursor button after Search, or **I** under R's guards) keeps that on without ⌥: hover frames
   the component, a click **copies its name** (and only copies — no nav, no submit), Esc or leaving the tab ends it.

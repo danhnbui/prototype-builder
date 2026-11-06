@@ -49,6 +49,17 @@ tool beside Pick, after Solum Studio's.*
   gets (32 px, 24 px on a short screen) and their width follows the viewport. Below about 1060 px the bar's items
   painted over the tabs and the page scrolled sideways; the bar now measures itself and drops labels, then the step
   name, then the project name, and finally scrolls its tabs. The undesigned draft's sidebar lines up on one edge.
+- **Narrow screens, checked tab by tab.** A review at 1440, 1280, 1024, 834, 600 and 390 px found the User Flow
+  canvas squeezed to nothing below 1100 px (its one-column rule was declared before the two-column one, so it never
+  won): it now stacks, canvas on top, and the pane scrolls. Under 720 px the page gutters drop from 48 px to the
+  bar's 16 px and the segment tabs are one sideways row instead of three. The ERD canvas fits the window (its zoom
+  controls were below the fold), and a canvas in a page that scrolls lets the plain wheel scroll the page
+  (⌘/Ctrl+wheel zooms). Glossary cards, the Data tables (whole words, a sideways scroll instead of "ide/ntif/ier"),
+  test-case titles, label–value rows, the Structure panel (it slides over the preview below 1024 px instead of
+  crushing it), the undesigned draft (it stacks in a narrow frame, by container query) and the legend popover all
+  fit. Spacing's chips now read CSS pixels on a scaled phone or tablet frame (a designed 20 read 15.46), and the bar
+  no longer shifts its tabs when you switch tabs at a width where it is compacted. `tests/responsive.py` pins the
+  worst of them at 390 and 1024 px.
 
 - **Hooks that send the common rules down the safe path.** A new `route.py` runs before and after Bash, Agent, Read,
   Edit and Write in a pb project. A built-in generic subagent call (general-purpose, Explore, Plan, claude, or no

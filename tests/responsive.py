@@ -18,6 +18,9 @@ the fix and the rules around it:
   5. (retired with the engineering hand-off: the React scaffold no longer exists)
   6. the tool at 390px: the design-system site does not scroll sideways, its tree folds behind a
      toggle; the prototype's clipped tab strip says so (is-clip-r) and the last tab is reachable
+  7. every page at 390px: no tab or UX segment scrolls the page sideways, the stacked User Flow canvas is
+     ≥ 300px wide (it was 0px), Content → Definitions fits, and the Data diagram's zoom controls are on
+     screen at 1024x768 (the canvas fits the viewport instead of a fixed 620px)
 
 Usage:  .venv/bin/python tests/responsive.py
 Exit:   0 = clean · 1 = a failure · 2 = Playwright/browser not available (skip)
@@ -206,6 +209,85 @@ def main():
                 return [t.left, t.right]})()""")
             check(box[0] >= 0 and box[1] <= 390, f"the active last tab is scrolled into view ({box})")
             check(pg.evaluate("document.documentElement.scrollWidth") <= 390, "the prototype does not scroll sideways")
+            pg.close()
+
+            print("7 · every page at 390px: a stacked flow, no page-level sideways scroll")
+            # a copy of the project with a glossary, so the Content → Definitions grid has cards to overflow with
+            reg_c = json.load(open(reg_p, encoding="utf-8"))
+            reg_c["content"] = {"populated": True, "strings": [], "terms": [
+                {"id": f"t-{i}", "term": t, "definition": "one patient, one doctor, one time — and a definition long enough to wrap",
+                 "aka": ["visit", "booking"], "avoid": ["session"]} for i, t in enumerate(("Appointment", "Slot", "No-show"))]}
+            reg_c_p = os.path.join(proj, "registry_content.json")
+            json.dump(reg_c, open(reg_c_p, "w", encoding="utf-8"), indent=2)
+            proto_c = os.path.join(proj, "prototype_content.html")
+            render.render_file(reg_c_p, os.path.join(TPL, "prototype.html"), proto_c)
+
+            pg = offline(b.new_page(viewport={"width": 390, "height": 844}))
+            pg.goto("file://" + proto_c)
+            pg.wait_for_selector("#meta-nav .pb-tabs")
+            wide = []
+
+            def look(label):
+                pg.wait_for_timeout(200)
+                w = pg.evaluate("document.documentElement.scrollWidth")
+                if w > 390:
+                    wide.append(f"{label} ({w}px)")
+
+            look("prototype")
+            seen = ["prototype"]
+            for tab in ("summary", "flow", "erd"):
+                pg.click(f"[data-meta-view={tab}]")
+                look(tab)
+                seen.append(tab)
+                if tab == "summary":
+                    for sub in pg.evaluate("[...document.querySelectorAll('[data-sub]')].map(e=>e.dataset.sub)"):
+                        pg.click(f"[data-sub={sub}]")
+                        look(f"summary/{sub}")
+                        seen.append(f"summary/{sub}")
+                elif tab == "flow":
+                    for seg in pg.evaluate("[...document.querySelectorAll('[data-ux-view]')].map(e=>e.dataset.uxView)"):
+                        pg.click(f"[data-meta-view=flow]")
+                        pg.click(f"[data-ux-view={seg}]")
+                        look(f"flow/{seg}")
+                        seen.append(f"flow/{seg}")
+                elif tab == "erd":
+                    for v in ("table", "diagram"):
+                        pg.click(f"[data-erd-view={v}]")
+                        look(f"erd/{v}")
+                        seen.append(f"erd/{v}")
+            check(not wide, f"no tab or UX segment scrolls the page sideways at 390px ({len(seen)} looked at; wide: {wide})")
+
+            pg.click("[data-meta-view=flow]")
+            pg.click("[data-ux-view=flow]")
+            pg.wait_for_selector("#flow-canvas")
+            box = pg.evaluate("""(()=>{const r=document.getElementById('flow-canvas').getBoundingClientRect();
+                return {w:r.width,h:r.height,l:r.left,r:r.right}})()""")
+            check(pg.is_visible("#flow-canvas") and box["w"] >= 300 and box["l"] >= 0 and box["r"] <= 390,
+                  f"User Flow at 390px: the canvas is visible and ≥ 300px wide, not squeezed to a sliver ({box['w']:.0f}px)")
+
+            pg.click("[data-ux-view=content]")
+            pg.wait_for_selector(".ct-terms")
+            ct = pg.evaluate("""(()=>{const g=document.querySelector('.ct-terms');
+                const cards=[...g.querySelectorAll('.ct-term')].map(c=>c.getBoundingClientRect());
+                return {n:cards.length, scroll:g.scrollWidth-g.clientWidth,
+                        right:Math.max(...cards.map(c=>c.right)), page:document.documentElement.scrollWidth}})()""")
+            check(ct["n"] >= 3 and ct["scroll"] <= 0 and ct["right"] <= 390 and ct["page"] <= 390,
+                  f"Content → Definitions does not scroll sideways at 390px ({ct})")
+            pg.close()
+
+            print("7b · the Data diagram's zoom controls are on screen at 1024x768")
+            pg = offline(b.new_page(viewport={"width": 1024, "height": 768}))
+            pg.goto("file://" + proto_c)
+            pg.wait_for_selector("#meta-nav .pb-tabs")
+            pg.click("[data-meta-view=erd]")
+            pg.click("[data-erd-view=diagram]")
+            pg.wait_for_selector("#erd-canvas .flow-zoom-controls")
+            z = pg.evaluate("""(()=>{const r=document.querySelector('#erd-canvas .flow-zoom-controls').getBoundingClientRect();
+                const c=document.getElementById('erd-canvas').getBoundingClientRect();
+                return {t:r.top,b:r.bottom,l:r.left,r:r.right,cb:c.bottom}})()""")
+            check(0 <= z["t"] and z["b"] <= 768 and 0 <= z["l"] and z["r"] <= 1024,
+                  f"ERD zoom controls sit inside the 1024x768 viewport (top {z['t']:.0f}, bottom {z['b']:.0f})")
+            check(z["cb"] <= 768, f"the whole ERD canvas ends above the fold, so the page needs no scroll to reach it (bottom {z['cb']:.0f})")
             pg.close()
             b.close()
     finally:
