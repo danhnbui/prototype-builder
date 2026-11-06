@@ -28,7 +28,7 @@ deleting a ticket cannot renumber the others. Scenarios have no id of their own 
 this tool names one: `<story-key>.<n>`, where story-key is the story's `id` when it has one (else
 `s-` plus a slug of its title) and n is the scenario's 1-based position in that story.
 
-DIGEST. `source.digest` is a sha1 over the registry entries a ticket was written from (screens,
+DIGEST. `source.digest` is a sha256 over the registry entries a ticket was written from (screens,
 components, rules, scenarios — each list sorted by id; a scenario's lastResult is left out, because a
 test run is not a design change) plus the raw bytes of each screen and component renderSrc file. It
 answers "has what this ticket describes moved since it was written?": `stale` lists tickets whose
@@ -350,7 +350,7 @@ def scenario_start(sc):
 
 
 def source_digest(proj, reg, front):
-    """sha1 over the referenced registry entries and their renderSrc bytes. Deterministic."""
+    """sha256 over the referenced registry entries and their renderSrc bytes. Deterministic."""
     def ids(key):
         v = front.get(key) if isinstance(front, dict) else None
         return sorted({x for x in (v or []) if isinstance(x, str)})
@@ -366,7 +366,7 @@ def source_digest(proj, reg, front):
             if isinstance(sc, dict):
                 sc = {k: v for k, v in sc.items() if k != "lastResult"}
             payload["scenarios"].append({"id": i, "story": key, "scenario": sc})
-    h = hashlib.sha1(json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8"))
+    h = hashlib.sha256(json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8"))
     for entry in payload["screens"] + payload["components"]:
         src = entry.get("renderSrc")
         full = _inside(proj, src) if isinstance(src, str) else None

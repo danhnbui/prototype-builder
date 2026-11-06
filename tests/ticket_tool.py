@@ -68,7 +68,7 @@ def read(path):
 
 def sha(path):
     with open(path, "rb") as f:
-        return hashlib.sha1(f.read()).hexdigest()
+        return hashlib.sha256(f.read()).hexdigest()
 
 
 def make_project(roles=2):
@@ -193,7 +193,7 @@ check(set(front) >= {"id", "title", "feature", "kind", "order", "depends", "scre
                      "scenarios", "evidence", "prototype", "figma", "jira", "source"}, "all front-matter keys exist")
 check(front["depends"] == ["T-base"] and front["order"] == 10 and front["evidence"] == "flow",
       "depends / order / default evidence (flow for a journey)")
-check(len(front["source"]["digest"]) == 40, "a sha1 digest is recorded")
+check(len(front["source"]["digest"]) == 64, "a sha256 digest is recorded")
 states = T.parse_tables(T.parse_doc(text.split("\n```\n", 1)[1])["sections"][3]["body"])[0]
 check([r[0] for r in states["rows"]] == SIX and all(c == T.FILL for r in states["rows"] for c in r[1:]),
       "States: the six rows, every other cell a placeholder")
@@ -319,7 +319,7 @@ reg = json.loads(read(os.path.join(d, "registry.json")))
 fr = T.parse_ticket(read(good))["front"]
 d_a = T.source_digest(d, reg, fr)
 d_b = T.source_digest(d, reg, dict(fr, screens=list(reversed(fr["screens"]))))
-check(d_a == T.source_digest(d, reg, fr) and d_a == d_b and len(d_a) == 40, "same inputs, same digest, order of ids irrelevant")
+check(d_a == T.source_digest(d, reg, fr) and d_a == d_b and len(d_a) == 64, "same inputs, same digest, order of ids irrelevant")
 before_refresh = read(good)
 rc, out, err = run(d, "refresh", "T-good")
 after_refresh = read(good)
