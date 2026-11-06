@@ -40,6 +40,8 @@ and keeps its type: `{}` for an object, `[]` for a list, `""` for a string. A ba
 boolean (which no project has authored) becomes `null`.
 
 up(reg, base_dir):
+  - non-empty meta.others that a render body, runtime module or stylesheet still READS (see
+    pb/tools/others_refs.py) → left exactly as it is, with a one-line notice naming the files
   - non-empty meta.others → memory/others.md (readable + exact JSON), then emptied in place
   - stamp meta.schemaVersion = 14
 down(reg, base_dir):
@@ -47,6 +49,7 @@ down(reg, base_dir):
   - stamp meta.schemaVersion = 13
 """
 import datetime
+import importlib.util
 import json
 import os
 import re
@@ -57,6 +60,17 @@ TO = 14
 _MARKER = "<!-- pb:migration-0012 original-json (do not edit: `down` reads it) -->"
 _HEADING = "## meta.others (moved by migration 0012, %s)"
 _BLOCK = re.compile(re.escape(_MARKER) + r"\s*\n```json\n(.*?)\n```", re.S)
+
+
+def _readers(base_dir, reg):
+    """(files, summary): the project files that read meta.others. `pb/tools/others_refs.py` is the
+    one detector the lint shares; it is loaded by path (a migration imports nothing from the tools)."""
+    path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "tools", "others_refs.py")
+    spec = importlib.util.spec_from_file_location("pb_others_refs", path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    files = mod.others_readers(base_dir, reg)
+    return files, mod.summarize(files)
 
 
 def _is_empty(value):
@@ -143,6 +157,16 @@ def up(reg, base_dir=None):
                 "meta.others holds data and no project folder was given, so there is nowhere to "
                 "move it (memory/others.md). Refusing to drop it. Run the update through "
                 "/pb:update-version, or pass base_dir.")
+        files, shown = _readers(base_dir, reg)
+        if files:
+            # Live data in a retired field: emptying it would empty the prototype. Keep it, stamp 14.
+            print("  ⚠ [0012_others_out] meta.others kept in registry.json — read by %s. Move that data "
+                  "into a runtime/ module (registry.runtime[]) and read it from there; once nothing "
+                  "reads meta.others, run /pb:update-version --apply --to 13 and then "
+                  "/pb:update-version --apply to move it to memory/others.md (schema 14 is not "
+                  "re-run on its own)." % shown)
+            meta["schemaVersion"] = TO
+            return reg
         existing = _read(base_dir)
         if not any(b == value for b in _blocks(existing)):
             os.makedirs(os.path.join(base_dir, "memory"), exist_ok=True)

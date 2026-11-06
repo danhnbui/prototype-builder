@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""PreToolUse / PostToolUse hook: send pb's usage rules down the safe path at call time.
+"""PreToolUse / PostToolUse / PostToolUseFailure hook: send pb's usage rules down the safe path at call time.
 
 One script, dispatched on `hook_event_name` + `tool_name`. Inside a pb project only (a folder with
 `registry.json` beside `render/` or `memory/constitution.md`, in the working folder, its `.prototype/`
@@ -16,8 +16,20 @@ or one of its immediate child folders; path-based rules walk up from the target 
      over 20 MB); PostToolUse validates the file (parses, top level an object, no top-level key lost,
      no NEW duplicate id in components/screens) and, when it is broken, restores the stash atomically
      and says so. The stash is always deleted; with no stash nothing happens.
+     A call that FAILS (a Bash write that raises half-way and exits non-zero) fires PostToolUseFailure
+     instead of PostToolUse, so route.py is registered for both and both take the same path. Whatever
+     the harness does, a second net runs at the start of EVERY route.py run: a stash of this session
+     older than 5 s that nothing has validated is validated then (one line of additionalContext, then
+     deleted). It leaves a stash alone while the registry is untouched or was written in the last 2 s,
+     so a command that is still running is never restored over, and it puts back only a registry that
+     no longer parses (a half-written file): which call wrote it is unknown, and the stash may predate
+     other legitimate writes, so a lost key or a duplicate id is left to the Post / failure event.
   5  Edit/Write/MultiEdit/NotebookEdit on a file in a different pb project or git work tree (or under
-     CLAUDE_PLUGIN_ROOT) than the session's -> `permissionDecision: "ask"`, once per (session, root).
+     CLAUDE_PLUGIN_ROOT) than the session's -> `permissionDecision: "ask"`, until the user lets an edit
+     in that (session, root) through: PreToolUse only records a pending (session, root, tool_use_id),
+     and the PostToolUse of that tool_use_id turns it into the "asked" mark. A denied call fires no
+     Post event, and a failed one fires only PostToolUseFailure, so neither leaves a mark and the next
+     edit asks again. Edits issued in one parallel batch each ask (none has been answered yet).
      Scratch folders (the temp folder, /private/tmp, /tmp) never trigger it.
   6  `touch ...registry.json` -> the preview reloads on its own.
   7  Read of registry.json / prototype.html / design-system.html with no `limit` -> `slice.py get`.
@@ -31,12 +43,14 @@ What it never does: refuse a call (no exit 2, no "deny"), or approve one (it nev
 permissionDecision "allow", which would skip the user's permission prompt; the only decision it can
 print is "ask"). Commands that run a pb tool (`.../tools/<x>.py`) are never advised or rewritten. Any
 error, bad stdin or no match prints nothing and exits 0. When `<project>/.preview/` exists every action
-is logged as one JSON line to `.preview/route.log` (trimmed to its last 128 KB once it passes 256 KB).
+is logged as one JSON line to `.preview/route.log` (trimmed to its last 128 KB once it passes 256 KB;
+never written through a symlink or to anything but a regular file).
 Stdlib only (run as `python3 -S -B`), Python 3.7+.
 """
 import json
 import os
 import re
+import stat
 import sys
 import time
 
@@ -47,6 +61,10 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 EVERY = 10                       # rules 2 and 3 speak on the 1st use in a session, then every 10th
 BIG_FILE = 256 * 1024            # rule 3: `cat` of a file larger than this
 MAX_STASH = 20 * 1024 * 1024     # rule 4: no stash of a registry larger than this
+LATE_AGE = 5.0                   # rule 4: a stash this old (seconds) with no Post event is validated by the next run
+LATE_QUIET = 2.0                 #   ...unless the registry itself was written within this many seconds
+# The only reasons the lazy check acts on: the registry exists but cannot be read (a half-written file).
+HARD_BREAKS = ("not valid JSON", "the top level is not an object")
 LOG_MAX = 256 * 1024
 LOG_KEEP = 128 * 1024
 MODES = ("route", "advise", "off")
@@ -63,6 +81,8 @@ PB_TOOLS_FALLBACK = (
     "registry_to_figma", "render", "report", "research", "resolve_frame", "security_scan", "serve", "shot",
     "slice", "spec_measure", "spec_parts", "test_run", "ticket", "tokens")
 EDIT_TOOLS = ("Edit", "Write", "MultiEdit", "NotebookEdit")
+POST_TOOLS = ("Bash",) + EDIT_TOOLS   # the tools hooks.json sends to PostToolUse / PostToolUseFailure
+POST_EVENTS = ("PostToolUse", "PostToolUseFailure")
 HTML_OUTPUT = ("prototype.html", "design-system.html")
 
 ADVICE_FORK = ("pb: a fork ignores model and runs on the session model; for routine work use a named "
@@ -228,27 +248,84 @@ def speaks(n):
     return n is not None and (n == 1 or n % EVERY == 0)
 
 
+def asked_roots(sid):
+    """The roots this session was already asked about (or advised on); None when the marks cannot be kept."""
+    path = state_path(sid, "asked")
+    if not path:
+        return None
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            return set(f.read().split("\n"))
+    except (OSError, ValueError):
+        return set()
+
+
+def remember_asked(sid, root):
+    """Add `root` to the session's asked marks. True when it is there afterwards."""
+    try:
+        known = asked_roots(sid)
+        if known is None:
+            return False
+        if root in known:
+            return True
+        path = state_path(sid, "asked")
+        fd = os.open(path, os.O_WRONLY | os.O_APPEND | os.O_CREAT | getattr(os, "O_NOFOLLOW", 0), 0o600)
+        with os.fdopen(fd, "ab") as f:
+            f.write((root + "\n").encode("utf-8"))
+        return True
+    except (OSError, ValueError):
+        return False
+
+
 def mark_asked(sid, root):
     """True the first time (session, root) is seen; False when it was seen before or cannot be kept."""
+    known = asked_roots(sid)
+    return known is not None and root not in known and remember_asked(sid, root)
+
+
+def note_pending(sid, tuid, root):
+    """Rule 5: the user has not answered yet. Keep (session, tool_use_id) -> root; PostToolUse success promotes it."""
+    if not isinstance(tuid, str) or not tuid:
+        return False
     try:
-        path = state_path(sid, "asked")
+        path = state_path(sid, safe(tuid) + ".pend")
         if not path:
             return False
-        try:
-            with open(path, "r", encoding="utf-8") as f:
-                if root in f.read().split("\n"):
-                    return False
-        except OSError:
-            pass
-        with open(path, "a", encoding="utf-8") as f:
-            f.write(root + "\n")
+        write_private(path, json.dumps({"sid": sid, "root": root}).encode("utf-8"))
         return True
     except OSError:
         return False
 
 
+def settle_pending(c):
+    """The pending ask of this call: a successful call (PostToolUse) means the user let it through, so the root
+    becomes an asked mark; a failed call (PostToolUseFailure) leaves none. A denied call fires neither, so its
+    pending file just ages out (sweep) and the next edit asks again."""
+    tuid = c.data.get("tool_use_id")
+    if not isinstance(tuid, str) or not tuid:
+        return
+    path = state_path(c.sid, safe(tuid) + ".pend", create=False)
+    if not path:
+        return
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            doc = json.load(f)
+    except (OSError, ValueError):
+        return
+    try:
+        root = doc.get("root") if isinstance(doc, dict) and doc.get("sid") == c.sid else None
+        if c.event == "PostToolUse" and isinstance(root, str) and root:
+            remember_asked(c.sid, root)
+    finally:
+        try:
+            os.unlink(path)
+        except OSError:
+            pass
+
+
 def sweep(folder):
-    """Drop stashes older than an hour (a failed tool call never reaches PostToolUse) and counters older than a week."""
+    """Drop stashes and pending asks older than an hour (a denied call never reaches Post; a failed one may not
+    reach the hook) and counters / asked marks older than a week."""
     now = time.time()
     try:
         for name in os.listdir(folder):
@@ -256,7 +333,8 @@ def sweep(folder):
                 continue
             path = os.path.join(folder, name)
             age = now - os.lstat(path).st_mtime
-            if (name.endswith((".stash", ".meta")) and age > 3600) or (name.endswith((".count", ".asked")) and age > 7 * 86400):
+            if (name.endswith((".stash", ".meta", ".pend")) and age > 3600) \
+                    or (name.endswith((".count", "-asked")) and age > 7 * 86400):
                 os.unlink(path)
     except OSError:
         pass
@@ -403,13 +481,14 @@ def stash_registries(c, targets):
                 continue
             with open(path, "rb") as f:
                 data = f.read()
+            st = os.stat(path)
             name = "route-%s-%s-%d.stash" % (safe(c.sid), safe(tuid), i)
             write_private(os.path.join(folder, name), data)
-            items.append({"path": path, "stash": name, "proj": proj})
+            items.append({"path": path, "stash": name, "proj": proj, "size": st.st_size, "mtime": st.st_mtime})
             c.act(proj, 4, "stash", "%d bytes" % len(data))
         if items:
             write_private(os.path.join(folder, "route-%s-%s.meta" % (safe(c.sid), safe(tuid))),
-                          json.dumps({"items": items}).encode("utf-8"))
+                          json.dumps({"sid": c.sid, "items": items}).encode("utf-8"))
         return len(items)
     except OSError:
         return 0
@@ -495,13 +574,19 @@ def rule_cross(c, target):
     root = other_root(target)
     if not root or inside(sess_real, root):             # the session's own tree (e.g. the repo around `.prototype/`)
         return
-    if not mark_asked(c.sid, root):
-        return
     reason = "pb: this edits %s from %s" % (root, sess_real)
     if mode == "route":
+        # Ask until an edit in this root has actually gone through: the mark is made by the PostToolUse of
+        # this tool_use_id (settle_pending), not here, so a denied or failed call asks again next time.
+        known = asked_roots(c.sid)
+        if known is None or root in known:              # marks cannot be kept (fail open), or already let through
+            return
+        note_pending(c.sid, c.data.get("tool_use_id"), root)
         c.ask = reason
         c.act(sess, 5, "ask", root)
     else:
+        if not mark_asked(c.sid, root):                 # advise: nothing to answer, so one line per root is enough
+            return
         c.say(reason)
         c.act(sess, 5, "advise", root)
 
@@ -591,31 +676,66 @@ def read_or_none(path):
         return None
 
 
-def post_registry(c):
-    tuid = c.data.get("tool_use_id")
-    if not isinstance(tuid, str) or not tuid:
-        return
-    meta = state_path(c.sid, safe(tuid) + ".meta", create=False)
-    if not meta or not os.path.isfile(meta):
-        return                                          # no stash: nothing to do
-    folder = os.path.dirname(meta)
-    items = []
+def load_meta(meta):
+    """The stash index written by stash_registries, or None when it is unreadable."""
     try:
         with open(meta, "r", encoding="utf-8") as f:
-            items = json.load(f).get("items") or []
+            doc = json.load(f)
+    except (OSError, ValueError):
+        return None
+    return doc if isinstance(doc, dict) else None
+
+
+def untouched(it, path):
+    """True while the registry still has the size and mtime it had when it was stashed (nothing wrote to it)."""
+    try:
+        st = os.stat(path)
+    except OSError:
+        return False
+    return it.get("size") == st.st_size and it.get("mtime") == st.st_mtime
+
+
+def settling(path):
+    """True when the file was written in the last LATE_QUIET seconds: a command may still be writing it."""
+    try:
+        return time.time() - os.stat(path).st_mtime < LATE_QUIET
+    except OSError:
+        return False
+
+
+def settle(c, meta, doc, late=False):
+    """Validate every registry a stash index guards, restore the broken ones, then delete the stash files.
+    late=True is the lazy check of a stash no Post event came for: while its call may still be running (the
+    registry is untouched, or was written within LATE_QUIET seconds) the stash is kept for a later run."""
+    folder = os.path.dirname(meta)
+    items = doc.get("items") if isinstance(doc.get("items"), list) else []
+    keep = False
+    try:
         for it in items:
+            if not isinstance(it, dict):
+                continue
             path, name, proj = it.get("path"), it.get("stash"), it.get("proj")
             if not (isinstance(path, str) and isinstance(name, str) and isinstance(proj, str)):
                 continue
             mode = c.mode(proj)
             if mode == "off":
                 continue
+            if late and (untouched(it, path) or settling(path)):
+                keep = True
+                continue
             with open(os.path.join(folder, os.path.basename(name)), "rb") as f:
                 before = f.read()
             after = read_or_none(path)
             if after == before:
+                if late:
+                    keep = True
                 continue
             reason = "file missing" if after is None else broken_reason(before, after)
+            if late and reason not in HARD_BREAKS:
+                # Nothing says which call wrote it, and the stash may predate other legitimate writes (a call
+                # the user denied leaves one too): only a registry that cannot be read at all is put back.
+                c.act(proj, 4, "verified", "late")
+                continue
             if not reason:
                 c.act(proj, 4, "verified")
                 continue
@@ -623,11 +743,11 @@ def post_registry(c):
                 try:
                     now = read_or_none(path)            # read again: restore only what is still broken
                     reason = "file missing" if now is None else broken_reason(before, now)
-                    if reason:
+                    if reason and not (late and reason not in HARD_BREAKS):
                         restore(path, before)
                         c.say("pb: registry.json was invalid after this write (%s); restored the previous "
                               "version. Use slice.py set." % reason)
-                        c.act(proj, 4, "restore", reason)
+                        c.act(proj, 4, "restore", reason + (" (late)" if late else ""))
                 except OSError:
                     c.say("pb: registry.json was invalid after this write (%s) and could not be restored; "
                           "fix it with slice.py set." % reason)
@@ -637,17 +757,68 @@ def post_registry(c):
                       "Use slice.py set." % reason)
                 c.act(proj, 4, "report", reason)
     finally:
-        for it in items:
-            name = it.get("stash") if isinstance(it, dict) else None
-            if isinstance(name, str):
-                try:
-                    os.unlink(os.path.join(folder, os.path.basename(name)))
-                except OSError:
-                    pass
+        if not keep:
+            for it in items:
+                name = it.get("stash") if isinstance(it, dict) else None
+                if isinstance(name, str):
+                    try:
+                        os.unlink(os.path.join(folder, os.path.basename(name)))
+                    except OSError:
+                        pass
+            try:
+                os.unlink(meta)
+            except OSError:
+                pass
+
+
+def post_registry(c):
+    """PostToolUse / PostToolUseFailure of a call that stashed a registry: validate it, restore it if broken."""
+    tuid = c.data.get("tool_use_id")
+    if not isinstance(tuid, str) or not tuid:
+        return
+    meta = state_path(c.sid, safe(tuid) + ".meta", create=False)
+    if not meta or not os.path.isfile(meta):
+        return                                          # no stash: nothing to do
+    doc = load_meta(meta)
+    if doc is None:
         try:
             os.unlink(meta)
         except OSError:
             pass
+        return
+    settle(c, meta, doc)
+
+
+def recover(c):
+    """The second net, at the start of every run: a stash of THIS session older than LATE_AGE seconds that no Post
+    event has settled (the harness sent a failure event we never saw, or none at all) is validated now.
+    Costs one stat of the state folder and one listing when this session has no stash."""
+    folder = state_dir(create=False)
+    if not folder:
+        return
+    prefix = "route-%s-" % safe(c.sid)
+    try:
+        names = [n for n in os.listdir(folder) if n.startswith(prefix) and n.endswith(".meta")]
+    except OSError:
+        return
+    if not names:
+        return
+    tuid = c.data.get("tool_use_id")
+    own = "%s%s.meta" % (prefix, safe(tuid)) if isinstance(tuid, str) and tuid and c.event in POST_EVENTS else None
+    now = time.time()
+    for name in sorted(names):
+        if name == own:
+            continue                                    # this very call: post_registry settles it
+        meta = os.path.join(folder, name)
+        try:
+            if now - os.lstat(meta).st_mtime <= LATE_AGE:
+                continue                                # a call that is probably still running
+            doc = load_meta(meta)
+            if doc is None or doc.get("sid") != c.sid:  # unreadable, or another session whose id shares the prefix
+                continue
+            settle(c, meta, doc, late=True)
+        except Exception:  # noqa: BLE001  one bad stash must not stop the others, nor the call's own rules
+            continue
 
 
 # ---- output and log ------------------------------------------------------------------------------
@@ -663,19 +834,54 @@ def write_log(c):
             continue
         path = os.path.join(folder, "route.log")
         try:
-            with open(path, "a", encoding="utf-8") as f:
-                f.write("\n".join(lines) + "\n")
-            if os.path.getsize(path) > LOG_MAX:
-                with open(path, "rb") as f:
-                    f.seek(-LOG_KEEP, os.SEEK_END)
-                    tail = f.read()
-                tail = tail[tail.find(b"\n") + 1:]      # drop the cut line
-                tmp = path + ".%d.tmp" % os.getpid()
-                with open(tmp, "wb") as f:
-                    f.write(tail)
-                os.replace(tmp, path)
+            size = append_log(path, ("\n".join(lines) + "\n").encode("utf-8"))
+            if size is not None and size > LOG_MAX:
+                trim_log(path)
         except OSError:
             pass
+
+
+def append_log(path, data):
+    """Append `data` to `path` only when it is a regular file that is not a link (a planted symlink or a FIFO is
+    never written through). -> the size afterwards, or None when it was refused."""
+    if os.path.islink(path):
+        return None
+    flags = os.O_WRONLY | os.O_APPEND | os.O_CREAT | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_NONBLOCK", 0)
+    fd = os.open(path, flags, 0o644)
+    try:
+        st = os.fstat(fd)
+        if not stat.S_ISREG(st.st_mode):
+            return None
+        with os.fdopen(fd, "ab") as f:
+            fd = None
+            f.write(data)
+        return st.st_size + len(data)
+    finally:
+        if fd is not None:
+            os.close(fd)
+
+
+def trim_log(path):
+    """Keep the last LOG_KEEP bytes of the log, whole lines, replacing it atomically."""
+    fd = os.open(path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_NONBLOCK", 0))
+    with os.fdopen(fd, "rb") as f:
+        if not stat.S_ISREG(os.fstat(f.fileno()).st_mode):
+            return
+        f.seek(-LOG_KEEP, os.SEEK_END)
+        tail = f.read()
+    tail = tail[tail.find(b"\n") + 1:]                  # drop the cut line
+    tmp = path + ".%d.tmp" % os.getpid()
+    try:
+        fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0), 0o644)
+        with os.fdopen(fd, "wb") as f:
+            f.write(tail)
+        os.replace(tmp, path)
+    except BaseException:
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
+        raise
 
 
 def emit(c):
@@ -699,6 +905,12 @@ def main():
     c = Call(data)
     if not isinstance(c.event, str) or not isinstance(c.tool, str):
         return
+    if c.event != "PreToolUse" and c.event not in POST_EVENTS:
+        return
+    try:
+        recover(c)                                      # rule 4's second net: runs first, on every event
+    except Exception:  # noqa: BLE001
+        pass
     if c.event == "PreToolUse":
         if c.tool in ("Agent", "Task"):
             rule_agent(c)
@@ -708,11 +920,10 @@ def main():
             rule_read(c)
         elif c.tool in EDIT_TOOLS:
             rule_edit(c)
-    elif c.event == "PostToolUse":
-        if c.tool in ("Bash", "Edit", "Write", "MultiEdit"):
+    elif c.tool in POST_TOOLS:                          # PostToolUse (the call went through) or PostToolUseFailure
+        settle_pending(c)
+        if c.tool != "NotebookEdit":
             post_registry(c)
-    else:
-        return
     emit(c)
     write_log(c)
 

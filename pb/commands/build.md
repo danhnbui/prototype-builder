@@ -271,7 +271,7 @@ Non-trio tweaks (step 2) **skip this**, exactly as they skip the gate.
 
 | The patch did | `flow` | `erd` |
 |---|---|---|
-| added a screen | one node in its shape + an edge per `data-nav`/`data-go`/`data-redirect` target; append a story stub (`id` `s-<screen id>` · `title`/`priority`/`jtbd`/`path`/`nodes` · **`jobs[]` naming every `ia.jobs[]` job whose `screens[]` lists this screen** (`slice.py get ia jobs`; none → `[]`) · one `function` scenario for the happy path) | — |
+| added a screen | one node in its shape + an edge per `data-nav`/`data-go`/`data-redirect` target; append a story stub (`id` `s-<screen id>` · `title`/`priority`/`jtbd`/`path`/`nodes` · **`jobs[]` naming every `ia.jobs[]` job whose `screens[]` lists this screen** (`slice.py get ia jobs --full`, since `get` caps at 8,000 characters without `--full`; none → `[]`) · one `function` scenario for the happy path) | — |
 | removed a screen | drop its node, repair the edges that pointed at it, drop or re-path any story whose `nodes[]` names it | — |
 | renamed a screen | rename the node label; update the affected `path` strings | — |
 | changed navigation | add / remove / re-point that one edge | — |

@@ -43,6 +43,9 @@ Rules (severity · default → under --strict):
   R-RETIRED-DATA                     meta.others holds data (retired, D-33, but it still
                                      works): /pb:update-version --apply (migration 0012) moves
                                      it to memory/others.md                     WARN → ERROR
+  R-RETIRED-LIVE                     meta.others is still read by the project's own render or
+                                     runtime files: move it to a runtime/ module. ADVISORY: a
+                                     WARN in every mode, never raises the exit code
   R-RETIRED                          meta.tradeoffs holds data (retired, D-33,
                                      but it still works). ADVISORY: a WARN in every mode,
                                      never promoted by --strict, never raises the exit code
@@ -106,6 +109,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import tokens as _tok  # noqa: E402  (sibling module; the W3C DTCG token resolver)
 pbslice = importlib.import_module("slice")  # the registry write path: lock + atomic write (`import slice` shadows the builtin)
 from logic_extract import strip_comments  # noqa: E402  (quote-aware; the props scans read code, not prose)
+import others_refs as _others_refs  # noqa: E402  (which project files still read meta.others)
 import spec_parts as _parts  # noqa: E402  (anatomy parts from either sidecar shape: parts[] or schema-13 instanceOf)
 
 # Tokens the shell's runtime references by name; absence is a latent Principle-1 gap.
@@ -257,7 +261,7 @@ RETIRED_META = {
 }
 
 
-def _check_retired(add, meta, strict=False):
+def _check_retired(add, meta, strict=False, base_dir=None, reg=None):
     for field, where_to in RETIRED_META.items():
         if not meta.get(field):          # absent, null, "", [], {}, 0, false: nothing to move
             continue
@@ -265,6 +269,15 @@ def _check_retired(add, meta, strict=False):
             # Not advisory: migration 0012 moves meta.others to memory/others.md, so a project that
             # still carries it has one command to run. It stays a WARN until --strict (the CI gate).
             size = len(json.dumps(meta[field], ensure_ascii=False))
+            readers = _others_refs.others_readers(base_dir, reg or {})
+            if readers:
+                # Live data in a retired field: moving it would empty the prototype, so this is an
+                # advisory WARN in every mode (R-RETIRED-LIVE, ADVISORY_CODES): no --strict ERROR, exit 0. The fix is to relocate the data first.
+                add(WARN, "R-RETIRED-LIVE", "meta.others",
+                    f"meta.others ({size / 1024:.1f} KB) is read by {_others_refs.summarize(readers)} — "
+                    f"live data in a retired field; move it to a runtime/ module (registry.runtime[]) "
+                    f"and read it from there")
+                continue
             add(ERROR if strict else WARN, "R-RETIRED-DATA", "meta.others",
                 f"meta.others holds data ({size / 1024:.1f} KB) — the field is retired (D-33) and "
                 f"registry.json is read by every command; run /pb:update-version --apply "
@@ -1208,7 +1221,7 @@ def check(reg, strict=False, base_dir=None):
 
     _check_styles(add, reg.get("meta") if isinstance(reg.get("meta"), dict) else {},
                   components, screens, comp_by_id, base_dir, hex_px_sev, strict)
-    _check_retired(add, reg.get("meta") if isinstance(reg.get("meta"), dict) else {}, strict)
+    _check_retired(add, reg.get("meta") if isinstance(reg.get("meta"), dict) else {}, strict, base_dir, reg)
     _check_logicsrc(add, components, screens, base_dir)
     _check_inline_data(add, reg, components, screens, base_dir, ERROR if strict else WARN)
     _check_demo_model(add, reg, reg.get("meta") if isinstance(reg.get("meta"), dict) else {},
@@ -1682,7 +1695,7 @@ def _load_json(path):
 
 # Advisory codes are printed like any other finding but never move the exit code (and --strict does
 # not promote them): a project that keeps live data in a retired field must stay green in CI.
-ADVISORY_CODES = frozenset({"R-RETIRED", "R-COVERAGE", "R-CONTENT", "R-IA-NEST"})
+ADVISORY_CODES = frozenset({"R-RETIRED", "R-RETIRED-LIVE", "R-COVERAGE", "R-CONTENT", "R-IA-NEST"})
 
 
 def _report(findings, label, ok_msg):

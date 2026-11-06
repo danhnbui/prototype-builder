@@ -190,8 +190,28 @@ def main():
         explore.cmd_promote(reg_path, "card", "opt-2")
         check(read_bytes(live).decode("utf-8") == "const x = 1;\nreturn '<i>' + x + '</i>';\n", "a /* … */ header block is stripped whole")
 
+        print("a header comment never takes code with it")
+        shs = explore.strip_candidate_header
+        check(shs("/* CANDIDATE opt-2 */ function renderCmpX(p){...}\nvar y=1;\n")
+              == ("function renderCmpX(p){...}\nvar y=1;\n", 1),
+              "code after `*/` on the comment's line is kept")
+        check(shs("/*\n CANDIDATE opt-3\n*/ var q = 1;\n")[0] == "var q = 1;\n",
+              "code on a multi-line header's closing line is kept")
+        unterminated = "/* start of notes\nfunction a(){}\n// opt-1 mention\n"
+        check(shs(unterminated) == (unterminated, 0), "an unterminated /* strips nothing")
+        check(shs("/* CANDIDATE opt-2\r\n   x */\r\nconst x = 1;\r\n")[0] == "const x = 1;\r\n",
+              "a header whose closing line is blank after `*/` is dropped whole (CRLF kept)")
+        check(shs("/* keep me */ a();\n// CANDIDATE opt-1\n") == ("/* keep me */ a();\n// CANDIDATE opt-1\n", 0),
+              "a non-matching block comment with code after it ends the header run")
+        check(shs("/* CANDIDATE */ /* opt-1 */\ncode();\n")[0] == "code();\n", "two header comments on one line both go")
         write(live, "return '<div class=\"card\"></div>';\n")
-        late = "const a = 1;\n// CANDIDATE opt-2 — a comment below the code is not a header\nreturn '<b>' + a + '</b>';\n"
+        open_round(reg_path, project, "card", "/* CANDIDATE opt-2 */ const k = 2;\nreturn '<b>' + k + '</b>';\n")
+        explore.cmd_promote(reg_path, "card", "opt-2")
+        check(read_bytes(live).decode("utf-8") == "const k = 2;\nreturn '<b>' + k + '</b>';\n",
+              "promote keeps the code that shared a line with the header")
+
+        write(live, "return '<div class=\"card\"></div>';\n")
+        late ="const a = 1;\n// CANDIDATE opt-2 — a comment below the code is not a header\nreturn '<b>' + a + '</b>';\n"
         open_round(reg_path, project, "card", late)
         res = explore.cmd_promote(reg_path, "card", "opt-2")
         check(read_bytes(live).decode("utf-8") == late and res["headerLinesStripped"] == {},

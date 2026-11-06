@@ -6,12 +6,13 @@ pb/hooks/ puts the key operating rules in front of the model in any pb project, 
 written only in a command file never reached a free-form session. Checked here, with no browser:
 
   H1  hooks.json parses, declares SessionStart (startup|resume|clear|compact) and PreToolUse (Bash),
-      and every script it names exists under ${CLAUDE_PLUGIN_ROOT}/hooks/. (route.py, the fifth
-      script, is checked in tests/hook_route.py; here it only has to be named and exist.)
+      and every script it names exists under ${CLAUDE_PLUGIN_ROOT}/hooks/. (route.py and housekeep.py,
+      the fourth and fifth scripts, are checked in tests/hook_route.py and tests/hook_housekeep.py; here
+      they only have to be named and exist.)
   H2  session_rules.py in a pb-shaped folder (and in `.prototype/`) prints valid JSON whose
       additionalContext is at most 25 lines and 1,600 characters, names the canon, the three
       tools, `--ensure`, `slice.py find|get --fields` and the subagent model rule; in a non-pb
-      folder it prints nothing. Exit 0 always.
+      folder it prints nothing. A session one folder above the registry gets it too. Exit 0 always.
   H3  bash_advice.py: table-driven positives (each names the right tool) and negatives
       (normal commands, `json.load`, `json.dumps`, `slice.py` writes, `shot.py`, and the registry
       writes route.py owns now); silent in a non-pb folder; output is valid JSON, never carries
@@ -111,8 +112,11 @@ if cfg:
             for a in h.get("args", []):
                 if a.startswith("${CLAUDE_PLUGIN_ROOT}/"):
                     named.append(a.replace("${CLAUDE_PLUGIN_ROOT}/", ""))
-    check(sorted(named) == ["hooks/bash_advice.py", "hooks/browser_advice.py", "hooks/route.py", "hooks/session_rules.py"],
-          "SessionStart + PreToolUse name exactly four scripts (%s)" % ", ".join(named))
+    check(sorted(named) == ["hooks/bash_advice.py", "hooks/browser_advice.py", "hooks/housekeep.py",
+                            "hooks/route.py", "hooks/session_rules.py"],
+          "SessionStart + PreToolUse name exactly five scripts (%s)" % ", ".join(named))
+    check(any(h.get("args", [])[-1:] == ["${CLAUDE_PLUGIN_ROOT}/hooks/housekeep.py"] for h in ss[0].get("hooks", [])),
+          "SessionStart (same matcher as session_rules) also runs housekeep.py")
     check(any(g.get("matcher") == "mcp__.*(chrome-devtools|claude-in-chrome).*" for g in pt),
           "PreToolUse has the browser MCP matcher")
     for rel in named:
@@ -160,6 +164,18 @@ with tempfile.TemporaryDirectory() as tmp:
         check(code == 0 and out == "", "non-pb folder (%s): silent, exit 0" % label)
     code, out, err = run(SESSION, "not json at all", cwd=pb_dir)
     check(code == 0 and hook_json(out)[0] is not None, "session_rules ignores stdin entirely")
+    above = os.path.join(tmp, "above")         # a session started one folder above the registry
+    make_pb(os.path.join(above, "app"), "render")
+    code, out, err = run(SESSION, "", cwd=above)
+    ctx, event = hook_json(out)
+    check(code == 0 and ctx is not None and event == "SessionStart" and os.path.join(above, "app") in ctx,
+          "a session one folder above the registry gets the digest, naming that project")
+    make_pb(os.path.join(above, "app2", ".prototype"), "render")
+    code, out, err = run(SESSION, "", cwd=os.path.join(above, "app2"))
+    check(code == 0 and hook_json(out)[0] is not None, "  and a child's .prototype/ is found through bash_advice too")
+    os.makedirs(os.path.join(tmp, "above-empty", "x"))
+    code, out, err = run(SESSION, "", cwd=os.path.join(tmp, "above-empty"))
+    check(code == 0 and out == "", "a folder above no registry stays silent")
 
     # ------------------------------------------------------------ H3
     print("H3 · bash_advice.py")
@@ -326,9 +342,11 @@ with tempfile.TemporaryDirectory() as tmp:
     if cfg:
         hooks = cfg.get("hooks", {})
         for event in ("UserPromptSubmit", "PostToolUse", "Stop"):
-            # PostToolUse also carries route.py behind its own matcher (tests/hook_route.py): activity.py is the matcher-less group
+            # PostToolUse also carries route.py and housekeep.py behind their own matchers (tests/hook_route.py,
+            # tests/hook_housekeep.py): activity.py is the matcher-less group
             groups = [g for g in hooks.get(event, [])
-                      if not any(a.endswith("/hooks/route.py") for h in g.get("hooks", []) for a in h.get("args", []))]
+                      if not any(a.endswith(("/hooks/route.py", "/hooks/housekeep.py"))
+                                 for h in g.get("hooks", []) for a in h.get("args", []))]
             cmds = [h for g in groups for h in g.get("hooks", [])]
             check(len(cmds) == 1 and cmds[0].get("type") == "command" and "args" in cmds[0]
                   and any(a == "${CLAUDE_PLUGIN_ROOT}/hooks/activity.py" for a in cmds[0]["args"]),

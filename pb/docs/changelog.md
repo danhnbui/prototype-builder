@@ -5,7 +5,7 @@ All notable changes to Product Builder. Format follows [Keep a Changelog](https:
 ## [Unreleased]
 
 *Planned as **v3.0.0**, a major: `/pb:handoff` mode 2 (engineering) and `--tier` are removed (see **Breaking**
-below). No schema change. `/pb:handoff` gains a fourth audience, front-end developers who build from tickets, and
+below). Schema 14: `meta.others` moves out of the registry (see **Upgrading**). `/pb:handoff` gains a fourth audience, front-end developers who build from tickets, and
 the hand-off is now three audiences: everything, Figma and tickets. The preview's bar gains a second inspection
 tool beside Pick, after Solum Studio's.*
 
@@ -33,6 +33,49 @@ tool beside Pick, after Solum Studio's.*
   as a fourth band, hatched in its own cyan (`--pb-spec-free`, #0e7490): never grey, which melted into the
   product's own borders and fills.
 
+- **Hooks that send the common rules down the safe path.** A new `route.py` runs before and after Bash, Agent, Read,
+  Edit and Write in a pb project. A built-in generic subagent call (general-purpose, Explore, Plan, claude, or no
+  type) with no `model` gets one: haiku for Explore, else sonnet. In `auto` permission mode it only advises; named
+  agents (`pb:*`, another plugin's, a project's) are never touched. Before a hand write of `registry.json` it stashes
+  the file, and after the write it checks the JSON parses, no top-level key is lost and no id is newly duplicated,
+  and restores the stash if not. It asks once per session before an edit in a different pb project, git work tree or
+  the plugin root. It advises, at a limited rate, on parsing `registry.json` inline, on `grep -r` / `rg` / `sed -n` /
+  `cat` of a big file, on `touch registry.json` and on a whole Read of `registry.json`, `prototype.html` or
+  `design-system.html`. It never denies a call and never approves one; the only decision it can print is `ask`.
+  `memory/doctor.json` `"enforce"` is `route` (default), `advise` or `off`; `PB_ENFORCE` overrides it. Actions go
+  to `.preview/route.log`, trimmed to 128 KB past 256 KB. `bash_advice.py` no longer owns the registry-write rule and
+  finds a project one folder down. The session digest gains one line. `tests/hook_route.py` pins it, and `AGENTS.md`
+  now says a hook may print `updatedInput` or `ask`, never `allow` or `deny`.
+- **Housekeeping.** A new `housekeep.py` runs at session start and after an edit of `memory/decisions.md`: it rotates
+  `decisions.md` past 500 KB with `decisions_rotate.py` (older entries move to `decisions-<YEAR>.md`, nothing is
+  lost), trims `.preview/server.log`, and prints one short notice for backups, `.pb-patches/`, memory files over
+  budget and generated HTML tracked by git. It deletes nothing; backups are still pruned only by `/pb:clean` flags.
+  `/pb:clean --rotate-decisions` still works. The budgets are in `pb/docs/canon.md` § *Size budgets*.
+- **`slice.py find`, and a capped `get`.** `slice.py find <text> [--kind K] [--limit 20] [--json]` locates a word
+  across the registry, one line per hit, so nothing needs an inline script over `registry.json`. `get` prints at most
+  8,000 characters unless `--full`; the cut output is deliberately not valid JSON, so a parser fails loudly.
+  `list <kind|path> --fields a,b` adds fields to each line. `/pb:build` names `find` as its locate step.
+- **Schema 14: `meta.others` moves out of the registry.** Migration `0012` moves a non-empty `meta.others` to
+  `memory/others.md` (a readable section plus an exact JSON block) and empties the field. If a render body, `styleSrc`,
+  runtime module or `registry.runtime[]` source reads `meta.others`, it stays where it is: the migration still
+  stamps schema 14 and prints one line naming the files that read it. `--rollback` or `--to 13` restores the moved
+  value. In a real project it had been a third of the file.
+- **`/pb:explore` has no scoring gate.** `promote` no longer needs scored cells, scores are optional, and
+  `promote --why "<text>"` records an optional reason. `explore.py gate` only reports which cells are unscored.
+  The `CANDIDATE` / `opt-N` header comments are stripped from a promoted body. `/pb:report` no longer aborts on a
+  manifest whose verdict is a string, and counts `.pb-backups/pre-rollback.*` folders.
+- **Lint.** `R-LOGICSRC`: a `logicSrc` file that is missing is an ERROR. `R-INLINE-DATA`: a `data:` URI or base64 run
+  over 8 KB in a body, `styleSrc` or runtime file is a WARN, an ERROR under `--strict`. `R-RETIRED-DATA`: an unread non-empty
+  `meta.others` is a WARN, an ERROR under `--strict` (fix: `/pb:update-version --apply`). A live reader, code that reads
+  it, gets the advisory `R-RETIRED-LIVE`, which never changes the exit code. `R-RETIRED` now covers only `meta.tradeoffs`, advisory. `--report` gains a "where
+  the size goes" block: registry bytes and approximate tokens, the five largest slices, `memory/*.md` over
+  `memory_file_kb` (default 64), the `decisions` sizes and generated HTML tracked by git.
+- **The preview watches more.** `serve.py` reloads the page when `spec/**/*.json`, `logic/**/*.json` or the explore
+  compare shell change, and trims `.preview/server.log` over 1 MB to its last 256 KB when it starts.
+- **`/pb:test --stale` and `--screen <id>`.** Run only the scenarios with no result or changed input digests, or only
+  those touching a screen. An empty selection exits 0 without opening a browser. `/pb:build` §4.7 runs it once per
+  build turn when the preview is up; advisory, it never blocks.
+
 ### Breaking — the engineering hand-off (mode 2) is removed
 
 - **`/pb:handoff` mode 2, "For engineering", is gone, completely.** The hand-off is now three audiences:
@@ -53,13 +96,14 @@ tool beside Pick, after Solum Studio's.*
   replacement, and neither does `/pb:validate` (retired in v2.0.0 and pointed at `--tier=host`). Running any of them
   now prints the retirement note and asks the question again; nothing is written.
 - **`meta.outputTier` and `meta.exportTarget` are inert.** New projects' registry template no longer has them. An
-  existing registry keeps them harmlessly: nothing reads or writes them, and there is no migration and no schema
-  change (the schema stays 13).
+  existing registry keeps them harmlessly: nothing reads or writes them, and there is no migration for
+  them.
 
 ### Upgrading
 
-No schema step and no registry change; `/pb:update-version` has nothing to do for this release. These change as soon
-as the plugin updates:
+The schema is now 14. `/pb:update-version --apply` moves a non-empty `meta.others` into `memory/others.md`, only when no
+code reads the field (`--rollback` or `--to 13` restores it); a project with nothing in it just records the new schema.
+These change as soon as the plugin updates:
 
 - **Replace the retired hand-off in your own scripts and notes.** `/pb:handoff --mode=2`, `--mode=dev` and
   `--tier=…` no longer produce anything. Developers who will build the front end: `/pb:handoff --mode=4` (tickets).

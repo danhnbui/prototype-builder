@@ -93,7 +93,7 @@ authors all read these terms, and two names for one thing is cheaper to fix here
 **with or without `--skip-ia`** — a changed job can bring a new word.
 
 **Source.** The drafted jobs above, `memory/spec.md`, `memory/prd.md` and the insights. **Refine by
-`id`** — `slice.py get content terms` first; a word already defined is edited, never defined a second time.
+`id`** — `slice.py get content terms --full` first (`get` caps at 8,000 characters without `--full`); a word already defined is edited, never defined a second time.
 Draft only words that carry meaning in this product (a role, an object, a status, a quantity) — not every
 noun. Each term is:
 

@@ -220,6 +220,38 @@ with tempfile.TemporaryDirectory() as d:
           "CLI default: exit 1, counted as a warning (rc=%d)" % r.returncode)
     r = run("--strict", p)
     check(r.returncode == 2 and "ERROR [R-RETIRED-DATA]" in r.stdout, "CLI --strict: exit 2 (rc=%d)" % r.returncode)
+READS = {
+    "render body": ("render/components/map-panel.js", "function renderCmpMapPanel(props) {\n"
+                    "  var slice = ((PB_REGISTRY.meta || {}).others || {}).dataSlice || { items: [] };\n"
+                    "  return '<div>' + slice.items.length + '</div>';\n}\n"),
+    "runtime module": ("runtime/data.js", "window.mapData = PB_REGISTRY.meta['others'].layers;\n"),
+}
+for what, (rel, text) in READS.items():
+    with tempfile.TemporaryDirectory() as d:
+        rt = [{"id": "data", "src": "runtime/data.js"}] if what == "runtime module" else None
+        p = project(d, meta={"others": {"dataSlice": {"items": [1, 2, 3]}}}, files={rel: text}, runtime=rt)
+        for strict in (False, True):
+            got = codes(lint(load(p), strict, d), "R-RETIRED-LIVE")
+            check(len(got) == 1 and got[0].severity == "WARN" and codes(lint(load(p), strict, d), "R-RETIRED-DATA") == [],
+                  "%s reads meta.others, strict=%s: R-RETIRED-LIVE WARN, never ERROR, no R-RETIRED-DATA" % (what, strict))
+            check(got and rel in got[0].msg and "live data in a retired field" in got[0].msg
+                  and "runtime/ module" in got[0].msg and "/pb:update-version" not in got[0].msg,
+                  "%s: the finding names %s and says to move the data, not to run the migration" % (what, rel))
+        for flags in ((), ("--strict",)):
+            r = run(*flags, p)
+            check(r.returncode == 0 and "R-RETIRED-LIVE" in r.stdout and "R-RETIRED-DATA" not in r.stdout,
+                  "%s: CLI %s exits exactly 0 (rc=%d)" % (what, " ".join(flags) or "default", r.returncode))
+with tempfile.TemporaryDirectory() as d:
+    p = project(d, [{"id": "plain"}], meta={"others": {"dataSlice": {"items": [1]}}},
+                files={"render/other.js": "// the word others and a.other(b) alone are not a read\nvar x = 'others';\n"})
+    got = codes(lint(load(p), True, d), "R-RETIRED-DATA")
+    check(len(got) == 1 and got[0].severity == "ERROR" and "/pb:update-version --apply" in got[0].msg,
+          "no file reads it, strict: still ERROR and points at the migration")
+many = {"render/components/r%d.js" % i: "var o = meta.others;\n" for i in range(5)}
+with tempfile.TemporaryDirectory() as d:
+    p = project(d, meta={"others": {"k": "v"}}, files=many)
+    got = codes(lint(load(p), True, d), "R-RETIRED-LIVE")
+    check(len(got) == 1 and "+2 more" in got[0].msg, "five readers: three named, then '+2 more'")
 with tempfile.TemporaryDirectory() as d:
     p = project(d, meta={"tradeoffs": [{"title": "t"}]})
     r = run("--strict", p)

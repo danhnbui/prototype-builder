@@ -25,7 +25,12 @@ ship a history that stops at the first rotation, silently).
   decisions_rotate.py <memory/decisions.md> --apply
   decisions_rotate.py <memory/decisions.md> --threshold-kb 250 --apply
 
-Exit: 0 = clean (or nothing to do) · 2 = aborted, nothing changed.
+One rotation at a time: `memory/.decisions.lock` (O_CREAT|O_EXCL, stale after 10 minutes) is held
+while --apply runs; a second run prints one line, changes nothing and exits 0. Before it writes, the
+live file is checked again (size, mtime, content): an entry appended since it was read aborts the run
+with nothing moved, so an append is never lost.
+
+Exit: 0 = clean (or nothing to do, or busy) · 2 = aborted, nothing changed.
 """
 import argparse
 import datetime
@@ -33,8 +38,12 @@ import os
 import re
 import shutil
 import sys
+import time
 
 DEFAULT_THRESHOLD_KB = 500
+LOCK_NAME = ".decisions.lock"      # next to decisions.md; O_CREAT|O_EXCL, so two rotations never overlap
+LOCK_STALE_S = 600                 # a lock older than this belongs to a dead run: remove it and retake
+BUSY = "busy"                      # rotate()'s return when the lock is held: nothing was changed
 _HEADING = re.compile(r"(?m)^## .*$")
 _DATE = re.compile(r"(\d{4})-(\d{2})-(\d{2})")
 
@@ -101,88 +110,238 @@ def sibling_note(year, source):
             "> `decisions*.md`. Newest first, in the order they were written.\n\n" % (year, source))
 
 
-def rotate(path, threshold, apply_=False):
+def lock_path(path):
+    return os.path.join(os.path.dirname(os.path.abspath(path)), LOCK_NAME)
+
+
+def lock_is_fresh(path):
+    """True when `path`'s directory holds a rotation lock younger than LOCK_STALE_S. Callers that
+    would start a rotation (the housekeeping hook) use this to stay out of the way."""
+    try:
+        return time.time() - os.lstat(lock_path(path)).st_mtime <= LOCK_STALE_S
+    except OSError:
+        return False
+
+
+def _take_lock(lock):
+    """Create the lock with O_CREAT|O_EXCL → True when we hold it, False when someone else does,
+    None when the directory will not let us create it. A lock older than LOCK_STALE_S is a dead
+    run's: remove it once and take it again."""
+    for _ in range(2):
+        try:
+            fd = os.open(lock, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o644)
+        except FileExistsError:
+            try:
+                age = time.time() - os.lstat(lock).st_mtime
+            except OSError:
+                continue                  # it vanished between the two calls: try to take it again
+            if age <= LOCK_STALE_S:
+                return False
+            try:
+                os.remove(lock)
+            except OSError:
+                return False
+            continue
+        except OSError:
+            return None
+        try:
+            os.write(fd, ("%d %s\n" % (os.getpid(), datetime.datetime.now(datetime.timezone.utc)
+                                       .strftime("%Y-%m-%dT%H:%M:%SZ"))).encode("ascii"))
+        finally:
+            os.close(fd)
+        return True
+    return False
+
+
+def _release_lock(lock):
+    try:
+        os.remove(lock)
+    except OSError:
+        pass
+
+
+def _unused(dst):
+    """`dst`, or `dst` with .1, .2 … before the extension when that name is taken (two runs in the
+    same second, or a read-only backup copied from a read-only file, must never collide)."""
+    if not os.path.lexists(dst):
+        return dst
+    root, ext = os.path.splitext(dst)
+    n = 1
+    while os.path.lexists("%s.%d%s" % (root, n, ext)):
+        n += 1
+    return "%s.%d%s" % (root, n, ext)
+
+
+def _stamp(f):
+    st = os.fstat(f.fileno())
+    return (st.st_size, st.st_mtime_ns)
+
+
+def _stat_stamp(path):
+    try:
+        st = os.stat(path)
+    except OSError:
+        return None
+    return (st.st_size, st.st_mtime_ns)
+
+
+def _analyse(path, threshold):
+    """Read the live file and its siblings once → everything the plan and the verification need."""
     with open(path, encoding="utf-8") as f:
         original = f.read()
+        stamp = _stamp(f)
     preamble, live_entries = split_entries(original)
-    base0 = os.path.dirname(os.path.abspath(path))
-    name0 = os.path.splitext(os.path.basename(path))[0]
+    base = os.path.dirname(os.path.abspath(path))
+    name = os.path.splitext(os.path.basename(path))[0]
     # The invariant is about the whole `decisions*.md` FAMILY, not this one file. A second
     # rotation appends to a sibling that already holds history; comparing the live file's
     # entries against the family afterwards reports every previously-archived entry as an
     # extra, and the abort path then "rolls back" history it never wrote.
     family_before = list(live_entries)
-    for sib in sorted(_siblings(base0, name0)):
+    for sib in sorted(_siblings(base, name)):
         with open(sib, encoding="utf-8") as f:
             family_before += split_entries(f.read())[1]
-    all_entries = live_entries
-    size_kb = len(original.encode("utf-8")) / 1024
     keep, move = plan(original, threshold)
-
-    if not move:
-        print("decisions_rotate: %s is %.0f KB / %d entries — under the %.0f KB threshold, nothing to do"
-              % (os.path.basename(path), size_kb, len(all_entries), threshold / 1024))
-        return 0
-
     by_year = {}
     for e in move:
         by_year.setdefault(entry_year(e) or "undated", []).append(e)
-    base = os.path.dirname(os.path.abspath(path))
-    name = os.path.splitext(os.path.basename(path))[0]
-    kept_bytes = len((preamble + "".join(keep)).encode("utf-8"))
+    return {"original": original, "stamp": stamp, "preamble": preamble, "live_entries": live_entries,
+            "family_before": family_before, "keep": keep, "move": move, "by_year": by_year,
+            "base": base, "name": name}
 
+
+def _announce(path, info, threshold):
+    size_kb = len(info["original"].encode("utf-8")) / 1024
+    kept_bytes = len((info["preamble"] + "".join(info["keep"])).encode("utf-8"))
     print("decisions_rotate: %s — %.0f KB / %d entries, threshold %.0f KB"
-          % (os.path.basename(path), size_kb, len(all_entries), threshold / 1024))
-    print("  keep  %3d entries  (%.0f KB)" % (len(keep), kept_bytes / 1024))
-    for year in sorted(by_year):
-        chunk = by_year[year]
+          % (os.path.basename(path), size_kb, len(info["live_entries"]), threshold / 1024))
+    print("  keep  %3d entries  (%.0f KB)" % (len(info["keep"]), kept_bytes / 1024))
+    for year in sorted(info["by_year"]):
+        chunk = info["by_year"][year]
         print("  move  %3d entries  (%.0f KB)  -> %s-%s.md"
-              % (len(chunk), sum(len(e.encode("utf-8")) for e in chunk) / 1024, name, year))
+              % (len(chunk), sum(len(e.encode("utf-8")) for e in chunk) / 1024, info["name"], year))
+
+
+def rotate(path, threshold, apply_=False):
+    """0 = done or nothing to do · 2 = aborted, nothing changed · BUSY = another rotation holds the lock."""
+    info = _analyse(path, threshold)
+    if not info["move"]:
+        print("decisions_rotate: %s is %.0f KB / %d entries — under the %.0f KB threshold, nothing to do"
+              % (os.path.basename(path), len(info["original"].encode("utf-8")) / 1024,
+                 len(info["live_entries"]), threshold / 1024))
+        return 0
     if not apply_:
+        _announce(path, info, threshold)
         print("\n(Dry run — nothing written. Pass --apply.)")
         return 0
 
+    lock = lock_path(path)
+    got = _take_lock(lock)
+    if got is False:
+        print("decisions_rotate: busy — another rotation holds %s (stale after %d min); nothing changed"
+              % (LOCK_NAME, LOCK_STALE_S // 60))
+        return BUSY
+    if got is None:
+        print("decisions_rotate: cannot create %s in %s — nothing changed" % (LOCK_NAME, info["base"]))
+        return 2
+    try:
+        # Everything above was read without the lock: read it again now that nobody else can be
+        # rotating, and plan from that.
+        info = _analyse(path, threshold)
+        if not info["move"]:
+            print("decisions_rotate: %s is under the %.0f KB threshold now — nothing to do"
+                  % (os.path.basename(path), threshold / 1024))
+            return 0
+        _announce(path, info, threshold)
+        return _apply(path, info)
+    finally:
+        _release_lock(lock)
+
+
+def _apply(path, info):
+    original, preamble, keep = info["original"], info["preamble"], info["keep"]
+    family_before, by_year = info["family_before"], info["by_year"]
+    base, name = info["base"], info["name"]
+
     bdir = os.path.join(base, ".pb-backups")
-    os.makedirs(bdir, exist_ok=True)
     stamp = datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-    backup = os.path.join(bdir, "%s.%s.md" % (name, stamp))
-    shutil.copy2(path, backup)
-    # Back up EVERY file this run will touch, not just the live one. A sibling that already
-    # holds archived entries is history too, and the rollback must put it back as it was —
-    # an earlier version deleted it instead, losing 98 entries it had never written.
-    prior = {}
-    for year in by_year:
-        sib = os.path.join(base, "%s-%s.md" % (name, year))
-        if os.path.isfile(sib):
-            sib_backup = os.path.join(bdir, "%s-%s.%s.md" % (name, year, stamp))
-            shutil.copy2(sib, sib_backup)
-            prior[sib] = sib_backup
+    saved = {}                               # sibling path -> its backup, for siblings that existed
+    try:
+        os.makedirs(bdir, exist_ok=True)
+        backup = _unused(os.path.join(bdir, "%s.%s.md" % (name, stamp)))
+        shutil.copy2(path, backup)
+        # Back up EVERY file this run will touch, not just the live one. A sibling that already
+        # holds archived entries is history too, and the rollback must put it back as it was —
+        # an earlier version deleted it instead, losing 98 entries it had never written.
+        for year in by_year:
+            sib = os.path.join(base, "%s-%s.md" % (name, year))
+            if os.path.isfile(sib):
+                sib_backup = _unused(os.path.join(bdir, "%s-%s.%s.md" % (name, year, stamp)))
+                shutil.copy2(sib, sib_backup)
+                saved[sib] = sib_backup
+    except OSError as e:
+        print("decisions_rotate: could not take the backups (%s) — nothing moved" % e)
+        return 2
+
+    touched = []                             # siblings this run opened for writing (so may have changed)
+    live_touched = []
 
     def _restore():
-        shutil.copy2(backup, path)
-        for target, saved in prior.items():
-            shutil.copy2(saved, target)
-        for f_ in written:
-            if f_ not in prior:
-                try:
-                    os.remove(f_)          # only files this run CREATED
-                except OSError:
-                    pass
+        """Put back what this run changed: the live file only if it was opened for writing, each
+        sibling only if it was opened for writing (a refused open changed nothing), and delete only
+        a sibling this run created. Never raises: it says what it could not put back."""
+        failed = []
+        if live_touched:
+            try:
+                shutil.copy2(backup, path)
+            except OSError as e:
+                failed.append("%s (%s)" % (path, e))
+        for target in touched:
+            try:
+                if target in saved:
+                    shutil.copy2(saved[target], target)
+                else:
+                    os.remove(target)        # only files this run CREATED
+            except OSError as e:
+                failed.append("%s (%s)" % (target, e))
+        if failed:
+            print("decisions_rotate: COULD NOT RESTORE %s — the originals are in %s"
+                  % ("; ".join(failed), os.path.relpath(bdir, base)))
 
-    written = []
+    def _live_unchanged():
+        if _stat_stamp(path) != info["stamp"]:
+            return False
+        try:
+            with open(path, encoding="utf-8") as f:
+                return f.read() == original
+        except (OSError, ValueError):
+            return False
+
+    def _changed():
+        print("decisions_rotate: %s changed while it was being rotated (an entry was probably appended) "
+              "— nothing moved; run it again" % os.path.basename(path))
+        return 2
+
+    # The copy above is of what we planned from only if nothing wrote in between.
+    if not _live_unchanged():
+        return _changed()
+
     try:
         for year, chunk in sorted(by_year.items()):
             sib = os.path.join(base, "%s-%s.md" % (name, year))
-            existing = ""
             if os.path.isfile(sib):
                 with open(sib, encoding="utf-8") as f:
-                    existing = f.read()
-                _, prior = split_entries(existing)
-                chunk = prior + [e for e in chunk if e not in prior]
+                    existing = split_entries(f.read())[1]
+                chunk = existing + [e for e in chunk if e not in existing]
             with open(sib, "w", encoding="utf-8") as f:
+                touched.append(sib)
                 f.write(sibling_note(year, os.path.basename(path)) + "".join(chunk))
-            written.append(sib)
+        # Last look before the only write that removes anything from the live file.
+        if not _live_unchanged():
+            _restore()
+            return _changed()
         with open(path, "w", encoding="utf-8") as f:
+            live_touched.append(path)
             f.write(preamble + "".join(keep))
     except OSError as e:
         _restore()
@@ -224,7 +383,8 @@ def main():
     if not os.path.isfile(args.path):
         print("decisions_rotate: not found: %s" % args.path)
         return 2
-    return rotate(args.path, args.threshold_kb * 1024, args.apply)
+    rc = rotate(args.path, args.threshold_kb * 1024, args.apply)
+    return 0 if rc == BUSY else rc          # busy is not a failure: the run that holds the lock is doing it
 
 
 if __name__ == "__main__":

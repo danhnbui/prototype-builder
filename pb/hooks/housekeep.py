@@ -10,6 +10,8 @@ immediate child folders), and it NEVER deletes a file. Two kinds of work:
       tool reads everything back and restores on any mismatch. Done on SessionStart, and on PostToolUse
       right after an Edit/Write/MultiEdit of that file. Over BIG_LOG_BYTES it is spawned detached instead
       (`decisions_rotate.py <path> --apply`, output in `.preview/housekeep.log`) so the hook stays fast.
+      A fresh `memory/.decisions.lock` (another rotation is running) means do nothing, silently; the log is
+      never written through a symlink or any non-regular file (output then goes nowhere).
     - `.preview/server.log` over 1 MB -> trimmed in place to its last 256 KB (`clean._trim_log`, safe while
       a preview holds the file open).
   Reported only (SessionStart): ONE additionalContext notice of at most 5 lines, each a fact plus the fix
@@ -36,6 +38,7 @@ import contextlib
 import io
 import json
 import os
+import stat
 import subprocess
 import sys
 import time
@@ -111,26 +114,53 @@ def over_budget(proj, th):
         return False
 
 
+def open_log_sink(logdir):
+    """.preview/housekeep.log opened for append, or None when it must not be written: a symlink (a
+    hostile repo could aim it at a user file), a folder, a pipe, anything that is not a regular file.
+    The same rule as explore.trim_log. O_NOFOLLOW where the platform has it, and the opened handle is
+    checked again, so a swap between the check and the open does not write through."""
+    log = os.path.join(logdir, "housekeep.log")
+    try:
+        if os.path.islink(logdir):
+            return None
+        os.makedirs(logdir, exist_ok=True)
+        try:
+            if not stat.S_ISREG(os.lstat(log).st_mode):
+                return None
+        except FileNotFoundError:
+            pass
+        flags = os.O_WRONLY | os.O_APPEND | os.O_CREAT | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_NONBLOCK", 0)
+        fd = os.open(log, flags, 0o644)
+        if not stat.S_ISREG(os.fstat(fd).st_mode):
+            os.close(fd)
+            return None
+        return os.fdopen(fd, "ab")
+    except OSError:
+        return None
+
+
 def rotate_decisions(proj, th):
-    """Rotate memory/decisions.md. -> a notice line, or None when there was nothing to move."""
+    """Rotate memory/decisions.md. -> a notice line, or None when there was nothing to move or another
+    rotation holds memory/.decisions.lock (decisions_rotate takes it; we stay out of its way)."""
     path = decisions_path(proj)
     kb = th["decisions_kb"]
     threshold = int(kb * 1024)
     rotor = os.path.join(tools_dir(), "decisions_rotate.py")
+    dr = import_tool("decisions_rotate")
+    if dr.lock_is_fresh(path):
+        return None
     size = os.stat(path).st_size
     if size > BIG_LOG_BYTES:
-        logdir = os.path.join(proj, ".preview")
+        sink = open_log_sink(os.path.join(proj, ".preview")) or subprocess.DEVNULL
         try:
-            os.makedirs(logdir, exist_ok=True)
-            sink = open(os.path.join(logdir, "housekeep.log"), "ab")
-        except OSError:
-            sink = subprocess.DEVNULL
-        subprocess.Popen([sys.executable, "-B", rotor, path, "--threshold-kb", num(kb), "--apply"],
-                         stdin=subprocess.DEVNULL, stdout=sink, stderr=sink, start_new_session=True,
-                         close_fds=True, cwd=proj)
+            subprocess.Popen([sys.executable, "-B", rotor, path, "--threshold-kb", num(kb), "--apply"],
+                             stdin=subprocess.DEVNULL, stdout=sink, stderr=sink, start_new_session=True,
+                             close_fds=True, cwd=proj)
+        finally:
+            if sink is not subprocess.DEVNULL:
+                sink.close()
         return ("pb: memory/decisions.md is %s KB (budget %s KB): rotating it in the background, "
                 "losslessly (log: .preview/housekeep.log); nothing is deleted." % (num(size / 1024.0), num(kb)))
-    dr = import_tool("decisions_rotate")
     with open(path, encoding="utf-8") as f:
         text = f.read()
     _keep, move = dr.plan(text, threshold)
@@ -141,6 +171,8 @@ def rotate_decisions(proj, th):
     sink = io.StringIO()
     with contextlib.redirect_stdout(sink):
         rc = dr.rotate(path, threshold, True)
+    if rc == dr.BUSY:
+        return None
     if rc != 0:
         return ("pb: rotating memory/decisions.md (%s KB, budget %s KB) failed and was rolled back, nothing "
                 "moved: see `python3 %s %s --apply`." % (num(size / 1024.0), num(kb), rotor, path))

@@ -47,6 +47,9 @@ Everything else pb uses ships with the plugin — there is nothing else to insta
      # To ignore the whole sidecar instead, replace the lines below with:  .prototype/
      .prototype/prototype.html
      .prototype/.preview/
+     .prototype/.pb-patches/
+     .prototype/.pb-backups/
+     .prototype/memory/backups/
      ```
   4. **Read-only-outside rule** — append this Principle to `.prototype/memory/constitution.md`
      (after the seeded Principles):
@@ -138,7 +141,7 @@ skip, leave `meta.dsSource: null` and set `meta.platform` from the DS Lock answe
 Copy `${CLAUDE_PLUGIN_ROOT}/template/registry.template.json` → `registry.json`; set `meta.name`.
 (Already done at §1 when intake started — the preview has been showing it since the first answer. Do it
 here only if it was not, e.g. for `--import` or `--figma`, and start the preview then.)
-The template already carries `meta.schemaVersion: 13` (= `CURRENT_SCHEMA` from
+The template already carries `meta.schemaVersion: 14` (= `CURRENT_SCHEMA` from
 `pb/migrations/manifest.py`) and a pre-seeded `danger` token (the validation runtime needs it).
 Leave `components` / `screens` empty — `/pb:build` fills them and creates their
 `render/{components,screens}/<id>.js` body files.
@@ -188,7 +191,7 @@ the registry is kept, with a warning). The same dialog edits `name` and `designL
 
 Also set **`meta.platform`** from the DS Lock (step 2) — `web` / `ios` / `android` / `desktop`
 (default `web`). Leave **`meta.dsSource: null`** unless the DS was cloned in 2b (then `/pb:pull-ds`
-already set it). Both fields are seeded in the template at `meta.schemaVersion 13`.
+already set it). Both fields are seeded in the template at `meta.schemaVersion 14`.
 
 ## 4 · Seed memory + design system
 - `memory/decisions.md` from `${CLAUDE_PLUGIN_ROOT}/template/decisions.template.md`.
@@ -247,6 +250,8 @@ prototype.html
 design-system.html
 .preview/
 .pb-patches/
+.pb-backups/
+memory/backups/
 ```
 Never rewrite the ignores of an existing project on `--import` or adopt-in-place without asking first
 (adopt-in-place already appends its own block, 0c). If the project deploys from committed HTML, it can delete

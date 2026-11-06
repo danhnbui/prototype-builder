@@ -1,5 +1,5 @@
 {
-  "description": "Product Builder: put the operating rules in front of the model in any pb project and force the common ones through the safe path at call time (route.py: a model on subagent calls, a restorable copy around a hand write of registry.json, one ask before an edit in another project). Advice and force-through only: it never denies a call and never auto-approves one, and enforce=advise|off in memory/doctor.json turns the force-through down. activity.py tells an open preview whether Claude is working (it writes .preview/activity.json and prints nothing)",
+  "description": "Product Builder: put the operating rules in front of the model in any pb project and force the common ones through the safe path at call time (route.py: a model on subagent calls, a restorable copy around a hand write of registry.json, one ask before an edit in another project). Advice and force-through only: it never denies a call and never auto-approves one, and enforce=advise|off in memory/doctor.json turns the force-through down. housekeep.py keeps the decisions log under its budget by itself (lossless rotation into decisions-<year>.md), trims .preview/server.log, and reports in one short notice what else has piled up (backups, .pb-patches, big memory files, generated HTML tracked by git); it deletes nothing. activity.py tells an open preview whether Claude is working (it writes .preview/activity.json and prints nothing)",
   "hooks": {
     "SessionStart": [
       {
@@ -47,6 +47,12 @@
         "matcher": "Bash|Edit|Write|MultiEdit",
         "hooks": [
           { "type": "command", "command": "python3", "args": ["-S", "-B", "${CLAUDE_PLUGIN_ROOT}/hooks/route.py"], "timeout": 5 }
+        ]
+      },
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          { "type": "command", "command": "python3", "args": ["-S", "-B", "${CLAUDE_PLUGIN_ROOT}/hooks/housekeep.py"], "timeout": 5 }
         ]
       }
     ],

@@ -4,9 +4,11 @@ test_run_stale.py — `test_run.py --functional --stale / --screen <id>` selects
 whose verdict is out of date, so a build turn re-runs a handful instead of the whole suite.
 
   pure half   select_scenarios(): a fresh result is excluded · a changed body is included · a missing
-              result is included · --screen filters · --story combines · no digests = only never-run
+              result is included · a failed or blocked result is included · --screen filters ·
+              --story combines · no digests = only never-run, failed and blocked
   CLI half    an empty selection prints `0 scenarios selected (nothing stale)`, exits 0 and launches
-              neither a browser (PB_BROWSER_TRACE stays empty) nor a preview server
+              neither a browser (PB_BROWSER_TRACE stays empty) nor a preview server; a --screen id
+              that is no screen prints `unknown screen: <id>` and exits 2, also without a browser
 
 Hermetic, no browser.  Usage:  python3 tests/test_run_stale.py     Exit: 0 = pass · 1 = a failure
 """
@@ -77,13 +79,26 @@ def main():
     check(names(tr.select_scenarios(reg, hashes, story_filter="s2", stale=True)) == ["cart changed"],
           "--story combines with --stale")
     check(tr.select_scenarios(reg, hashes, stale=True, screen="nowhere") == [], "an unknown screen selects nothing")
-    check(names(tr.select_scenarios(reg, {}, stale=True)) == ["never"],
-          "no digests available: only the never-run scenario is selected")
+    check(names(tr.select_scenarios(reg, {}, stale=True)) == ["cart changed", "never"],
+          "no digests available: the never-run and the failed scenario are selected")
+
+    print("failed and blocked results are re-run")
+    reg2 = {"flow": {"stories": [{"id": "s1", "title": "T", "scenarios": [
+        sc("failed same", "login", {"status": "fail", "inputs": {"login": "h1"}}),
+        sc("blocked same", "login", {"status": "blocked", "inputs": {"login": "h1"}}),
+        sc("passed same", "login", {"status": "pass", "inputs": {"login": "h1"}}),
+        sc("skipped same", "login", {"status": "skip", "inputs": {"login": "h1"}}),
+    ]}]}}
+    check(names(tr.select_scenarios(reg2, {"login": "h1"}, stale=True)) == ["blocked same", "failed same"],
+          "fail and blocked with unchanged inputs are selected; pass and skip are not")
+    check(names(tr.select_scenarios(reg2, {}, stale=True)) == ["blocked same", "failed same"],
+          "fail and blocked are selected even with no digests to compare")
 
     print("empty selection (CLI)")
     d = tempfile.mkdtemp(prefix="pb-stale-")
     try:
         r = registry()
+        r["screens"] = [{"id": "login"}, {"id": "cart"}]
         for story in r["flow"]["stories"]:
             for s in story["scenarios"]:
                 if isinstance(s.get("test"), dict) and "lastResult" not in s:
@@ -100,6 +115,18 @@ def main():
         check("0 scenarios selected (nothing stale)" in p.stdout, "prints the message")
         check(not os.path.exists(trace) or not open(trace).read().strip(), "no browser launch recorded")
         check("serve.py" not in p.stdout and "booting" not in p.stdout.lower(), "no preview server booted")
+
+        print("an unknown screen id (CLI)")
+        if os.path.exists(trace):
+            os.remove(trace)
+        for extra in ([], ["--stale"]):
+            p = subprocess.run([sys.executable, os.path.join(TOOLS, "test_run.py"), path,
+                                "--functional", "--screen", "logn"] + extra,
+                               capture_output=True, text=True, env=env, timeout=60, cwd=d)
+            check(p.returncode == 2, "exit 2 for a typo'd --screen%s (got %s)" % (" with --stale" if extra else "", p.returncode))
+            check("unknown screen: logn" in p.stdout, "prints `unknown screen: logn`")
+            check("nothing stale" not in p.stdout, "does not claim there is nothing stale")
+        check(not os.path.exists(trace) or not open(trace).read().strip(), "no browser launch recorded")
     finally:
         shutil.rmtree(d, ignore_errors=True)
 

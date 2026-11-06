@@ -205,6 +205,79 @@ res = json.load(open(rp, encoding="utf-8"))
 check(r.returncode == 0 and res["meta"]["schemaVersion"] == 13 and res["meta"]["others"] == DICT,
       f"--to 13: down() refills meta.others from memory/others.md (rc={r.returncode})")
 
+print("10 · live data: a file that reads meta.others keeps the field")
+READ_BODY = ("function renderCmpMapPanel(props) {\n"
+             "  var slice = ((PB_REGISTRY.meta || {}).others || {}).dataSlice || { items: [] };\n"
+             "  return '<div>' + slice.items.length + '</div>';\n}\n")
+LIVE = {"dataSlice": {"items": [1, 2, 3]}}
+for label, rel, text, rt in (
+        ("render body", "render/components/map-panel.js", READ_BODY, None),
+        ("runtime module (registry.runtime[] src)", "lib/data.js", "var d = PB_REGISTRY.meta[\"others\"];\n",
+         [{"id": "data", "src": "lib/data.js"}])):
+    d = tmp()
+    os.makedirs(os.path.dirname(os.path.join(d, rel)), exist_ok=True)
+    open(os.path.join(d, rel), "w", encoding="utf-8").write(text)
+    r0 = reg(LIVE)
+    if rt:
+        r0["runtime"] = rt
+    import contextlib
+    import io
+    buf = io.StringIO()
+    with contextlib.redirect_stdout(buf):
+        out = m.up(copy.deepcopy(r0), d)
+    check(out["meta"]["others"] == LIVE and out["meta"]["schemaVersion"] == 14,
+          f"{label}: meta.others left exactly as it was, schema stamped 14")
+    check(others_md(d) is None, f"{label}: no memory/others.md written")
+    msg = buf.getvalue()
+    check(rel in msg and "meta.others kept" in msg and "runtime/ module" in msg and msg.count("\n") == 1,
+          f"{label}: one line naming {rel} and the fix")
+
+d = tmp()
+os.makedirs(os.path.join(d, "render"))
+for i in range(5):
+    open(os.path.join(d, "render", "r%d.js" % i), "w").write("var o = reg.meta.others;\n")
+buf = io.StringIO()
+with contextlib.redirect_stdout(buf):
+    m.up(reg(LIVE), d)
+check("render/r0.js, render/r1.js, render/r2.js +2 more" in buf.getvalue(), "five readers: three named, then '+2 more'")
+
+d = tmp()
+os.makedirs(os.path.join(d, "render"))
+open(os.path.join(d, "render", "x.js"), "w").write("// a mention of others, and 'others' alone, is not a read\nvar o = others + 1;\n")
+out = m.up(reg(LIVE), d)
+check(out["meta"]["others"] == {} and others_md(d) is not None, "no reader: moved to memory/others.md as before")
+try:
+    m.up(reg(LIVE), None)
+    raised = False
+except ValueError:
+    raised = True
+check(raised, "base_dir None with a reader-free but non-empty field still raises")
+
+print("10b · the runner, and how the move is finished")
+proj = tmp()
+os.makedirs(os.path.join(proj, "render", "components"))
+rp = os.path.join(proj, "registry.json")
+body_path = os.path.join(proj, "render", "components", "map-panel.js")
+open(body_path, "w", encoding="utf-8").write(READ_BODY)
+json.dump({"meta": {"name": "t", "schemaVersion": 13, "others": LIVE}, "tokens": {}, "components": [], "screens": []},
+          open(rp, "w", encoding="utf-8"), indent=2)
+r = subprocess.run([sys.executable, RUNNER, rp, "--apply"], capture_output=True, text=True, cwd=proj)
+res = json.load(open(rp, encoding="utf-8"))
+check(r.returncode == 0 and res["meta"]["others"] == LIVE and res["meta"]["schemaVersion"] == mf.CURRENT_SCHEMA,
+      f"--apply: field kept, schema stamped (rc={r.returncode})")
+check("meta.others kept in registry.json — read by render/components/map-panel.js" in r.stdout,
+      "--apply prints the guarded line naming the reader")
+r = subprocess.run([sys.executable, RUNNER, rp, "--apply"], capture_output=True, text=True, cwd=proj)
+check("Already on schema" in r.stdout and json.load(open(rp, encoding="utf-8"))["meta"]["others"] == LIVE,
+      "a plain re-run at the current schema does nothing (the line tells the user why)")
+open(body_path, "w", encoding="utf-8").write(READ_BODY.replace("((PB_REGISTRY.meta || {}).others || {}).dataSlice", "window.mapData"))
+subprocess.run([sys.executable, RUNNER, rp, "--apply", "--to", "13"], capture_output=True, text=True, cwd=proj)
+r = subprocess.run([sys.executable, RUNNER, rp, "--apply"], capture_output=True, text=True, cwd=proj)
+res = json.load(open(rp, encoding="utf-8"))
+check(res["meta"]["others"] == {} and res["meta"]["schemaVersion"] == mf.CURRENT_SCHEMA
+      and "Luồng" not in (others_md(proj) or "") and '"dataSlice"' in (others_md(proj) or ""),
+      "after the reader is gone: --apply --to 13 then --apply moves the data to memory/others.md (rc=%d)" % r.returncode)
+
 print()
 if fails:
     print(f"✗ {len(fails)} failure(s)")
