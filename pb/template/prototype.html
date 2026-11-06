@@ -2355,12 +2355,10 @@
     .proto-fit:not(.is-fitted) .proto-pair,
     .proto-fit:not(.is-fitted) .proto-frame-slot { min-width:0; max-width:100%; }
     .proto-fit:not(.is-fitted) .proto-frame-slot { flex:0 1 auto; }
-    /* Laptop and monitor keep their TRUE size (never scaled, real fonts) but sit in the stage with the inset a
-       fitted device gets — 32px, 24px when the stage is under 900px tall (fitProtoFrame's rule; the bar is 44px).
-       So the whole window, corners and bottom edge included, is always on screen, and below <device width> plus
-       the two insets its width follows the viewport and the product reflows (its container queries answer it). */
-    .proto-fit:not(.is-fitted) { box-sizing:border-box; padding:32px; }
-    @media (max-height: 943px) { .proto-fit:not(.is-fitted) { padding:24px; } }
+    /* Laptop and monitor keep their TRUE size (never scaled, real fonts) and fill the stage, with no margin: its full
+       height, and its full width up to the device's own (1280 / 1920) — beyond that the window is centred at the
+       device width. So below the device width the window follows the viewport and the product reflows (its container
+       queries answer the frame). The user's ruling: a margin round a laptop or monitor window is not wanted. */
     .proto-fit.is-compare, .proto-fit.is-compare .proto-pair-box,
     .proto-fit.is-compare .proto-pair, .proto-fit.is-compare .proto-frame-slot { height:auto; }
     /* color-scheme: light — everything inside the frame (the browser/app mock and the product)
@@ -5828,8 +5826,8 @@
     // correctly through the CSS transform. Collapses the wrapper height to the scaled height.
     function fitProtoFrame() {
       // Laptop and monitor render at TRUE size (no scale): fonts are real, the width is responsive
-      // (width:<device>px; max-width:100%) and the frame fills the stage's height inside the same
-      // inset a device gets (CSS on .proto-fit:not(.is-fitted)), its content scrolling inside. A phone or a tablet is a DEVICE — an object — so it is fitted WHOLE:
+      // (width:<device>px; max-width:100%) and the frame fills the stage's height with no margin,
+      // its content scrolling inside. A phone or a tablet is a DEVICE — an object — so it is fitted WHOLE:
       // one transform, never past 1:1, leaving a 32px inset on every side (24px when the stage is
       // under 900px tall) so the frame never touches the bar. Compare mode fits the PAIR the same
       // way, with one shared transform: per-frame fitting would draw a 429px phone and a 1280px

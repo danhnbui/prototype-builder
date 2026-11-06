@@ -44,11 +44,10 @@ tool beside Pick, after Solum Studio's.*
   (`/pb:explore`, a page round). The gate is still generic: naming it ("G-JTBD — approve 4 jobs and 3 terms") needs
   each gated command to write it, which comes next. `.preview/activity.json` gains `since` (when the turn began),
   written by `hooks/activity.py`; an older file without it still works, with no clock.
-- **The laptop and monitor frames sit inside the stage.** They kept their true size but filled the stage edge to edge
-  and ran off its bottom, so below about 1340 px the window looked cut off. They now get the margin a phone or tablet
-  gets (32 px, 24 px on a short screen) and their width follows the viewport. Below about 1060 px the bar's items
-  painted over the tabs and the page scrolled sideways; the bar now measures itself and drops labels, then the step
-  name, then the project name, and finally scrolls its tabs. The undesigned draft's sidebar lines up on one edge.
+- **The bar fits at every width.** Below about 1060 px the bar's items painted over the tabs and the page scrolled
+  sideways, so the laptop window seemed not to follow the viewport. The bar now measures itself and drops labels,
+  then the step name, then the project name, and finally scrolls its tabs. Laptop and monitor windows fill the stage
+  with no margin, up to the device's own width. The undesigned draft's sidebar lines up on one edge.
 - **Narrow screens, checked tab by tab.** A review at 1440, 1280, 1024, 834, 600 and 390 px found the User Flow
   canvas squeezed to nothing below 1100 px (its one-column rule was declared before the two-column one, so it never
   won): it now stacks, canvas on top, and the pane scrolls. Under 720 px the page gutters drop from 48 px to the

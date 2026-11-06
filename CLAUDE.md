@@ -105,8 +105,9 @@ card that owns the CTA — no dead controls. (Replaces the old `meta-tag`/`meta-
   and **every control lives in the Sandbox inspector** — there is no page header here, and
   no caption or footer under the frames (the devices are named in the Sandbox; each frame keeps an
   accessible name). **Phone and tablet frames are scaled to fit whole**, with a 32px inset (24px under 900px tall),
-  recomputed on resize and when the inspector is pinned; laptop and monitor keep their true size (never scaled) inside
-  the same inset, their width following the viewport below the device's width, and Compare keeps its
+  recomputed on resize and when the inspector is pinned; laptop and monitor keep their true size (never scaled) and
+  fill the stage with **no margin** — its full height, and its full width up to the device's own (centred beyond it) —
+  so below the device's width they follow the viewport, and Compare keeps its
   one shared transform. **R resets the session** — never while typing in a field, never with Cmd/Ctrl held
   (Cmd+R is reload), never on the other tabs, and not on key-repeat.
   *Conditions (the Sandbox's first section):* a **Browser | App | None** chrome toggle (`meta.shell` default; browser = a Chrome window
