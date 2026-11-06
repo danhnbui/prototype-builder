@@ -6,13 +6,16 @@ pb/hooks/ puts the key operating rules in front of the model in any pb project, 
 written only in a command file never reached a free-form session. Checked here, with no browser:
 
   H1  hooks.json parses, declares SessionStart (startup|resume|clear|compact) and PreToolUse (Bash),
-      and every script it names exists under ${CLAUDE_PLUGIN_ROOT}/hooks/.
+      and every script it names exists under ${CLAUDE_PLUGIN_ROOT}/hooks/. (route.py, the fifth
+      script, is checked in tests/hook_route.py; here it only has to be named and exist.)
   H2  session_rules.py in a pb-shaped folder (and in `.prototype/`) prints valid JSON whose
       additionalContext is at most 25 lines and 1,600 characters, names the canon, the three
-      tools and `--ensure`; in a non-pb folder it prints nothing. Exit 0 always.
+      tools, `--ensure`, `slice.py find|get --fields` and the subagent model rule; in a non-pb
+      folder it prints nothing. Exit 0 always.
   H3  bash_advice.py: table-driven positives (each names the right tool) and negatives
-      (normal commands, `json.load`, `json.dumps`, `slice.py` writes, `shot.py`); silent in a
-      non-pb folder; output is valid JSON, never carries `permissionDecision`, exit 0.
+      (normal commands, `json.load`, `json.dumps`, `slice.py` writes, `shot.py`, and the registry
+      writes route.py owns now); silent in a non-pb folder; output is valid JSON, never carries
+      `permissionDecision`, exit 0. A session one folder above the registry counts as a pb project.
   H5  browser_advice.py: names shot.py --no-png --eval and --selector inside a pb project, silent
       outside; speaks on the first call of a session and every 25th, not between; a broken counter
       folder is silent with exit 0; no permissionDecision; hooks.json matches the MCP tool names.
@@ -108,7 +111,8 @@ if cfg:
             for a in h.get("args", []):
                 if a.startswith("${CLAUDE_PLUGIN_ROOT}/"):
                     named.append(a.replace("${CLAUDE_PLUGIN_ROOT}/", ""))
-    check(len(named) == 3, "hooks.json names exactly three scripts (%s)" % ", ".join(named))
+    check(sorted(named) == ["hooks/bash_advice.py", "hooks/browser_advice.py", "hooks/route.py", "hooks/session_rules.py"],
+          "SessionStart + PreToolUse name exactly four scripts (%s)" % ", ".join(named))
     check(any(g.get("matcher") == "mcp__.*(chrome-devtools|claude-in-chrome).*" for g in pt),
           "PreToolUse has the browser MCP matcher")
     for rel in named:
@@ -145,6 +149,8 @@ with tempfile.TemporaryDirectory() as tmp:
             check(os.path.join(ROOT, "pb", "tools", tool) in ctx, "  names %s by absolute path" % tool)
         check("--ensure" in ctx and "/pb:explore" in ctx and "/pb:build" in ctx,
               "  names --ensure, /pb:explore and /pb:build")
+        check("slice.py find" in ctx and "--fields" in ctx and "subagent call sets model" in ctx,
+              "  names slice.py find|get --fields and that subagent calls set a model")
         check("permissionDecision" not in out, "  no permissionDecision")
     code, out, err = run(SESSION, "", cwd=pb_dir, env_extra={"CLAUDE_PLUGIN_ROOT": "/x/plugin"})
     ctx, _ = hook_json(out)
@@ -171,13 +177,6 @@ with tempfile.TemporaryDirectory() as tmp:
         ("kill $(lsof -ti :8000)", "--stop"),
         ("lsof -ti:8000 | xargs kill -9", "--stop"),
         ("kill 4242 && echo port 8000 freed", "--stop"),
-        ("python3 -c \"import json; d=json.load(open('registry.json')); json.dump(d, open('registry.json','w'))\"",
-         "slice.py set"),
-        ("python3 -c \"open('registry.json','w').write('{}')\"", "slice.py set"),
-        ("python3 -c \"from pathlib import Path; Path('registry.json').write_text('{}')\"", "slice.py set"),
-        ("echo '{}' > registry.json", "slice.py set"),
-        ("cat patch.json > .prototype/registry.json", "slice.py set"),
-        ("jq . x | tee registry.json", "slice.py set"),
     ]
     negatives = [
         "ls -la",
@@ -201,6 +200,13 @@ with tempfile.TemporaryDirectory() as tmp:
         "python3 build.py > build.log 2>&1 &&  echo done",
         "kill 4242",
         "npm run dev &",
+        # hand writes of registry.json moved to route.py (tests/hook_route.py); bash_advice no longer speaks to them
+        "python3 -c \"import json; d=json.load(open('registry.json')); json.dump(d, open('registry.json','w'))\"",
+        "python3 -c \"open('registry.json','w').write('{}')\"",
+        "python3 -c \"from pathlib import Path; Path('registry.json').write_text('{}')\"",
+        "echo '{}' > registry.json",
+        "cat patch.json > .prototype/registry.json",
+        "jq . x | tee registry.json",
     ]
     for cmd, tool in positives:
         stdin = json.dumps({"cwd": pb_dir, "tool_name": "Bash", "tool_input": {"command": cmd}})
@@ -224,6 +230,15 @@ with tempfile.TemporaryDirectory() as tmp:
     check(code == 0 and hook_json(out)[0] is not None, "no cwd in the payload: falls back to the process folder")
     code, out, err = run(BASH, json.dumps({"cwd": inner, "tool_input": {"command": "pkill -f serve.py"}}), cwd=plain)
     check(code == 0 and hook_json(out)[0] is not None, ".prototype/ inside the payload cwd counts as a pb project")
+    above = os.path.join(tmp, "above")                  # a session one folder above the registry
+    make_pb(os.path.join(above, "child"), "render")
+    os.makedirs(os.path.join(tmp, "above-hidden", ".dot"))
+    make_pb(os.path.join(tmp, "above-hidden", ".dot", "p"), "render")
+    make_pb(os.path.join(tmp, "above-hidden", "node_modules", "p"), "render")
+    code, out, err = run(BASH, json.dumps({"cwd": above, "tool_input": {"command": "pkill -f serve.py"}}), cwd=plain)
+    check(code == 0 and hook_json(out)[0] is not None, "an immediate child folder that is a pb project counts (session one folder above)")
+    code, out, err = run(BASH, json.dumps({"cwd": os.path.join(tmp, "above-hidden"), "tool_input": {"command": "pkill -f serve.py"}}), cwd=plain)
+    check(code == 0 and out == "", "dot-folders and node_modules are not scanned for a project")
 
     # ------------------------------------------------------------ H5
     print("H5 · browser_advice.py")
@@ -311,7 +326,9 @@ with tempfile.TemporaryDirectory() as tmp:
     if cfg:
         hooks = cfg.get("hooks", {})
         for event in ("UserPromptSubmit", "PostToolUse", "Stop"):
-            groups = hooks.get(event, [])
+            # PostToolUse also carries route.py behind its own matcher (tests/hook_route.py): activity.py is the matcher-less group
+            groups = [g for g in hooks.get(event, [])
+                      if not any(a.endswith("/hooks/route.py") for h in g.get("hooks", []) for a in h.get("args", []))]
             cmds = [h for g in groups for h in g.get("hooks", [])]
             check(len(cmds) == 1 and cmds[0].get("type") == "command" and "args" in cmds[0]
                   and any(a == "${CLAUDE_PLUGIN_ROOT}/hooks/activity.py" for a in cmds[0]["args"]),

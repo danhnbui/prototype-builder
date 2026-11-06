@@ -3,12 +3,13 @@
 
 Reads the hook JSON on stdin and, inside a pb project, prints
 `{"hookSpecificOutput": {"hookEventName": "PreToolUse", "additionalContext": "..."}}` when the
-command is a hand-written Playwright script, `--idle-exit 0`, a detached `serve.py`, a `kill` of a
-preview, or a direct write of registry.json, and names the pb tool to use instead.
+command is a hand-written Playwright script, `--idle-exit 0`, a detached `serve.py` or a `kill` of a
+preview, and names the pb tool to use instead. (Hand writes to registry.json, inline parsing of it
+and the other call-time rules belong to `route.py`.)
 
 It only advises. It never prints `permissionDecision` (that would skip the user's permission
 prompt), never exits 2, and any error, bad stdin or no match prints nothing and exits 0.
-Silent outside a pb project (see `pb_project`). Stdlib only (run as `python3 -S -B`), Python 3.7+.
+Silent outside a pb project (see `pb_projects`). Stdlib only (run as `python3 -S -B`), Python 3.7+.
 """
 import json
 import os
@@ -23,20 +24,49 @@ DETACHED = re.compile(r"\bnohup\b|(?<![&>\d])&\s*(?:$|;)", re.M)
 KILL = re.compile(r"(?:^|[;&|(`]|\$\(|\bxargs\s+(?:-\S+\s+)*)\s*(?:sudo\s+)?(?:kill|pkill|killall)\b", re.M)
 KILL_TARGET = re.compile(r"serve\.py|\blsof\b|\bport\b|:\d{4,5}\b", re.I)
 LSOF_T = re.compile(r"\blsof\s+-\w*t")
-JSON_DUMP = re.compile(r"\bjson\.dump\(")
-OPEN_W = re.compile(r"open\([^)]*registry\.json[^)]*['\"][wa]")
-WRITE_TEXT = re.compile(r"\.write_text\(")
-REDIRECT = re.compile(r">>?\s*['\"]?[\w./-]*registry\.json|\btee\b[^|;&\n]*registry\.json")
+
+MAX_CHILDREN = 300   # a folder with more entries than this is not "the folder above a registry"
+
+
+def is_project(base):
+    """True when `base` itself holds registry.json beside render/ or memory/constitution.md."""
+    if not os.path.isfile(os.path.join(base, "registry.json")):
+        return False
+    return os.path.isdir(os.path.join(base, "render")) or os.path.isfile(
+        os.path.join(base, "memory", "constitution.md"))
+
+
+def pb_projects(folder):
+    """Every pb project this folder stands for, first match first.
+
+    The folder itself, else its `.prototype/`, else the immediate child folders (and their
+    `.prototype/`): a session often starts one folder above the registry. One level only; dot-folders
+    and node_modules are skipped; a folder with more than MAX_CHILDREN entries is not scanned."""
+    for base in (folder, os.path.join(folder, ".prototype")):
+        if is_project(base):
+            return [base]
+    found = []
+    try:
+        names = sorted(os.listdir(folder))
+    except OSError:
+        return found
+    if len(names) > MAX_CHILDREN:
+        return found
+    for name in names:
+        if name.startswith(".") or name == "node_modules":
+            continue
+        child = os.path.join(folder, name)
+        for base in (child, os.path.join(child, ".prototype")):
+            if is_project(base):
+                found.append(base)
+                break
+    return found
 
 
 def pb_project(folder):
-    for base in (folder, os.path.join(folder, ".prototype")):
-        if not os.path.isfile(os.path.join(base, "registry.json")):
-            continue
-        if os.path.isdir(os.path.join(base, "render")) or os.path.isfile(
-                os.path.join(base, "memory", "constitution.md")):
-            return base
-    return None
+    """The first pb project `pb_projects` finds, or None."""
+    found = pb_projects(folder)
+    return found[0] if found else None
 
 
 def advise(cmd):
@@ -55,12 +85,6 @@ def advise(cmd):
     if (KILL.search(cmd) and KILL_TARGET.search(cmd)) or LSOF_T.search(cmd):
         out.append("do not kill a preview or hunt it by port: `serve.py --status` finds it, "
                    "`serve.py --stop` stops it, `serve.py registry.json --ensure` restarts it.")
-    if "slice.py" not in cmd and re.search(r"registry", cmd, re.I):
-        writes = (JSON_DUMP.search(cmd) or OPEN_W.search(cmd) or REDIRECT.search(cmd)
-                  or (WRITE_TEXT.search(cmd) and "registry.json" in cmd))
-        if writes:
-            out.append("do not write registry.json by hand (it bypasses the registry lock): "
-                       "patch one slice with `slice.py set <kind> <id>`.")
     return out
 
 

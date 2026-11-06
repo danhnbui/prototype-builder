@@ -31,8 +31,10 @@ a big registry never loads whole into context (every `slice.py` below is that pa
 | a screen / element | `python3 "${CLAUDE_PLUGIN_ROOT}/tools/slice.py" get screens <id>` |
 | Project Summary copy | `python3 "${CLAUDE_PLUGIN_ROOT}/tools/slice.py" get meta <key>` |
 
-`python3 "${CLAUDE_PLUGIN_ROOT}/tools/slice.py" list <components\|screens\|tokens\|meta>` enumerates ids/keys when you need to locate a
-target first. Do not load the whole registry, and never read `prototype.html` to make an edit.
+To **locate** a target, run `python3 "${CLAUDE_PLUGIN_ROOT}/tools/slice.py" find <text>` first (one line per hit; `--kind K`, `--limit N`, `--json`), then `get` the slice it names.
+`python3 "${CLAUDE_PLUGIN_ROOT}/tools/slice.py" list <components\|screens\|tokens\|meta>` enumerates ids/keys (`list <kind> --fields a,b` adds those fields to each line).
+`get` prints at most 8,000 characters and cuts the rest with a `… truncated` line, which is not valid JSON: pass `--fields a,b`
+to narrow it, or `--full` when a script has to parse the output. Do not load the whole registry, and never read `prototype.html` to make an edit.
 
 ## 1b · Responsive — ask once, before the first trio write that needs it
 Read `meta.responsive` and `meta.devices`. Group the devices by size class — **compact** (mobile) ·
