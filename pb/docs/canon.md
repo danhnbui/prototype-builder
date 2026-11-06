@@ -354,12 +354,13 @@ split a list into lines to be tidy; split it because someone is watching the pre
   page never changes tab by itself.
 - **Before any screen**, the Prototype tab is an undesigned outline in the device frame, built by code from
   the registry and the drafts (name, objective, planned screens, their jobs, then paths and sample rows),
-  and the bar carries a **progress item** before Search: the step being worked on, how many lines it holds, and
-  *Working* / *Your turn* / *Done* from the hook. Stop does not fire on Esc, so *Working* is believed for 90 s
-  after the hook last wrote, then reads *Waiting*. The item is gone once `screens` is non-empty and never
-  appears on a view-only page: **a project with screens sees no change.** The eight steps are Brief · Design
-  system · Jobs and glossary · Structure · Flows and test cases · Wording · Data · First screen; their counts
-  come from the registry and the drafts only.
+  and the **activity strip** under the bar (v2.7; on every project, while a session is live) says what Claude is
+  doing from the hook: *Thinking* · *Writing · <step> · N saved* · *Your turn* (drafts to approve, or how long the
+  turn took). Stop does not fire on Esc, so *working* is believed for 90 s after the hook last wrote, then the strip
+  reads *Waiting*. Before the first screen the strip's step name is the button of the **steps menu** — Brief ·
+  Design system · Jobs and glossary · Structure · Flows and test cases · Wording · Data · First screen, each a jump,
+  their counts from the registry and the drafts only; the menu is gone once `screens` is non-empty. The bar itself
+  carries no progress item (it did until v2.7), and nothing of this appears on a view-only page.
 - The site map of the Information Architecture tab draws `ia.sitemap[]` (`{ id, name, depth, parent }`) one
   node at a time, with a loading node shaped like the next one while the step is working, until the hub has a
   render body and `promote` has run: then the derived map takes over, as it always did.

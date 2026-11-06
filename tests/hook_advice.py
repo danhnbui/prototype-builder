@@ -23,7 +23,7 @@ written only in a command file never reached a free-form session. Checked here, 
   H4  bad stdin, empty stdin, a missing command and a non-object payload print nothing and exit 0.
   H6  activity.py (UserPromptSubmit / PostToolUse / Stop): writes .preview/activity.json {state, at} atomically, only inside a
       pb project whose .preview/ already exists, prints nothing, ignores any other event, exits 0 on anything;
-      hooks.json declares both events (the live-fill progress item reads that file).
+      hooks.json declares both events (the preview's activity strip reads that file).
 
 Usage:  python3 tests/hook_advice.py
 Exit:   0 = pass · 1 = a failure

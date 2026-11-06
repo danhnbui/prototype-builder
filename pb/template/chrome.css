@@ -272,24 +272,9 @@
 @keyframes pb-pulse { 0%, 100% { opacity: .45; } 50% { opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { .ia-node--loading::before, .ia-node--loading::after { animation: none; } }
 
-/* the progress item, before Search: the step being worked on, how many lines it holds, and whose turn it is */
-.pb-prog-wrap { position: relative; display: flex; align-items: center; }
-.pb-prog-wrap + .pb-bar-item { position: relative; }
-.pb-prog-wrap + .pb-bar-item::before {
-  content: ""; position: absolute; left: 0; top: 30%; bottom: 30%;
-  border-left: var(--pb-hair-w) solid var(--pb-hair);
-}
-.pb-prog-n { font-variant-numeric: tabular-nums; color: var(--pb-ink-3); }
-.pb-prog-st { display: inline-flex; align-items: center; gap: var(--pb-s1); color: var(--pb-ink-3); }
-.pb-prog-st::before {
-  content: ""; width: calc(var(--pb-dot) * .8); height: calc(var(--pb-dot) * .8); border-radius: 50%;
-  background: currentColor; flex: none;
-}
-.pb-prog-st[data-status="working"] { color: var(--pb-ink); }
-.pb-prog-st[data-status="working"]::before { animation: pb-pulse 1.2s ease-in-out infinite; }
-.pb-prog-st[data-status="turn"] { color: var(--pb-ink); }
-.pb-prog-st[data-status="done"] { color: var(--pb-pass); }
-@media (prefers-reduced-motion: reduce) { .pb-prog-st[data-status="working"]::before { animation: none; } }
+/* the steps menu: since v2.7 its button is the step name in the activity strip (.pb-agent-steps, below) — the bar
+   no longer carries a progress item, the strip says the status */
+.pb-prog-wrap { position: relative; display: flex; align-items: center; flex: none; }
 .pb-menu--end { left: auto; right: 0; min-width: 18rem; }
 .pb-menu-head { display: block; padding: var(--pb-s2) var(--pb-s2) var(--pb-s1); color: var(--pb-ink-3); font-size: var(--pb-t-sm); }
 .pb-menu-n { margin-left: auto; font-variant-numeric: tabular-nums; color: var(--pb-ink-3); }
@@ -304,9 +289,17 @@
   position: sticky; top: var(--pb-bar-h); z-index: 1099;
   display: flex; align-items: center; gap: var(--pb-s3); height: calc(var(--pb-hit) + var(--pb-hair-w)); padding: 0 var(--pb-gutter);
   background: var(--pb-page); color: var(--pb-ink-2); border-bottom: var(--pb-hair-w) solid var(--pb-hair);
-  font: var(--pb-w-reg) var(--pb-t-md)/1 var(--pb-font); white-space: nowrap; overflow: hidden;
+  font: var(--pb-w-reg) var(--pb-t-md)/1 var(--pb-font); white-space: nowrap;   /* not clipped: the steps menu drops from it */
 }
-.pb-agent[hidden] { display: none; }
+.pb-agent[hidden], .pb-agent [hidden] { display: none; }
+/* the step name, as the steps menu's button (before the first screen): plain until hovered, a chevron after it */
+.pb-agent-steps {
+  display: inline-flex; align-items: center; gap: var(--pb-s1); height: var(--pb-hit-sm); margin: 0 calc(var(--pb-s1) * -1);
+  padding: 0 var(--pb-s1); border: 0; border-radius: var(--pb-r-md); background: none; color: var(--pb-ink-2);
+  font: inherit; white-space: nowrap; cursor: pointer;
+}
+.pb-agent-steps:hover, .pb-agent-steps[aria-expanded="true"] { background: var(--pb-wash); color: var(--pb-ink); }
+.pb-agent-steps svg { flex: none; width: var(--pb-ico-sm); height: var(--pb-ico-sm); color: var(--pb-ink-3); }
 .pb-agent.is-enter { animation: pb-agent-in calc(var(--pb-t) * 3) ease-out; }
 @keyframes pb-agent-in { from { opacity: 0; transform: translateY(-30%); } }
 .pb-agent-glyph { display: flex; flex: none; align-items: center; gap: var(--pb-s0); width: calc(var(--pb-dot) * 2.4); }
@@ -598,8 +591,8 @@ dialog.pb-dlg::backdrop { background: var(--pb-scrim); }
    only the glyph (its aria-label and title still name it). */
 @media (max-width: 899px) { .pb-bar-item .pb-bar-lb, .pb-bar-item .pb-kbd { display: none; } }
 /* A bar too full for its words at any width (the prototype's pbBarFit measures it, so it holds for whichever
-   items are showing): first the tool items keep only their glyphs, then the progress item drops its step name.
-   Without this the tabs, which may shrink, were painted over by the items on the right. */
+   items are showing): the bar items keep only their glyphs (.is-tight is the same step now that the bar has no
+   progress item), then .is-narrow. Without this the tabs, which may shrink, were painted over by the items on the right. */
 .pb-bar.is-compact .pb-bar-end > .pb-bar-item .pb-bar-lb, .pb-bar.is-compact .pb-bar-item .pb-kbd,
 .pb-bar.is-tight .pb-bar-item .pb-bar-lb { display: none; }
 @media (max-width: 599px) { .pb-pj-nm { display: none; } .pb-cmdk-f-r { display: none; } }

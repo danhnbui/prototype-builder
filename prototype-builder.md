@@ -66,8 +66,8 @@ and nothing that renders to disk reads it (`render.py` stays deterministic). The
 (`GET /__pb_data`), marking each draft list element `_draft: true` — a key that never reaches `registry.json`.
 `.preview/activity.json` is `{ state: 'working' | 'idle', at: <epoch s>, event, since? }`, written by the plugin hook
 `hooks/activity.py` on `UserPromptSubmit` / `PostToolUse` / `Stop` (`since`, v2.7: when the turn began — set by
-UserPromptSubmit, kept by the other two); the progress item in the bar and the **activity strip** under it read it
-(*Working* for 90 s after the last write, then *Waiting*, because Stop does not fire on Esc). `slice.py append <kind> <path>` adds one element
+UserPromptSubmit, kept by the other two); the **activity strip** under the bar reads it (*working* is believed for
+90 s after the last write, then the strip reads *Waiting*, because Stop does not fire on Esc). `slice.py append <kind> <path>` adds one element
 to a list with no ids (`content.strings`, `erd.table`, a story's `scenarios`); `--key a,b` makes a repeat a merge.
 Canonical rule: `pb/docs/canon.md` § *Line by line*.
 
@@ -266,13 +266,16 @@ and **data-set variant chips** on the table. Per-entity tables share fixed colum
   jobs placed on the selected screen, then the paths (`flow.stories[]`) and sample rows (`erd.table[]`) once those exist,
   labelled as undesigned. Once a screen exists, the live app above takes over. A view-only page keeps the empty card.
 - **The bar** — the project button (name → **Project settings**: project name, design-system name (required), Figma
-  file (optional), theme System / Light / Dark) and **⌘K** global search. While the project has **no screen** (v2.6) a
-  **progress item** (`.pb-bar-item`, before Search) names the step being worked on, its count and *Working* / *Your
-  turn* / *Waiting* / *Done*, and opens the eight steps — Brief · Design system · Jobs and glossary · Structure · Flows
-  and test cases · Wording · Data · First screen — each a jump to where its content lands; counts come from the registry
-  and the drafts only. A tab other than the open one that gets new content carries a blue dot until it is opened. Both
-  are absent on a project with screens and on a view-only page. Settings are saved by `POST /api/meta` on
-  `/pb:preview`; over `file://` they are read-only.
+  file (optional), theme System / Light / Dark) and **⌘K** global search. A tab other than the open one that gets new
+  content carries a blue dot until it is opened. Settings are saved by `POST /api/meta` on `/pb:preview`; over
+  `file://` they are read-only.
+- **The activity strip** (v2.7, `#pb-agent`, a row under the bar) — on every project and tab while a session is live
+  (the hook's activity under 30 minutes old): *Thinking* · *Writing · <step> · N saved* · *Waiting · no word from
+  Claude* · *Your turn · N drafts to approve — reply in Claude Code* / *Claude finished this turn · in m:ss*, with the
+  time since the turn began. While the project has **no screen** its step name is the button of the **steps menu** —
+  Brief · Design system · Jobs and glossary · Structure · Flows and test cases · Wording · Data · First screen — each
+  a jump to where its content lands; counts come from the registry and the drafts only. (Until v2.7 this was a
+  progress item in the bar.) Neither appears on a view-only page.
 - **Project Summary** — split: Overview / User Insights / Research (the shared `meta-subtab` sub-tabs — and nothing else, D-33) in a scrolling
   left column, with a **scroll-spy table of contents** on the right that tracks the headings in view and
   navigates on click — shown only when the content has ≥ 3 headings. One viewport, internal scroll. Prose is **rich

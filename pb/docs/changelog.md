@@ -38,7 +38,9 @@ tool beside Pick, after Solum Studio's.*
   began), **Writing · Jobs and glossary · 3 saved**, **Waiting · no word from Claude** after 90 s without a write, and
   **Your turn · 7 drafts to approve — reply in Claude Code** (or *Claude finished this turn · in 1:42*). It shows on
   every project and tab while a session is live and goes once the activity is 30 minutes old; never on a view-only
-  page. New lines also come in left to right as they land. Chosen from three options rated side by side
+  page. New lines also come in left to right as they land. The bar's **progress item is gone** — it said the same
+  thing twice — and its menu of the eight steps opens from the strip's step name instead (before the first screen,
+  as before). Chosen from three options rated side by side
   (`/pb:explore`, a page round). The gate is still generic: naming it ("G-JTBD — approve 4 jobs and 3 terms") needs
   each gated command to write it, which comes next. `.preview/activity.json` gains `since` (when the turn began),
   written by `hooks/activity.py`; an older file without it still works, with no clock.

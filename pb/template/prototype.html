@@ -3748,7 +3748,6 @@
                    data-meta-view="${escapeHtmlAttr(id)}" onclick="setMetaView(this.dataset.metaView)">${label}<i class="pb-tab-dot" aria-hidden="true"></i></button>`
         ).join('') + `</nav>`
         + `<div class="pb-bar-end">`
-        + pbProgHTML()
         + `<button class="meta-search pb-bar-item" type="button" onclick="pbOpenSearch()" aria-keyshortcuts="${isMac ? 'Meta+K' : 'Control+K'}"
                    aria-label="Search everything (${kbd})" title="Search rules, jobs, screens, components, test cases, terms and commands (${kbd})">`
         + `${pbUiIcon('search')}<span class="pb-bar-lb">Search</span><span class="pb-kbd" aria-hidden="true">${kbd}</span></button>`
@@ -12733,20 +12732,15 @@
       return PB_STEPS.slice(0, -1).every(([k]) => c[k] > 0) ? 'done' : 'turn';
     }
     function pbProgAge() { const a = PB_LIVE.activity; return a ? a.age + (performance.now() - a.rx) / 1000 : 0; }
-    const PB_STATUS_LABEL = { working: 'Working', turn: 'Your turn', waiting: 'Waiting', done: 'Done' };
-    /* Hidden once a screen exists (a project with screens sees no change), on a view-only page, and off the preview server. */
+    /* The steps menu is there before the first screen exists (a project with screens never had it), never on a
+       view-only page, and only on the preview server. Since v2.7 it is the activity strip's: the step name in the
+       strip is its button, and the bar no longer carries a progress item (the strip says the status). */
     function pbProgShow() {
       return pbLiveOk() && !pbLiveEmbedded() && !document.body.classList.contains('view-only') && !((PB_REGISTRY && PB_REGISTRY.screens) || []).length;
     }
-    const PB_PROG_ICON = '<svg class="pb-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 6h10M10 12h10M10 18h10"/><path d="M4 6l1 1 2-2M4 12l1 1 2-2M4 18l1 1 2-2"/></svg>';
-    function pbProgButtonHTML() {
-      const cur = pbProgCurrent(), st = pbProgStatus();
-      return `${PB_PROG_ICON}<span class="pb-bar-lb">${pbEscape(cur.name)}</span><span class="pb-prog-n">${cur.count}</span>`
-        + (st ? `<span class="pb-prog-st" data-status="${st}">${PB_STATUS_LABEL[st]}</span>` : '');
-    }
     function pbProgLabel() {
-      const cur = pbProgCurrent(), st = pbProgStatus();
-      return `Progress: ${cur.name}, ${cur.count} so far${st ? ', ' + PB_STATUS_LABEL[st].toLowerCase() : ''}`;
+      const cur = pbProgCurrent();
+      return `Steps: ${cur.name}, ${cur.count} so far. Open the list of steps`;
     }
     function pbProgMenuHTML() {
       const cur = pbProgCurrent();
@@ -12757,12 +12751,13 @@
           + `<span class="pb-menu-n">${n}</span></button>`;
       }).join('');
     }
+    /* The step name in the activity strip, as the button that opens the steps menu (pbAgentPaint keeps its words). */
     function pbProgHTML() {
-      if (!pbProgShow()) return '';
-      return `<div class="pb-prog-wrap" id="pb-prog-wrap">`
-        + `<button class="pb-bar-item" id="pb-prog" type="button" aria-haspopup="menu" aria-expanded="false" aria-controls="pb-prog-menu"
-                   aria-label="${escapeHtmlAttr(pbProgLabel())}" title="Progress — the step being worked on, and what each step holds so far" onclick="pbProgToggle()">${pbProgButtonHTML()}</button>`
-        + `<div class="pb-menu pb-menu--end" id="pb-prog-menu" role="menu" aria-label="Progress" hidden>${pbProgMenuHTML()}</div></div>`;
+      return `<span class="pb-prog-wrap" id="pb-prog-wrap" hidden>`
+        + `<button class="pb-agent-steps" id="pb-prog" type="button" aria-haspopup="menu" aria-expanded="false" aria-controls="pb-prog-menu"
+                   aria-label="${escapeHtmlAttr(pbProgLabel())}" title="Steps — what each step holds so far, each one a jump" onclick="pbProgToggle()">`
+        + `<span class="pb-agent-step"></span>${pbUiIcon('chevron')}</button>`
+        + `<div class="pb-menu" id="pb-prog-menu" role="menu" aria-label="Steps" hidden>${pbProgMenuHTML()}</div></span>`;
     }
     function pbProgItems() { return Array.from(document.querySelectorAll('#pb-prog-menu [data-pb-menu-item]')); }
     function pbProgClose(refocus) {
@@ -12786,6 +12781,7 @@
       const m = document.getElementById('pb-prog-menu'), b = document.getElementById('pb-prog');
       if (!m || !b) return;
       if (!m.hidden) { pbProgClose(true); return; }
+      m.innerHTML = pbProgMenuHTML();   // the counts as they are now (the strip leaves an open menu alone)
       m.hidden = false; b.setAttribute('aria-expanded', 'true');
       document.addEventListener('mousedown', pbProgOutside, true);
       document.addEventListener('keydown', pbProgKey, true);
@@ -12804,17 +12800,10 @@
       else if (step === 'data') setMetaView('erd');
       else if (step === 'screen') setMetaView('prototype');
     }
-    /* Update the bar without rebuilding it (an open menu stays open): dots on the tabs, the progress item's words. */
+    /* Update the bar without rebuilding it: the dots on the tabs. (The status and the steps menu are the strip's.) */
     function pbBarSync(rebuild) {
-      const wrap = document.getElementById('pb-prog-wrap');
-      if (rebuild || pbProgShow() !== !!wrap) { renderMetaNav(); pbProgTimer(); return; }
+      if (rebuild) { renderMetaNav(); pbProgTimer(); return; }
       document.querySelectorAll('#meta-nav .meta-tab').forEach(b => b.classList.toggle('has-new', !!PB_LIVE.fresh[b.dataset.metaView]));
-      if (wrap) {
-        const b = document.getElementById('pb-prog'), m = document.getElementById('pb-prog-menu');
-        b.innerHTML = pbProgButtonHTML(); b.setAttribute('aria-label', pbProgLabel());
-        m.innerHTML = pbProgMenuHTML();
-        pbBarFit();   // "Structure" → "Flows and test cases" is a wider item
-      }
       pbProgTimer();
     }
     /* Stop does not fire when the turn is cancelled, so "working" is believed for 90 s after the hook last wrote. */
@@ -12859,18 +12848,21 @@
       if (!a) return null;
       const age = pbProgAge(), now = performance.now();
       if (age > PB_AGENT_STALE_S) return null;
+      // `step`: the step the newest line landed in (else the first with nothing yet). Before the first screen it is
+      // always shown, as the button of the steps menu (`menu`); after it, only while lines are landing.
+      const c = pbProgCounts(), cur = pbProgCurrent(), menu = pbProgShow();
+      const name = cur.id === 'screen' && (c.screen || 0) > 1 ? 'Screens' : cur.name, step = menu ? name : '';
       if (a.state === 'working') {
-        if (age >= 90) return { mode: 'waiting', verb: 'Waiting', parts: ['no word from Claude'], time: 'for ' + pbAgentClock(age) };
-        const c = pbProgCounts(), saved = Math.max(0, pbAgentTotal(c) - (PB_AGENT.base || 0));
+        if (age >= 90) return { mode: 'waiting', verb: 'Waiting', step, menu, parts: ['no word from Claude'], time: 'for ' + pbAgentClock(age) };
+        const saved = Math.max(0, pbAgentTotal(c) - (PB_AGENT.base || 0));
         const writing = saved > 0 && now - PB_AGENT.last < PB_AGENT_WRITING_S * 1000;
-        const cur = pbProgCurrent(), step = cur.id === 'screen' && (c.screen || 0) > 1 ? 'Screens' : cur.name;
-        return { mode: 'working', verb: writing ? 'Writing' : 'Thinking', parts: saved ? [step, saved + ' saved'] : [],
+        return { mode: 'working', verb: writing ? 'Writing' : 'Thinking', step: saved ? name : step, menu, parts: saved ? [saved + ' saved'] : [],
                  time: a.turn === null ? '' : pbAgentClock(a.turn + (now - a.rx) / 1000) };
       }
       const d = PB_LIVE.drafts;
-      if (d) return { mode: 'turn', verb: 'Your turn', parts: [`${d} draft${d > 1 ? 's' : ''} to approve — reply in Claude Code`], time: 'Waiting ' + pbAgentClock(age) };
+      if (d) return { mode: 'turn', verb: 'Your turn', step, menu, parts: [`${d} draft${d > 1 ? 's' : ''} to approve — reply in Claude Code`], time: 'Waiting ' + pbAgentClock(age) };
       const took = a.turn === null ? null : a.turn - a.age;          // at − since: how long the turn ran
-      return { mode: 'done', verb: 'Your turn', parts: ['Claude finished this turn'], time: took === null ? '' : 'in ' + pbAgentClock(took) };
+      return { mode: 'done', verb: 'Your turn', step, menu, parts: ['Claude finished this turn'], time: took === null ? '' : 'in ' + pbAgentClock(took) };
     }
     function pbAgentPaint() {
       const el = document.getElementById('pb-agent');
@@ -12879,20 +12871,34 @@
       document.documentElement.classList.toggle('pb-has-agent', !!v);
       if (!v) {
         clearInterval(PB_AGENT.tick); PB_AGENT.tick = null;
-        if (was) { el.hidden = true; el.innerHTML = ''; PB_AGENT.said = ''; pbAgentRefit(); }
+        if (was) { pbProgClose(false); el.hidden = true; el.innerHTML = ''; PB_AGENT.said = ''; pbAgentRefit(); }
         return;
       }
       if (!el.firstChild) {
-        el.innerHTML = '<span class="pb-agent-glyph" aria-hidden="true"><i></i><i></i><i></i></span><span class="pb-agent-line" aria-hidden="true"></span>'
+        // the step is a button (the steps menu) before the first screen, plain words after; the rest is rebuilt each tick
+        el.innerHTML = '<span class="pb-agent-glyph" aria-hidden="true"><i></i><i></i><i></i></span>'
+          + '<strong class="pb-agent-verb" aria-hidden="true"></strong><span class="pb-agent-sep pb-agent-sep--step" aria-hidden="true">·</span>'
+          + '<span class="pb-agent-step pb-agent-steptxt" aria-hidden="true"></span>' + pbProgHTML()
+          + '<span class="pb-agent-line" aria-hidden="true"></span>'
           + '<span class="pb-agent-time" aria-hidden="true"></span><span class="pb-agent-beam" aria-hidden="true"></span><span class="pb-agent-sr" role="status"></span>';
       }
       el.dataset.mode = v.mode;
-      const sep = '<span class="pb-agent-sep">·</span>';
-      el.querySelector('.pb-agent-line').innerHTML = `<strong class="pb-agent-verb">${pbEscape(v.verb)}</strong>`
-        + v.parts.map((p, i) => sep + `<span class="${/ saved$/.test(p) ? 'pb-agent-n' : i === 0 && v.mode === 'working' ? 'pb-agent-step' : 'pb-agent-detail'}">${pbEscape(p)}</span>`).join('');
+      el.querySelector('.pb-agent-verb').textContent = v.verb;
+      el.querySelector('.pb-agent-sep--step').hidden = !v.step;
+      const btn = v.step && v.menu, wrap = el.querySelector('#pb-prog-wrap'), txt = el.querySelector('.pb-agent-steptxt');
+      txt.hidden = !(v.step && !v.menu); txt.textContent = v.step && !v.menu ? v.step : '';
+      if (!btn) pbProgClose(false);
+      wrap.hidden = !btn;
+      if (btn) {
+        const b = wrap.querySelector('#pb-prog');
+        b.querySelector('.pb-agent-step').textContent = v.step;
+        b.setAttribute('aria-label', pbProgLabel());
+      }
+      el.querySelector('.pb-agent-line').innerHTML = v.parts.map(p =>
+        `<span class="pb-agent-sep">·</span><span class="${/ saved$/.test(p) ? 'pb-agent-n' : 'pb-agent-detail'}">${pbEscape(p)}</span>`).join('');
       el.querySelector('.pb-agent-time').textContent = v.time;
       // the live region speaks when the state changes, never on a clock tick or a count
-      const said = v.mode === 'working' ? `Claude is ${v.verb.toLowerCase()}${v.parts[0] ? ': ' + v.parts[0] : ''}` : `${v.verb}: ${v.parts.join(' ')}`;
+      const said = v.mode === 'working' ? `Claude is ${v.verb.toLowerCase()}${v.step ? ': ' + v.step : ''}` : `${v.verb}${v.step ? ', ' + v.step : ''}: ${v.parts.join(' ')}`;
       if (said !== PB_AGENT.said) { el.querySelector('.pb-agent-sr').textContent = said; PB_AGENT.said = said; }
       if (!was) {
         el.hidden = false;
