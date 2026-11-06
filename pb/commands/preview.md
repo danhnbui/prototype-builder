@@ -8,7 +8,7 @@ A live preview of the build loop. The cheap loop (`/pb:build`) edits `registry.j
 **stops without rendering** — this server closes the gap so you can *see* each edit: it watches
 the registry, re-renders through the **same** deterministic generator (`render.py` → `build_html` /
 `build_ds`, so the preview is byte-identical to `/pb:build --render`), and reloads the browser the
-instant a watched file changes. Start it once, then run `/pb:build` (no `--render`) and watch it update.
+instant a watched file changes. Watched: `registry.json`, `.preview/drafts.json`, the shells, `render.py`, `render/**/*.{js,css}`, `runtime/**/*.js`, `spec/**/*.json`, `logic/**/*.json` and the explore compare shell. On start it also trims `.preview/server.log` to its last 256 KB when it is over 1 MB. Start it once, then run `/pb:build` (no `--render`) and watch it update.
 
 **One server, two routes — both projected from the one `registry.json`:**
 - **`/`** — the **prototype** (`prototype.html`): flows + screens, the 4 doc tabs.
@@ -130,7 +130,7 @@ Same server, same port — an exploration never gets a server of its own. While
   one at a time, the project's devices, each option's label / bet / axes, and the rubric × options grid;
 - accepts `POST /__pb_explore/<id>/scores` from that page — **loopback and same-origin only** (the same
   three checks and the same body parsing as `POST /api/meta`, §2d, with a 1 MB limit), validated against the manifest's own
-  rubric and slots, written atomically back to the manifest — so `explore.py gate` reads what the user rated;
+  rubric and slots, written atomically back to the manifest — so the page shows what the user rated. Scores are optional: `explore.py gate` only reports which cells are unscored, and `promote` does not need them;
 - gives the live prototype a `window.PB_EXPLORE` summary, so **Sandbox → Explore** lists the options and
   jumps to one. The deep link `?screen=<id>&device=<id>&embed=1` opens any page of the shell on one
   screen without the tab bar.
@@ -182,7 +182,7 @@ server, **Save** posts `{ name, designSystem: { name, designLink } }` to `POST /
   kernel drops it when its process exits, so a crashed writer never leaves a stale lock. It is a local
   file: it is git-ignored.
 
-## 2e · Live fill — `update`, `/__pb_data`, drafts and the progress item
+## 2e · Live fill — `update`, `/__pb_data`, drafts and the activity strip
 
 A command that authors a project saves one line per `slice.py` call (`canon.md` § *Line by line*); the preview
 shows each line as it lands.
@@ -210,12 +210,15 @@ shows each line as it lands.
   registry lock and emptied by `slice.py drafts --clear`. `render.py` and every file on disk never read them, so
   the render stays deterministic. The Information Architecture job list, the sitemap and the Content glossary
   show a Draft chip on them.
-- **The progress item** (before Search) names the step being worked on, how many lines it holds and whose turn it
-  is; its menu lists the eight steps and each entry jumps to where its content lands. It needs the plugin hook
-  (`hooks/activity.py`, on `UserPromptSubmit`, `PostToolUse` and `Stop`, which writes `.preview/activity.json` when that folder
-  exists): *Working* for 90 s after the last write, then *Waiting* (Stop does not fire on Esc), *Your turn* after
-  Stop, *Done* when every step before the first screen holds something. Without the hook there is no status, only
-  the step and its count. It is hidden once `screens` is non-empty, on view-only pages and off the preview server.
+- **The activity strip** (v2.7, a row under the bar, `#pb-agent`) says what Claude is doing: *Thinking* (working,
+  no line landed in the last few seconds) · *Writing · <step> · N saved* · *Waiting · no word from Claude* (90 s
+  without a write — Stop does not fire on Esc) · *Your turn · N drafts to approve — reply in Claude Code*, or
+  *Claude finished this turn · in m:ss*. It needs the plugin hook (`hooks/activity.py`, on `UserPromptSubmit`,
+  `PostToolUse` and `Stop`, which writes `.preview/activity.json` — with `since`, when the turn began — when that
+  folder exists); without it there is no strip. It shows on every project and tab while the activity is under 30
+  minutes old, never on view-only pages or off the preview server. Before the first screen its step name is the
+  button of the **steps menu**: the eight steps, each entry a jump to where its content lands. The bar carries no
+  progress item since v2.7.
 - **Before any screen** the Prototype tab is an undesigned outline in the device frame, built from the registry
   and the drafts by code: the name, the objective, the planned screens (`ia.sitemap`, else the screens the jobs
   name) as a sidebar you can click, each screen's jobs, then the paths and sample rows once `flow` and `erd` exist.

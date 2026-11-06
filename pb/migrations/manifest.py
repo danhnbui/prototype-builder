@@ -7,7 +7,8 @@ CURRENT_SCHEMA is the single source of truth for the registry contract
 11 = the logic contract via logicSrc + the `ia` slice + registry.runtime[],
 12 = meta.tradeoffs[] collapsed into ia.rules[] as decision-carrying rules,
 13 = component spec sidecars in the Specs-plugin shape — anatomy/layout/elements/shape,
-measured by tools/spec_measure.py).
+measured by tools/spec_measure.py,
+14 = a non-empty retired meta.others moved out to memory/others.md, the field emptied).
 It is intentionally decoupled from the plugin's SemVer in plugin.json:
   - Plugin SemVer bumps on any release (features, fixes, docs, refactors).
   - CURRENT_SCHEMA bumps ONLY when the registry/template contract changes
@@ -36,7 +37,7 @@ Phase 3–4 non-goals (see docs/version-updates.md):
 import importlib.util
 import os
 
-CURRENT_SCHEMA = 13
+CURRENT_SCHEMA = 14
 
 # Ordered registry: (FROM, TO, filename_stem).
 # Add a new tuple here when authoring a new migration.
@@ -52,6 +53,7 @@ _REGISTRY = [
     (10, 11, "0009_logic_contract"),
     (11, 12, "0010_tradeoff_rules"),
     (12, 13, "0011_specs_shape"),
+    (13, 14, "0012_others_out"),
 ]
 
 

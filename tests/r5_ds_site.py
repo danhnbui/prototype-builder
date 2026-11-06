@@ -53,6 +53,7 @@ def _load(stem, path):
 
 
 render = _load("render", os.path.join(TOOLS, "render.py"))
+CURRENT_SCHEMA = _load("pb_manifest", os.path.join(ROOT, "pb", "migrations", "manifest.py")).CURRENT_SCHEMA
 REG = json.load(open(GOLDEN, encoding="utf-8"))
 COMP_IDS = [c["id"] for c in REG["components"]]
 
@@ -139,7 +140,7 @@ def make_fixture(d):
     shutil.copytree(os.path.join(os.path.dirname(GOLDEN), "render"), os.path.join(d, "render"))
     reg = json.load(open(GOLDEN, encoding="utf-8"))
     reg["meta"]["device"] = "mobile"
-    reg["meta"]["schemaVersion"] = 13        # spec_measure --write refuses anything older (it writes the 13 shape)
+    reg["meta"]["schemaVersion"] = CURRENT_SCHEMA        # spec_measure --write refuses anything older than 13
     reg["components"].append({
         "id": "stat-tile", "name": "stat-tile", "level": "atom", "scope": "local",
         "renderFn": "renderCmpStatTile", "renderSrc": "render/components/stat-tile.js",
@@ -182,7 +183,7 @@ def make_spec_fixture(d):
     shutil.copytree(os.path.join(os.path.dirname(GOLDEN), "render"), os.path.join(d, "render"))
     reg = json.load(open(GOLDEN, encoding="utf-8"))
     reg["meta"]["device"] = "mobile"
-    reg["meta"]["schemaVersion"] = 13        # spec_measure --write refuses anything older
+    reg["meta"]["schemaVersion"] = CURRENT_SCHEMA        # spec_measure --write refuses anything older than 13
     reg["components"].append({
         "id": "promo-card", "name": "promo-card", "level": "molecule", "scope": "local",
         "renderFn": "renderCmpPromoCard", "renderSrc": "render/components/promo-card.js",

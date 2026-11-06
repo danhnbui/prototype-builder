@@ -176,8 +176,9 @@ with tempfile.TemporaryDirectory() as tmp:
     check(pending and pending[0].FROM == 12 and "\n" not in banner, "a schema-12 registry yields a one-line gap banner: " + banner[:60] + "…")
     check(open(sp, encoding="utf-8").read() == before and json.load(open(rp))["meta"]["schemaVersion"] == 12,
           "dry-run writes nothing")
-    r = subprocess.run([sys.executable, RUNNER, "--registry", rp, "--apply"], capture_output=True, text=True)
-    check(r.returncode == 0 and json.load(open(rp))["meta"]["schemaVersion"] == 13, "--apply stamps 13")
+    # --to 13: this file owns step 12→13; later steps (0012…) have their own tests
+    r = subprocess.run([sys.executable, RUNNER, "--registry", rp, "--apply", "--to", "13"], capture_output=True, text=True)
+    check(r.returncode == 0 and json.load(open(rp))["meta"]["schemaVersion"] == 13, "--apply --to 13 stamps 13")
     check("elements" in json.load(open(sp, encoding="utf-8")), "--apply converts the sidecar")
     check("re-measures" in r.stdout, "the advisory says /pb:build re-measures")
     r = subprocess.run([sys.executable, RUNNER, "--registry", rp, "--apply", "--to", "12"], capture_output=True, text=True)

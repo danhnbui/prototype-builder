@@ -11,7 +11,8 @@ and the schema check. A section is edited here and nowhere else.
 
 1. **State in `registry.json`.** The loop reads/edits only the touched slice. `prototype.html`
    is **never** the source of truth and is **never** hand-edited. Read a slice with
-   `slice.py get <kind> <id>`; write it with `slice.py set <kind> <id>` — it takes the registry lock.
+   `slice.py get <kind> <id>` (locate it first with `slice.py find <text>`; `get` prints at most 8,000
+   characters, `--full` lifts the cap); write it with `slice.py set <kind> <id>` — it takes the registry lock.
    A hand-written `json.dump` of `registry.json` bypasses the lock and loses a concurrent write.
 2. **Batched, deterministic render.** A generator regenerates `prototype.html` from `registry.json`
    ONLY on `/pb:build --render` and automatically at `/pb:handoff` — **never** per tweak,
@@ -257,14 +258,57 @@ The rules agents follow:
   `serve.py --stop` stops it; it also exits by itself after 8 idle hours.
 - **NEVER write `registry.json` by hand** (`json.dump`, `open(…, 'w')`, a redirect) — `slice.py set`.
 
-**Hooks put the key rules in front of the model.** The plugin's `hooks/` folder runs three small scripts
-in any pb project (a folder with `registry.json` and a `render/` folder or `memory/constitution.md`, in the
-working directory or under `.prototype/`): `session_rules.py` prints a short digest of these rules at session
-start, and `bash_advice.py` adds one line of advice before a shell command that matches a rule above. They
-only advise — never block, never decide a permission — and print nothing outside a pb project. A fourth,
-`activity.py`, runs on `UserPromptSubmit`, `PostToolUse` (so a long turn stays Working) and `Stop`: it prints nothing and writes `.preview/activity.json`
+**Hooks put the key rules in front of the model, and send the common ones down the safe path.** The
+plugin's `hooks/` folder runs small scripts in any pb project (a folder with `registry.json` and a `render/`
+folder or `memory/constitution.md`, in the working directory, under `.prototype/`, or in an immediate child
+folder). `session_rules.py` prints a short digest of these rules at session start, and `bash_advice.py` adds
+one line of advice before a shell command that matches a rule above. `route.py` (`PreToolUse`,
+`PostToolUse` and `PostToolUseFailure`) forces a few rules through at call time:
+
+- a built-in generic subagent call (general-purpose, Explore, Plan, claude, or no type) with no `model` gets
+  one filled in (haiku for Explore, else sonnet) through `updatedInput`; in `auto` permission mode it only
+  advises. Named agents (`pb:*`, another plugin's `x:y`, a project agent) are never touched, and a fork gets
+  advice only;
+- advice, rate-limited, on parsing `registry.json` inline (use `slice.py find` or `get --fields`), on
+  `grep -r`, `rg`, `sed -n` or `cat` of a big file (use the Grep and Read tools), on `touch registry.json`
+  (the preview reloads on its own) and on a whole Read of `registry.json`, `prototype.html` or
+  `design-system.html`;
+- before a hand write of `registry.json` (a Bash write, Edit, Write or MultiEdit) it stashes the file; after
+  the write, whether the call succeeded or failed, it checks that the JSON parses, the top-level keys are all
+  there and no id is newly duplicated, and restores the stash when the file is broken. As a second net, a later
+  hook run in the session puts back a registry that no longer parses from a stash older than 5 s that nothing
+  settled (never one written in the last 2 s, while a command may still be running);
+- it asks before an edit in a different pb project, a different git work tree or the plugin root (temp
+  folders are exempt), and keeps asking for that root until an edit there has gone through: a denied or
+  failed edit leaves no mark.
+
+`route.py` never denies a call and never approves one: the only decision it can print is `ask`, which hands
+the choice back to the user. `memory/doctor.json` `"enforce"` sets the mode: `route` (default), `advise`
+(every rewrite, ask and restore becomes an advice line) or `off`; the environment variable `PB_ENFORCE`
+overrides it. What it does is logged to `.preview/route.log`, trimmed to its last 128 KB once it passes
+256 KB. Every hook prints nothing outside a pb project. `housekeep.py` (`SessionStart`, and `PostToolUse`
+after an edit of `memory/decisions.md`) keeps the files in *Size budgets* below in bounds; it deletes
+nothing. `activity.py` runs on `UserPromptSubmit`, `PostToolUse` (so a long turn stays Working) and `Stop`: it prints nothing and writes `.preview/activity.json`
 (only where a preview has already made `.preview/`), which is how the open preview knows whether Claude is
 working (*Line by line*, below).
+
+## Size budgets
+
+Files that grow are kept in bounds by structure, not by silent rewriting. Nothing here is deleted without a
+flag, and nothing is summarised by a model.
+
+| What | Budget | What keeps it there |
+|---|---|---|
+| `memory/decisions.md` | 500 KB | Rotated automatically and losslessly: older entries move to `decisions-<YEAR>.md` (`decisions_rotate.py`, verified against the original). `/pb:clean --rotate-decisions` still does it on request |
+| `.preview/server.log` | 1 MB | Trimmed to its last 256 KB when the preview starts, and by `/pb:clean --apply` |
+| `.preview/route.log` | 256 KB | Trimmed to its last 128 KB by `route.py` |
+| `registry.json` | no byte cap | Never rewritten for size. Bulk content moves out structurally: migration `0012` moves a `meta.others` that no code reads to `memory/others.md` (one that a render body, `styleSrc` or runtime module reads stays, with the fix named), and `R-INLINE-DATA` keeps data out of render bodies. Reads go through `slice.py find` and `get`, never a whole-file read |
+| Render bodies, `styleSrc`, `runtime/` files | a `data:` URI or base64 run under 8 KB | `R-INLINE-DATA` warns, and is an ERROR under `--strict` |
+| `memory/*.md` | 64 KB each (`memory_file_kb` in `memory/doctor.json`) | Warned in `lint_registry.py --report`; never auto-summarised |
+| Backups, `.pb-patches/`, generated HTML tracked by git | none | Warned only; backups are pruned by `/pb:clean` keep flags alone |
+
+`lint_registry.py --report` shows where the size goes: the registry's bytes and approximate tokens, its five
+largest slices, the `memory/*.md` files over budget, the `decisions` sizes and any generated HTML tracked by git.
 
 ## Line by line (v2.6)
 
@@ -326,7 +370,7 @@ Write-path commands (`/pb:build`, `/pb:plan`, `/pb:pull-ds`, `/pb:handoff`, `/pb
 this check before patching `registry.json`:
 
 1. Read `meta.schemaVersion` from `registry.json` (absent → treat as schema 2).
-2. Read `CURRENT_SCHEMA` from `migrations/manifest.py` in the plugin (currently **13** — 8 = W3C DTCG tokens, 9 = required atomic `level` / component-first, 10 = `anatomy`/`spec`/`usage`/`uiLogic` externalized to `spec/<kind>/<id>.json` sidecars via `specSrc`, 11 = the logic contract via `logicSrc` + the `ia` slice + `registry.runtime[]`, 12 = `meta.tradeoffs[]` collapsed into `ia.rules[]` as decision-carrying rules, 13 = spec sidecars in the Specs-plugin shape — `anatomy`/`layout`/`elements`/`shape`/`measured`, measured by `tools/spec_measure.py`; migration `0011`).
+2. Read `CURRENT_SCHEMA` from `migrations/manifest.py` in the plugin (currently **14** — 8 = W3C DTCG tokens, 9 = required atomic `level` / component-first, 10 = `anatomy`/`spec`/`usage`/`uiLogic` externalized to `spec/<kind>/<id>.json` sidecars via `specSrc`, 11 = the logic contract via `logicSrc` + the `ia` slice + `registry.runtime[]`, 12 = `meta.tradeoffs[]` collapsed into `ia.rules[]` as decision-carrying rules, 13 = spec sidecars in the Specs-plugin shape — `anatomy`/`layout`/`elements`/`shape`/`measured`, measured by `tools/spec_measure.py`; migration `0011`, 14 = a non-empty `meta.others` that no code reads moved out to `memory/others.md`; migration `0012`, which leaves a field that code reads in place and names the files).
 3. If `schemaVersion < CURRENT_SCHEMA`: print a one-line banner —
    `⚠ Schema gap (v<from> → v<to>): <pending version update's describe() text>. Run /pb:update-version.`
 4. Proceed — **unless** the current write touches a slice a pending version update changes,

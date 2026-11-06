@@ -53,8 +53,9 @@ tool beside Pick, after Solum Studio's.*
   type) with no `model` gets one: haiku for Explore, else sonnet. In `auto` permission mode it only advises; named
   agents (`pb:*`, another plugin's, a project's) are never touched. Before a hand write of `registry.json` it stashes
   the file, and after the write it checks the JSON parses, no top-level key is lost and no id is newly duplicated,
-  and restores the stash if not. It asks once per session before an edit in a different pb project, git work tree or
-  the plugin root. It advises, at a limited rate, on parsing `registry.json` inline, on `grep -r` / `rg` / `sed -n` /
+  and restores the stash if not, after a failed call too (`PostToolUseFailure`, plus a later check of any stash
+  nothing settled). Before an edit in a different pb project, git work tree or the plugin root it asks, and keeps
+  asking for that root until an edit there has gone through. It advises, at a limited rate, on parsing `registry.json` inline, on `grep -r` / `rg` / `sed -n` /
   `cat` of a big file, on `touch registry.json` and on a whole Read of `registry.json`, `prototype.html` or
   `design-system.html`. It never denies a call and never approves one; the only decision it can print is `ask`.
   `memory/doctor.json` `"enforce"` is `route` (default), `advise` or `off`; `PB_ENFORCE` overrides it. Actions go

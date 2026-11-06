@@ -191,11 +191,25 @@ def _logic_key(base_dir):
         paths = [os.path.join(base_dir, "registry.json")] + sorted(
             glob.glob(os.path.join(glob.escape(base_dir), "render", "**", "*.js"), recursive=True))
         paths.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), "logic_extract.py"))
+        # The rest of what logic_extract.extract reads: the registry.runtime[] modules (they share the
+        # render bodies' scope) and the shell + runtime.js whose globals it treats as defined.
+        # load_specs / load_contracts are not cached (they run on every call), so spec/ and logic/
+        # sidecars are deliberately NOT part of this key.
+        import logic_extract
+        reg_file = os.path.join(base_dir, "registry.json")
+        with open(reg_file, encoding="utf-8") as f:
+            paths += [p for p, _rel in logic_extract.runtime_module_paths(json.load(f), base_dir)]
+        shell = logic_extract.default_shell_path()
+        if shell:
+            paths.append(shell)
+            rt = os.path.join(os.path.dirname(shell), "runtime.js")
+            if os.path.isfile(rt):
+                paths.append(rt)
         for path in paths:
             st = os.stat(path)
             parts.append((path, st.st_mtime_ns, st.st_size))
         return tuple(parts)
-    except OSError:
+    except (OSError, ValueError, ImportError):
         return None
 
 

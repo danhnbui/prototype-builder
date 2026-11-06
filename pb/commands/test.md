@@ -27,6 +27,8 @@ tab's glyphs read.
 | `--security` | Only the static security scan |
 | `--drift` | Only §7–§10, the read-only audits (the old `/pb:check-drift`) |
 | `--story <id\|title>` | Scope the scenario run to one story |
+| `--stale` | Narrow the scenario run to scenarios with no result or whose input digests changed. Nothing selected prints `0 scenarios selected (nothing stale)`, exits 0 and opens no browser. Valid with `--functional` or `--all` only |
+| `--screen <id>` | Narrow the scenario run to scenarios that touch that screen. Same rules as `--stale`; the two combine |
 | `--attach [URL]` | **Transport, not a mode.** Attach to a running `/pb:preview` you name (bare `--attach` discovers it from `.claude/launch.json` or `127.0.0.1`). Composes with every mode. Since v2.2 this is no longer needed to reuse the preview — see *Transport* below |
 | `--isolated` | **Transport, not a mode.** Boot a private server for this run even when the project's preview is running. Cannot be combined with `--attach` |
 | `--strict` | Promote the pre-flight lint to strict and **fail-closed** — stop before running anything |

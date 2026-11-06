@@ -28,7 +28,7 @@ Subcommands (all take --registry PATH, default ./registry.json):
         and its `page` (default <slot>/index.html) is what the compare page frames.
   slot <target> <slot> [--label TEXT]
         Add a slot — e.g. `opt-merge` when a pick mixes two options. It is rated like the
-        others before it can be promoted; a merge never goes live on a sentence. A slot added
+        others before it is promoted; a merge never goes live on a sentence. A slot added
         here is marked `merge`, so the distance gates (below) do not compare it with its parents.
   check <target> [--shots] [--url URL] [--converge 0.85]
         Validate the manifest; every candidate exists, differs from the live body, lints, and
@@ -40,12 +40,14 @@ Subcommands (all take --registry PATH, default ./registry.json):
         direction brief or a slot's execution plan is missing. IA mode validates the structures
         instead (job coverage, hub targets, parent chain, ≥ 3 of 5 IA axes apart) and writes nothing.
   gate <target>
-        Exit 0 only when every rubric criterion × option has a 1–5 score. The scoring step is
-        a gate now, not a suggestion: presenting a verdict before this passes is the failure.
-  promote <target> <slot> [--force]
-        Refuse unless the gate passes, the slot is a single option, and every live body still
-        matches its baseline hash (someone else edited it mid-explore → refuse; --force
-        overrides). Backs up the live bodies, copies the overlay over them, archives the manifest.
+        Report which rubric criterion × option cells have no 1–5 score, and the averages. Scores
+        are optional: this never blocks, and it exits 0 whatever is missing.
+  promote <target> <slot> [--force] [--why "<one line>"]
+        Refuse unless the slot is a single option and every live body still matches its baseline
+        hash (someone else edited it mid-explore → refuse; --force overrides). Scores are not
+        required; the pick is recorded in the verdict with the optional one-line why. Backs up the
+        live bodies, copies the overlay over them minus the candidate-header comment lines at the
+        top (CANDIDATE / opt-N), and archives the manifest.
         IA mode: backs up registry.json, then writes ia.jobs[].screens[], ia.layers[],
         meta.navHub and ia.populated — never screens[] / components[]. Page mode: records the
         pick and archives the round — nothing goes live; the pick is built at G-DESIGN.
@@ -107,6 +109,11 @@ import browser as pbbrowser  # noqa: E402
 pbslice = importlib.import_module("slice")
 
 EXIT_OK, EXIT_FAIL, EXIT_USAGE, EXIT_CANNOT_RUN = 0, 1, 2, 3
+
+# The names a pb-explorer writes into the header comment of a candidate body ("CANDIDATE opt-2 — …").
+# They are scaffolding: promote strips them from the live body (see strip_candidate_header), and
+# report.py reads the same pattern to find any that slipped through.
+HEADER_NAMES = re.compile(r"\bCANDIDATE\b|\bopt-\d+\b|registry\.opt-\d+")
 
 EXPLORE_DIR = os.path.join("memory", "explore")
 CANDIDATES_DIR = os.path.join("render", "_candidates")
@@ -220,6 +227,15 @@ def load_registry(reg_path):
             return json.load(f)
     except FileNotFoundError:
         raise ExploreError("registry not found: %s" % reg_path, EXIT_USAGE)
+
+
+def _verdict(man):
+    """The manifest's verdict as a dict, whatever a hand-edit left there. A bare string is the
+    "why" of a round with no pick; any other non-dict is the empty verdict. Never mutates `man`."""
+    v = man.get("verdict")
+    if isinstance(v, dict):
+        return v
+    return {"pick": None, "why": v if isinstance(v, str) else "", "taught": {}}
 
 
 def load_manifest(base_dir, target):
@@ -1020,7 +1036,7 @@ def apply_scores(man, payload):
         if key not in crits:
             raise ExploreError("unknown note key %r" % key, EXIT_USAGE)
         notes[key] = str(val)[:2000]
-    verdict = dict(man.get("verdict") or {})
+    verdict = dict(_verdict(man))
     v = payload.get("verdict")
     if isinstance(v, dict):
         pick = v.get("pick")
@@ -1075,7 +1091,7 @@ def _archive(base_dir, man, status):
     return dest
 
 
-def _promote_ia(reg_path, man, slot, force=False):
+def _promote_ia(reg_path, man, slot, force=False, why=""):
     """Write the picked grouping into the IA slice — the authored half only. Membership and
     edges stay derived; planned screens are built later by /pb:plan → /pb:build.
 
@@ -1125,7 +1141,7 @@ def _promote_ia(reg_path, man, slot, force=False):
             pbslice._write(reg_path, reg)
     except pbslice.RegistryLocked as e:
         raise ExploreError(str(e))
-    man["verdict"] = dict(man.get("verdict") or {}, pick=slot)
+    _record_pick(man, slot, why)
     archived = _archive(base_dir, man, "promoted")
     structures = os.path.join(base_dir, EXPLORE_DIR, "_closed", man["target"])
     return {"promoted": slot, "mode": "ia", "jobs": added, "layers": len(ia["layers"]),
@@ -1135,15 +1151,88 @@ def _promote_ia(reg_path, man, slot, force=False):
             "drift": [], "problems": problems}
 
 
-def cmd_promote(reg_path, target, slot, force=False):
+def _record_pick(man, slot, why=""):
+    """Write the pick (and the optional one-line why) into the verdict; scores, notes and `taught`
+    stay as the compare page left them."""
+    v = dict(_verdict(man), pick=slot)
+    if why:
+        v["why"] = str(why)[:4000]
+    man["verdict"] = v
+
+
+def strip_candidate_header(text):
+    """Drop the candidate-header comments from the top of a promoted body.
+
+    Only the contiguous run of comments at the very top is looked at — `//` lines one by one, a
+    `/* … */` comment up to its first `*/` — and only those that name the candidate (HEADER_NAMES)
+    go. Only the matched comment's own text is removed: code after a `*/` on its closing line stays
+    (the line is dropped only when nothing but whitespace is left), and a `/*` that never closes
+    strips nothing. Every other byte, line endings included, is left alone.
+    Returns (text, lines_touched) — 0 means the text is returned unchanged."""
+    lines = text.splitlines(keepends=True)
+    out, i, removed = [], 0, 0
+    while i < len(lines):
+        line = lines[i]
+        bare = line.strip()
+        if bare.startswith("//"):
+            if HEADER_NAMES.search(bare):
+                removed += 1
+            else:
+                out.append(line)
+            i += 1
+        elif bare.startswith("/*"):
+            start = line.find("/*")
+            j, k = i, line.find("*/", start + 2)
+            while k < 0 and j + 1 < len(lines):
+                j += 1
+                k = lines[j].find("*/")
+            if k < 0:                       # never closed: not a comment we can bound, so touch nothing
+                break
+            tail = lines[j][k + 2:]
+            comment = (line[start:] if j == i else line[start:] + "".join(lines[i + 1:j]) + lines[j][:k + 2])
+            if HEADER_NAMES.search(comment):
+                removed += j - i + 1
+                if tail.strip():            # code shares the closing line: keep it, look at it next
+                    lines[j] = line[:start] + tail.lstrip(" \t")
+                    i = j
+                else:
+                    i = j + 1
+            else:
+                out.extend(lines[i:j + 1])
+                i = j + 1
+                if tail.strip():            # code shares the closing line: the header run is over
+                    break
+        else:
+            break
+    return "".join(out) + "".join(lines[i:]), removed
+
+
+def _copy_promoted(cand, live):
+    """Copy a candidate body over the live one, minus its candidate header. → lines stripped."""
+    with open(cand, "rb") as f:
+        raw = f.read()
+    try:
+        text, removed = strip_candidate_header(raw.decode("utf-8"))
+    except UnicodeDecodeError:        # not text we can read: copy it exactly as it is
+        shutil.copyfile(cand, live)
+        return 0
+    if not removed:
+        shutil.copyfile(cand, live)
+        return 0
+    with open(live, "wb") as f:
+        f.write(text.encode("utf-8"))
+    return removed
+
+
+def cmd_promote(reg_path, target, slot, force=False, why=""):
     """Promote `slot` of `target` (see _promote) → the result dict, plus `stillOpen`: the rounds that
     are still open once this one is archived."""
-    res = _promote(reg_path, target, slot, force)
+    res = _promote(reg_path, target, slot, force, why)
     res["stillOpen"] = still_open(os.path.dirname(os.path.abspath(reg_path)))
     return res
 
 
-def _promote(reg_path, target, slot, force=False):
+def _promote(reg_path, target, slot, force=False, why=""):
     base_dir = os.path.dirname(os.path.abspath(reg_path))
     man = load_manifest(base_dir, target)
     if man.get("mode") == "goal":
@@ -1152,16 +1241,14 @@ def _promote(reg_path, target, slot, force=False):
         raise ExploreError("a mixed pick (%s) is not promoted directly: add it as its own slot "
                            "(explore.py slot %s opt-merge), build it, and rate it beside the plain pick" % (slot, target))
     opt = option_of(man, slot)
-    gaps = missing_scores(man)
-    if gaps:
-        raise ExploreError("the scoring gate has not passed — %d cell(s) unscored (%s%s)"
-                           % (len(gaps), ", ".join(gaps[:4]), "…" if len(gaps) > 4 else ""))
+    # No scoring gate: scores are optional on the compare page, and a pick is recorded with or
+    # without them (and with an optional one-line why).
     if man.get("mode") == "ia":
-        return _promote_ia(reg_path, man, slot, force)
+        return _promote_ia(reg_path, man, slot, force, why)
     if man.get("mode") == "pages":
         # A page is a mockup of the direction, not a drop-in body: nothing is copied anywhere. The
         # pick is recorded and the round archived; G-DESIGN builds it into the real files.
-        man["verdict"] = dict(man.get("verdict") or {}, pick=slot)
+        _record_pick(man, slot, why)
         archived = _archive(base_dir, man, "promoted")
         page = os.path.join(archived[:-len(".json")], re.split(r"[?#]", opt.get("page") or "", 1)[0])
         return {"promoted": slot, "mode": "pages", "files": [], "backup": None, "drift": [],
@@ -1174,26 +1261,30 @@ def _promote(reg_path, target, slot, force=False):
                            "overwrite their change" % ", ".join(drift))
     stamp = _now().replace(":", "").replace("-", "")
     backup = os.path.join(base_dir, "memory", "backups", "explore-%s-%s" % (target, stamp))
+    stripped = {}
     for src, cand in (opt.get("overlay") or {}).items():
         live = os.path.join(base_dir, src)
         dest = os.path.join(backup, src)
         os.makedirs(os.path.dirname(dest), exist_ok=True)
         if os.path.isfile(live):
             shutil.copyfile(live, dest)
-        shutil.copyfile(os.path.join(base_dir, cand), live)
-    man["verdict"] = dict(man.get("verdict") or {}, pick=slot)
+        n = _copy_promoted(os.path.join(base_dir, cand), live)
+        if n:
+            stripped[src] = n
+    _record_pick(man, slot, why)
     archived = _archive(base_dir, man, "promoted")
     return {"promoted": slot, "files": sorted((opt.get("overlay") or {}).keys()),
             "backup": os.path.relpath(backup, base_dir), "archived": os.path.relpath(archived, base_dir),
-            "drift": drift}
+            "drift": drift, "headerLinesStripped": stripped}
 
 
 def cmd_reject(reg_path, target):
     base_dir = os.path.dirname(os.path.abspath(reg_path))
     man = load_manifest(base_dir, target)
+    verdict = _verdict(man)
     lessons = {"target": target, "intent": man.get("intent", ""),
-               "notes": man.get("notes") or {}, "taught": (man.get("verdict") or {}).get("taught") or {},
-               "why": (man.get("verdict") or {}).get("why", ""), "averages": averages(man)}
+               "notes": man.get("notes") or {}, "taught": verdict.get("taught") or {},
+               "why": verdict.get("why", ""), "averages": averages(man)}
     archived = _archive(base_dir, man, "rejected")
     lessons["archived"] = os.path.relpath(archived, base_dir)
     lessons["stillOpen"] = still_open(base_dir)
@@ -1393,6 +1484,7 @@ def main(argv=None):
     p.add_argument("target")
     p.add_argument("slot")
     p.add_argument("--force", action="store_true")
+    p.add_argument("--why", default="", help="an optional one-line reason, stored as verdict.why")
     p = sub.add_parser("reject")
     p.add_argument("target")
     p = sub.add_parser("link", help="the browser URL of the compare-and-rate page, checked live")
@@ -1456,12 +1548,13 @@ def main(argv=None):
             man = load_manifest(base_dir, a.target)
             gaps = missing_scores(man)
             emit({"missing": gaps, "averages": averages(man)},
-                 ("✗ scoring gate: %d of %d cells unscored — the user rates them at the URL `explore.py link %s` prints\n  %s" % (
-                     len(gaps), len(man["rubric"]) * len(man["options"]), a.target, "\n  ".join(gaps[:12])))
-                 if gaps else "✓ scoring gate passed — averages %s" % averages(man))
-            return EXIT_FAIL if gaps else EXIT_OK
+                 ("%d of %d cells unscored (optional — promote does not wait for them); the user can rate them at the "
+                  "URL `explore.py link %s` prints\n  %s" % (
+                      len(gaps), len(man["rubric"]) * len(man["options"]), a.target, "\n  ".join(gaps[:12])))
+                 if gaps else "every cell scored — averages %s" % averages(man))
+            return EXIT_OK
         elif a.cmd == "promote":
-            res = cmd_promote(reg_path, a.target, a.slot, a.force)
+            res = cmd_promote(reg_path, a.target, a.slot, a.force, a.why)
             if res.get("mode") == "ia":
                 emit(res, "✓ promoted %s → registry.json ia slice\n  jobs     %s\n  layers   %d (replaced)\n"
                           "  navHub   %s\n  backup   %s\n  archived %s\n  picked   %s%s\n"
