@@ -1,0 +1,28 @@
+{
+  "format": "pb-session", "version": 1, "study": "rs-card-sort", "method": "card-sort",
+  "sessionId": "s-cs01a1", "participant": "P01", "mode": "unmoderated", "pilot": false,
+  "startedAt": "2026-03-03T12:00:00Z", "endedAt": "2026-03-03T12:03:00Z", "durationMs": 180000,
+  "env": {"viewport": [1280, 832], "device": "laptop", "sink": "download", "shell": "test"},
+  "consent": {"session": true, "recording": false, "at": "2026-03-03T12:00:00Z", "textSha256": "4c02c997a8356d65384130210b65a57ed7c5c10849e174db506981cd891bebdb"},
+  "config": {"tasks": [],
+             "cards": [{"id": "c-refund", "label": "Refund an order"}, {"id": "c-track", "label": "Track a parcel"}, {"id": "c-address", "label": "Change my address"},
+                       {"id": "c-support", "label": "Contact support"}, {"id": "c-pay", "label": "Pay on delivery"}, {"id": "c-receipt", "label": "Download a receipt"}],
+             "sort": {"kind": "hybrid", "categories": [{"id": "k-money", "label": "Money"}, {"id": "k-parcels", "label": "Parcels"}]}},
+  "tasks": [],
+  "answers": {},
+  "result": {"card-sort": {
+    "groups": [
+      {"name": "Money", "category": "k-money", "cards": ["c-refund", "c-pay", "c-receipt"]},
+      {"name": "Parcels", "category": "k-parcels", "cards": ["c-track", "c-address"]},
+      {"name": "Help", "category": null, "cards": ["c-support"]}],
+    "unsorted": []}},
+  "events": [
+    {"t": 0, "type": "session-start", "task": null, "screen": null},
+    {"t": 100, "type": "consent", "task": null, "screen": null, "recording": false},
+    {"t": 5000, "type": "cs-group", "task": null, "screen": null, "group": "g1", "name": "Money", "category": "k-money"},
+    {"t": 9000, "type": "cs-move", "task": null, "screen": null, "card": "c-refund", "group": "g1"},
+    {"t": 12000, "type": "cs-move", "task": null, "screen": null, "card": "c-pay", "group": "g1"},
+    {"t": 15000, "type": "cs-move", "task": null, "screen": null, "card": "c-receipt", "group": "g1"},
+    {"t": 170000, "type": "session-end", "task": null, "screen": null}],
+  "media": []
+}

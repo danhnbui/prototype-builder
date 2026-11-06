@@ -1,0 +1,19 @@
+{
+  "format": "pb-session", "version": 1, "study": "rs-pay-test", "method": "usability",
+  "sessionId": "s-ux00pil", "participant": "P09", "mode": "moderated", "pilot": true,
+  "startedAt": "2026-03-02T09:00:00Z", "endedAt": "2026-03-02T09:00:40Z", "durationMs": 40000,
+  "env": {"viewport": [429, 926], "device": "mobile", "sink": "server", "shell": "test"},
+  "consent": {"session": true, "recording": false, "at": "2026-03-02T09:00:00Z", "textSha256": "f3e4903b7749176758e4f05139b3f3c4aaef30612cbc1680126a19b9b9bbbb9b"},
+  "config": {"tasks": [{"id": "t1", "text": "TEST DATA. Take the payment and finish the delivery.", "task": {"screen": "route"}}]},
+  "tasks": [
+    {"id": "t1", "startT": 1000, "endT": 30000, "outcome": "fail", "outcomeSource": "self", "criteriaT": null, "selfReport": "gave-up", "assisted": false, "answers": {}}],
+  "answers": {},
+  "result": {},
+  "events": [
+    {"t": 0, "type": "session-start", "task": null, "screen": "route"},
+    {"t": 100, "type": "consent", "task": null, "screen": "route", "recording": false},
+    {"t": 1000, "type": "task-start", "task": "t1", "screen": "route"},
+    {"t": 30000, "type": "task-end", "task": "t1", "screen": "route", "outcome": "fail", "source": "self"},
+    {"t": 40000, "type": "session-end", "task": null, "screen": "route"}],
+  "media": []
+}

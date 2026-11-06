@@ -1,0 +1,26 @@
+{
+  "audience": {"targetN": 2},
+  "hypotheses": [
+    {"id": "h1", "statement": "People start paying by tapping the main button on the pay screen.",
+     "targets": [{"kind": "screen", "id": "pay"}],
+     "supportedIf": "Most participants' first tap is on the main button.",
+     "refutedIf": "Fewer than half of the participants' first tap is on the main button."}
+  ],
+  "instrument": {
+    "lang": "en",
+    "mode": "unmoderated",
+    "recording": {"screen": false, "voice": false},
+    "device": "mobile",
+    "intro": "TEST DATA. You will see a screen. Tap where you would start.",
+    "consent": "TEST DATA. Your choices are kept without your name.",
+    "durationMin": 5,
+    "closing": "Thank you.",
+    "sections": [
+      {"title": "First tap", "purpose": "task", "questions": [
+        {"id": "fc1", "text": "TEST DATA. The customer has handed you the cash. Where do you tap to finish the payment?",
+         "tests": ["h1"],
+         "click": {"screen": "pay", "target": "[data-action=\"submit\"]", "rect": {"x": 0.1, "y": 0.8, "w": 0.8, "h": 0.15}}}
+      ]}
+    ]
+  }
+}

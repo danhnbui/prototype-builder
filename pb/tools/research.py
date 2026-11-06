@@ -2,24 +2,37 @@
 """
 research.py — the executable form of /pb:research (v2.6.0). Stdlib only.
 
-Find what a prototype is unsure about, write a survey or an interview guide that tests it, keep
-what comes back as evidence on disk, and refill the Project Summary's User Insights from it —
-with every number computed by this tool and every quote checked word for word against the raw
-file. pb hosts no survey and records no one: the instrument is fielded elsewhere and a CSV or a
-transcript comes back. The model NEVER simulates respondents and NEVER writes evidence.
+Find what a prototype is unsure about, write a survey, an interview guide or a UX test (usability, tree test,
+card sort, first click) that tests it, keep what comes back as evidence on disk, and refill the Project
+Summary's User Insights from it — with every number computed by this tool and every quote checked word for
+word against the raw file. pb hosts nothing online: the instrument is fielded elsewhere (a CSV or a transcript
+comes back), or run on the researcher's own machine through the /pb:preview server, or sent as one HTML
+participant kit whose session file comes back. The model NEVER simulates respondents and NEVER writes evidence.
+
+Six methods: survey · interview (asked elsewhere) and the four SESSION methods usability · tree-test ·
+card-sort · first-click, which run in a browser on the prototype (research_session.py, the page scripts) and
+store `pb-session` files as evidence (kind `session`, plus a linked `recording` when the participant agreed).
 
 State is the optional `research` slice of registry.json (absent = empty state, no schema bump):
 
     research = { populated, studies: [ { id, title, question, method, status, scope, setup, audience,
                  targets, hypotheses, instrument, biasReview?, evidence, tally?, findings, refill?,
-                 refilled?, gates } ] }
+                 refilled?, gates,
+                 plan?, participants?, logistics?, pilots?,                    (the research plan, the tracker, the checklist)
+                 analysis?, observations?, themes?, issues?, report? } ] }    (session methods; analysis is the tool's alone)
 
 and, per study, files under memory/research/<id>/:
 
     instrument/survey.md · responses-template.csv     (survey)
     instrument/interview-guide.md                     (interview)
+    instrument/plan.md · moderator-guide.md · tasks.md · cards.md · consent.md · screener.md · note-taking.csv
+                                                      (research_report.files_for: generated at G-STUDY, rewritten by export)
     instrument/bias-review.md                         (review-plan: the questions only, for a reviewer who knows nothing else)
     evidence/e1-<name>.<ext> …                        read-only (chmod 444), hashed, never edited
+    evidence/e<N>-<sessionId>.json · …-screen.webm    a stored session and its recording
+    pilot/<sessionId>.json                            a rehearsal: never evidence, never analysed
+    kit/<id>-kit.html                                 the participant kit (one self-contained file)
+    report/report.md · report.html                    the study report (a Draft until G-INSIGHT)
 
 Scope (per study, the user's call): `instrument` = the user wants the questions and the setup and the study
 legitimately ends at `approved` (import is refused); `collect` = results will come back. `setup` is free text
@@ -43,11 +56,17 @@ Subcommands (all take --registry PATH, default ./registry.json, and --json):
 
   gaps [--role R]                 read-only: the ranked list of what is unsure
   seed <kind:id>...               read-only: the job / story / rule / screen facts a question is written from
-  init <id> --method survey|interview --scope instrument|collect [--setup T] --question Q [--title T]
-        [--role R]... [--segment S] [--target kind:id]... [--target-n N]
-                                  a draft study; it always names who it asks
+  methods                         read-only: the method catalog (what each answers, sample size, minutes, what it is not for)
+  init <id> --method survey|interview|usability|tree-test|card-sort|first-click --scope instrument|collect
+        [--setup T] --question Q [--title T] [--role R]... [--segment S] [--target kind:id]... [--target-n N]
+        [--mode moderated|unmoderated|both]
+                                  a draft study; it always names who it asks; seeds the logistics checklist
   scope <id> [--scope S] [--setup T]    change the scope and/or setup at any time; writes no gate
-  plan <id> --file F              merge {hypotheses, instrument, audience?}; refused once evidence exists;
+  brief <id> --file F             merge the research plan {background, objectives, researchQuestions, decision, methodRationale,
+                                  participants, recruitment, schedule, team, materials, risks, timeline, budget} into study.plan;
+                                  unknown keys refused; on an approved study a change to objectives / researchQuestions / decision /
+                                  methodRationale / participants withdraws G-STUDY (the logistics keys do not)
+  plan <id> --file F              merge {hypotheses, instrument, audience?, plan?}; refused once evidence exists;
                                   expands template questions; clears any bias review
   check <id>                      lint the study (errors block G-STUDY; warnings are heuristics)
   review-plan <id>                write instrument/bias-review.md (deterministic; questions only)
@@ -55,15 +74,31 @@ Subcommands (all take --registry PATH, default ./registry.json, and --json):
   approve <id> [--note N] [--skip-review R] [--accept-review W]
                                   G-STUDY: check must be clean and a review of this instrument stored
                                   (or --skip-review); a `no`/`blocked` row needs --accept-review;
-                                  writes the instrument files
+                                  writes the instrument files and ticks the plan-approved checklist item
   export <id>                     rewrite the instrument files (deterministic; no timestamps)
+  participant <id> <P01> [--status S] [--segment T] [--role R] [--at WHEN] [--incentive due|paid|none] [--pilot|--no-pilot]
+        [--note T] [--remove]     the pseudonymous tracker; an email or phone in free text is refused
+  logistics <id> [--done ID]... [--undo ID]... [--add TEXT]
+                                  the checklist, the participant pipeline by status and the schedule
+  pilots <id>                     the rehearsal sessions (never evidence)
+  kit <id> [--out PATH] [--pilot] the participant kit: one HTML file to send (unmoderated), with what to send and how results come back
+  link <id> [--observer] [--participant P] [--pilot] [--open]
+                                  the session URL on the /pb:preview server (found or started), checked to answer 200
   import <id> <file> --kind K --consent yes|unknown|no [--participant P] [--role R] [--segment S]
-        [--date D] [--drop-columns A,B] [--keep-pii]  store evidence (copy, chmod 444, sha256)
-  drop-evidence <id> <eid> --reason R   a participant withdrew: delete the file, keep the row + hash
+        [--date D] [--drop-columns A,B] [--keep-pii] [--session S]
+                                  store evidence (copy, chmod 444, sha256). `--kind session` stores a pb-session file (consent yes);
+                                  `--kind recording --session <sessionId>` links a screen recording to a stored session
+  drop-evidence <id> <eid> --reason R   a participant withdrew: delete the file, keep the row + hash (a session takes its recording)
   tally <id> [--by qN]            survey: every count and mean, computed here
-  synthesize <id> --file F        merge {verdicts, findings, refill}; tally (survey) then verify
-  verify <id>                     every quote verbatim, every hash, every cited number recomputed
-  refill <id> --approved [--note N]     G-INSIGHT: append the refill text to meta.userInsights.*
+  analyze <id>                    session methods: success rates with intervals, times, lostness, SEQ, SUS, tree / sort / click
+                                  results — computed here from the stored sessions, stored in study.analysis
+  affinity <id>                   read-only: tag x participant counts over the observations
+  synthesize <id> --file F        merge {verdicts, findings, refill, observations, themes, issues, report}; tally (survey) or
+                                  analyze (session methods) first, then verify
+  verify <id>                     every quote verbatim, every hash, every cited number recomputed; for the session methods the
+                                  analysis is recomputed from the evidence and every `{"analysis": path, "value": n}` checked
+  report <id>                     refused unless verify is clean; writes report/report.md and report.html (Draft until G-INSIGHT)
+  refill <id> --approved [--note N]     G-INSIGHT: append the refill text to meta.userInsights.*; rewrites an existing report
   list · show <id>                read-only
 
 Every registry write holds slice.registry_lock and goes through slice._write (atomic).
@@ -924,7 +959,7 @@ def _check_tree(inst, E):
     if not (isinstance(tree, list) and tree):
         E("C-TREE", "instrument", "a tree test needs instrument.tree: a non-empty list of {id, label, parent}")
         return set()
-    ids, labels = [], []
+    ids = []
     for i, n in enumerate(tree):
         w = "instrument.tree[%d]" % i
         if not isinstance(n, dict):
@@ -938,11 +973,10 @@ def _check_tree(inst, E):
         ids.append(nid)
         if not squash(n.get("label")):
             E("C-TREE", w, "node %s has no label" % nid)
-        labels.append(nid)
     idset = {i for i in ids if isinstance(i, str)}
     parent = {}
     for i, n in enumerate(tree):
-        if not isinstance(n, dict):
+        if not isinstance(n, dict) or not isinstance(n.get("id"), str):
             continue
         p = n.get("parent")
         if p is None:
@@ -981,14 +1015,15 @@ def _check_cards(reg, inst, hyp_ids, tested, E, W):
             E("C-CARDS", w, "card id %r is malformed (lowercase letters, digits, - _)" % cid)
         elif cid in ids:
             E("C-CARDS", w, "duplicate card id %r" % cid)
-        ids.add(cid)
+        if isinstance(cid, str):
+            ids.add(cid)
         lk = key(c.get("label"))
         if not lk:
             E("C-CARDS", w, "card %s has no label" % cid)
         elif lk in labels:
             E("C-CARDS", w, "two cards are labelled %r" % squash(c.get("label")))
         labels.add(lk)
-        if c.get("job") and jobs and c["job"] not in jobs:
+        if isinstance(c.get("job"), str) and c["job"] and jobs and c["job"] not in jobs:
             W("W-CARDS", w, "card %s names job %r, which is not in ia.jobs" % (cid, c["job"]))
     if len(cards) < 4:
         E("C-CARDS", "instrument.cards", "a card sort needs at least 4 cards (has %d)" % len(cards))
@@ -1052,7 +1087,7 @@ def _check_task_object(qid, w, tk, screens, declared_roles, entry_ids, E):
     if not isinstance(tk, dict):
         E("C-TASK", w, "%s: task must be an object" % qid)
         tk = {}
-    if tk.get("screen") not in screens:
+    if not isinstance(tk.get("screen"), str) or tk.get("screen") not in screens:
         E("C-TASK", w, "%s: task screen %r is not a screen of this registry" % (qid, tk.get("screen")))
     if tk.get("role") and declared_roles and tk["role"] not in declared_roles:
         E("C-TASK", w, "%s: task role %r is not declared in meta.roles" % (qid, tk["role"]))
@@ -1435,7 +1470,8 @@ def verify_study(reg, study, base):
         elif v in ("supported", "refuted", "mixed") and hid not in cites:
             E("V-UNCITED", "hypotheses.%s" % hid, "%s is %s but no finding cites it" % (hid, v))
 
-    rows = {e.get("id"): e for e in as_list(study.get("evidence")) if isinstance(e, dict)}
+    # sstr: a hand-edited row whose id is a list or a dict must fail verification, not crash it
+    rows = {sstr(e.get("id")): e for e in as_list(study.get("evidence")) if isinstance(e, dict)}
     cache = {}
 
     def file_of(eid):
@@ -1486,7 +1522,7 @@ def verify_study(reg, study, base):
             sv = as_dict(as_dict(q).get("score")).get(fld)
             if isinstance(sv, (int, float)):
                 allowed.update((round(float(sv), 4), round(sv, 1), round(sv, 2), float(round(sv))))
-    people = {e.get("participant") for e in live_evidence(study) if e.get("participant")}
+    people = {sstr(e.get("participant")) for e in live_evidence(study) if e.get("participant")}
     allowed.update((float(len(people)), float(len(live_evidence(study)))))
 
     # ── the UX additions: session analysis, observations, issues, themes ──
@@ -1494,8 +1530,8 @@ def verify_study(reg, study, base):
     observations = [o for o in as_list(study.get("observations")) if isinstance(o, dict)]
     issues = [i for i in as_list(study.get("issues")) if isinstance(i, dict)]
     themes = [t for t in as_list(study.get("themes")) if isinstance(t, dict)]
-    obs_ids = {o.get("id") for o in observations}
-    issue_ids = {i.get("id") for i in issues}
+    obs_ids = {o.get("id") for o in observations if isinstance(o.get("id"), str)}
+    issue_ids = {i.get("id") for i in issues if isinstance(i.get("id"), str)}
     fresh_box = []
 
     def fresh_analysis():
@@ -1560,11 +1596,11 @@ def verify_study(reg, study, base):
                 continue
             if "issue" in ref:
                 quotes_only = False
-                if ref["issue"] not in issue_ids:
+                if not _in(ref["issue"], issue_ids):
                     E("V-FINDING", rw, "cites issue %r, which is not an issue of this study" % ref["issue"])
                 continue
             if "observation" in ref:
-                if ref["observation"] not in obs_ids:
+                if not _in(ref["observation"], obs_ids):
                     E("V-FINDING", rw, "cites observation %r, which is not an observation of this study" % ref["observation"])
                 else:
                     ob = next(o for o in observations if o.get("id") == ref["observation"])
@@ -1597,23 +1633,250 @@ def verify_study(reg, study, base):
         if quotes_only and len(who) == 1:
             W("W-ONE-PARTICIPANT", fw, "%s rests on one participant" % f.get("id"))
 
+    _verify_ux(reg, study, rows, file_of, session, fresh, why if session else None, observations, issues, themes,
+               obs_ids, E, W)
+
     # below the target
     target = as_dict(study.get("audience")).get("targetN")
     if isinstance(target, int):
         if study.get("method") == "survey":
             n = stored.get("n")
             n = n if isinstance(n, int) else sum(e.get("responses") or 0 for e in live_evidence(study))
+        elif session and fresh is not None:
+            n = fresh.get("n") if isinstance(fresh.get("n"), int) else 0
         else:
             n = len({e.get("participant") for e in live_evidence(study) if e.get("participant")})
         if n < target:
             W("W-DIRECTIONAL", "audience", "%d of the target %d — directional, not conclusive" % (n, target))
 
-    # numbers in the refill that no finding or tally holds
-    for fld, text in sorted(as_dict(study.get("refill")).items()):
+    # numbers in the refill, and in the report's narrative, that no finding, tally or analysis holds
+    allowed.update(float(k) for k in range(0, 5))                    # a severity
+    allowed.update((float(len(issues)), float(len(observations)), float(len(themes))))
+    texts = sorted(as_dict(study.get("refill")).items())
+    rep = as_dict(study.get("report"))
+    if isinstance(rep.get("summary"), str):
+        texts.append(("report.summary", rep["summary"]))
+    for i, r in enumerate(as_list(rep.get("recommendations"))):
+        if isinstance(r, dict) and isinstance(r.get("text"), str):
+            texts.append(("report.recommendations[%d]" % i, r["text"]))
+    for k in ("nextSteps", "limitations"):
+        for i, x in enumerate(as_list(rep.get(k))):
+            if isinstance(x, str):
+                texts.append(("report.%s[%d]" % (k, i), x))
+    for fld, text in texts:
         for num in sorted(_numbers(text)):
             if num not in allowed:
-                W("W-NUMBER", "refill.%s" % fld, "the number %g appears in no finding or tally" % num)
+                W("W-NUMBER", fld if fld.startswith("report") else "refill.%s" % fld,
+                  "the number %g appears in no finding, tally or analysis" % num)
     return errs, warns
+
+
+def _in(x, coll):
+    """x in coll, where x may be any junk a hand-edited registry holds (a list is not a member of anything)."""
+    return isinstance(x, str) and x in coll
+
+
+def dup_participants(rows_and_objs):
+    """{participant: [eids]} for a participant who has more than one session in the analysis."""
+    seen = {}
+    for row, obj in rows_and_objs:
+        p = row.get("participant") or as_dict(obj).get("participant")
+        if isinstance(p, str) and p:
+            seen.setdefault(p, []).append(sstr(row.get("id")))
+    return {p: ids for p, ids in sorted(seen.items()) if len(ids) > 1}
+
+
+def _dup_warning(dups):
+    return [_finding("warning", "W-DUP-PARTICIPANT", "analysis",
+                     "%s has %d sessions (%s) — each counts as a separate participant in n; drop-evidence the extra one "
+                     "unless that is the design" % (p, len(ids), ", ".join(ids))) for p, ids in dups.items()]
+
+
+def _verify_ux(reg, study, rows, file_of, session, fresh, why, observations, issues, themes, obs_ids, E, W):
+    """V-OBS · V-ISSUE · V-THEME · V-ANALYSIS · V-REPORT, and W-ONE-PARTICIPANT for a major issue on one person."""
+    sid = study.get("id")
+    screen_ids = {x.get("id") for x in screens_of(reg)}
+    task_ids = None
+    if session:
+        task_ids = {q.get("id") for _s, q in all_questions(_expanded(study)) if any(k in q for k in TASK_KEYS)}
+    sess_cache = {}
+
+    def session_of(eid):
+        if eid not in sess_cache:
+            try:
+                st_, raw, msg = file_of(eid)
+                sess_cache[eid] = _rs().parse_session_bytes(raw) if st_ == "ok" else None
+            except Exception:
+                sess_cache[eid] = None
+        return sess_cache[eid]
+
+    # observations
+    seen, tags_used = set(), set()
+    for n, o in enumerate(observations):
+        oid = o.get("id")
+        w = "observations.%s" % oid
+        if not ITEM_ID.match(sstr(oid)):
+            E("V-OBS", "observations[%d]" % n, "observation id %r is malformed (lowercase letters, digits, - _)" % oid)
+        elif oid in seen:
+            E("V-OBS", "observations[%d]" % n, "duplicate observation id %r" % oid)
+        seen.add(oid)
+        tags = o.get("tags")
+        tags = tags if isinstance(tags, list) else []
+        for t in tags:
+            if isinstance(t, str) and TAG.match(t):
+                tags_used.add(t)
+            else:
+                E("V-OBS", w, "tag %r is not a lowercase-and-dashes word (a-z, 0-9, -)" % (t,))
+        if not squash(o.get("note")):
+            E("V-OBS", w, "%s has no note — say what was seen or said" % oid)
+        else:
+            for hit in _pii(squash(o.get("note"))):
+                W("W-PII", w, "the note may hold personal data (%s)" % hit)
+        eid = o.get("evidence")
+        row = rows.get(eid)
+        if row is None:
+            E("V-OBS", w, "%s cites evidence %r, which is not stored for this study" % (oid, eid))
+            continue
+        if row.get("dropped"):
+            E("V-OBS", w, "%s cites %s, which was dropped (a participant withdrew)" % (oid, eid))
+            continue
+        stt, raw, msg = file_of(eid)
+        if stt != "ok":
+            E("V-OBS", w, "%s cannot be checked: %s" % (oid, msg))
+            continue
+        if o.get("participant") and row.get("participant") and o["participant"] != row["participant"]:
+            E("V-OBS", w, "%s says participant %s, but %s is %s's" % (oid, o["participant"], eid, row["participant"]))
+        if o.get("task") is not None and task_ids is not None and not _in(o["task"], task_ids):
+            E("V-OBS", w, "%s is about task %r, which this study does not have" % (oid, o["task"]))
+        kinds = [k for k in ("event", "t", "quote") if o.get(k) is not None]
+        if len(kinds) != 1:
+            E("V-OBS", w, "%s must point at its evidence in exactly one way: `event` (an index into the session's events), "
+              "`t` (milliseconds in) or `quote` (verbatim text)" % oid)
+            continue
+        k = kinds[0]
+        if k in ("event", "t"):
+            v = o[k]
+            if isinstance(v, bool) or not isinstance(v, int) or v < 0:
+                E("V-OBS", w, "%s: `%s` must be a whole number, 0 or more" % (oid, k))
+                continue
+            if row.get("kind") == "session":
+                obj = session_of(eid)
+                if obj is None:
+                    E("V-OBS", w, "%s: %s cannot be read as a session" % (oid, eid))
+                elif k == "event" and v >= len(as_list(obj.get("events"))):
+                    E("V-OBS", w, "%s: event %d is out of range — %s has %d events" % (oid, v, eid, len(as_list(obj.get("events")))))
+                elif k == "t" and isinstance(obj.get("durationMs"), int) and v > obj["durationMs"]:
+                    E("V-OBS", w, "%s: t=%d is after the end of the session (%d ms)" % (oid, v, obj["durationMs"]))
+            elif k == "event":
+                E("V-OBS", w, "%s: `event` points into a session; %s is %s evidence — use `quote`" % (oid, eid, row.get("kind")))
+            elif row.get("kind") != "recording":
+                E("V-OBS", w, "%s: `t` points into a session or a recording; %s is %s evidence — use `quote`" % (oid, eid, row.get("kind")))
+        else:
+            quote = squash(o.get("quote"))
+            text = decode_text(raw, sstr(row.get("file")))
+            if text is None:
+                E("V-OBS", w, "%s: %s is a %s pb cannot read — a quote cannot be checked against it" %
+                  (oid, eid, os.path.splitext(sstr(row.get("file")))[1] or "file"))
+            elif quote not in squash(text):
+                E("V-OBS", w, "%s: the quote is not in %s word for word: %r" % (oid, eid, o.get("quote")))
+            if len(quote) < 12:
+                W("W-SHORT-QUOTE", w, "the quote is under 12 characters — it proves little")
+            for hit in _pii(quote):
+                W("W-PII", w, "the quote may hold personal data (%s)" % hit)
+
+    # themes
+    seen = set()
+    for n, t in enumerate(themes):
+        tid = t.get("id")
+        w = "themes.%s" % tid
+        if not ITEM_ID.match(sstr(tid)):
+            E("V-THEME", "themes[%d]" % n, "theme id %r is malformed" % tid)
+        elif tid in seen:
+            E("V-THEME", "themes[%d]" % n, "duplicate theme id %r" % tid)
+        seen.add(tid)
+        if not squash(t.get("title")):
+            E("V-THEME", w, "%s has no title" % tid)
+        if not squash(t.get("insight")):
+            W("W-THEME", w, "%s has no insight — a theme says what the tagged observations add up to" % tid)
+        ttags = as_list(t.get("tags"))
+        if not ttags:
+            E("V-THEME", w, "%s has no tags — a theme is a set of tagged observations" % tid)
+        for g in ttags:
+            if not _in(g, tags_used):
+                E("V-THEME", w, "%s names tag %r, which no observation carries" % (tid, g))
+
+    # issues
+    metrics = _ra().issue_metrics(study, fresh) if fresh is not None else {}
+    seen = set()
+    for n, i in enumerate(issues):
+        iid = i.get("id")
+        w = "issues.%s" % iid
+        if not ITEM_ID.match(sstr(iid)):
+            E("V-ISSUE", "issues[%d]" % n, "issue id %r is malformed" % iid)
+        elif iid in seen:
+            E("V-ISSUE", "issues[%d]" % n, "duplicate issue id %r" % iid)
+        seen.add(iid)
+        if not squash(i.get("title")):
+            E("V-ISSUE", w, "%s has no title" % iid)
+        sev = i.get("severity")
+        if isinstance(sev, bool) or not isinstance(sev, int) or not 0 <= sev <= 4:
+            E("V-ISSUE", w, "%s has severity %r — Nielsen's scale is 0 (not a problem) to 4 (catastrophe)" % (iid, sev))
+            sev = None
+        cited = as_list(i.get("observations"))
+        if not cited:
+            E("V-ISSUE", w, "%s cites no observation — an issue is what its observations show" % iid)
+        for oid in cited:
+            if not _in(oid, obs_ids):
+                E("V-ISSUE", w, "%s cites observation %r, which does not exist" % (iid, oid))
+        if i.get("task") is not None and task_ids is not None and not _in(i["task"], task_ids):
+            E("V-ISSUE", w, "%s is about task %r, which this study does not have" % (iid, i["task"]))
+        if sstr(i.get("screen")) and screen_ids and i["screen"] not in screen_ids:
+            E("V-ISSUE", w, "%s is on screen %r, which is not a screen of this registry" % (iid, i["screen"]))
+        if not squash(i.get("recommendation")):
+            W("W-ISSUE", w, "%s has no recommendation" % iid)
+        m = metrics.get(iid)
+        if sev is not None and sev >= 3 and m and m.get("participants") == 1:
+            W("W-ONE-PARTICIPANT", w, "%s is severity %d and rests on one participant" % (iid, sev))
+
+    # the stored analysis against a fresh one
+    if session:
+        stored = study.get("analysis")
+        have_sessions = any(e.get("kind") == "session" for e in live_evidence(study))
+        if fresh is None:
+            E("V-ANALYSIS", "analysis", "the analysis cannot be recomputed: %s" % why)
+        elif not isinstance(stored, dict):
+            if have_sessions:
+                E("V-ANALYSIS", "analysis", "no analysis is stored — run `analyze %s`" % sid)
+        elif stored.get("inputsHash") != fresh.get("inputsHash"):
+            E("V-ANALYSIS", "analysis", "the analysis is stale: the sessions changed since it was computed (stored n=%s, now n=%s) — "
+              "run `analyze %s`" % (stored.get("n"), fresh.get("n"), sid))
+        elif json.dumps(stored, sort_keys=True) != json.dumps(fresh, sort_keys=True):
+            E("V-ANALYSIS", "analysis", "the stored analysis differs from the one recomputed from the evidence (edited by hand, "
+              "or the instrument or the issues changed since) — run `analyze %s`" % sid)
+        for p, ids in dup_participants([(r, {}) for r in live_evidence(study) if r.get("kind") == "session"]).items():
+            W("W-DUP-PARTICIPANT", "analysis", "%s has %d sessions (%s) — each counts as a separate participant in n"
+              % (p, len(ids), ", ".join(ids)))
+
+    # the report narrative
+    rep = study.get("report")
+    if rep is not None:
+        for p in report_shape_problems(rep):
+            E("V-REPORT", "report", p)
+        iids = {i.get("id") for i in issues}
+        for k, r in enumerate(as_list(as_dict(rep).get("recommendations"))):
+            for x in as_list(as_dict(r).get("issues")):
+                if not _in(x, iids):
+                    E("V-REPORT", "report.recommendations[%d]" % k, "cites issue %r, which does not exist" % (x,))
+
+
+def _expanded(study):
+    """The study with its template questions expanded (a task section's SEQ is a question like any other)."""
+    s = dict(study)
+    try:
+        s["instrument"] = expand_templates(as_dict(study.get("instrument")))
+    except ResearchError:
+        pass
+    return s
 
 
 def _pii(text):
@@ -2577,7 +2840,7 @@ def render_bias_review(study):
                                                               sc.get("max"), squash(sc.get("maxLabel"))))
     if study.get("method") == "tree-test" and as_list(inst.get("tree")):
         # every label of the menu the tasks are about (the tasks are judged against these words); never the answer
-        by_id = {n.get("id"): n for n in as_list(inst.get("tree")) if isinstance(n, dict)}
+        by_id = {n.get("id"): n for n in as_list(inst.get("tree")) if isinstance(n, dict) and isinstance(n.get("id"), str)}
 
         def depth(n, seen=()):
             p = n.get("parent")
@@ -2899,9 +3162,26 @@ def cmd_drop(a):
             os.chmod(path, 0o644)
             os.unlink(path)
         row["dropped"] = {"at": now_iso(), "reason": squash(a.reason)}
+        # a session's screen recording is the same person's: a withdrawal takes it too
+        also = []
+        if row.get("kind") == "session":
+            sess = as_dict(row.get("session")).get("id")
+            for other in as_list(st.get("evidence")):
+                if (isinstance(other, dict) and other.get("kind") == "recording" and sess and other.get("session") == sess
+                        and not other.get("dropped")):
+                    opath = os.path.join(base, *sstr(other.get("file")).split("/"))
+                    if evidence_file(base, a.id, other)[0] == "unsafe":
+                        raise ResearchError("%s points outside the evidence folder — not deleting it" % other.get("file"))
+                    with contextlib.suppress(FileNotFoundError):
+                        os.chmod(opath, 0o644)
+                        os.unlink(opath)
+                    other["dropped"] = {"at": now_iso(), "reason": "with %s: %s" % (a.eid, squash(a.reason))}
+                    also.append(other["id"])
         pbslice._write(a.registry, reg)
-    return ({"dropped": a.eid}, ["dropped %s — the file is deleted, the row and its hash stay; re-run `tally` and `verify`" % a.eid],
-            EXIT_OK)
+    lines = ["dropped %s — the file is deleted, the row and its hash stay; re-run `tally` and `verify`" % a.eid]
+    if also:
+        lines.append("dropped %s too: the recording of the same session" % ", ".join(also))
+    return ({"dropped": a.eid, "alsoDropped": also}, lines, EXIT_OK)
 
 
 def _qtable(tally):
@@ -2958,7 +3238,9 @@ def cmd_tally(a):
 
 def _need_survey(st):
     if st.get("method") != "survey":
-        raise ResearchError("tally is for surveys; %s is an interview" % st.get("id"))
+        raise ResearchError("tally is for surveys; %s is %s%s" % (
+            st.get("id"), "an interview" if st.get("method") == "interview" else "a %s study" % st.get("method"),
+            " — a session study is scored with `analyze`" if st.get("method") in SESSION_METHODS else ""))
 
 
 def cmd_verify(a):
@@ -3150,8 +3432,10 @@ def cmd_refill(a):
                 plan[k] = ((cur.rstrip("\n") + "\n\n" + new) if cur.strip() else new, "appended")
         changed = [k for k, (_t, how) in plan.items() if how != "unchanged"]
         if not changed and st.get("status") == "applied":
-            return ({"refilled": a.id, "changed": [], "noop": True}, ["nothing to do: the insights already hold this text"],
-                    EXIT_OK)
+            rep = regenerate_report(base, st, reg, notes)
+            return ({"refilled": a.id, "changed": [], "noop": True, "report": rep, "warnings": notes},
+                    ["nothing to do: the insights already hold this text"] + (["report regenerated: " + ", ".join(rep)] if rep else [])
+                    + ["warn  %s" % n for n in notes], EXIT_OK)
         stamp = datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
         backup = _unique_dir(os.path.join(base, "memory", "backups", "research-%s-%s" % (a.id, stamp)))
         os.makedirs(backup)
@@ -3169,10 +3453,13 @@ def cmd_refill(a):
         st["status"] = "applied"
         st.setdefault("gates", []).append({"gate": "G-INSIGHT", "at": now_iso(), "note": squash(a.note)})
         pbslice._write(a.registry, reg)
+        rep = regenerate_report(base, st, reg, notes)    # the Draft banner goes: the report is only rewritten if one exists
     lines = ["G-INSIGHT: %s -> meta.userInsights" % a.id] + ["  %s: %s" % (k, plan[k][1]) for k in plan]
     lines += ["warn  %s" % n for n in notes]
+    if rep:
+        lines.append("report regenerated: " + ", ".join(rep))
     return ({"refilled": a.id, "changed": changed, "how": {k: v[1] for k, v in plan.items()},
-             "backup": os.path.relpath(backup, base), "warnings": notes}, lines, EXIT_OK)
+             "backup": os.path.relpath(backup, base), "warnings": notes, "report": rep}, lines, EXIT_OK)
 
 
 def _summary(st):
@@ -3181,35 +3468,524 @@ def _summary(st):
         k = as_dict(h).get("verdict") or "open"
         v[k] = v.get(k, 0) + 1
     ev = [e for e in as_list(st.get("evidence")) if isinstance(e, dict)]
-    return {"id": st.get("id"), "title": st.get("title"), "method": st.get("method"), "status": st.get("status"),
-            "scope": scope_of(st), "audience": st.get("audience"), "evidence": len(ev), "dropped": sum(1 for e in ev if e.get("dropped")),
-            "n": as_dict(st.get("tally")).get("n"), "verdicts": v}
+    out = {"id": st.get("id"), "title": st.get("title"), "method": st.get("method"), "status": st.get("status"),
+           "scope": scope_of(st), "audience": st.get("audience"), "evidence": len(ev), "dropped": sum(1 for e in ev if e.get("dropped")),
+           "n": as_dict(st.get("tally")).get("n"), "verdicts": v}
+    if st.get("method") in SESSION_METHODS:
+        out["methodLabel"] = METHOD_LABELS.get(st.get("method"))
+        out["sessions"] = sum(1 for e in ev if e.get("kind") == "session" and not e.get("dropped"))
+        out["pilots"] = len(as_list(st.get("pilots")))
+        out["issues"] = len(as_list(st.get("issues")))
+        out["headline"] = analysis_headline(st)
+    out["participants"] = len(as_list(st.get("participants")))
+    return out
+
+
+def analysis_headline(st):
+    """One line from the stored analysis (nothing computed here), or None."""
+    an = as_dict(st.get("analysis"))
+    if not an:
+        return None
+    m = st.get("method")
+    n = an.get("n")
+    if m == "usability":
+        s = as_dict(as_dict(an.get("usability")).get("overall")).get("success")
+        sus = as_dict(an.get("usability")).get("sus")
+        bits = ["n=%s" % n, "success %s" % _rate(s)]
+        if sus:
+            bits.append("SUS %s (%s)" % (_f(sus.get("mean"), 1), sus.get("grade")))
+        return " · ".join(bits)
+    if m == "tree-test":
+        tasks = as_dict(as_dict(an.get("treeTest")).get("tasks"))
+        return " · ".join(["n=%s" % n] + ["%s %s" % (t, _pct(as_dict(v.get("success")).get("rate"))) for t, v in tasks.items()])
+    if m == "card-sort":
+        cs = as_dict(an.get("cardSort"))
+        return "n=%s · %s sort · %d cluster(s) at similarity %s" % (n, cs.get("kind"), len(as_list(cs.get("clusters"))), cs.get("threshold"))
+    if m == "first-click":
+        tasks = as_dict(as_dict(an.get("firstClick")).get("tasks"))
+        return " · ".join(["n=%s" % n] + ["%s %s" % (t, _pct(as_dict(v.get("success")).get("rate"))) for t, v in tasks.items()])
+    return None
 
 
 def cmd_list(a):
     reg = load_registry(a.registry)
     rows = [_summary(s) for s in studies_of(reg)]
-    lines = ["%-28s %-9s %-10s %-10s evidence=%d  %s" % (r["id"], r["method"], r["scope"], r["status"], r["evidence"],
-                                                        ", ".join("%s %d" % kv for kv in sorted(r["verdicts"].items())))
-             for r in rows]
+    lines = []
+    for r in rows:
+        line = "%-28s %-11s %-10s %-10s evidence=%d  %s" % (r["id"], r["method"], r["scope"], r["status"], r["evidence"],
+                                                           ", ".join("%s %d" % kv for kv in sorted(r["verdicts"].items())))
+        if "sessions" in r:
+            line += "  [%s: %d session(s), %d pilot(s), %d issue(s)%s]" % (
+                r["methodLabel"], r["sessions"], r["pilots"], r["issues"], " · " + r["headline"] if r.get("headline") else "")
+        lines.append(line)
     return {"studies": rows}, lines or ["no studies yet — `gaps` shows what is unsure, `init` starts one"], EXIT_OK
+
+
+def pipeline(st):
+    """{status: [participant ids]} in tracker order."""
+    out = {}
+    for p in as_list(st.get("participants")):
+        if isinstance(p, dict):
+            out.setdefault(p.get("status") or "invited", []).append(p.get("id"))
+    return out
 
 
 def cmd_show(a):
     reg = load_registry(a.registry)
     st = find_study(reg, a.id)
     s = _summary(st)
-    lines = ["%s — %s" % (st["id"], st.get("title")), "  %s · %s · %s · %s" % (st.get("method"), scope_of(st), st.get("status"), json.dumps(st.get("audience"), ensure_ascii=False)),
+    label = METHOD_LABELS.get(st.get("method"), st.get("method"))
+    lines = ["%s — %s" % (st["id"], st.get("title")), "  %s · %s · %s · %s" % (label, scope_of(st), st.get("status"), json.dumps(st.get("audience"), ensure_ascii=False)),
              "  question: %s" % st.get("question")]
     if squash(st.get("setup")):
         lines.append("  setup: %s" % squash(st["setup"]))
+    plan = as_dict(st.get("plan"))
+    for o in as_list(plan.get("objectives")):
+        lines.append("  objective: %s" % squash(o))
     for h in as_list(st.get("hypotheses")):
         h = as_dict(h)
         lines.append("  %s [%s] %s" % (h.get("id"), h.get("verdict") or "open", h.get("statement")))
     for e in as_list(st.get("evidence")):
         e = as_dict(e)
         lines.append("  %s %s %s%s" % (e.get("id"), e.get("kind"), e.get("file"), " (dropped)" if e.get("dropped") else ""))
+    people = [p for p in as_list(st.get("participants")) if isinstance(p, dict)]
+    if people:
+        lines.append("  participants: " + ", ".join("%s %s" % (k, ",".join(v)) for k, v in pipeline(st).items()))
+    cl = checklist_of(st)
+    if cl:
+        lines.append("  logistics: %d of %d done" % (sum(1 for c in cl if c.get("done")), len(cl)))
+    if "sessions" in s:
+        lines.append("  sessions: %d · pilots: %d · observations: %d · themes: %d · issues: %d" % (
+            s["sessions"], s["pilots"], len(as_list(st.get("observations"))), len(as_list(st.get("themes"))), s["issues"]))
+        if s.get("headline"):
+            lines.append("  analysis: %s" % s["headline"])
     return {"study": st, "summary": s}, lines, EXIT_OK
+
+
+# ── the UX methods: catalog, participants, logistics, kit, link, analysis, report ──
+
+def _f(x, d=2):
+    """A stored number for a table: None is a dash, an int stays an int."""
+    if x is None:
+        return "-"
+    if isinstance(x, bool):
+        return str(x)
+    return str(x) if isinstance(x, int) else "%.*f" % (d, x)
+
+
+def _pct(x):
+    return "-" if isinstance(x, bool) or not isinstance(x, (int, float)) else "%d%%" % int(math.floor(100.0 * x + 0.5))
+
+
+def _rate(s):
+    """'4/5 80% [38%-96%]' from an adjusted-Wald block."""
+    s = as_dict(s)
+    if not s or s.get("n") in (None, 0):
+        return "-"
+    return "%s/%s %s [%s-%s]" % (s.get("x"), s.get("n"), _pct(s.get("rate")), _pct(s.get("low")), _pct(s.get("high")))
+
+
+def _need_session(st, verb):
+    if st.get("method") not in SESSION_METHODS:
+        raise ResearchError("%s is for the session methods (%s); %s is a %s study%s" % (
+            verb, ", ".join(SESSION_METHODS), st.get("id"), st.get("method"),
+            " — a survey is scored with `tally`" if st.get("method") == "survey" else
+            " — an interview is read, then `synthesize`d" if st.get("method") == "interview" else ""))
+
+
+def session_pairs(st, base):
+    """[(evidence row, parsed session)] for every live session row, hash-checked. Raises on a changed or missing file."""
+    rs = _rs()
+    return [(e, rs.load_session(base, e)) for e in live_evidence(st) if e.get("kind") == "session"]
+
+
+def analysis_lines(st, an):
+    """The analysis as tables for the terminal. Every figure is read from the stored analysis."""
+    L = ["%s  n=%s  inputs: %s" % (METHOD_LABELS.get(an.get("method"), an.get("method")), an.get("n"), ", ".join(as_list(an.get("inputs"))) or "none")]
+    for eid, why in sorted(as_dict(an.get("excluded")).items()):
+        L.append("  excluded %s: %s" % (eid, why))
+    m = an.get("method")
+    if m == "usability":
+        u = as_dict(an.get("usability"))
+        L.append("  %-6s %2s  %-24s %-5s %-24s %-6s %-5s %-5s %-6s %-8s %s" % (
+            "task", "n", "success", "asst", "time s (geo mean)", "clicks", "dead", "rage", "errors", "lostness", "SEQ"))
+        for tid, t in as_dict(u.get("tasks")).items():
+            tm, ls, sq = as_dict(t.get("time")), as_dict(t.get("lostness")), as_dict(t.get("seq"))
+            L.append("  %-6s %2s  %-24s %-5s %-24s %-6s %-5s %-5s %-6s %-8s %s" % (
+                tid, t.get("n"), _rate(t.get("success")), t.get("assisted"),
+                "%s [%s-%s] n=%s" % (_f(tm.get("geoMean"), 1), _f(tm.get("low"), 1), _f(tm.get("high"), 1), tm.get("n")) if tm.get("n") else "-",
+                _f(as_dict(t.get("clicks")).get("mean"), 1), _f(as_dict(t.get("deadClicks")).get("total")), _f(t.get("rageClicks")),
+                _f(as_dict(t.get("errors")).get("total")), _f(ls.get("mean")) if ls else "-", _f(sq.get("mean"), 1) if sq else "-"))
+        ov = as_dict(as_dict(u.get("overall")).get("success"))
+        if ov:
+            L.append("  overall success %s" % _rate(ov))
+        sus = u.get("sus")
+        if isinstance(sus, dict):
+            L.append("  SUS  n=%s  mean %s [%s-%s]  grade %s" % (sus.get("n"), _f(sus.get("mean"), 1), _f(sus.get("low"), 1),
+                                                                _f(sus.get("high"), 1), sus.get("grade")))
+    elif m == "tree-test":
+        L.append("  %-6s %3s  %-24s %-24s %-24s %s" % ("task", "n", "success", "direct", "first click", "top destinations"))
+        for tid, t in as_dict(as_dict(an.get("treeTest")).get("tasks")).items():
+            L.append("  %-6s %3s  %-24s %-24s %-24s %s" % (
+                tid, t.get("n"), _rate(t.get("success")), _rate(t.get("direct")), _rate(t.get("firstClick")),
+                ", ".join("%s×%s" % (d.get("node"), d.get("count")) for d in as_list(t.get("destinations"))[:3]) or "-"))
+    elif m == "card-sort":
+        cs = as_dict(an.get("cardSort"))
+        L.append("  %s sort, %d cards, clusters cut at similarity %s" % (cs.get("kind"), len(as_list(cs.get("cards"))), cs.get("threshold")))
+        for i, c in enumerate(as_list(cs.get("clusters")), 1):
+            L.append("  cluster %d: %s" % (i, ", ".join(c)))
+        for k, c in as_dict(cs.get("categories")).items():
+            L.append("  category %-20s used by %s of %s" % (c.get("label") or k, c.get("count"), cs.get("n")))
+    elif m == "first-click":
+        L.append("  %-6s %3s  %-24s %s" % ("task", "n", "success", "time s (median)"))
+        for tid, t in as_dict(as_dict(an.get("firstClick")).get("tasks")).items():
+            L.append("  %-6s %3s  %-24s %s" % (tid, t.get("n"), _rate(t.get("success")), _f(as_dict(t.get("time")).get("median"), 1)))
+    iss = as_dict(an.get("issues"))
+    if iss:
+        L.append("  issues: " + "; ".join("%s %s of %s (frequency %s, priority %s)" % (
+            k, v.get("participants"), an.get("n"), _f(v.get("frequency")), _f(v.get("priority"))) for k, v in iss.items()))
+    tags = as_dict(as_dict(an.get("affinity")).get("tags"))
+    if tags:
+        L.append("  tags: " + ", ".join("%s (%d obs, %d people)" % (k, v.get("observations"), v.get("participants")) for k, v in tags.items()))
+    return L
+
+
+def cmd_analyze(a):
+    base = base_of(a.registry)
+    with locked(a.registry, "research.py analyze") as reg:
+        st = find_study(reg, a.id)
+        _need_session(st, "analyze")
+        pairs = session_pairs(st, base)
+        if not pairs:
+            raise ResearchError("%s has no session evidence to analyse — import a session first "
+                                "(`import %s <file> --kind session --consent yes`)" % (a.id, a.id))
+        analysis = _ra().analyze(st, pairs)
+        st["analysis"] = analysis
+        pbslice._write(a.registry, reg)
+    warns = _dup_warning(dup_participants(pairs))
+    lines = analysis_lines(st, analysis) + ["warn  %s %s: %s" % (w["code"], w["where"], w["msg"]) for w in warns]
+    lines.append("stored in study.analysis (inputsHash %s…); `verify` recomputes it" % analysis["inputsHash"][:12])
+    return {"analysis": analysis, "warnings": warns}, lines, EXIT_OK
+
+
+def cmd_affinity(a):
+    reg = load_registry(a.registry)
+    st = find_study(reg, a.id)
+    aff = _ra().affinity(st)
+    tags = aff["tags"]
+    n_obs = len(as_list(st.get("observations")))
+    lines = ["%s: %d observation(s), %d tag(s)" % (a.id, n_obs, len(tags))]
+    lines += ["  %-24s %2d obs · %d participant(s) · tasks: %s" % (k, v["observations"], v["participants"], ", ".join(v["tasks"]) or "-")
+              for k, v in tags.items()]
+    if not tags:
+        lines.append("  no tagged observations yet — `synthesize` takes {observations: [{id, evidence, event|t|quote, note, tags}]}")
+    return aff, lines, EXIT_OK
+
+
+def cmd_methods(a):
+    cat = _rm().METHOD_CATALOG
+    lines = ["%-19s %-12s %-5s %-24s %s" % ("method", "kind", "data", "minutes", "in pb")]
+    for c in cat:
+        lines.append("%-19s %-12s %-5s %-24s %s" % (c["method"], c["kind"], c["data"], c["minutes"],
+                                                     "runs here" if c.get("runner") else "listed only (field it elsewhere, import the notes)"))
+        lines.append("    answers: %s" % c["answers"])
+        lines.append("    sample:  %s" % c["n"])
+        lines.append("    not for: %s" % c["notFor"])
+    return {"methods": cat}, lines, EXIT_OK
+
+
+def cmd_participant(a):
+    pid = a.pid
+    if not PARTICIPANT_ID.match(pid):
+        raise ResearchError("%r is not a participant code: a pseudonym like P01 (P and two or three digits). Names are never stored." % pid,
+                            EXIT_USAGE)
+    for flag, val in (("--note", a.note), ("--segment", a.segment), ("--role", a.role)):
+        if val:
+            refuse_pii(val, flag)
+    if a.status is not None and a.status not in PARTICIPANT_STATUSES:
+        raise ResearchError("--status %r is not one of %s" % (a.status, ", ".join(PARTICIPANT_STATUSES)), EXIT_USAGE)
+    if a.incentive is not None and a.incentive not in INCENTIVES:
+        raise ResearchError("--incentive %r is not one of %s" % (a.incentive, ", ".join(INCENTIVES)), EXIT_USAGE)
+    if a.at is not None and not ISO_AT.match(a.at):
+        raise ResearchError("--at %r is not a date or a date and time (2026-03-02 or 2026-03-02T14:30)" % a.at, EXIT_USAGE)
+    with locked(a.registry, "research.py participant") as reg:
+        st = find_study(reg, a.id)
+        people = st.get("participants")
+        if not isinstance(people, list):
+            people = st["participants"] = []
+        cur = next((p for p in people if isinstance(p, dict) and p.get("id") == pid), None)
+        if a.remove:
+            if cur is None:
+                raise ResearchError("%s has no participant %s" % (a.id, pid), EXIT_USAGE)
+            held = [e["id"] for e in live_evidence(st) if e.get("participant") == pid]
+            if held:
+                raise ResearchError("%s still has evidence (%s) — a participant who withdrew is set to `withdrawn` and their evidence "
+                                    "dropped with `drop-evidence`; the tracker row stays as the record" % (pid, ", ".join(held)))
+            people.remove(cur)
+            pbslice._write(a.registry, reg)
+            return {"removed": pid}, ["removed %s from %s" % (pid, a.id)], EXIT_OK
+        declared = role_ids(reg)
+        if a.role and declared and a.role not in declared:
+            raise ResearchError("role %s is not declared in meta.roles (%s)" % (a.role, ", ".join(declared)))
+        created = cur is None
+        if created:
+            cur = {"id": pid, "segment": "", "role": "", "status": "invited", "incentive": "none", "pilot": False, "note": ""}
+            people.append(cur)
+        if a.status is not None:
+            cur["status"] = a.status
+        if a.segment is not None:
+            cur["segment"] = squash(a.segment)
+        if a.role is not None:
+            cur["role"] = squash(a.role)
+        if a.at is not None:
+            cur["scheduledAt"] = a.at
+        if a.incentive is not None:
+            cur["incentive"] = a.incentive
+        if a.pilot is not None:
+            cur["pilot"] = a.pilot
+        if a.note is not None:
+            cur["note"] = squash(a.note)
+        held = [e["id"] for e in live_evidence(st) if e.get("participant") == pid]
+        pbslice._write(a.registry, reg)
+    lines = ["%s participant %s in %s: %s%s" % ("added" if created else "updated", pid, a.id, cur["status"],
+                                              " · pilot" if cur.get("pilot") else "")]
+    if cur["status"] in ("withdrawn", "excluded") and held:
+        lines.append("warn  %s still has evidence (%s) — `drop-evidence %s <eid> --reason …` removes it; "
+                     "no further session of theirs is stored" % (pid, ", ".join(held), a.id))
+    return {"participant": cur, "created": created, "evidence": held}, lines, EXIT_OK
+
+
+def cmd_logistics(a):
+    changing = bool(a.done or a.undo or a.add)
+    if changing:
+        with locked(a.registry, "research.py logistics") as reg:
+            st = find_study(reg, a.id)
+            if not checklist_of(st):
+                sync_checklist(st)
+            for iid in a.done or []:
+                if not tick(st, iid, True):
+                    raise ResearchError("%s has no checklist item %r (see `logistics %s`)" % (a.id, iid, a.id), EXIT_USAGE)
+            for iid in a.undo or []:
+                if not tick(st, iid, False):
+                    raise ResearchError("%s has no checklist item %r (see `logistics %s`)" % (a.id, iid, a.id), EXIT_USAGE)
+            if a.add:
+                refuse_pii(a.add, "--add")
+                text = squash(a.add)
+                if not text:
+                    raise ResearchError("--add needs the text of the item", EXIT_USAGE)
+                ids = {c.get("id") for c in checklist_of(st)}
+                base_id, n = "x-" + (slug(text, 40) or "item"), 1
+                new_id = base_id
+                while new_id in ids:
+                    n += 1
+                    new_id = "%s-%d" % (base_id, n)
+                st["logistics"]["checklist"].append({"id": new_id, "text": text, "done": False, "at": None})
+            pbslice._write(a.registry, reg)
+    else:
+        reg = load_registry(a.registry)
+        st = find_study(reg, a.id)
+    cl = checklist_of(st)
+    if not cl:
+        cl = [dict(c) for c in _rm().default_checklist(st.get("method"), as_dict(st.get("instrument")).get("mode", "moderated"))]
+    sched = as_dict(as_dict(st.get("plan")).get("schedule"))
+    pipe = pipeline(st)
+    lines = ["%s — logistics: %d of %d done" % (a.id, sum(1 for c in cl if c.get("done")), len(cl))]
+    lines += ["  [%s] %-22s %s" % ("x" if c.get("done") else " ", c.get("id"), c.get("text")) for c in cl]
+    lines.append("participants:")
+    for status in PARTICIPANT_STATUSES:
+        if status in pipe:
+            lines.append("  %-10s %d  %s" % (status, len(pipe[status]), ", ".join(pipe[status])))
+    if not pipe:
+        lines.append("  none yet — `participant %s P01 --status invited`" % a.id)
+    if sched:
+        lines.append("schedule: %s to %s, %s minutes per session" % (sched.get("start", "-"), sched.get("end", "-"), sched.get("sessionMinutes", "-")))
+    when = [(p.get("scheduledAt"), p.get("id")) for p in as_list(st.get("participants")) if isinstance(p, dict) and p.get("scheduledAt")]
+    lines += ["  %s  %s" % (w, pid) for w, pid in sorted(when)]
+    return {"checklist": cl, "pipeline": pipe, "schedule": sched,
+            "done": sum(1 for c in cl if c.get("done")), "total": len(cl)}, lines, EXIT_OK
+
+
+def cmd_pilots(a):
+    reg = load_registry(a.registry)
+    st = find_study(reg, a.id)
+    pilots = [p for p in as_list(st.get("pilots")) if isinstance(p, dict)]
+    lines = ["%s: %d pilot session(s) — never evidence, left out of every number" % (a.id, len(pilots))]
+    lines += ["  %s  %s  %s  %s%s" % (p.get("sessionId"), p.get("participant"), p.get("at"), p.get("file"),
+                                      "  + %d recording(s)" % len(as_list(p.get("media"))) if as_list(p.get("media")) else "") for p in pilots]
+    if pilots:
+        lines.append("replay one at /research/%s/replay/pilot-<sessionId> on the preview server (`link`)" % a.id)
+    return {"pilots": pilots}, lines, EXIT_OK
+
+
+def _project_path(base, out):
+    """An --out path, absolute, refused when it leaves the project folder (a symlink in it included)."""
+    root = os.path.realpath(base)
+    path = os.path.abspath(out if os.path.isabs(out) else os.path.join(os.getcwd(), out))
+    real = os.path.realpath(os.path.dirname(path))
+    if real != root and not real.startswith(root + os.sep):
+        raise ResearchError("--out %s is outside the project (%s) — pick a path inside it" % (out, base), EXIT_USAGE)
+    if os.path.islink(path):
+        raise ResearchError("%s is a symlink — refusing to write through it" % out)
+    return path
+
+
+def cmd_kit(a):
+    rs = _rs()
+    base = base_of(a.registry)
+    reg = load_registry(a.registry)
+    st = find_study(reg, a.id)
+    if st.get("method") not in SESSION_METHODS:
+        raise ResearchError("%s is a %s study; a participant kit is for %s" % (a.id, st.get("method"), ", ".join(SESSION_METHODS)))
+    html = rs.build_page(a.registry, a.id, "kit", pilot=bool(a.pilot))
+    if a.out:
+        path = _project_path(base, a.out)
+        rel = os.path.relpath(path, base)
+    else:
+        rel = "%s/kit/%s-kit.html" % (study_rel(a.id), a.id)
+        ensure_dir(base, study_rel(a.id))
+        ensure_dir(base, study_rel(a.id) + "/kit")
+        path = under(base, rel)
+        if os.path.islink(path):
+            raise ResearchError("%s is a symlink — refusing to write through it" % rel)
+    pbslice.atomic_write_text(path, html)
+    size = os.path.getsize(path)
+    rec = as_dict(as_dict(st.get("instrument")).get("recording"))
+    ask = "screen and voice recording is asked for (the participant can say no)" if rec.get("screen") or rec.get("voice") else "no recording is asked for"
+    lines = ["kit for %s%s: %s (%d KB)" % (a.id, " (pilot)" if a.pilot else "", rel, size // 1024),
+             "SEND: this one file. It runs from the participant's own disk — open it in a current Chrome or Edge (screen recording needs one). "
+             "It carries the prototype and the tasks only: no hypotheses, no answers; nothing is uploaded — the results come back as files.",
+             "ASK: the participant types a code you give them (P01, P02…, never a name); %s." % ask,
+             "BACK: at the end the page offers a download of the session file (<…>.pbsession.json)%s. They send it to you by any private channel." % (
+                 ", and the recording (.webm) if they agreed" if rec.get("screen") or rec.get("voice") else ""),
+             "IMPORT: `import %s <file>.pbsession.json --kind session --consent yes`%s" % (
+                 a.id, ", then `import %s <file>.webm --kind recording --session <sessionId> --consent yes`" % a.id if rec.get("screen") or rec.get("voice") else ""),
+             "A pilot run (--pilot) is stored as a pilot: it is never evidence and never counted."]
+    return {"kit": rel, "path": path, "bytes": size, "pilot": bool(a.pilot)}, lines, EXIT_OK
+
+
+def preview_base(a, start=True):
+    """(base url, started) of this registry's /pb:preview server; starts one unless start=False. Reuses explore.py's finder."""
+    ex = _explore()
+    reg_path = os.path.abspath(a.registry)
+    base_dir = os.path.dirname(reg_path)
+    rec = ex.server_record(base_dir)
+    if rec and ex._ours(rec["url"].rstrip("/"), reg_path):
+        return rec["url"].rstrip("/"), False
+    if not start:
+        return None, False
+    try:
+        rec = ex._start_server(reg_path, managed=True)
+    except Exception as e:
+        raise ResearchError("the preview server could not be started: %s" % e)
+    return rec["url"].rstrip("/"), True
+
+
+def cmd_link(a):
+    rs = _rs()
+    reg = load_registry(a.registry)
+    st = find_study(reg, a.id)
+    if st.get("method") not in SESSION_METHODS:
+        raise ResearchError("%s is a %s study; a session link is for %s" % (a.id, st.get("method"), ", ".join(SESSION_METHODS)))
+    if not a.pilot:
+        if st.get("status") == "draft":
+            raise ResearchError("%s is still a draft — approve it (G-STUDY) first, or open a pilot session with --pilot" % a.id)
+        if scope_of(st) == "instrument":
+            raise ResearchError("%s has scope `instrument`: no sessions are expected (a pilot may still run: --pilot)" % a.id)
+    if a.participant and not PARTICIPANT_ID.match(a.participant):
+        raise ResearchError("--participant %r is not a pseudonym like P01" % a.participant, EXIT_USAGE)
+    base, started = preview_base(a)
+    q = []
+    if a.participant:
+        q.append("p=" + a.participant)
+    if a.pilot:
+        q.append("pilot=1")
+    qs = ("?" + "&".join(q)) if q else ""
+    url = "%s/research/%s/session%s" % (base, a.id, qs)
+    obs_url = "%s/research/%s/observer%s" % (base, a.id, qs) if a.observer else None
+    ex = _explore()
+    problems = []
+    for label, u in (("session page", url), ("observer page", obs_url)):
+        if not u:
+            continue
+        code, _body = ex._get(u, timeout=60)
+        if code != 200:
+            problems.append("the %s did not answer 200 at %s (HTTP %s)%s" % (
+                label, u, code, " — the preview server may predate the research routes: `serve.py --stop`, then run `link` again" if code in (404, None) else ""))
+    if a.open and not problems:
+        import webbrowser
+        webbrowser.open(obs_url or url)
+        if obs_url:
+            webbrowser.open(url)
+    lines = ["session: %s" % url] + (["observer: %s" % obs_url] if obs_url else [])
+    lines += ["replay later: %s/research/%s/replay/<eid>" % (base, a.id)]
+    lines += ["problem: " + p for p in problems]
+    if started:
+        lines.append("(started the preview server for this project)")
+    return ({"url": url, "observer": obs_url, "started": started, "problems": problems, "ok": not problems},
+            lines, EXIT_FAIL if problems else EXIT_OK)
+
+
+def regenerate_report(base, st, reg, notes=None):
+    """Rewrite report.md / report.html when a report already exists for this study; the files written ([] when none).
+    A refusal to write (a symlink in the way) is a note, not a failure: the gate it follows has already been recorded."""
+    rel = "%s/report/report.md" % study_rel(st["id"])
+    if not os.path.isfile(os.path.join(base, *rel.split("/"))):
+        return []
+    try:
+        return write_report(base, st, reg)
+    except (ResearchError, OSError) as e:
+        if notes is None:
+            raise
+        notes.append("the report was not regenerated: %s" % e)
+        return []
+
+
+def write_report(base, st, reg):
+    rr = _rr()
+    sid = st["id"]
+    ensure_dir(base, study_rel(sid))
+    ensure_dir(base, study_rel(sid) + "/report")
+    written = []
+    for name, text in (("report.md", rr.report_md(st, reg)), ("report.html", rr.report_html(st, reg))):
+        rel = "%s/report/%s" % (study_rel(sid), name)
+        path = under(base, rel)
+        if os.path.islink(path):
+            raise ResearchError("%s is a symlink — refusing to write through it" % rel)
+        pbslice.atomic_write_text(path, text)
+        written.append(rel)
+    return written
+
+
+def cmd_report(a):
+    base = base_of(a.registry)
+    reg = load_registry(a.registry)
+    st = find_study(reg, a.id)
+    errs, warns = verify_study(reg, copy_study(st), base)
+    if errs:
+        raise ResearchError("report refused: verify has %d error(s) — a report states only what verifies" % len(errs),
+                            data={"errors": errs, "warnings": warns})
+    if st.get("status") not in ("analysed", "applied"):
+        raise ResearchError("%s is %s — synthesize it cleanly (status analysed) before a report" % (a.id, st.get("status")))
+    with locked(a.registry, "research.py report") as reg2:           # re-read inside the lock: the report is of what is stored now
+        st2 = find_study(reg2, a.id)
+        written = write_report(base, st2, reg2)
+    url = None
+    note = ""
+    try:
+        pb, _s = preview_base(a, start=False)
+    except Exception:                       # no preview to point at is not a reason to lose the report
+        pb = None
+    if pb:
+        url = "%s/research/%s/report" % (pb, a.id)
+        code, _b = _explore()._get(url, timeout=30)
+        if code != 200:
+            note = " (the running preview answered HTTP %s there — restart it to load the research routes)" % code
+    lines = ["report for %s%s:" % (a.id, "" if st2.get("status") == "applied" else " — Draft until G-INSIGHT (`refill --approved`)")]
+    lines += ["  " + w for w in written]
+    if url:
+        lines.append("  open: %s%s" % (url, note))
+    lines += ["warn  %s %s: %s" % (w["code"], w["where"], w["msg"]) for w in warns]
+    return {"report": written, "url": url, "status": st2.get("status"), "warnings": warns}, lines, EXIT_OK
 
 
 # ── main ─────────────────────────────────────────────────────────────────────
@@ -3239,11 +4015,15 @@ def build_parser():
     p.add_argument("--segment", default="")
     p.add_argument("--target", action="append")
     p.add_argument("--target-n", type=int)
+    p.add_argument("--mode", choices=MODES, help="session methods: how it will be run (default moderated); sets the logistics checklist")
     p = sp("scope", "id")
     p.add_argument("--scope", choices=SCOPES)
     p.add_argument("--setup")
     p = sp("plan", "id")
     p.add_argument("--file", required=True)
+    p = sp("brief", "id")
+    p.add_argument("--file", required=True, help="the research plan: {background, objectives, researchQuestions, decision, methodRationale, "
+                                                 "participants, recruitment, schedule, team, materials, risks, timeline, budget}")
     sp("check", "id")
     sp("review-plan", "id")
     p = sp("review", "id")
@@ -3262,24 +4042,54 @@ def build_parser():
     p.add_argument("--date")
     p.add_argument("--drop-columns", default="")
     p.add_argument("--keep-pii", action="store_true")
+    p.add_argument("--session", help="with --kind recording: the sessionId (s-…) of the stored session this recording belongs to")
     p = sp("drop-evidence", "id", "eid")
     p.add_argument("--reason", required=True)
     p = sp("tally", "id")
     p.add_argument("--by")
+    p = sp("analyze", "id")
+    sp("affinity", "id")
     p = sp("synthesize", "id")
     p.add_argument("--file", required=True)
     sp("verify", "id")
     p = sp("refill", "id")
     p.add_argument("--approved", action="store_true")
     p.add_argument("--note", default="")
+    sp("report", "id")
+    sp("methods")
+    p = sp("participant", "id", "pid")
+    p.add_argument("--status", help="|".join(PARTICIPANT_STATUSES))
+    p.add_argument("--segment")
+    p.add_argument("--role")
+    p.add_argument("--at", help="when it is scheduled: 2026-03-02 or 2026-03-02T14:30")
+    p.add_argument("--incentive", help="|".join(INCENTIVES))
+    p.add_argument("--pilot", dest="pilot", action="store_true", default=None)
+    p.add_argument("--no-pilot", dest="pilot", action="store_false", default=None)
+    p.add_argument("--note")
+    p.add_argument("--remove", action="store_true")
+    p = sp("logistics", "id")
+    p.add_argument("--done", action="append", metavar="ID")
+    p.add_argument("--undo", action="append", metavar="ID")
+    p.add_argument("--add", metavar="TEXT")
+    sp("pilots", "id")
+    p = sp("kit", "id")
+    p.add_argument("--out", help="write the kit here (inside the project) instead of memory/research/<id>/kit/")
+    p.add_argument("--pilot", action="store_true", help="a kit for a rehearsal: its session is stored as a pilot, never as evidence")
+    p = sp("link", "id")
+    p.add_argument("--observer", action="store_true", help="also print (and check) the facilitator's observer window")
+    p.add_argument("--participant", help="prefill the participant code, e.g. P01")
+    p.add_argument("--pilot", action="store_true")
+    p.add_argument("--open", action="store_true", help="open it in the browser")
     sp("list")
     sp("show", "id")
     return ap
 
 
-COMMANDS = {"gaps": cmd_gaps, "seed": cmd_seed, "init": cmd_init, "scope": cmd_scope, "plan": cmd_plan,
+COMMANDS = {"gaps": cmd_gaps, "seed": cmd_seed, "init": cmd_init, "scope": cmd_scope, "plan": cmd_plan, "brief": cmd_brief,
             "check": cmd_check, "review-plan": cmd_review_plan, "review": cmd_review, "approve": cmd_approve, "export": cmd_export, "import": cmd_import, "drop-evidence": cmd_drop,
-            "tally": cmd_tally, "synthesize": cmd_synthesize, "verify": cmd_verify, "refill": cmd_refill,
+            "tally": cmd_tally, "analyze": cmd_analyze, "affinity": cmd_affinity, "synthesize": cmd_synthesize, "verify": cmd_verify,
+            "refill": cmd_refill, "report": cmd_report, "methods": cmd_methods, "participant": cmd_participant,
+            "logistics": cmd_logistics, "pilots": cmd_pilots, "kit": cmd_kit, "link": cmd_link,
             "list": cmd_list, "show": cmd_show}
 
 

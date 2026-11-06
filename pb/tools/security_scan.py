@@ -231,6 +231,21 @@ def _is_design_key(where, text, key=None):
     return False
 
 
+_HASH_VALUE = re.compile(r"[0-9a-f]{64}")
+
+
+def _is_hash_key(where, text, key=None):
+    """A sha256 digest a tool recorded on purpose — an evidence row's `sha256`, a session's `consent.textSha256`, an
+    analysis's `inputsHash` — is public by design: the key's name says so AND the value is exactly 64 hex."""
+    if _HASH_VALUE.fullmatch(text.strip()) is None:
+        return False
+    segs = _where_keys(where) + ([key] if key else [])
+    if not segs:
+        return False
+    last = _normalize_key(segs[-1])
+    return last.endswith(("sha256", "hash"))
+
+
 def _wordy(blob):
     """True when most of a blob is made of words (an identifier or a path), not random bytes."""
     words = sum(len(w) for w in re.findall(r"[A-Z]?[a-z]{4,}", blob))
@@ -350,6 +365,13 @@ def scan_text(add, text, where):
             if (whole or quoted) and _is_design_key(
                     where, blob, None if whole else _key_before(body, m.start())):
                 continue
+        elif len(blob) == 64:
+            whole = body.strip() == blob
+            quoted = (not whole and m.start() > 0 and body[m.start() - 1] in "\"'"
+                      and body[m.end():m.end() + 1] == body[m.start() - 1])
+            if (whole or quoted) and _is_hash_key(
+                    where, blob, None if whole else _key_before(body, m.start())):
+                continue
         has_letter = re.search(r"[a-fA-F]", blob) is not None
         has_digit = re.search(r"[0-9]", blob) is not None
         if has_letter and has_digit and _entropy(blob) >= 3.0:
@@ -457,9 +479,45 @@ def _read_text(file_path, label):
         return None
 
 
-def _scan_file(add, file_path, label):
+EVIDENCE_PREFIX = 8192                   # how much of an evidence file is looked at to tell text from a recording
+WEBM_MAGIC = b"\x1a\x45\xdf\xa3"         # the EBML header every WebM (and Matroska) file starts with
+
+
+def _read_evidence_text(file_path, label):
+    """The text of one file under memory/research/<study>/evidence/, or None with one `note:` on stderr that says
+    why it was skipped. Evidence can hold a screen recording a gigabyte long: the file is opened, a bounded prefix
+    is read, and a WebM (EBML magic), a binary or a non-UTF-8 file is skipped there; a text file past MAX_BYTES is
+    skipped without being read; nothing past MAX_BYTES is ever read."""
+    try:
+        size = os.path.getsize(file_path)
+        with open(file_path, "rb") as f:
+            head = f.read(EVIDENCE_PREFIX)
+            if head.startswith(WEBM_MAGIC):
+                print(f"note: {label}: skipped, a WebM recording (not text)", file=sys.stderr)
+                return None
+            if b"\0" in head:
+                print(f"note: {label}: skipped, a binary file (not text)", file=sys.stderr)
+                return None
+            if size > MAX_BYTES:
+                print(f"note: {label}: skipped, {size / 1048576:.1f} MB is over the "
+                      f"{MAX_BYTES // 1048576} MB limit", file=sys.stderr)
+                return None
+            raw = head + f.read(MAX_BYTES - len(head) + 1)
+    except OSError:
+        return None
+    if len(raw) > MAX_BYTES:                       # grew while it was read
+        print(f"note: {label}: skipped, over the {MAX_BYTES // 1048576} MB limit", file=sys.stderr)
+        return None
+    try:
+        return raw.decode("utf-8")
+    except UnicodeDecodeError:
+        print(f"note: {label}: skipped, not UTF-8 text", file=sys.stderr)
+        return None
+
+
+def _scan_file(add, file_path, label, reader=None):
     """Scan one file: a .json is walked leaf by leaf (so a key's name counts), the rest as text."""
-    text = _read_text(file_path, label)
+    text = (reader or _read_text)(file_path, label)
     if text is None:
         return
     if label.lower().endswith(".json"):
@@ -528,6 +586,7 @@ def scan(reg, base_dir):
 
     # 4) research evidence: memory/research/<study>/evidence/… — what participants said, kept as
     #    raw files outside the registry, is where a real name or phone number is likeliest to land.
+    #    A screen recording (.webm) lives there too: _read_evidence_text skips it, saying so, and never reads it whole.
     research_root = os.path.join(base_dir, "memory", "research")
     for dirpath, dirnames, filenames in os.walk(research_root):
         dirnames.sort()
@@ -538,7 +597,7 @@ def scan(reg, base_dir):
             if file_path in done or os.path.islink(file_path):
                 continue
             done.add(file_path)
-            _scan_file(add, file_path, os.path.relpath(file_path, base_dir).replace(os.sep, "/"))
+            _scan_file(add, file_path, os.path.relpath(file_path, base_dir).replace(os.sep, "/"), _read_evidence_text)
 
     return findings
 
