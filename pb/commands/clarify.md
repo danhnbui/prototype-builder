@@ -196,18 +196,18 @@ and N agents given one job list converge on one grouping.
    Never ask "which do you like?" — a preference cannot be acted on; a pattern of scores can.
 
 ## ▛ G-IA — human gate ▟
-**STOP.** Wait for the scores on the page. Silence is not approval. Every message sent while waiting,
+**STOP.** Wait for the user's pick on the page (scores there are optional). Silence is not approval. Every message sent while waiting,
 and the verdict, ends with the URL from `$T link <ia-id>`.
-1. `$T gate <ia-id>` — exit 0 only when every criterion × grouping is scored. **No verdict before it
-   passes.**
-2. **The verdict, from the pattern** (`ref-ia` §5), not the total: name the grouping the scores
+1. `$T gate <ia-id>` — reports which criterion × grouping cells are unscored (it always exits 0). **Scores are
+   optional**: do not hold the verdict for them.
+2. **The verdict, from the pattern** (`ref-ia` §5) when scores exist, not the total: name the grouping the scores
    favour, say so when two lock for different roles or devices, and give **one sentence per rejected
    grouping** on what it taught. Then ask the user to confirm the pick — never make it for them.
 3. **Coverage low on every grouping** means the jobs are wrong: `$T reject <ia-id>` and return to
    **G-JTBD**, which re-opens. A re-run of §1c re-opens G-IA; an approval does not outlive its artifact.
 4. **A mixed pick** ("opt-1's tabs with opt-3's overlays") is not a pick. Add it as its own slot —
    `$T slot <ia-id> opt-merge --label "…"` — write its `.ia.json`, `check` it, and have it scored
-   beside the plain pick. Only a single, scored slot is promoted.
+   beside the plain pick. Only a single slot is promoted.
 5. **Promote the pick, or reject.** *Line by line* (`${CLAUDE_PLUGIN_ROOT}/docs/canon.md`): once the user has
    confirmed the pick and **before** `promote`, write the chosen grouping's screens as the site map, **one
    call per node** and parents before children — `slice.py set ia sitemap.<screen-id> --create-list` with the patch
@@ -403,7 +403,7 @@ the chosen IA into tasks. **Do not render.**
 - NEVER write `ia.layers[]` membership, edges or overlays — they are derived from the hub and the
   render bodies.
 - NEVER pick for the user, at either gate — present, then wait. Silence is not approval.
-- NEVER state a G-IA verdict before `gate` passes, and NEVER promote a mixed pick.
+- NEVER wait on scores before a G-IA verdict (they are optional), and NEVER promote a mixed pick.
 - NEVER hand the groupings to sub-agents, and NEVER author N with one scheme, or N that differ only in
   labels.
 

@@ -314,6 +314,18 @@ issues, a `</script>` page-killer, raw hex/px, a missing `danger` token). This i
 `--strict` and **fail-closed** at `/pb:handoff` before any render,
 so fixing findings now avoids a blocked exit later.
 
+## 4.7 · Re-run the stale scenarios (once per build turn, advisory)
+After a trio write that changed a screen or component — **once per build turn, not per patch** — keep
+the verdicts from going stale. If the preview is running (`python3 "${CLAUDE_PLUGIN_ROOT}/tools/serve.py" --status`)
+and Playwright is available, for each touched screen run:
+```
+python3 "${CLAUDE_PLUGIN_ROOT}/tools/test_run.py" registry.json --functional --stale --screen <id>
+```
+Only scenarios that touch that screen and have no result, or whose recorded inputs changed, run; none
+selected prints `0 scenarios selected (nothing stale)` and launches no browser. **Skip silently** when
+the preview is not running or Playwright is absent. It **never blocks** the build; report a failure in
+one line (`✗ checkout: 1 scenario failed — /pb:test --functional`).
+
 ## 5 · Render — batched, deterministic, on demand only
 Rendering is the deterministic generator — **never** hand-write HTML (the G0.5 spike proved that is
 ~2–3× worse). From the project root:

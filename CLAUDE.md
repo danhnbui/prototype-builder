@@ -105,7 +105,8 @@ card that owns the CTA — no dead controls. (Replaces the old `meta-tag`/`meta-
   and **every control lives in the Sandbox inspector** — there is no page header here, and
   no caption or footer under the frames (the devices are named in the Sandbox; each frame keeps an
   accessible name). **Phone and tablet frames are scaled to fit whole**, with a 32px inset (24px under 900px tall),
-  recomputed on resize and when the inspector is pinned; laptop and monitor are unchanged, and Compare keeps its
+  recomputed on resize and when the inspector is pinned; laptop and monitor keep their true size (never scaled) inside
+  the same inset, their width following the viewport below the device's width, and Compare keeps its
   one shared transform. **R resets the session** — never while typing in a field, never with Cmd/Ctrl held
   (Cmd+R is reload), never on the other tabs, and not on key-repeat.
   *Conditions (the Sandbox's first section):* a **Browser | App | None** chrome toggle (`meta.shell` default; browser = a Chrome window
@@ -146,6 +147,8 @@ card that owns the CTA — no dead controls. (Replaces the old `meta-tag`/`meta-
   the only writer of `lastResult`). **Explore** is disabled, with its reason and `/pb:explore <id>`, until a round
   is open. **Reset session** sits in the footer, last, after everything it resets; with entries declared it returns to the active entry (screen, role, person, seed), as declared rather than to a `?role=` override.
   *The bar.* The **project button** at the left (initials square + short name + chevron; initials only below 600px)
+  — and a bar too full for its words, measured (`pbBarFit`), drops the tool items' labels, then the step name, then
+  the project name, and its tabs scroll sideways, so the items on the right never paint over the tabs
   opens a menu: **Project settings…** · theme · version. **Project settings** edits the project name, the
   **design-system name (required)**, the **Figma file (optional — a figma.com file/design link)** and the **theme**
   (System / Light / Dark, per viewer). A save goes through `POST /api/meta` on `/pb:preview` — loopback and
