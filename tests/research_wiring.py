@@ -7,7 +7,6 @@ research_wiring.py — the research slice as seen by every OTHER tool. research_
      quiet on a clean study and on a project with no research, and never fails --strict
   3. security_scan.py reads evidence files (a planted key in a transcript is found) and skips the
      other folders under memory/research/
-  4. handoff_docs.py cites a finding on the rule it names, and carries no raw evidence text
   5. clean.py --apply with every keep flag leaves memory/research/ byte-identical
   6. report.py's facts carry nothing from a transcript
 
@@ -26,8 +25,10 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 TOOLS = os.path.join(ROOT, "pb", "tools")
 sys.path.insert(0, TOOLS)
 
-import handoff_docs  # noqa: E402
 import security_scan  # noqa: E402
+
+sys.path.insert(0, os.path.join(ROOT, "pb", "migrations"))
+from manifest import CURRENT_SCHEMA  # noqa: E402
 
 FAIL = []
 MARKER = "the-courier-said-this-only-in-the-raw-file"
@@ -65,7 +66,7 @@ def project(tmp):
     with open(os.path.join(ev_dir, "e1-p01.txt"), "w", encoding="utf-8") as f:
         f.write("I always collect the cash first. " + MARKER + "\n")
     reg = {
-        "meta": {"name": "Parcel demo", "schemaVersion": 13, "roles": [{"id": "courier"}]},
+        "meta": {"name": "Parcel demo", "schemaVersion": CURRENT_SCHEMA, "roles": [{"id": "courier"}]},
         "tokens": {}, "components": [], "screens": [],
         "ia": {"populated": True,
                "jobs": [{"id": "pay-cod", "roles": ["courier"], "priority": "P1", "when": "a parcel arrives",
@@ -144,11 +145,6 @@ def main():
             f.write("aws_access_key_id = " + PLANTED + "\n")
         check(not any("note.txt" in f.where for f in security_scan.scan(reg, tmp)), "only evidence/ folders are read")
         os.remove(elsewhere)
-
-        print("4 · handoff_docs")
-        rules = handoff_docs.build_rules_md(reg, {"ia": reg["ia"], "rules": reg["ia"]["rules"]})
-        check("**Evidence** — Couriers collect cash before handing over. (`rs-cod`)" in rules, "rules.md cites the finding on its rule")
-        check(MARKER not in rules, "…and carries nothing from the raw file")
 
         print("5 · clean.py")
         research_dir = os.path.join(tmp, "memory", "research")

@@ -3,8 +3,8 @@
 logic_shape.py (tests) — prose rules name the visual they would become.
 
 Pins pb/tools/logic_shape.py (suggest / suggest_all / CLI), the L-SHAPE information finding in
-logic_check.py, BLOCK_REQUIRES covering every block type, and handoff_docs rendering every block
-type of the generic fixture (fixtures/logic/registry.json) without error.
+logic_check.py, and BLOCK_REQUIRES covering every block type, against the generic fixture
+(fixtures/logic/registry.json).
 
 Stdlib only. Usage: python3 tests/logic_shape.py   ·   Exit 0 = pass · 1 = a failure
 """
@@ -17,7 +17,6 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(ROOT, "pb", "tools"))
 import logic_shape as LS    # noqa: E402
 import logic_check as LC    # noqa: E402
-import handoff_docs as HD   # noqa: E402
 
 FAIL = []
 
@@ -124,21 +123,6 @@ p = run(FIX, "--rule", "reminder-flow")
 check(p.returncode == 0 and "lifecycle" in p.stdout, "--rule prints one rule")
 p = run(FIX, "--rule", "snap-nothing")
 check(p.returncode == 0 and "no shape" in p.stdout, "an unknown rule prints nothing found")
-
-print("handoff_docs.py — every block type renders")
-for r in rules:
-    for b in r.get("blocks", []):
-        try:
-            md = "\n".join(HD._block_md(b))
-            check(len(md.strip()) > 0, "%s block -> markdown" % b["type"])
-        except Exception as e:                                       # noqa: BLE001
-            check(False, "%s block raised %s: %s" % (b["type"], type(e).__name__, e))
-md = HD.build_rules_md(reg, {"rules": rules, "ia": reg["ia"]})
-for needle in ("guard: Editor or Admin", "back to: Review lines", "Outcome", "Tie-break", "Last resort", "stays disabled until",
-               "Toast", "invented", "Scoped to:** one order", "Field:", "Split:", "Rows are roles", "Otherwise", "Retries on reconnect",
-               "Late fee", "Interaction states"):
-    check(needle in md, "rules.md carries %r" % needle)
-check(HD.build_rules_md(reg, {"rules": rules, "ia": reg["ia"]}) == md, "rules.md is deterministic")
 
 print("\n%s" % ("FAIL: %d" % len(FAIL) if FAIL else "PASS"))
 sys.exit(1 if FAIL else 0)

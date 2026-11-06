@@ -37,8 +37,9 @@ non-obvious.
    tweaks are roughly break-even. The win is in structural edits and multi-tweak sessions, where a
    compact registry stays resident in context and an HTML monolith cannot.
 2. **Python 3 stdlib is the only runtime.** No pip install on the core path — render, preview,
-   check and update-version are stdlib-only. Playwright (`/pb:test`) and Node/npm (`/pb:handoff --tier=host`)
-   are the two isolated exceptions, and both degrade cleanly when absent.
+   check and update-version are stdlib-only. Playwright (`/pb:test`) is the one isolated exception, and
+   it degrades cleanly when absent. (Node/npm was the second, at `/pb:handoff --tier=host`, until that
+   tier was retired in v3.0.0.)
 3. **An existing project must never break.** Renames ship an alias *and* a migration; schema
    changes are additive; removal waits for a major release.
 4. **The core is design-system agnostic.** No DS is hardcoded. Tokens are neutral, icons are
@@ -240,8 +241,9 @@ What the design is deliberately bad at. These are accepted, not undiscovered.
 
 ## Open questions
 
-- **The `hardened` export tier** (`/pb:handoff --tier=hardened`, idiomatic / DS-integrated) is
-  deferred with no owner or date.
+- **The `hardened` export tier** (idiomatic / DS-integrated) is no longer an open question: the
+  whole engineering hand-off (mode 2 and `--tier`) was retired in v3.0.0, and front-end developers are
+  served by mode 4 tickets.
 - **`staleness` removal** is queued behind the next major release.
 - **[docs/architecture.md](docs/architecture.md) was stale** — *refreshed 2026-09-20* to the v2.0.0
   layout: the plugin tree now carries `agents/` · `skills/` · `migrations/` and both shells, and the

@@ -146,10 +146,6 @@ flowchart TD
     CX1["export bundle:<br/>registry.json + design-system/ +<br/>memory/constitution.md + memory/decisions.md"]
     CX1 --> CX2["/pb:init --import &lt;bundle&gt; ingests it<br/>into a fresh project"]
   end
-  subgraph val["/pb:handoff --tier=host"]
-    V1["--render first"] --> V2["scaffold Vite (or --next):<br/>package.json + config + index.html = prototype"]
-    V2 --> V3["npm install && npm run build (exit 0)<br/>+ npm run preview"]
-  end
 ```
 
 - **`--people`** renders, flips `config.viewOnly` + writes `config.cover`, and re-renders — the
@@ -157,7 +153,7 @@ flowchart TD
   non-builders.
 - **`--context`** exports a portable bundle (registry + DS + the why-log + the locks) that
   `/pb:init --import` ingests to continue the work elsewhere.
-- **`/pb:handoff --tier=host`** renders first, scaffolds a runnable Vite/Next build from `prototype.html`, and
-  confirms `npm run build` exits 0.
+- The engineering hand-off that used to follow (mode 2, with `--tier=host` wrapping `prototype.html` in a
+  runnable Vite/Next build) was retired in v3.0.0. Front-end developers get mode 4 tickets instead.
 
-Both hand-off modes and validate **render first** — never hand off or scaffold from a stale view.
+Every hand-off mode **renders first** — never hand off from a stale view.

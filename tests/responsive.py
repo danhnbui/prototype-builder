@@ -15,7 +15,7 @@ the fix and the rules around it:
   4. lint: R-STYLE-MEDIA (size @media), R-STYLE-SCOPE (unscoped selector), R-PX in a sheet but not in
      an @container prelude, R-STYLESRC, and R-RESPONSIVE for false / true-with-a-screen-that-never-
      adapts (null is /pb:build's question, so it stays silent — an older project's CI stays green)
-  5. the React scaffold carries the same sheet (src/product.css) and a pb-screen root
+  5. (retired with the engineering hand-off: the React scaffold no longer exists)
   6. the tool at 390px: the design-system site does not scroll sideways, its tree folds behind a
      toggle; the prototype's clipped tab strip says so (is-clip-r) and the last tab is reachable
 
@@ -54,7 +54,6 @@ def _load(stem, path):
 sys.path.insert(0, TOOLS)
 render = _load("render", os.path.join(TOOLS, "render.py"))
 lint = _load("lint_registry", os.path.join(TOOLS, "lint_registry.py"))
-react = _load("render_react", os.path.join(TOOLS, "render_react.py"))
 
 SHEET = """/* login: one column compact, a probe that names the size class */
 .s-login { --probe-size: compact; }
@@ -149,14 +148,6 @@ def main():
         os.remove(sheet_p)
         check(bool(codes(lint.check(reg, base_dir=proj), "R-STYLESRC")), "a missing sheet → R-STYLESRC")
         open(sheet_p, "w", encoding="utf-8").write(SHEET)
-
-        print("5 · the React scaffold")
-        out = os.path.join(tmp, "scaffold")
-        react.emit(reg_p, out, screen="login")
-        pcss = open(os.path.join(out, "src", "product.css"), encoding="utf-8").read()
-        app = open(os.path.join(out, "src", "App.jsx"), encoding="utf-8").read()
-        check("--probe-size: expanded" in pcss and "container: pb-screen" in pcss, "src/product.css carries the sheet")
-        check("product.css" in app and "proto-screen" in app, "App imports it under a pb-screen root")
 
         try:
             from playwright.sync_api import sync_playwright

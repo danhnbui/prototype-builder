@@ -191,6 +191,12 @@
 }
 .pb-id b { font-family: var(--pb-mono); font-size: var(--pb-t-sm); color: var(--pb-ink-3); font-weight: var(--pb-w-bold); }
 .pb-tabs { display: flex; align-items: stretch; gap: var(--pb-s5); min-width: 0; }
+/* From 900px up the bar shows labels, and there the tabs keep their width: when the bar is too full,
+   the right-hand end gives way (its keyboard hint first — see the narrow-bar rules below), never the
+   tabs. With min-width: 0 the strip shrank under its own nowrap buttons and the end group slid over
+   them, so a click on a tab landed on a bar item (CI's Linux "Ctrl K" hint tipped it at 1280px).
+   Below 900px the end is glyphs only and the strip may shrink and scroll, as before. */
+@media (min-width: 900px) { .pb-tabs { flex: none; } }
 
 /* L1 — an underlined text tab. "Go somewhere else." */
 .pb-tab {
@@ -546,6 +552,7 @@ dialog.pb-dlg::backdrop { background: var(--pb-scrim); }
 
 /* Narrow bars: the project button keeps its square + chevron; a bar item that has a glyph keeps
    only the glyph (its aria-label and title still name it). */
+@media (max-width: 1439px) { .pb-bar-item .pb-kbd { display: none; } }
 @media (max-width: 899px) { .pb-bar-item .pb-bar-lb, .pb-bar-item .pb-kbd { display: none; } }
 @media (max-width: 599px) { .pb-pj-nm { display: none; } .pb-cmdk-f-r { display: none; } }
 

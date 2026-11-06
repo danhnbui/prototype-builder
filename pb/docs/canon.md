@@ -138,7 +138,7 @@ device frames are `<div>`s in one document, so even a real `@media` rule answere
 - **Size classes:** **compact** < 600px (mobile) · **medium** 600–1023px (tablet) · **expanded**
   ≥ 1024px (laptop, monitor).
 - **Mechanism.** Every place a project renders is a container named `pb-screen` — the prototype's
-  `.proto-screen`, the design system's demo stage and variant cells, the React scaffold's root. A
+  `.proto-screen`, the design system's demo stage and variant cells. A
   component/screen that changes across sizes carries `styleSrc` → `render/styles/<id>.css`, scoped to
   its root class (`.c-<id>` / `.s-<id>`), written as **`@container pb-screen (…)` — never `@media`**.
   `product.css` (the plugin's `template/`) adds `r-compact` · `r-medium-up` · `r-expanded-up` ·
@@ -156,7 +156,7 @@ device frames are `<div>`s in one document, so even a real `@media` rule answere
 An inline `style=""` cannot hold a breakpoint, so a component or screen that changes across device sizes
 carries an optional `styleSrc` → `render/styles/<id>.css`. `render.py` emits `template/product.css` (the
 size-class utilities) and then every sheet, components before screens, into one
-`<style id="pb-product-css">` in both sites and in the React scaffold. A sheet styles its own root class,
+`<style id="pb-product-css">` in both sites. A sheet styles its own root class,
 `.c-<id>` for a component and `.s-<id>` for a screen, and uses **`@container pb-screen (min-width: …)`,
 never `@media`**: the device frames are `<div>`s in one document, so `@media` answers the browser window,
 not the frame. Utilities: `r-compact` · `r-medium-up` · `r-expanded-up` · `r-below-expanded` (show only in
@@ -510,7 +510,8 @@ empty state, not a schema bump. The method is in the `ref-research` skill; these
   write to the project's prose is the approved `refill` into `meta.userInsights`, with a citation and a
   backup.
 - **Hand-off.** Mode 1 (everything) carries `memory/research/` in the bundle, since the recipient keeps
-  building. Mode 2 (engineering) carries only the findings and verdicts in the registry, **never raw
-  evidence**: participants' words do not leave the team that has their consent. Mode 3 (Figma) carries none.
+  building. Modes 3 (Figma) and 4 (tickets) carry none, and never raw
+  evidence: participants' words do not leave the team that has their consent. (Mode 2, engineering, was
+  retired in v3.0.0.)
 - **`/pb:clean` never prunes it.** Evidence is the one thing in `memory/` that exists to outlive the
   tool's housekeeping; removing it is a human act, on a named study.

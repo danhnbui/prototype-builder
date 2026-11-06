@@ -212,7 +212,11 @@ def run():
             sys.exit(2)
 
         def open_page(srv, path=""):
-            page = browser.new_page(viewport={"width": 1280, "height": 720})
+            # Always as a non-Mac browser: the bar's search hint reads "Ctrl K" there, wider than "⌘K",
+            # and that width is what pushed the bar's end group over the tabs in CI but never on a Mac.
+            page = browser.new_page(viewport={"width": 1280, "height": 720},
+                                    user_agent="Mozilla/5.0 (X11; Linux x86_64)")
+            page.add_init_script("Object.defineProperty(navigator, 'platform', {get: () => 'Linux x86_64'})")
             offline(page)
             page.errors = []
             page.loads = []

@@ -56,8 +56,10 @@ print("5 · /pb:handoff writes handoff/ + AGENTS template ships")
 hc = open(os.path.join(CMDS, "handoff.md"), encoding="utf-8").read()
 check("handoff/" in hc and "bundle/" in hc and "AGENTS.md" in hc,
       "handoff mode 1 names handoff/ + bundle/ + AGENTS.md")
-check("handoff-dev/" in hc and "logic.md" in hc and "rules.md" in hc,
-      "handoff mode 2 names handoff-dev/ + the two Markdown docs")
+check("handoff/tickets" in hc and "ticket.py" in hc,
+      "handoff mode 4 names handoff/tickets/ + ticket.py")
+check("${CLAUDE_PLUGIN_ROOT}/tools/handoff_docs.py" not in hc and "${CLAUDE_PLUGIN_ROOT}/tools/render_react.py" not in hc,
+      "handoff no longer invokes the removed engineering tools (mode 2 may be named only as retired)")
 check("G-FP6" in hc and "registry_to_figma.py" in hc,
       "handoff mode 3 kept the Figma gates and the deterministic lowering")
 check(os.path.isfile(os.path.join(ROOT, "pb", "template", "AGENTS.template.md")), "pb/template/AGENTS.template.md")

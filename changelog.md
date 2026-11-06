@@ -2,9 +2,25 @@
 
 All notable changes to Product Builder. Format follows [Keep a Changelog](https://keepachangelog.com/).
 
-## [Unreleased]
+## [3.0.0] — 2026-11-06
 
-*Additive, no schema change. The preview's bar gains a second inspection tool beside Pick, after Solum Studio's.*
+*Planned as **v3.0.0**, a major: `/pb:handoff` mode 2 (engineering) and `--tier` are removed (see **Breaking**
+below). No schema change. `/pb:handoff` gains a fourth audience, front-end developers who build from tickets, and
+the hand-off is now three audiences: everything, Figma and tickets. The preview's bar gains a second inspection
+tool beside Pick, after Solum Studio's.*
+
+- **`/pb:handoff` mode 4 — tickets for front-end developers.** Tickets were improvised session by session and came
+  out different each time: no template, written from prose memory files rather than the registry, edits made in
+  Notion never came back, numbering broke when one was deleted, annotations rebuilt from scratch. Now they live in
+  the project under `handoff/tickets/`, one file each, in one template: Context · Scope · Solution · States · Edge
+  cases · Roles · Data & logic · Accessibility · Acceptance · Open · Document · Handoff notes. Solution takes one of
+  four shapes (`--kind journey|component|rules|region`); Document is a prototype deep link plus exactly one evidence
+  form, a `flow` step capture or an `annotation` table. Ids are stable (`T-<slug>`), so a deleted ticket never
+  renumbers the rest. `tools/ticket.py lint` (TK-FRONT · TK-ID · TK-TITLE · TK-SECTION · TK-EMPTY · TK-STATES ·
+  TK-DEP · TK-REF · TK-LOGIC · TK-DOC · TK-INTERNAL, and TK-STALE as a warning) gates the publish, and `stale` lists
+  the tickets whose registry sources changed. Publishing to Notion or Jira is **one-way**: the command fetches the
+  existing page first and stops to ask if it was edited there since the last publish, pull those edits in or
+  overwrite. New flags `--ticket <ID>` and `--publish notion|jira|none`; `--mode=4` (alias `tickets`).
 
 - **Spacing mode.** A **Spacing** button after Pick in the bar (or **M**) draws a hairline dashed outline round every
   element of the preview and, for the one under the pointer, its margin, padding and flex/grid gap as tinted bands,
@@ -16,6 +32,52 @@ All notable changes to Product Builder. Format follows [Keep a Changelog](https:
   with `min-height: 40px` centring a 28px title showed nothing for its 6px above and below. That room is now drawn
   as a fourth band, hatched in its own cyan (`--pb-spec-free`, #0e7490): never grey, which melted into the
   product's own borders and fills.
+- **The bar's right-hand end no longer covers the tabs.** With Spacing added, the end group (progress, Search,
+  Pick, Spacing, Sandbox) grew wider than the room left at 1280px on a non-Mac browser, whose search hint reads
+  `Ctrl K` rather than `⌘K`, and slid over the tab strip, so a click on **UX Design** landed on a bar item. The
+  tabs now keep their width, and below 1440px the keyboard hint is dropped first; labels go only below 900px, as
+  before.
+
+### Breaking — the engineering hand-off (mode 2) is removed
+
+- **`/pb:handoff` mode 2, "For engineering", is gone, completely.** The hand-off is now three audiences:
+  **1** everything (including a vendored Product Builder) · **3** Figma · **4** tickets for front-end developers.
+  Mode numbers are **not renumbered**, so Figma stays `--mode=3` (the design-system site's Push-to-Figma prompt
+  uses it) and the number 2 is not reused.
+- **What was deleted with it.** The `handoff-dev/` output folder, with `logic.md` and `rules.md`
+  (`tools/handoff_docs.py`) and the copied `constitution.md`; `--tier=host` (the Vite/Next wrapper around
+  `prototype.html`), `--tier=scaffold` (the React + Tailwind app from `tools/render_react.py`) and the never-built
+  `--tier=hardened`; and the skill `design-component-export`. The skill count is 18.
+- **Why.** Mode 4 tickets are the developer path: one ticket per buildable slice, written from the registry and
+  the logic contract, linted, and published to the tools developers work in. A folder of generated Markdown and a
+  mechanical React scaffold gave an engineer more to read and nothing to build from, and the scaffold was never
+  idiomatic code. `design-system.html` still exists: `/pb:build` still renders it and `/pb:preview` still serves it
+  at `/design-system`. It is no longer a hand-off artifact on its own.
+- **Retired flags, and what to use instead.** `--mode=2` and `--mode=dev` → `--mode=4` (`tickets`) for developers,
+  or `--mode=1` (`all`) for a full working copy. `--tier=host`, `--tier=scaffold` and `--tier=hardened` have no
+  replacement, and neither does `/pb:validate` (retired in v2.0.0 and pointed at `--tier=host`). Running any of them
+  now prints the retirement note and asks the question again; nothing is written.
+- **`meta.outputTier` and `meta.exportTarget` are inert.** New projects' registry template no longer has them. An
+  existing registry keeps them harmlessly: nothing reads or writes them, and there is no migration and no schema
+  change (the schema stays 13).
+
+### Upgrading
+
+No schema step and no registry change; `/pb:update-version` has nothing to do for this release. These change as soon
+as the plugin updates:
+
+- **Replace the retired hand-off in your own scripts and notes.** `/pb:handoff --mode=2`, `--mode=dev` and
+  `--tier=…` no longer produce anything. Developers who will build the front end: `/pb:handoff --mode=4` (tickets).
+  Someone who must keep working on the prototype itself: `/pb:handoff --mode=1`. Figma is unchanged, `--mode=3`.
+- **A `handoff-dev/` folder you already generated is not touched.** It is plain files and keeps working as a
+  snapshot, but nothing regenerates it. Delete it, or keep it as the last engineering hand-off you sent.
+- **The developer reference that mode 2 gave is gone.** There is no `logic.md` or `rules.md` to regenerate; the same
+  facts live in the Logic and Information Architecture segments of the prototype and in each mode-4 ticket's
+  *Data & logic* section. `design-system.html` remains the component reference, served live by `/pb:preview`.
+- **`/pb:validate` and `--tier` have no replacement.** If a CI job or script ran `--tier=host` to prove the
+  prototype built, drop that step.
+- **`meta.outputTier` and `meta.exportTarget` in an existing registry can stay or be deleted by hand.** Neither is
+  read any more.
 
 ## [2.6.2] — 2026-11-04
 
