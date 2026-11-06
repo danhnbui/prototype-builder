@@ -90,6 +90,10 @@ import urllib.parse
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
+if __name__ == "__main__":
+    # research_analysis does `import research`: give it THIS module, not a second copy with a ResearchError
+    # of its own that main() would not catch.
+    sys.modules.setdefault("research", sys.modules[__name__])
 
 import security_scan  # noqa: E402
 # The registry's write path (advisory lock + atomic write). importlib because `import slice` would
@@ -100,18 +104,29 @@ EXIT_OK, EXIT_FAIL, EXIT_USAGE = 0, 1, 2
 
 STUDY_ID = re.compile(r"^rs-[a-z0-9-]+\Z")
 ITEM_ID = re.compile(r"^[a-z][a-z0-9_-]*\Z")
-METHODS = ("survey", "interview")
+METHODS = ("survey", "interview", "usability", "tree-test", "card-sort", "first-click")
+SESSION_METHODS = ("usability", "tree-test", "card-sort", "first-click")    # these produce `session` evidence
+METHOD_LABELS = {"survey": "Survey", "interview": "Interview", "usability": "Usability test", "tree-test": "Tree test",
+                 "card-sort": "Card sort", "first-click": "First-click test"}
 STATUSES = ("draft", "approved", "fielding", "analysed", "applied")
 TARGET_KINDS = ("job", "story", "rule", "screen", "component", "feature")
 PURPOSES = ("screener", "warmup", "main", "task", "closing")
 QTYPES = ("single", "multi", "scale", "number", "text")
-EVIDENCE_KINDS = ("responses", "transcript", "notes", "recording", "other")
+EVIDENCE_KINDS = ("responses", "transcript", "notes", "recording", "session", "other")
 CONSENTS = ("yes", "unknown")
 VERDICTS = ("supported", "refuted", "mixed", "inconclusive")
 REFILL_KEYS = ("quantitative", "researchSummary", "executiveSummary")
 TEXT_EXTS = (".csv", ".tsv", ".txt", ".md", ".markdown", ".json", ".vtt", ".srt", ".log")
 OTHER = "(other)"
-DEFAULT_N = {"survey": 30, "interview": 5}
+DEFAULT_N = {"survey": 30, "interview": 5, "usability": 5, "tree-test": 50, "card-sort": 15, "first-click": 30}
+MODES = ("moderated", "unmoderated", "both")
+PARTICIPANT_ID = re.compile(r"^P[0-9]{2,3}\Z")
+PARTICIPANT_STATUSES = ("invited", "screened", "scheduled", "done", "no-show", "withdrawn", "excluded")
+INCENTIVES = ("due", "paid", "none")
+TAG = re.compile(r"^[a-z0-9][a-z0-9-]*\Z")
+DATE = re.compile(r"^\d{4}-\d{2}-\d{2}\Z")
+ISO_AT = re.compile(r"^\d{4}-\d{2}-\d{2}(?:[T ]\d{2}:\d{2}(?::\d{2})?(?:Z|[+-]\d{2}:?\d{2})?)?\Z")
+ROUTES = ("clarify", "explore", "build", "none")
 GAP_BASE = 30
 SCOPES = ("instrument", "collect")
 TEMPLATES = ("ces", "seq", "csat", "nps", "sus")
@@ -185,6 +200,29 @@ def sha256_bytes(b):
 def slug(s, n=60):
     s = re.sub(r"[^a-z0-9]+", "-", key(s)).strip("-")
     return s[:n].strip("-")
+
+
+# The four UX modules are imported on first use, never at load: research_session and research_analysis reach
+# back into this module (lazily, too), so a top-level import here would be a cycle.
+
+def _rs():
+    return importlib.import_module("research_session")
+
+
+def _ra():
+    return importlib.import_module("research_analysis")
+
+
+def _rr():
+    return importlib.import_module("research_report")
+
+
+def _rm():
+    return importlib.import_module("research_methods")
+
+
+def _explore():
+    return importlib.import_module("explore")
 
 
 # ── registry access ──────────────────────────────────────────────────────────
@@ -369,7 +407,7 @@ def safe_name(path):
 
 def decode_text(raw, name):
     """The text of a text file (UTF-8, BOM tolerated), or None for a file that is opaque to pb."""
-    if os.path.splitext(name)[1].lower() not in TEXT_EXTS or b"\x00" in raw:
+    if raw is None or os.path.splitext(name)[1].lower() not in TEXT_EXTS or b"\x00" in raw:
         return None
     try:
         return raw.decode("utf-8-sig")
@@ -470,14 +508,36 @@ def evidence_file(base, sid, row):
     try:
         if os.path.islink(path):
             return "unsafe", None, "%s is a symlink" % rel
-        raw = read_nofollow(path)
+        if row.get("kind") == "recording":      # a video can be a gigabyte: hash it in pieces, hand back no bytes
+            digest = hash_file(path)
+            raw = None
+        else:
+            raw = read_nofollow(path)
+            digest = sha256_bytes(raw)
     except FileNotFoundError:
         return "missing", None, "%s is missing from disk" % rel
     except OSError as e:
         return "unsafe", None, "%s cannot be read (%s)" % (rel, e.strerror or e)
-    if sha256_bytes(raw) != sstr(row.get("sha256")):
+    if digest != sstr(row.get("sha256")):
         return "mismatch", None, "%s no longer matches its recorded sha256 — it was changed after import" % rel
     return "ok", raw, ""
+
+
+def hash_file(path):
+    """sha256 of a regular file, read in 1 MiB pieces and never through a symlink."""
+    fd = os.open(path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
+    try:
+        if not stat.S_ISREG(os.fstat(fd).st_mode):
+            raise OSError("not a regular file")
+        h = hashlib.sha256()
+        while True:
+            b = os.read(fd, 1 << 20)
+            if not b:
+                break
+            h.update(b)
+        return h.hexdigest()
+    finally:
+        os.close(fd)
 
 
 def live_evidence(study):
@@ -816,6 +876,262 @@ def _check_template(q, tpl, where, E, W):
           "translated wording is not validated, so its score is not comparable with published norms" % (qid, tpl))
 
 
+TASK_KEYS = ("task", "tree", "click")            # what makes a session-method question a task
+CRITERIA_KEYS = ("screen", "text", "present", "absent")
+DEVICES = ("monitor", "laptop", "tablet", "mobile")
+SORT_KINDS = ("open", "closed", "hybrid")
+
+
+def _check_criteria(qid, w, crit, screens, E):
+    if not isinstance(crit, list) or not crit:
+        E("C-TASK", w, "%s: task.criteria is a non-empty list of {screen|text|present|absent: …}" % qid)
+        return
+    for i, c in enumerate(crit):
+        if not isinstance(c, dict) or not c:
+            E("C-TASK", w, "%s: task.criteria[%d] must be an object such as {\"screen\": \"handover\"}" % (qid, i))
+            continue
+        bad = sorted(set(c) - set(CRITERIA_KEYS))
+        if bad:
+            E("C-TASK", w, "%s: task.criteria[%d] has unknown key(s) %s (known: %s)" % (qid, i, ", ".join(bad), ", ".join(CRITERIA_KEYS)))
+        for k in CRITERIA_KEYS:
+            if k in c and not squash(c[k] if isinstance(c[k], str) else ""):
+                E("C-TASK", w, "%s: task.criteria[%d].%s must be a non-empty string" % (qid, i, k))
+        if isinstance(c.get("screen"), str) and c["screen"] and c["screen"] not in screens:
+            E("C-TASK", w, "%s: task.criteria[%d] names screen %r, which is not a screen of this registry" % (qid, i, c["screen"]))
+
+
+def _check_usability_task(qid, w, tk, screens, E):
+    """The usability additions to a task object (the screen / role / entry / success checks are shared with interviews)."""
+    if "criteria" in tk:
+        _check_criteria(qid, w, tk["criteria"], screens, E)
+    if "optimalPath" in tk:
+        op = tk["optimalPath"]
+        if not (isinstance(op, list) and op and all(isinstance(s, str) and s for s in op)):
+            E("C-TASK", w, "%s: task.optimalPath is a non-empty list of screen ids" % qid)
+        else:
+            for s in op:
+                if s not in screens:
+                    E("C-TASK", w, "%s: task.optimalPath names screen %r, which is not a screen of this registry" % (qid, s))
+    if "timeLimitSec" in tk:
+        t = tk["timeLimitSec"]
+        if isinstance(t, bool) or not isinstance(t, int) or t < 1:
+            E("C-TASK", w, "%s: task.timeLimitSec is a whole number of seconds, 1 or more" % qid)
+
+
+def _check_tree(inst, E):
+    """C-TREE for the tree itself. Returns the set of node ids (empty when the tree is unusable)."""
+    tree = inst.get("tree")
+    if not (isinstance(tree, list) and tree):
+        E("C-TREE", "instrument", "a tree test needs instrument.tree: a non-empty list of {id, label, parent}")
+        return set()
+    ids, labels = [], []
+    for i, n in enumerate(tree):
+        w = "instrument.tree[%d]" % i
+        if not isinstance(n, dict):
+            E("C-TREE", w, "a tree node must be an object {id, label, parent}")
+            continue
+        nid = n.get("id")
+        if not ITEM_ID.match(sstr(nid)):
+            E("C-TREE", w, "node id %r is malformed (lowercase letters, digits, - _)" % nid)
+        elif nid in ids:
+            E("C-TREE", w, "duplicate node id %r" % nid)
+        ids.append(nid)
+        if not squash(n.get("label")):
+            E("C-TREE", w, "node %s has no label" % nid)
+        labels.append(nid)
+    idset = {i for i in ids if isinstance(i, str)}
+    parent = {}
+    for i, n in enumerate(tree):
+        if not isinstance(n, dict):
+            continue
+        p = n.get("parent")
+        if p is None:
+            continue
+        if not isinstance(p, str) or p not in idset:
+            E("C-TREE", "instrument.tree[%d]" % i, "node %s has parent %r, which is not a node of the tree" % (n.get("id"), p))
+        elif p == n.get("id"):
+            E("C-TREE", "instrument.tree[%d]" % i, "node %s is its own parent" % p)
+        else:
+            parent[n.get("id")] = p
+    for start in sorted(parent):
+        seen, cur = set(), start
+        while cur in parent and cur not in seen:
+            seen.add(cur)
+            cur = parent[cur]
+        if cur in seen:
+            E("C-TREE", "instrument.tree", "the tree has a cycle through node %s" % start)
+            break
+    return idset
+
+
+def _check_cards(reg, inst, hyp_ids, tested, E, W):
+    cards = inst.get("cards")
+    if not isinstance(cards, list):
+        E("C-CARDS", "instrument", "a card sort needs instrument.cards: a list of {id, label}")
+        cards = []
+    ids, labels = set(), set()
+    jobs = {j.get("id") for j in jobs_of(reg)}
+    for i, c in enumerate(cards):
+        w = "instrument.cards[%d]" % i
+        if not isinstance(c, dict):
+            E("C-CARDS", w, "a card must be an object {id, label, job?}")
+            continue
+        cid = c.get("id")
+        if not ITEM_ID.match(sstr(cid)):
+            E("C-CARDS", w, "card id %r is malformed (lowercase letters, digits, - _)" % cid)
+        elif cid in ids:
+            E("C-CARDS", w, "duplicate card id %r" % cid)
+        ids.add(cid)
+        lk = key(c.get("label"))
+        if not lk:
+            E("C-CARDS", w, "card %s has no label" % cid)
+        elif lk in labels:
+            E("C-CARDS", w, "two cards are labelled %r" % squash(c.get("label")))
+        labels.add(lk)
+        if c.get("job") and jobs and c["job"] not in jobs:
+            W("W-CARDS", w, "card %s names job %r, which is not in ia.jobs" % (cid, c["job"]))
+    if len(cards) < 4:
+        E("C-CARDS", "instrument.cards", "a card sort needs at least 4 cards (has %d)" % len(cards))
+    elif not 10 <= len(cards) <= 60:
+        W("W-CARDS", "instrument.cards", "%d cards — a sort is steadiest between 10 and 60" % len(cards))
+    sort = inst.get("sort")
+    if not isinstance(sort, dict):
+        E("C-SORT", "instrument", "a card sort needs instrument.sort: {kind: open|closed|hybrid, categories?, tests?}")
+        return
+    kind = sort.get("kind")
+    if kind not in SORT_KINDS:
+        E("C-SORT", "instrument.sort", "sort kind %r is not one of %s" % (kind, "|".join(SORT_KINDS)))
+    cats = sort.get("categories")
+    cats = cats if isinstance(cats, list) else []
+    cat_ids = set()
+    for i, c in enumerate(cats):
+        w = "instrument.sort.categories[%d]" % i
+        if not isinstance(c, dict) or not ITEM_ID.match(sstr(c.get("id"))) or not squash(c.get("label")):
+            E("C-SORT", w, "a category is {id, label} with a lowercase id and a label")
+        elif c["id"] in cat_ids:
+            E("C-SORT", w, "duplicate category id %r" % c["id"])
+        else:
+            cat_ids.add(c["id"])
+    if kind in ("closed", "hybrid") and len(cat_ids) < 2:
+        E("C-SORT", "instrument.sort", "a %s sort needs at least 2 categories" % kind)
+    tests = sort.get("tests", [])
+    if not isinstance(tests, list):
+        E("C-SORT", "instrument.sort", "sort.tests must be a list of hypothesis ids")
+        tests = []
+    for h in tests:
+        if h not in hyp_ids:
+            E("C-TESTS", "instrument.sort", "the sort tests %r, which is not a hypothesis of this study" % h)
+        else:
+            tested.add(h)
+
+
+def _check_click(qid, w, ck, screens, E):
+    if not isinstance(ck, dict):
+        E("C-CLICK", w, "%s: click must be an object {screen, target?, rect?}" % qid)
+        return
+    if ck.get("screen") not in screens:
+        E("C-CLICK", w, "%s: click screen %r is not a screen of this registry" % (qid, ck.get("screen")))
+    has_target = bool(squash(ck["target"] if isinstance(ck.get("target"), str) else ""))
+    rect = ck.get("rect")
+    if not has_target and rect is None:
+        E("C-CLICK", w, "%s: click needs a `target` (a selector) and/or a `rect` (fractions of the screen)" % qid)
+    if "target" in ck and not has_target:
+        E("C-CLICK", w, "%s: click.target must be a non-empty string" % qid)
+    if rect is not None:
+        ok = isinstance(rect, dict) and all(isinstance(rect.get(k), (int, float)) and not isinstance(rect.get(k), bool)
+                                            for k in ("x", "y", "w", "h"))
+        if not ok:
+            E("C-CLICK", w, "%s: click.rect is {x, y, w, h}, each a fraction of the screen (0 to 1)" % qid)
+        elif not (0 <= rect["x"] <= 1 and 0 <= rect["y"] <= 1 and 0 < rect["w"] <= 1 and 0 < rect["h"] <= 1
+                  and rect["x"] + rect["w"] <= 1.0000001 and rect["y"] + rect["h"] <= 1.0000001):
+            E("C-CLICK", w, "%s: click.rect must lie within the screen (0 to 1 in both directions)" % qid)
+
+
+def _check_task_object(qid, w, tk, screens, declared_roles, entry_ids, E):
+    """The task object shared by interviews and usability tests. Returns it (an empty dict when it was not one)."""
+    if not isinstance(tk, dict):
+        E("C-TASK", w, "%s: task must be an object" % qid)
+        tk = {}
+    if tk.get("screen") not in screens:
+        E("C-TASK", w, "%s: task screen %r is not a screen of this registry" % (qid, tk.get("screen")))
+    if tk.get("role") and declared_roles and tk["role"] not in declared_roles:
+        E("C-TASK", w, "%s: task role %r is not declared in meta.roles" % (qid, tk["role"]))
+    if tk.get("entry") and tk["entry"] not in entry_ids:
+        E("C-TASK", w, "%s: task entry %r is not in meta.demo.entries" % (qid, tk["entry"]))
+    if not squash(tk.get("success")):
+        E("C-TASK", w, "%s: a task needs `success` — what done looks like" % qid)
+    return tk
+
+
+def _check_typed(q, qid, w, E):
+    """A question answered on a form in a session (warm-up, post-task, closing): its type, options and scale."""
+    typ = q.get("type")
+    if typ is None:
+        return
+    if typ not in QTYPES:
+        E("C-TYPE", w, "%s has type %r, not one of %s" % (qid, typ, "|".join(QTYPES)))
+        return
+    if typ in ("single", "multi"):
+        ol = as_list(q.get("options"))
+        if len(ol) < 2 or not all(isinstance(o, str) and squash(o) for o in ol):
+            E("C-OPTIONS", w, "%s (%s) needs at least 2 non-empty options" % (qid, typ))
+        elif len({key(o) for o in ol}) != len(ol):
+            E("C-OPTIONS", w, "%s has duplicate options" % qid)
+    if typ == "scale":
+        sc = q.get("scale")
+        lo, hi = (sc.get("min"), sc.get("max")) if isinstance(sc, dict) else (None, None)
+        if not (isinstance(lo, (int, float)) and isinstance(hi, (int, float)) and lo < hi):
+            E("C-SCALE", w, "%s is a scale without numeric min < max" % qid)
+
+
+def _check_session_instrument(reg, study, inst, purposes, hyp_ids, tested, E, W):
+    """The instrument-level rules of the four session methods (mode, recording, device, tree, cards, sort)."""
+    method = study.get("method")
+    mode = inst.get("mode", "moderated")
+    if mode not in MODES:
+        E("C-MODE", "instrument", "instrument.mode %r is not one of %s" % (mode, "|".join(MODES)))
+        mode = "moderated"
+    if "thinkAloud" in inst and not isinstance(inst["thinkAloud"], bool):
+        E("C-MODE", "instrument", "instrument.thinkAloud must be true or false")
+    if "recording" in inst:
+        rec = inst["recording"]
+        if not isinstance(rec, dict) or sorted(set(rec) - {"screen", "voice"}) or \
+                not all(isinstance(v, bool) for v in rec.values()):
+            E("C-RECORDING", "instrument", "instrument.recording is {screen: true|false, voice: true|false}")
+        elif rec.get("voice") and not rec.get("screen"):
+            W("W-RECORDING", "instrument", "voice without screen: the runner records the screen and, with it, the voice")
+    if "device" in inst:
+        dev = inst["device"]
+        declared = [d for d in as_list(as_dict(reg.get("meta")).get("devices")) if isinstance(d, str)]
+        if dev not in DEVICES:
+            E("C-DEVICE", "instrument", "instrument.device %r is not one of %s" % (dev, "|".join(DEVICES)))
+        elif declared and dev not in declared:
+            W("W-DEVICE", "instrument", "device %s is not in meta.devices (%s)" % (dev, ", ".join(declared)))
+    if method == "usability" and "warmup" not in purposes:
+        if mode in ("moderated", "both"):
+            E("C-WARMUP", "instrument", "a moderated usability test needs a warmup section (context questions before the tasks)")
+        else:
+            W("W-WARMUP", "instrument", "no warmup section — the participant starts the first task cold")
+    inst_tree = None
+    if method == "tree-test":
+        inst_tree = _check_tree(inst, E)
+    elif method == "card-sort":
+        _check_cards(reg, inst, hyp_ids, tested, E, W)
+    return inst_tree
+
+
+def _check_plan_for_session(study, E, W):
+    plan = as_dict(study.get("plan"))
+    if not [x for x in as_list(plan.get("objectives")) if squash(x)]:
+        E("C-PLAN", "plan", "a session study needs plan.objectives — `brief %s --file …` writes the research plan" % study.get("id"))
+    if not [x for x in as_list(plan.get("researchQuestions")) if squash(x)]:
+        E("C-PLAN", "plan", "a session study needs plan.researchQuestions")
+    for label, ok in (("schedule", bool(as_dict(plan.get("schedule")))), ("recruitment", bool(as_dict(plan.get("recruitment")))),
+                      ("participants.criteria", bool(as_list(as_dict(plan.get("participants")).get("criteria"))))):
+        if not ok:
+            W("W-PLAN", "plan", "the plan has no %s" % label)
+
+
 def check_study(reg, study):
     errs, warns = [], []
 
@@ -826,8 +1142,11 @@ def check_study(reg, study):
         warns.append(_finding("warning", code, where, msg))
 
     method = study.get("method")
+    session = method in SESSION_METHODS
     audience = as_dict(study.get("audience"))
     declared_roles = role_ids(reg)
+    n_tasks = 0
+    pending_correct = []        # tree-test answer keys, checked against the tree once the whole instrument is read
 
     if not STUDY_ID.match(sstr(study.get("id"))):
         E("C-ID", "study", "study id %r is not rs-<kebab>" % study.get("id"))
@@ -903,6 +1222,8 @@ def check_study(reg, study):
         if not isinstance(sec.get("questions"), list):
             E("C-SECTION", sw, "a section needs a questions list")
             continue
+        sec_has_task = False
+        sec_seq = False
         for q in sec["questions"]:
             if not isinstance(q, dict):
                 E("C-ID", sw, "a question must be an object")
@@ -918,11 +1239,17 @@ def check_study(reg, study):
             text = squash(q.get("text"))
             if not text:
                 E("C-QUESTION", w, "%s has no text" % qid)
+            is_task_q = session and any(k in q for k in TASK_KEYS)
+            # the questions after a task question in its task section are its post-task questions (a SEQ, say)
+            post_task = session and purpose == "task" and not is_task_q and sec_has_task
+            sec_has_task = sec_has_task or is_task_q
+            if is_task_q and purpose != "task":
+                E("C-TASK", w, "%s is a task but sits in a %r section — tasks belong in a `task` section" % (qid, purpose))
             tests = q.get("tests")
             if not isinstance(tests, list):
                 E("C-TESTS", w, "%s: tests must be a list of hypothesis ids" % qid)
                 tests = []
-            if purpose in ("main", "task") and not tests:
+            if purpose in ("main", "task") and not tests and not post_task:
                 E("C-TESTS", w, "%s is a %s question that tests no hypothesis — cut it or name the hypothesis" % (qid, purpose))
             for h in tests:
                 if h not in hyp_ids:
@@ -958,40 +1285,79 @@ def check_study(reg, study):
                         E("C-QUALIFIES", w, "%s qualifies %s, which are not among its options" % (qid, bad))
                 if CONJ.search(" " + lk + " ") and "," not in lk and typ != "multi" and "template" not in q:
                     W("W-DOUBLE", w, "%s may ask two things at once (' and ' / ' or ') — one question, one thing" % qid)
+            elif session:
+                if is_task_q:
+                    n_tasks += 1
+                    first_task = n_questions if first_task is None else first_task
+                    if method == "usability":
+                        if "task" not in q:
+                            E("C-TASK", w, "%s: a usability task carries a `task` object {screen, success, …}" % qid)
+                        else:
+                            _check_usability_task(qid, w, _check_task_object(qid, w, q.get("task"), screens, declared_roles, entry_ids, E),
+                                                  screens, E)
+                    elif method == "tree-test":
+                        tr = q.get("tree")
+                        if not (isinstance(tr, dict) and isinstance(tr.get("correct"), list) and tr["correct"]
+                                and all(isinstance(c, str) and c for c in tr["correct"])):
+                            E("C-TREE", w, "%s: a tree-test task carries `tree: {correct: [node ids]}` (the answer key; participants never see it)" % qid)
+                        else:
+                            pending_correct.append((qid, w, tr["correct"]))
+                    elif method == "first-click":
+                        if "click" not in q:
+                            E("C-CLICK", w, "%s: a first-click task carries a `click` object {screen, target?, rect?}" % qid)
+                        else:
+                            _check_click(qid, w, q.get("click"), screens, E)
+                    else:
+                        E("C-CARDS", w, "%s: a card sort has no tasks — the activity is instrument.cards and instrument.sort" % qid)
+                elif purpose == "task" and not post_task:
+                    E({"usability": "C-TASK", "tree-test": "C-TREE", "first-click": "C-CLICK"}.get(method, "C-CARDS"), w,
+                      "%s sits in a task section before any task question — a task question opens the section" % qid)
+                else:
+                    _check_typed(q, qid, w, E)
+                    if post_task and q.get("template") == "seq":
+                        sec_seq = True
             else:
                 if purpose == "main" and not as_list(q.get("probes")):
                     W("W-PROBES", w, "%s is a main interview question with no probes" % qid)
                 if "task" in q:
                     first_task = n_questions if first_task is None else first_task
-                    tk = q.get("task")
-                    if not isinstance(tk, dict):
-                        E("C-TASK", w, "%s: task must be an object" % qid)
-                        tk = {}
-                    if tk.get("screen") not in screens:
-                        E("C-TASK", w, "%s: task screen %r is not a screen of this registry" % (qid, tk.get("screen")))
-                    if tk.get("role") and declared_roles and tk["role"] not in declared_roles:
-                        E("C-TASK", w, "%s: task role %r is not declared in meta.roles" % (qid, tk["role"]))
-                    if tk.get("entry") and tk["entry"] not in entry_ids:
-                        E("C-TASK", w, "%s: task entry %r is not in meta.demo.entries" % (qid, tk["entry"]))
-                    if not squash(tk.get("success")):
-                        E("C-TASK", w, "%s: a task needs `success` — what done looks like" % qid)
+                    _check_task_object(qid, w, q.get("task"), screens, declared_roles, entry_ids, E)
             if "template" in q:         # standard wording: exempt from the wording heuristics and the priming check
                 continue
-            for p in HYPOTHETICAL:
-                if re.search(p, lk):
-                    W("W-HYPOTHETICAL", w, "%s asks what people WOULD do — ask what they DID, last time" % qid)
-                    break
+            if not is_task_q:           # a scenario names a goal: "where would you go to …?" is not a hypothetical
+                for p in HYPOTHETICAL:
+                    if re.search(p, lk):
+                        W("W-HYPOTHETICAL", w, "%s asks what people WOULD do — ask what they DID, last time" % qid)
+                        break
             for p in LEADING:
                 if re.search(p, lk):
                     W("W-LEADING", w, "%s leads the answer" % qid)
                     break
             qinfo.append((n_questions, purpose, lk, q))
+        if session and purpose == "task":
+            if not sec_has_task:
+                E({"usability": "C-TASK", "tree-test": "C-TREE", "first-click": "C-CLICK"}.get(method, "C-CARDS"), sw,
+                  "a task section needs a task question")
+            elif method == "usability" and not sec_seq:
+                W("W-SEQ", sw, "this task has no post-task SEQ question — add {\"id\": \"…\", \"template\": \"seq\"} after it")
 
     # a question that names the feature under test before the task primes the answer
+    tkeys = TASK_KEYS if method in SESSION_METHODS else ("task",)
     for pos, purpose, lk, q in qinfo:
         before = (first_task is not None and pos < first_task) or (first_task is None and purpose in ("screener", "warmup"))
-        if before and "task" not in q and any(f in lk for f in feature_names):
+        if before and not any(k in q for k in tkeys) and any(f in lk for f in feature_names):
             W("W-PRIMING", str(q.get("id")), "%s names the feature under test before the task — it primes the answer" % q.get("id"))
+
+    if method in SESSION_METHODS:
+        tree_ids = _check_session_instrument(reg, study, inst, purposes, set(hyp_ids), tested, E, W)
+        for qid, w, correct in pending_correct:
+            for c in correct:
+                if tree_ids is not None and c not in tree_ids:
+                    E("C-TREE", w, "%s: the correct node %r is not a node of the tree" % (qid, c))
+        if method in ("usability", "tree-test", "first-click") and not n_tasks:
+            E({"usability": "C-TASK", "tree-test": "C-TREE"}.get(method, "C-CLICK"), "instrument",
+              "a %s study needs at least one task question in a `task` section" % method)
+        _check_plan_for_session(study, E, W)
 
     for h, hid in zip(hyps, hyp_ids):
         if isinstance(h, dict) and hid not in tested:
@@ -1007,8 +1373,8 @@ def check_study(reg, study):
     elif method == "interview":
         if "warmup" not in purposes:
             E("C-WARMUP", "instrument", "an interview guide needs a warmup section")
-    else:
-        E("C-METHOD", "study", "method %r is not survey or interview" % method)
+    elif method not in SESSION_METHODS:
+        E("C-METHOD", "study", "method %r is not one of %s" % (method, ", ".join(METHODS)))
     return errs, warns
 
 
@@ -1123,6 +1489,39 @@ def verify_study(reg, study, base):
     people = {e.get("participant") for e in live_evidence(study) if e.get("participant")}
     allowed.update((float(len(people)), float(len(live_evidence(study)))))
 
+    # ── the UX additions: session analysis, observations, issues, themes ──
+    session = study.get("method") in SESSION_METHODS
+    observations = [o for o in as_list(study.get("observations")) if isinstance(o, dict)]
+    issues = [i for i in as_list(study.get("issues")) if isinstance(i, dict)]
+    themes = [t for t in as_list(study.get("themes")) if isinstance(t, dict)]
+    obs_ids = {o.get("id") for o in observations}
+    issue_ids = {i.get("id") for i in issues}
+    fresh_box = []
+
+    def fresh_analysis():
+        """The analysis recomputed from the evidence on disk now: (analysis, None) or (None, why not)."""
+        if not fresh_box:
+            try:
+                rs, pairs = _rs(), []
+                for e in live_evidence(study):
+                    if e.get("kind") != "session":
+                        continue
+                    stt, raw, msg = file_of(e["id"])
+                    if stt != "ok":
+                        raise ValueError(msg)
+                    pairs.append((e, rs.parse_session_bytes(raw)))
+                fresh_box.append((_ra().analyze(study, pairs), None))
+            except Exception as ex:                 # a bad file is reported as V-EVIDENCE already; here it only blocks the recompute
+                fresh_box.append((None, str(ex)))
+        return fresh_box[0]
+
+    if session:
+        fresh, why = fresh_analysis()
+        if fresh is not None:
+            allowed.update(_ra().allowed_numbers(fresh))
+    else:
+        fresh = None
+
     for n, f in enumerate(findings):
         fw = "findings.%s" % f.get("id")
         allowed.update(_numbers(f.get("text")))
@@ -1145,6 +1544,31 @@ def verify_study(reg, study, base):
                     if isinstance(ref.get(fld), (int, float)):
                         allowed.add(round(float(ref[fld]), 4))
                 _verify_tally_ref(ref, rw, study, tally_now, E)
+                continue
+            if "analysis" in ref:               # {"analysis": "usability.tasks.t1.success.rate", "value": 0.8}
+                quotes_only = False
+                if not session:
+                    E("V-ANALYSIS", rw, "an analysis citation belongs to a session study; %s is a %s study" % (sid, study.get("method")))
+                elif fresh is None:
+                    E("V-ANALYSIS", rw, "cites %s but no analysis can be computed: %s" % (ref.get("analysis"), why))
+                else:
+                    msg = _ra().verify_ref(ref, fresh)
+                    if msg:
+                        E("V-ANALYSIS", rw, msg)
+                    if isinstance(ref.get("value"), (int, float)) and not isinstance(ref.get("value"), bool):
+                        allowed.add(round(float(ref["value"]), 4))
+                continue
+            if "issue" in ref:
+                quotes_only = False
+                if ref["issue"] not in issue_ids:
+                    E("V-FINDING", rw, "cites issue %r, which is not an issue of this study" % ref["issue"])
+                continue
+            if "observation" in ref:
+                if ref["observation"] not in obs_ids:
+                    E("V-FINDING", rw, "cites observation %r, which is not an observation of this study" % ref["observation"])
+                else:
+                    ob = next(o for o in observations if o.get("id") == ref["observation"])
+                    who.add(ob.get("participant") or as_dict(rows.get(ob.get("evidence"))).get("participant") or ob.get("evidence"))
                 continue
             eid = ref.get("evidence")
             quote = squash(ref.get("quote"))
@@ -1354,13 +1778,17 @@ def render_interview(study):
     return "\n".join(L) + "\n"
 
 
-def write_instrument_files(base, study):
-    """The readable instrument (and a survey's CSV template). Same study -> same bytes."""
+def write_instrument_files(base, study, reg=None):
+    """The readable instrument (and a survey's CSV template), plus the research documents research_report.files_for
+    makes for the method (plan, moderator guide, tasks, consent, screener, note-taking sheet). Generated files:
+    the same study -> the same bytes, and a rewrite replaces them."""
     sid = study["id"]
     ensure_dir(base, study_rel(sid))
     ensure_dir(base, study_rel(sid) + "/instrument")
+    method = study.get("method")
     files = ({"survey.md": render_survey(study), "responses-template.csv": render_template(study)}
-             if study.get("method") == "survey" else {"interview-guide.md": render_interview(study)})
+             if method == "survey" else {"interview-guide.md": render_interview(study)} if method == "interview" else {})
+    files.update(_rr().files_for(study, reg if isinstance(reg, dict) else {}))
     written = []
     for name, text in files.items():
         rel = "%s/instrument/%s" % (study_rel(sid), name)
@@ -1632,20 +2060,26 @@ def cmd_init(a):
         if segment:
             audience["segment"] = segment
         audience["targetN"] = a.target_n if a.target_n is not None else DEFAULT_N[a.method]
+        mode = a.mode or "moderated"
         study = {"id": sid, "title": squash(a.title) or squash(a.question)[:80], "question": squash(a.question),
                  "method": a.method, "status": "draft", "scope": a.scope, "setup": squash(a.setup),
                  "createdAt": now_iso(), "audience": audience,
                  "targets": targets, "hypotheses": [],
                  "instrument": {"lang": "en", "intro": "", "consent": "", "durationMin": None, "closing": "", "sections": []},
                  "evidence": [], "findings": [], "gates": []}
+        if a.method in SESSION_METHODS:
+            study["instrument"]["mode"] = mode
+        study["logistics"] = {"checklist": _rm().default_checklist(a.method, mode)}
         res = reg.get("research")
         if not isinstance(res, dict):
             res = reg["research"] = {"populated": True, "studies": []}
         res["populated"] = True
         res.setdefault("studies", []).append(study)
         pbslice._write(a.registry, reg)
-    return {"created": sid, "study": study}, ["created draft study %s (%s, scope %s) — next: write hypotheses + instrument, then `plan %s --file …`"
-                                              % (sid, a.method, a.scope, sid)], EXIT_OK
+    nxt = ("write the research plan (`brief %s --file …`), the hypotheses and the instrument, then `plan %s --file …`" % (sid, sid)
+           if a.method in SESSION_METHODS else "write hypotheses + instrument, then `plan %s --file …`" % sid)
+    return {"created": sid, "study": study}, ["created draft study %s (%s, scope %s) — next: %s"
+                                              % (sid, a.method, a.scope, nxt)], EXIT_OK
 
 
 def cmd_scope(a):
@@ -1681,27 +2115,252 @@ def _read_json_arg(path):
     return data
 
 
+# ── the research plan document (study.plan), participants and logistics ──────
+
+PLAN_TEXT = ("background", "decision", "methodRationale", "budget")
+PLAN_LISTS = ("objectives", "researchQuestions", "materials")
+PLAN_OBJECTS = {"participants": {"criteria": "list", "exclude": "list", "n": "int", "segments": "list"},
+                "recruitment": {"channel": "text", "incentive": "text", "note": "text"},
+                "schedule": {"start": "date", "end": "date", "sessionMinutes": "int"},
+                "team": {"moderator": "text", "notetaker": "text", "observers": "list"}}
+PLAN_ROWS = {"risks": ("risk", "mitigation"), "timeline": ("milestone", "date")}
+PLAN_KEYS = PLAN_TEXT + PLAN_LISTS + tuple(PLAN_OBJECTS) + tuple(PLAN_ROWS)
+# changing one of these changes what the study is for or who it asks, so G-STUDY is asked for again;
+# the rest (schedule, team, recruitment, materials, risks, timeline, budget, background) is logistics
+PLAN_GATE_KEYS = ("objectives", "researchQuestions", "decision", "methodRationale", "participants")
+
+
+def refuse_pii(text, where):
+    """Participants are pseudonyms: free text that carries an email, a phone number or a secret is refused."""
+    found = []
+
+    def add(sev, code, w, msg):
+        found.append(code)
+    security_scan.scan_text(add, sstr(text), where)
+    if found:
+        what = {"R-SEC-EMAIL": "an email address", "R-SEC-PII": "a phone number or an ID number",
+                "R-SEC-KEY": "a credential"}.get(found[0], "personal data")
+        raise ResearchError("%s looks like it holds %s — participants are pseudonyms (P01…); keep contact details out of the study"
+                            % (where, what))
+
+
+def validate_plan(plan):
+    """The plan object cleaned (strings squashed), or a ResearchError (exit 2) naming every problem."""
+    if not isinstance(plan, dict):
+        raise ResearchError("the plan must be an object", EXIT_USAGE)
+    problems, out = [], {}
+    extra = sorted(set(plan) - set(PLAN_KEYS))
+    if extra:
+        problems.append("unknown plan key(s): %s (known: %s)" % (", ".join(extra), ", ".join(PLAN_KEYS)))
+
+    def strings(v, w):
+        if isinstance(v, list) and all(isinstance(x, str) and squash(x) for x in v):
+            return [squash(x) for x in v]
+        problems.append("%s must be a list of non-empty strings" % w)
+        return []
+
+    for k, v in plan.items():
+        if k in PLAN_TEXT:
+            if isinstance(v, str):
+                out[k] = squash(v)
+            else:
+                problems.append("%s must be a string" % k)
+        elif k in PLAN_LISTS:
+            out[k] = strings(v, k)
+        elif k in PLAN_OBJECTS:
+            spec = PLAN_OBJECTS[k]
+            if not isinstance(v, dict):
+                problems.append("%s must be an object {%s}" % (k, ", ".join(spec)))
+                continue
+            sub = {}
+            bad = sorted(set(v) - set(spec))
+            if bad:
+                problems.append("%s: unknown key(s) %s (known: %s)" % (k, ", ".join(bad), ", ".join(spec)))
+            for sk, sv in v.items():
+                kind = spec.get(sk)
+                w = "%s.%s" % (k, sk)
+                if kind == "list":
+                    sub[sk] = strings(sv, w)
+                elif kind == "text":
+                    if isinstance(sv, str):
+                        sub[sk] = squash(sv)
+                    else:
+                        problems.append("%s must be a string" % w)
+                elif kind == "int":
+                    if isinstance(sv, int) and not isinstance(sv, bool) and sv >= 1:
+                        sub[sk] = sv
+                    else:
+                        problems.append("%s must be a whole number, 1 or more" % w)
+                elif kind == "date":
+                    if isinstance(sv, str) and DATE.match(sv) and _valid_date(sv):
+                        sub[sk] = sv
+                    else:
+                        problems.append("%s must be a date, YYYY-MM-DD" % w)
+            sch = sub if k == "schedule" else {}
+            if sch.get("start") and sch.get("end") and sch["end"] < sch["start"]:
+                problems.append("schedule.end is before schedule.start")
+            out[k] = sub
+        elif k in PLAN_ROWS:
+            f1, f2 = PLAN_ROWS[k]
+            if not isinstance(v, list):
+                problems.append("%s must be a list of {%s, %s}" % (k, f1, f2))
+                continue
+            rows = []
+            for i, r in enumerate(v):
+                if not isinstance(r, dict) or sorted(set(r) - {f1, f2}) or not squash(r.get(f1) if isinstance(r.get(f1), str) else ""):
+                    problems.append("%s[%d] must be {%s, %s?} with a non-empty %s" % (k, i, f1, f2, f1))
+                    continue
+                row = {f1: squash(r[f1])}
+                if f2 in r:
+                    if not isinstance(r[f2], str):
+                        problems.append("%s[%d].%s must be a string" % (k, i, f2))
+                    elif f2 == "date" and r[f2] and not (DATE.match(r[f2]) and _valid_date(r[f2])):
+                        problems.append("%s[%d].date must be YYYY-MM-DD" % (k, i))
+                    else:
+                        row[f2] = squash(r[f2])
+                rows.append(row)
+            out[k] = rows
+    if problems:
+        raise ResearchError("the plan was not accepted: %d problem(s)" % len(problems),
+                            EXIT_USAGE, data={"problems": problems,
+                                              "errors": [{"code": "P-PLAN", "where": "plan", "msg": p} for p in problems]})
+    for where, text in _plan_strings(out):
+        refuse_pii(text, "plan." + where)
+    return out
+
+
+def _valid_date(s):
+    try:
+        datetime.date.fromisoformat(s)
+        return True
+    except ValueError:
+        return False
+
+
+def _plan_strings(plan, prefix=""):
+    for k, v in plan.items():
+        w = prefix + k
+        if isinstance(v, str):
+            yield w, v
+        elif isinstance(v, dict):
+            for item in _plan_strings(v, w + "."):
+                yield item
+        elif isinstance(v, list):
+            for i, x in enumerate(v):
+                if isinstance(x, str):
+                    yield "%s[%d]" % (w, i), x
+                elif isinstance(x, dict):
+                    for item in _plan_strings(x, "%s[%d]." % (w, i)):
+                        yield item
+
+
+def merge_plan(old, new):
+    """`new` over `old`: a key replaces, except the four object keys, which merge key by key."""
+    out = json.loads(json.dumps(as_dict(old)))
+    for k, v in new.items():
+        if k in PLAN_OBJECTS and isinstance(out.get(k), dict):
+            out[k].update(v)
+        else:
+            out[k] = v
+    return out
+
+
+def _plan_arg(data):
+    """The plan inside a brief/plan file: the object itself, or {"plan": {...}}."""
+    if set(data) == {"plan"} and isinstance(data["plan"], dict):
+        return data["plan"]
+    return data
+
+
+def withdraw_gate(st):
+    """G-STUDY is asked for again: back to a draft, the gate marked withdrawn, `plan-approved` unticked."""
+    st["status"] = "draft"
+    for g in as_list(st.get("gates")):
+        if isinstance(g, dict) and g.get("gate") == "G-STUDY" and not g.get("withdrawnAt"):
+            g["withdrawnAt"] = now_iso()
+    tick(st, "plan-approved", False)
+
+
+def checklist_of(st):
+    cl = as_dict(st.get("logistics")).get("checklist")
+    return [c for c in as_list(cl) if isinstance(c, dict)]
+
+
+def tick(st, item_id, done):
+    """Set a checklist item done / not done. True when the study has that item."""
+    for c in checklist_of(st):
+        if c.get("id") == item_id:
+            c["done"] = bool(done)
+            c["at"] = now_iso() if done else None
+            return True
+    return False
+
+
+def sync_checklist(st):
+    """Add any default checklist item the study's method and mode call for that it does not have yet."""
+    method = st.get("method")
+    mode = as_dict(st.get("instrument")).get("mode", "moderated")
+    have = {c.get("id") for c in checklist_of(st)}
+    if not isinstance(st.get("logistics"), dict):
+        st["logistics"] = {"checklist": []}
+    if not isinstance(st["logistics"].get("checklist"), list):
+        st["logistics"]["checklist"] = []
+    for item in _rm().default_checklist(method, mode):
+        if item["id"] not in have:
+            st["logistics"]["checklist"].append(item)
+
+
+def cmd_brief(a):
+    data = _plan_arg(_read_json_arg(a.file))
+    if not data:
+        raise ResearchError("the brief file has nothing to merge", EXIT_USAGE)
+    new = validate_plan(data)
+    with locked(a.registry, "research.py brief") as reg:
+        st = find_study(reg, a.id)
+        old = as_dict(st.get("plan"))
+        merged = merge_plan(old, new)
+        changed = sorted(k for k in new if merged.get(k) != old.get(k))
+        gate_changed = [k for k in changed if k in PLAN_GATE_KEYS]
+        withdrawn = st.get("status") == "approved" and bool(gate_changed)
+        st["plan"] = merged
+        if withdrawn:
+            withdraw_gate(st)
+        if st.get("status") != "draft" or withdrawn:
+            write_instrument_files(base_of(a.registry), st, reg)       # plan.md et al. exist from G-STUDY on: keep them current
+        pbslice._write(a.registry, reg)
+    lines = ["plan of %s: %s" % (a.id, ("updated " + ", ".join(changed)) if changed else "nothing changed")]
+    if withdrawn:
+        lines.append("G-STUDY withdrawn (%s changed): the study is a draft again — run `check` and `approve` once more"
+                     % ", ".join(gate_changed))
+    elif changed and st.get("evidence"):
+        lines.append("note: the plan changed after sessions were stored; the evidence is untouched")
+    return {"briefed": a.id, "changed": changed, "withdrawn": withdrawn, "plan": merged}, lines, EXIT_OK
+
+
 def cmd_plan(a):
     data = _read_json_arg(a.file)
-    extra = sorted(set(data) - {"hypotheses", "instrument", "audience"})
+    allowed = {"hypotheses", "instrument", "audience", "plan"}
+    extra = sorted(set(data) - allowed)
     if extra:
-        raise ResearchError("plan takes {hypotheses, instrument, audience?}; unexpected: %s" % ", ".join(extra), EXIT_USAGE)
+        raise ResearchError("plan takes {hypotheses, instrument, audience?, plan?}; unexpected: %s" % ", ".join(extra), EXIT_USAGE)
     if "hypotheses" in data and not (isinstance(data["hypotheses"], list) and all(isinstance(h, dict) for h in data["hypotheses"])):
         raise ResearchError("hypotheses must be a list of objects", EXIT_USAGE)
     if "instrument" in data and not isinstance(data["instrument"], dict):
         raise ResearchError("instrument must be an object", EXIT_USAGE)
     if "audience" in data and not isinstance(data["audience"], dict):
         raise ResearchError("audience must be an object", EXIT_USAGE)
-    if not (set(data) & {"hypotheses", "instrument", "audience"}):
+    if not (set(data) & allowed):
         raise ResearchError("the plan file has nothing to merge", EXIT_USAGE)
     if "instrument" in data:
         data["instrument"] = expand_templates(data["instrument"])     # raises a ResearchError on a bad template entry
+    new_plan = validate_plan(data["plan"]) if "plan" in data else None
+    study_part = bool(set(data) & {"hypotheses", "instrument", "audience"})
     with locked(a.registry, "research.py plan") as reg:
         st = find_study(reg, a.id)
-        if st.get("evidence"):
+        if study_part and st.get("evidence"):
             raise ResearchError("%s already holds evidence — a changed instrument would no longer match the "
                                 "responses. Open a new study (`init`) instead." % a.id)
-        if st.get("status") not in ("draft", "approved"):
+        if study_part and st.get("status") not in ("draft", "approved"):
             raise ResearchError("%s is %s; a plan can change only a draft or an approved study" % (a.id, st.get("status")))
         if "audience" in data:
             aud = dict(as_dict(st.get("audience")))
@@ -1722,15 +2381,26 @@ def cmd_plan(a):
                 hs.append(h)
             st["hypotheses"] = hs
         if "instrument" in data:
-            st["instrument"] = data["instrument"]
-        st.pop("biasReview", None)          # a review answers one instrument; any plan makes it stale
-        withdrawn = st.get("status") == "approved"
+            inst = data["instrument"]
+            old_mode = as_dict(st.get("instrument")).get("mode")
+            if st.get("method") in SESSION_METHODS and "mode" not in inst and old_mode:
+                inst["mode"] = old_mode            # the run mode chosen at `init` stands until a plan says otherwise
+            st["instrument"] = inst
+            if st.get("method") in SESSION_METHODS:
+                sync_checklist(st)                 # an unmoderated plan adds the kit items
+        gate_changed = []
+        if new_plan is not None:
+            old_plan = as_dict(st.get("plan"))
+            merged = merge_plan(old_plan, new_plan)
+            gate_changed = [k for k in new_plan if k in PLAN_GATE_KEYS and merged.get(k) != old_plan.get(k)]
+            st["plan"] = merged
+        if study_part:
+            st.pop("biasReview", None)      # a review answers one instrument; any plan makes it stale
+        withdrawn = st.get("status") == "approved" and (study_part or bool(gate_changed))
         if withdrawn:
-            st["status"] = "draft"
-            for g in as_list(st.get("gates")):
-                if isinstance(g, dict) and g.get("gate") == "G-STUDY" and not g.get("withdrawnAt"):
-                    g["withdrawnAt"] = now_iso()
-            write_instrument_files(base_of(a.registry), st)
+            withdraw_gate(st)
+        if withdrawn or (new_plan is not None and st.get("status") != "draft"):
+            write_instrument_files(base_of(a.registry), st, reg)
         pbslice._write(a.registry, reg)
     lines = ["merged the plan into %s" % a.id]
     if withdrawn:
@@ -1774,7 +2444,14 @@ REVIEW_ITEMS = {
     "goal": "Does it state a goal without saying which steps, screens or controls to use?",
     "options": "Do the options cover the answers people may give, without overlapping each other?",
     "scale": "Is the scale balanced, with both ends labelled?",
+    # the session methods: a task is a scenario, so it is held to the scenario rules, not to the survey ones
+    "nolabels": "Does it avoid the words of buttons, menus, screens or fields — words the participant could find just by looking for them?",
+    "treewords": "Does it avoid the words of the menu labels listed under the tree, so the answer cannot be found by matching words alone?",
+    "cardlead": "Do the card labels avoid sharing a leading word — no word starts more than two cards — so the cards cannot be grouped by their first word?",
+    "cardone": "Does every card name one thing, with none that is two things or two actions at once?",
+    "cardneutral": "Do the card labels avoid naming a category or signalling which group a card belongs in?",
 }
+CARD_ITEMS = (("cards.leadword", "cardlead"), ("cards.single", "cardone"), ("cards.neutral", "cardneutral"))
 # Screener questions set the topic on purpose, so they are not held against the order.
 ORDER_QUESTION = ("Leaving the screener aside, do the general questions come before the specific ones, and does no "
                   "earlier question reveal the answer to a later one?")
@@ -1802,13 +2479,43 @@ def _review_questions(study):
     return out
 
 
+def _session_review_codes(method, purpose, q):
+    """The yes/no items for one question of a session-method study. A task is a scenario on the prototype, a menu
+    or a screen, so it is read against the scenario rules; the questions around it are asked on a form."""
+    if any(k in q for k in TASK_KEYS):
+        if method == "tree-test":
+            return ["neutral", "single", "treewords"]
+        return ["neutral", "single", "goal", "nolabels"]        # usability, first-click: no leading, one goal, no steps, no UI words
+    codes = ["neutral", "single", "plain"]
+    if purpose == "warmup":
+        codes.append("unnamed")
+    typ = q.get("type")
+    if typ in ("single", "multi"):
+        codes.append("options")
+    if typ == "scale":
+        codes.append("scale")
+    return codes
+
+
+def reviewable(study):
+    """True when there is something for a reviewer to read: a question, or a card sort's cards."""
+    return bool(all_questions(study)) or bool(as_list(as_dict(study.get("instrument")).get("cards")))
+
+
 def review_items(study):
     """[(item id, question text)] — the closed yes/no items, deterministic. Template questions get none."""
     items = []
+    method = study.get("method")
+    session = method in SESSION_METHODS
+    n_q = 0
     for _si, purpose, q in _review_questions(study):
         if "template" in q:
             continue
+        n_q += 1
         qid, typ = q["id"], q.get("type") if study.get("method") == "survey" else None
+        if session:
+            items += [("%s.%s" % (qid, c), REVIEW_ITEMS[c]) for c in _session_review_codes(method, purpose, q)]
+            continue
         if purpose == "task":
             # A task is a scenario on the product by design, so the questions about past behaviour and about
             # product knowledge do not apply. What can go wrong in one is giving the route away.
@@ -1825,7 +2532,10 @@ def review_items(study):
         if typ == "scale":
             codes.append("scale")
         items += [("%s.%s" % (qid, c), REVIEW_ITEMS[c]) for c in codes]
-    items.append((ORDER_ITEM, ORDER_QUESTION))
+    if method == "card-sort" and as_list(as_dict(study.get("instrument")).get("cards")):
+        items += [(iid, REVIEW_ITEMS[c]) for iid, c in CARD_ITEMS]
+    if not session or n_q >= 2:
+        items.append((ORDER_ITEM, ORDER_QUESTION))
     return items
 
 
@@ -1834,6 +2544,9 @@ def render_bias_review(study):
     order. Nothing about the study (no title, question, hypothesis, threshold, test, target, audience or setup)."""
     qs = _review_questions(study)
     survey = study.get("method") == "survey"
+    session = study.get("method") in SESSION_METHODS
+    typed = survey or session                    # a form question has options and a scale worth showing
+    inst = as_dict(study.get("instrument"))
     L = ["# Question review", "",
          "You are reading the questions of a research instrument cold. You have been told nothing else about it,",
          "and you need nothing else: judge each item from the words of the question alone.", "",
@@ -1850,16 +2563,30 @@ def render_bias_review(study):
         if si != cur:
             cur = si
             L += ["", "### Section %d — purpose: %s" % (si, purpose or "unspecified")]
-        L += ["", "**%s** — type: %s%s" % (q["id"], (sstr(q.get("type")) or "unspecified") if survey else "asked aloud",
-                                         "  (standard wording; no items below)" if "template" in q else ""),
+        kind = (sstr(q.get("type")) or "unspecified") if survey else \
+            ("a task shown to the participant" if session and any(k in q for k in TASK_KEYS) else
+             (sstr(q.get("type")) or "text") if session else "asked aloud")
+        L += ["", "**%s** — type: %s%s" % (q["id"], kind, "  (standard wording; no items below)" if "template" in q else ""),
               "  text: %s" % squash(q.get("text"))]
         opts = [squash(o) for o in as_list(q.get("options")) if isinstance(o, str)]
-        if survey and opts:
+        if typed and opts:
             L.append("  options: %s" % " | ".join(opts))
         sc = q.get("scale")
-        if survey and isinstance(sc, dict):
+        if typed and isinstance(sc, dict):
             L.append("  scale: %s to %s, %s = %s, %s = %s" % (sc.get("min"), sc.get("max"), sc.get("min"), squash(sc.get("minLabel")),
                                                               sc.get("max"), squash(sc.get("maxLabel"))))
+    if study.get("method") == "tree-test" and as_list(inst.get("tree")):
+        # every label of the menu the tasks are about (the tasks are judged against these words); never the answer
+        by_id = {n.get("id"): n for n in as_list(inst.get("tree")) if isinstance(n, dict)}
+
+        def depth(n, seen=()):
+            p = n.get("parent")
+            return 0 if p is None or p not in by_id or p in seen else 1 + depth(by_id[p], seen + (p,))
+        L += ["", "## The menu labels the tasks are about", ""]
+        L += ["%s- %s" % ("  " * depth(n), squash(n.get("label"))) for n in as_list(inst.get("tree")) if isinstance(n, dict)]
+    if study.get("method") == "card-sort" and as_list(inst.get("cards")):
+        L += ["", "## The cards, in the order they are listed", ""]
+        L += ["- %s" % squash(c.get("label")) for c in as_list(inst.get("cards")) if isinstance(c, dict)]
     L += ["", "## Items", ""]
     L += ["%s · %s" % (iid, text) for iid, text in review_items(study)]
     return "\n".join(L) + "\n"
@@ -1899,7 +2626,7 @@ def review_flags(review):
 def cmd_review_plan(a):
     reg = load_registry(a.registry)
     st = find_study(reg, a.id)
-    if not all_questions(st):
+    if not reviewable(st):
         raise ResearchError("%s has no questions to review — `plan` first" % a.id)
     text = render_bias_review(st)
     base = base_of(a.registry)
@@ -1980,7 +2707,8 @@ def cmd_approve(a):
                 ("the stored bias review is for an earlier version of the instrument" if rev else "the instrument has no bias review", a.id, a.id))
         st["status"] = "approved"
         st.setdefault("gates", []).append(gate)
-        files = write_instrument_files(base_of(a.registry), st)
+        tick(st, "plan-approved", True)
+        files = write_instrument_files(base_of(a.registry), st, reg)
         pbslice._write(a.registry, reg)
     lines = ["G-STUDY approved %s" % a.id] + files
     if "skipReview" in gate:
@@ -1992,8 +2720,51 @@ def cmd_approve(a):
 
 def cmd_export(a):
     reg = load_registry(a.registry)
-    files = write_instrument_files(base_of(a.registry), copy_study(find_study(reg, a.id)))
+    files = write_instrument_files(base_of(a.registry), copy_study(find_study(reg, a.id)), reg)
     return {"files": files}, files, EXIT_OK
+
+
+def _import_session(a, raw):
+    """--kind session: a pb-session file (a participant kit's download) becomes evidence, through the same store the
+    preview server's POST uses. The study, the method, the task ids and the consent are checked there."""
+    rs = _rs()
+    if a.consent != "yes":
+        raise ResearchError("consent: %s — a session is stored only with --consent yes (the participant agreed in the session; "
+                            "the file's own consent.session is checked as well). Nothing was imported." % a.consent)
+    for flag, val in (("--role", a.role), ("--segment", a.segment), ("--date", a.date), ("--drop-columns", a.drop_columns)):
+        if val:
+            raise ResearchError("%s does not apply to --kind session: the session file holds the date and the participant "
+                                "tracker (`participant`) holds the role and segment" % flag, EXIT_USAGE)
+    obj = rs.parse_session_bytes(raw)
+    if a.participant and obj.get("participant") != a.participant:
+        raise ResearchError("--participant %s, but the file is for participant %s" % (a.participant, obj.get("participant")))
+    res = rs.store_session(a.registry, a.id, raw, keep_pii=a.keep_pii, source="import")
+    digest = sha256_bytes(raw)
+    if res["pilot"]:
+        lines = ["stored pilot session %s as %s — a pilot is never evidence and is left out of every number" % (res["sessionId"], res["file"])]
+    else:
+        lines = ["stored session %s as %s in %s (sha256 %s…)" % (res["sessionId"], res["evidence"], res["file"], digest[:12])]
+    lines += ["warn  %s" % w for w in res["warnings"]]
+    return ({"imported": res["evidence"], "kind": "session", "sessionId": res["sessionId"], "pilot": res["pilot"],
+             "file": res["file"], "sha256": digest, "warnings": res["warnings"]}, lines, EXIT_OK)
+
+
+def _import_recording(a, src):
+    """--kind recording --session <id>: the screen recording of a stored session. Refused unless that session's
+    consent.recording is true."""
+    rs = _rs()
+    if a.consent != "yes":
+        raise ResearchError("consent: %s — a recording is linked to a session only with --consent yes (and the session's own "
+                            "consent.recording must be true). Nothing was imported." % a.consent)
+    for flag, val in (("--role", a.role), ("--segment", a.segment), ("--date", a.date), ("--drop-columns", a.drop_columns),
+                      ("--participant", a.participant)):
+        if val:
+            raise ResearchError("%s does not apply to a recording linked to a session: it takes the session's" % flag, EXIT_USAGE)
+    res = rs.store_media(a.registry, a.id, a.session, src, move=False)
+    where = "pilot recording of %s" % a.session if res["evidence"] is None else "%s" % res["evidence"]
+    lines = ["stored the recording of session %s as %s in %s (%d bytes, sha256 %s…)" % (a.session, where, res["file"], res["bytes"], res["sha256"][:12])]
+    return ({"imported": res["evidence"], "kind": "recording", "session": a.session, "file": res["file"], "sha256": res["sha256"],
+             "bytes": res["bytes"], "warnings": []}, lines, EXIT_OK)
 
 
 def cmd_import(a):
@@ -2004,10 +2775,16 @@ def cmd_import(a):
         raise ResearchError("file not found: %s" % src, EXIT_USAGE)
     if os.path.islink(src):
         raise ResearchError("%s is a symlink — refusing to follow it; pass the real file" % src)
+    if a.session and a.kind != "recording":
+        raise ResearchError("--session links a recording to its session: use it with --kind recording", EXIT_USAGE)
+    if a.kind == "recording" and a.session:
+        return _import_recording(a, src)         # a video can be a gigabyte: never read it into memory here
     try:
         raw = read_nofollow(src)
     except OSError as e:
         raise ResearchError("cannot read %s: %s" % (src, e.strerror or e), EXIT_USAGE)
+    if a.kind == "session":
+        return _import_session(a, raw)
     name = safe_name(src)
     text = decode_text(raw, name)
     drop = [squash(c) for c in (a.drop_columns or "").split(",") if squash(c)]
@@ -2191,11 +2968,83 @@ def cmd_verify(a):
             _report(errs, warns, "verify %s" % a.id), EXIT_FAIL if errs else EXIT_OK)
 
 
+OBS_KEYS = ("id", "evidence", "participant", "task", "event", "t", "quote", "note", "tags")
+THEME_KEYS = ("id", "title", "tags", "insight")
+ISSUE_KEYS = ("id", "title", "task", "screen", "severity", "observations", "recommendation", "targets")
+# what the tool computes from the sessions: a typed value here is refused, never merely overwritten
+ISSUE_COMPUTED = ("participants", "frequency", "priority", "count", "rate", "share", "n")
+REPORT_KEYS = ("summary", "recommendations", "nextSteps", "limitations")
+REC_KEYS = ("text", "issues", "route")
+
+
+def synthesis_shape_problems(data, method):
+    """Problems with the shape of the observations / themes / issues / report in a synthesize file (exit 2)."""
+    out = []
+    for name, keys in (("observations", OBS_KEYS), ("themes", THEME_KEYS), ("issues", ISSUE_KEYS)):
+        if name not in data:
+            continue
+        items = data[name]
+        if not (isinstance(items, list) and all(isinstance(x, dict) for x in items)):
+            out.append("%s must be a list of objects" % name)
+            continue
+        if name == "issues" and method not in SESSION_METHODS:
+            out.append("issues belong to the session methods (usability, tree-test, card-sort, first-click): their frequency "
+                       "and priority are computed from the sessions")
+        for i, x in enumerate(items):
+            w = "%s[%d]" % (name, i)
+            computed = [k for k in ISSUE_COMPUTED if k in x] if name == "issues" else []
+            for k in computed:
+                out.append("%s: `%s` is computed by the tool (analyze) — remove it" % (w, k))
+            bad = sorted(set(x) - set(keys) - set(computed))
+            if bad:
+                out.append("%s: unexpected key(s) %s (known: %s)" % (w, ", ".join(bad), ", ".join(keys)))
+    if "report" in data:
+        out += report_shape_problems(data["report"])
+    return out
+
+
+def report_shape_problems(rep):
+    if not isinstance(rep, dict):
+        return ["report must be an object {summary, recommendations, nextSteps, limitations}"]
+    out = []
+    bad = sorted(set(rep) - set(REPORT_KEYS))
+    if bad:
+        out.append("report: unexpected key(s) %s (known: %s)" % (", ".join(bad), ", ".join(REPORT_KEYS)))
+    if "summary" in rep and not isinstance(rep["summary"], str):
+        out.append("report.summary must be a string")
+    for k in ("nextSteps", "limitations"):
+        if k in rep and not (isinstance(rep[k], list) and all(isinstance(x, str) for x in rep[k])):
+            out.append("report.%s must be a list of strings" % k)
+    if "recommendations" in rep:
+        recs = rep["recommendations"]
+        if not (isinstance(recs, list) and all(isinstance(r, dict) for r in recs)):
+            out.append("report.recommendations must be a list of {text, issues?, route?}")
+        else:
+            for i, r in enumerate(recs):
+                w = "report.recommendations[%d]" % i
+                if sorted(set(r) - set(REC_KEYS)):
+                    out.append("%s: unexpected key(s) %s (known: %s)" % (w, ", ".join(sorted(set(r) - set(REC_KEYS))), ", ".join(REC_KEYS)))
+                if not squash(r.get("text") if isinstance(r.get("text"), str) else ""):
+                    out.append("%s needs a `text`" % w)
+                if "issues" in r and not (isinstance(r["issues"], list) and all(isinstance(x, str) for x in r["issues"])):
+                    out.append("%s.issues must be a list of issue ids" % w)
+                if "route" in r and r["route"] not in ROUTES:
+                    out.append("%s.route must be one of %s" % (w, "|".join(ROUTES)))
+    return out
+
+
+def _usage_problems(msg, problems, code):
+    raise ResearchError(msg, EXIT_USAGE, data={"problems": problems,
+                                               "errors": [{"code": code, "where": "synthesize", "msg": p} for p in problems]})
+
+
 def cmd_synthesize(a):
     data = _read_json_arg(a.file)
-    extra = sorted(set(data) - {"verdicts", "findings", "refill"})
+    allowed = {"verdicts", "findings", "refill", "observations", "themes", "issues", "report"}
+    extra = sorted(set(data) - allowed)
     if extra:
-        raise ResearchError("synthesize takes {verdicts, findings, refill}; unexpected: %s" % ", ".join(extra), EXIT_USAGE)
+        raise ResearchError("synthesize takes {verdicts, findings, refill, observations, themes, issues, report}; unexpected: %s"
+                            % ", ".join(extra), EXIT_USAGE)
     verdicts = data.get("verdicts", {})
     if not isinstance(verdicts, dict) or not all(isinstance(v, dict) for v in verdicts.values()):
         raise ResearchError("verdicts must be {h1: {verdict, why}}", EXIT_USAGE)
@@ -2211,6 +3060,9 @@ def cmd_synthesize(a):
         st = find_study(reg, a.id)
         if st.get("status") not in ("fielding", "analysed", "applied"):
             raise ResearchError("%s is %s — there is no evidence to synthesise yet" % (a.id, st.get("status")))
+        problems = synthesis_shape_problems(data, st.get("method"))
+        if problems:
+            _usage_problems("the synthesis was not accepted: %d problem(s)" % len(problems), problems, "S-SHAPE")
         hmap = {h.get("id"): h for h in as_list(st.get("hypotheses")) if isinstance(h, dict)}
         unknown = [h for h in verdicts if h not in hmap]
         if unknown:
@@ -2223,10 +3075,24 @@ def cmd_synthesize(a):
             hmap[hid]["why"] = sstr(v.get("why"))
         if "findings" in data:
             st["findings"] = data["findings"]
+        for name in ("observations", "themes", "issues"):
+            if name in data:
+                st[name] = data[name]
         if refill is not None:
             merged = dict(as_dict(st.get("refill")))
             merged.update(refill)
             st["refill"] = merged
+        if "report" in data:
+            merged = dict(as_dict(st.get("report")))
+            merged.update(data["report"])
+            st["report"] = merged
+        if st.get("method") in SESSION_METHODS:
+            # a fresh analysis, computed AFTER the observations and issues landed: their frequency, priority and
+            # affinity counts are the tool's, and every `analysis` citation in a finding is checked against it
+            pairs = session_pairs(st, base)
+            if not pairs:
+                raise ResearchError("%s has no session evidence to analyse — import a session first" % a.id)
+            st["analysis"] = _ra().analyze(st, pairs)
         errs, warns = verify_study(reg, copy_study(st), base)
         if not errs and st.get("status") == "fielding":
             st["status"] = "analysed"

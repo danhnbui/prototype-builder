@@ -3569,6 +3569,28 @@
     .rs-tbl tr.rs-why td { color: var(--pb-ink-2); border-bottom: var(--pb-hair-w) solid var(--pb-hair); }
     .rs-evl { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--pb-s1); }
     .rs-evl .lgc-b { margin-right: var(--pb-s1); }
+    /* UX studies: plan, participants, sessions, results, issues, themes. Tool chrome — --pb-* only. */
+    .rs-h5 { margin: var(--pb-s3) 0 var(--pb-s1); font-size: var(--pb-t-sm); font-weight: var(--pb-w-bold); color: var(--pb-ink-2); }
+    .rs-ul { margin: 0; padding-left: 1.1em; display: grid; gap: var(--pb-s1); }
+    .rs-plan > .pb-disc-b { padding: var(--pb-s3) var(--pb-s2); }
+    .rs-plan > .pb-disc-b[hidden] { display: none; }
+    .rs-pipe, .rs-note, .rs-links { margin: 0; overflow-wrap: anywhere; }
+    .rs-tbl td.rs-w, .rs-tbl th.rs-rowh { white-space: normal; min-width: 9rem; overflow-wrap: anywhere; }
+    .rs-tbl th.rs-rowh { text-align: left; font-weight: var(--pb-w-reg); color: var(--pb-ink-2); border-bottom: var(--pb-hair-w) solid var(--pb-hair); }
+    .rs-oc { white-space: nowrap; }
+    .rs-oc--ok { color: var(--pb-pass); }
+    .rs-oc--bad { color: var(--pb-fail); }
+    .rs-oc--n { color: var(--pb-ink-3); }
+    .rs-ci { position: relative; display: inline-block; width: 4.5rem; height: .625rem; vertical-align: middle; border-radius: var(--pb-r-pill); background: var(--pb-wash); overflow: hidden; }
+    .rs-ci-bar { position: absolute; left: 0; top: 0; bottom: 0; background: var(--pb-hair-2); }
+    .rs-ci-whisk { position: absolute; top: calc(50% - 1px); height: 2px; min-width: 2px; background: var(--pb-ink); }
+    .rs-heat td.rs-hm { text-align: center; font-variant-numeric: tabular-nums; background: color-mix(in srgb, var(--pb-info) var(--rs-v, 0%), transparent); }
+    .rs-heat td.rs-hm--self { color: var(--pb-ink-3); background: var(--pb-wash); }
+    .rs-plots { display: flex; flex-wrap: wrap; gap: var(--pb-s3); }
+    .rs-fc { margin: 0; flex: 1 1 14rem; max-width: 22rem; display: grid; gap: var(--pb-s1); }
+    .rs-plot { position: relative; aspect-ratio: 16 / 10; border: var(--pb-hair-w) solid var(--pb-hair-2); border-radius: var(--pb-r-md); background: var(--pb-wash); }
+    .rs-dot { position: absolute; width: .5rem; height: .5rem; margin: -.25rem 0 0 -.25rem; border-radius: 50%; background: var(--pb-fail); opacity: .8; }
+    .rs-dot.is-hit { background: var(--pb-pass); }
     @media (max-width: 899px) { .pb-scan.pb-scan--rs { --cols: minmax(0, 7.5rem) minmax(0, 1fr) 5.5rem minmax(0, 8.5rem); } .pb-scan--rs .kd, .pb-scan--rs .kd-h { display: none; } }
     @media (max-width: 719px) {
       .pb-scan.pb-scan--rs { --pb-scan-id: 4.5rem; --cols: minmax(0, 4.5rem) minmax(0, 1fr); }
@@ -6898,7 +6920,7 @@
       render();
       requestAnimationFrame(() => {
         const row = document.querySelector('.pb-scan-tr[data-fb-list="rs"][data-key="' + CSS.escape(String(id)) + '"]');
-        const f = fid && row ? row.querySelector('[data-rs-finding="' + CSS.escape(String(fid)) + '"]') : null;
+        const f = fid && row ? row.querySelector('[data-rs-finding="' + CSS.escape(String(fid)) + '"],[data-rs-issue="' + CSS.escape(String(fid)) + '"]') : null;
         if (f) pbFlash(f); else pbScanReveal('rs', id);
       });
     }
@@ -6933,6 +6955,10 @@
     /* n: the answers counted (survey), or the people heard (interview). */
     function pbRsCount(s) {
       const ev = (s.evidence || []).filter(e => e && !e.dropped);
+      if (PB_RS_SESSION_METHODS.indexOf(s.method) >= 0) {   // a session method: the people who took part, one per kept session
+        const ss = ev.filter(e => e.kind === 'session');
+        return new Set(ss.map((e, i) => e.participant || ('#' + i))).size;
+      }
       if (s.tally && s.tally.n != null) return +s.tally.n;
       if (s.method === 'interview') return new Set(ev.map(e => e.participant).filter(Boolean)).size;
       return ev.reduce((a, e) => a + (+e.responses || 0), 0);
@@ -6999,6 +7025,221 @@
       }).join('');
       return `<h4 class="rs-h">Evidence</h4><div class="rs-scroll"><table class="rs-tbl"><thead><tr><th>ID</th><th>Kind</th><th>Date</th><th>Participant</th><th class="rs-n">n</th><th>Consent</th><th>File</th><th>Hash</th></tr></thead><tbody>${rows}</tbody></table></div>`;
     }
+    /* ── Research, UX studies (usability · tree test · card sort · first click) ───────────────────
+       Plan, participants, sessions, results, issues, themes and the report. Each block is drawn only
+       when the study holds its data; every value is escaped; the shell still never reads an evidence
+       file. The Start / Observer / Replay / Report links exist only on a page /pb:preview serves
+       (window.PB_PREVIEW, not view-only, not an explore frame): over file:// the block names the
+       command instead. */
+    const PB_RS_METHOD = { survey: 'Survey', interview: 'Interview', usability: 'Usability test', 'tree-test': 'Tree test', 'card-sort': 'Card sort', 'first-click': 'First-click test' };
+    const PB_RS_SESSION_METHODS = ['usability', 'tree-test', 'card-sort', 'first-click'];
+    const PB_RS_SEVERITY = { 0: ['n', 'Not a problem'], 1: ['n', 'Cosmetic'], 2: ['warn', 'Minor'], 3: ['bad', 'Major'], 4: ['bad', 'Catastrophe'] };
+    const pbRsMethodName = m => PB_RS_METHOD[m] || pbCap(m || '');
+    const pbRsIsSession = s => PB_RS_SESSION_METHODS.indexOf(s.method) >= 0;
+    const pbRsServed = () => !VIEW_ONLY && !!window.PB_PREVIEW && !document.body.classList.contains('view-only')
+      && !(typeof pbLiveEmbedded === 'function' && pbLiveEmbedded());
+    const pbRsArr = v => Array.isArray(v) ? v.filter(x => x != null && x !== '') : (v == null || v === '' ? [] : [v]);
+    const pbRsObjs = v => (Array.isArray(v) ? v : []).filter(x => x && typeof x === 'object');
+    const pbRsF = (v, d) => (v == null || v === '' || !isFinite(+v)) ? '—' : (+v).toFixed(d == null ? 1 : d);
+    const pbRsPct = r => (r == null || r === '' || !isFinite(+r)) ? '—' : Math.round(+r * 100) + '%';
+    const pbRsClamp = v => Math.max(0, Math.min(1, +v || 0));
+    const pbRsMs = ms => { ms = +ms; if (!isFinite(ms) || ms < 0) return '—'; const t = Math.round(ms / 1000); return Math.floor(t / 60) + ':' + String(t % 60).padStart(2, '0'); };
+    const pbRsUrl = (id, tail) => '/research/' + encodeURIComponent(id) + '/' + tail;
+    const pbRsLink = (href, text) => `<a class="lg-link" href="${escapeHtmlAttr(href)}" target="_blank" rel="noopener">${pbEscape(text)}</a>`;
+    const pbRsList = v => { const a = pbRsArr(v); return a.length ? `<ul class="rs-ul">${a.map(x => `<li>${pbEscape(x)}</li>`).join('')}</ul>` : ''; };
+    const pbRsKv = (k, html) => html ? `<dt>${pbEscape(k)}</dt><dd>${html}</dd>` : '';
+    const pbRsTable = (heads, rows, cls) => `<div class="rs-scroll"><table class="rs-tbl${cls ? ' ' + cls : ''}"><thead><tr>${heads.map(h => `<th>${pbEscape(h)}</th>`).join('')}</tr></thead><tbody>${rows}</tbody></table></div>`;
+    function pbRsPlanHTML(s) {
+      const p = s.plan;
+      if (!p || typeof p !== 'object') return '';
+      const pp = p.participants || {}, rc = p.recruitment || {}, sc = p.schedule || {}, tm = p.team || {};
+      const risks = pbRsObjs(p.risks), tl = pbRsObjs(p.timeline);
+      const kv = [
+        pbRsKv('Background', p.background ? pbEscape(p.background) : ''),
+        pbRsKv('Objectives', pbRsList(p.objectives)),
+        pbRsKv('Research questions', pbRsList(p.researchQuestions)),
+        pbRsKv('Decision', p.decision ? pbEscape(p.decision) : ''),
+        pbRsKv('Why this method', p.methodRationale ? pbEscape(p.methodRationale) : ''),
+        pbRsKv('Participants', [pp.n != null ? `<div>${pbEscape(pp.n)} planned</div>` : '', pbRsList(pp.criteria), pp.exclude && pbRsArr(pp.exclude).length ? `<div class="lg-dim">Exclude</div>${pbRsList(pp.exclude)}` : ''].join('')),
+        pbRsKv('Segments', pbRsList(pp.segments)),
+        pbRsKv('Recruitment', [rc.channel, rc.incentive && 'incentive ' + rc.incentive, rc.note].filter(Boolean).map(pbEscape).join(' · ')),
+        pbRsKv('Schedule', [sc.start && sc.end ? sc.start + ' to ' + sc.end : (sc.start || sc.end), sc.sessionMinutes != null && sc.sessionMinutes + ' min a session'].filter(Boolean).map(pbEscape).join(' · ')),
+        pbRsKv('Team', [tm.moderator && 'Moderator ' + tm.moderator, tm.notetaker && 'Note-taker ' + tm.notetaker, pbRsArr(tm.observers).length && 'Observers ' + pbRsArr(tm.observers).join(', ')].filter(Boolean).map(pbEscape).join(' · ')),
+        pbRsKv('Materials', pbRsList(p.materials)),
+        pbRsKv('Risks', risks.length ? `<ul class="rs-ul">${risks.map(r => `<li>${pbEscape(r.risk)}${r.mitigation ? ` <span class="lg-dim">— ${pbEscape(r.mitigation)}</span>` : ''}</li>`).join('')}</ul>` : ''),
+        pbRsKv('Timeline', tl.length ? `<ul class="rs-ul">${tl.map(t => `<li>${pbEscape(t.milestone)}${t.date ? ` <span class="lg-dim">${pbEscape(t.date)}</span>` : ''}</li>`).join('')}</ul>` : ''),
+        pbRsKv('Budget', p.budget ? pbEscape(p.budget) : ''),
+      ].join('');
+      if (!kv) return '';
+      const nObj = pbRsArr(p.objectives).length, nQ = pbRsArr(p.researchQuestions).length;
+      return pbDiscHTML({ id: 'rs-plan-' + s.id, level: 'row', open: false, cls: 'rs-plan',
+        summary: `<span class="rs-insth">Plan</span> <span class="lg-dim">${nObj} objective${nObj === 1 ? '' : 's'} · ${nQ} research question${nQ === 1 ? '' : 's'}</span>`,
+        body: `<dl class="pb-kv rs-kv">${kv}</dl>` });
+    }
+    const PB_RS_PIPE = ['invited', 'screened', 'scheduled', 'done', 'no-show', 'withdrawn', 'excluded'];
+    function pbRsParticipantsHTML(s) {
+      const ps = pbRsObjs(s.participants);
+      if (!ps.length) return '';
+      const cnt = {}; ps.forEach(p => { const k = String(p.status || 'invited'); cnt[k] = (cnt[k] || 0) + 1; });
+      const order = PB_RS_PIPE.filter(k => cnt[k]).concat(Object.keys(cnt).filter(k => PB_RS_PIPE.indexOf(k) < 0));
+      const pipe = order.map(k => `${pbEscape(cnt[k])} ${pbEscape(k)}`).join(' · ');
+      const rows = ps.map(p => `<tr data-rs-part="${escapeHtmlAttr(p.id || '')}"><td><code>${pbEscape(p.id)}</code></td><td class="rs-w">${pbEscape(p.segment || '—')}</td><td>${pbEscape(p.role || '—')}</td>`
+        + `<td>${pbEscape(p.status || 'invited')}</td><td>${pbEscape(pbRsDay(p.sessionAt) || '—')}</td><td>${pbEscape(p.incentive || '—')}</td><td>${p.pilot ? lgcBadge('n', 'Pilot') : ''}</td></tr>`).join('');
+      return `<h4 class="rs-h">Participants</h4><p class="rs-pipe lg-dim">${pipe}</p>${pbRsTable(['Participant', 'Segment', 'Role', 'Status', 'Session', 'Incentive', 'Pilot'], rows)}`;
+    }
+    function pbRsOutcomes(o) {
+      o = o && typeof o === 'object' ? o : {};
+      const n = k => +o[k] || 0, back = n('abandoned') + n('timeout') + n('skipped');
+      const g = [[n('success'), '✓', 'ok', 'Succeeded'], [n('fail'), '✗', 'bad', 'Failed'], [back, '↩', 'n', 'Abandoned, timed out or skipped'], [n('answered'), '•', 'n', 'Answered']].filter(x => x[0] > 0);
+      return g.length ? g.map(x => `<span class="rs-oc rs-oc--${x[2]}" title="${escapeHtmlAttr(x[3])}">${x[1]} ${x[0]}</span>`).join(' ') : '—';
+    }
+    function pbRsSessionsHTML(s) {
+      const ev = (s.evidence || []).filter(e => e && e.kind === 'session'), pl = pbRsObjs(s.pilots);
+      if (!pbRsIsSession(s) && !ev.length && !pl.length) return '';
+      const served = pbRsServed();
+      const bar = pbRsIsSession(s) ? (served
+        ? `<p class="rs-links">${pbRsLink(pbRsUrl(s.id, 'session'), 'Start a moderated session')} · ${pbRsLink(pbRsUrl(s.id, 'observer'), 'Open observer')}</p>`
+        : `<p class="rs-links lg-dim">Open the live preview to run sessions, or get the links with <code>research.py link ${pbEscape(s.id)}</code></p>`) : '';
+      let rows = ev.map(e => {
+        const x = e.session || {}, d = e.dropped;
+        return `<tr class="${d ? 'is-dropped' : ''}" data-rs-session="${escapeHtmlAttr(e.id || '')}"><td><code>${pbEscape(e.id)}</code></td><td>${pbEscape(e.participant || '—')}</td>`
+          + `<td>${pbEscape(pbRsDay(e.date || e.importedAt))}</td><td class="rs-n">${pbEscape(pbRsMs(x.durationMs))}</td>`
+          + `<td>${x.tasks != null ? `<span class="lg-dim">${pbEscape(x.tasks)}</span> ` : ''}${pbRsOutcomes(x.outcomes)}</td><td>${x.recording ? 'Yes' : 'No'}</td>`
+          + (served ? `<td>${d || !e.id ? '' : pbRsLink(pbRsUrl(s.id, 'replay/' + e.id), 'Replay')}</td>` : '') + `</tr>`
+          + (d ? `<tr class="rs-why"><td></td><td colspan="${served ? 6 : 5}">Dropped ${pbEscape(pbRsDay(d.at))}${d.reason ? ' — ' + pbEscape(d.reason) : ''}</td></tr>` : '');
+      }).join('');
+      rows += pl.map(p => `<tr data-rs-pilot="${escapeHtmlAttr(p.sessionId || '')}"><td>${lgcBadge('n', 'Pilot')}</td><td>${pbEscape(p.participant || '—')}</td><td>${pbEscape(pbRsDay(p.at))}</td>`
+        + `<td class="rs-n">—</td><td>—</td><td>${pbRsArr(p.media).length ? 'Yes' : 'No'}</td>`
+        + (served ? `<td>${p.sessionId ? pbRsLink(pbRsUrl(s.id, 'replay/pilot-' + p.sessionId), 'Replay') : ''}</td>` : '') + `</tr>`).join('');
+      const heads = ['Session', 'Participant', 'Date', 'Time', 'Tasks', 'Recorded'].concat(served ? ['Replay'] : []);
+      return `<h4 class="rs-h">Sessions</h4>${bar}${rows ? pbRsTable(heads, rows) : '<p class="sum-empty">No sessions yet.</p>'}`;
+    }
+    /* A rate with its interval: the bar is 0–100%, the whisker the 95% interval. Inputs are clamped numbers. */
+    function pbRsCiBar(r) {
+      if (!r || r.rate == null || !isFinite(+r.rate)) return '';
+      const p = pbRsClamp(r.rate), lo = r.low != null ? pbRsClamp(r.low) : p, hi = r.high != null ? pbRsClamp(r.high) : p, f = v => (v * 100).toFixed(1);
+      const t = `${pbRsPct(p)}, 95% interval ${pbRsPct(lo)} to ${pbRsPct(hi)}`;
+      return `<span class="rs-ci" role="img" aria-label="${escapeHtmlAttr(t)}" title="${escapeHtmlAttr(t)}"><i class="rs-ci-bar" style="width:${f(p)}%"></i><i class="rs-ci-whisk" style="left:${f(lo)}%;width:${f(Math.max(hi - lo, 0))}%"></i></span>`;
+    }
+    function pbRsRateTD(r) {
+      if (!r || r.n == null) return '<td>—</td>';
+      return `<td>${pbEscape(r.x)} of ${pbEscape(r.n)} <span class="lg-dim">${pbEscape(pbRsPct(r.rate))}</span> ${pbRsCiBar(r)}</td>`;
+    }
+    const pbRsTaskTD = (s, tid) => { const t = pbRsQuestionText(s, tid); return `<td class="rs-w"><code>${pbEscape(tid)}</code>${t ? ' ' + pbEscape(t) : ''}</td>`; };
+    function pbRsUsabilityHTML(s, an) {
+      const u = an.usability;
+      if (!u || typeof u !== 'object') return '';
+      const ts = u.tasks || {}, ids = Object.keys(ts);
+      const rows = ids.map(tid => {
+        const t = ts[tid] || {}, tm = t.time || t.timeAll || {}, sq = t.seq || {}, ls = t.lostness || {}, dc = t.deadClicks || {}, er = t.errors || {};
+        return `<tr data-rs-task="${escapeHtmlAttr(tid)}">${pbRsTaskTD(s, tid)}${pbRsRateTD(t.success)}`
+          + `<td>${tm.geoMean != null ? pbEscape(pbRsF(tm.geoMean)) + ' s' + (tm.low != null && tm.high != null ? ` <span class="lg-dim">${pbEscape(pbRsF(tm.low, 0))}–${pbEscape(pbRsF(tm.high, 0))}</span>` : '') : '—'}</td>`
+          + `<td class="rs-n">${pbEscape(pbRsF(sq.mean))}</td><td class="rs-n">${pbEscape(pbRsF(ls.mean, 2))}</td><td class="rs-n">${pbEscape(dc.total != null ? dc.total : '—')}</td><td class="rs-n">${pbEscape(er.total != null ? er.total : '—')}</td></tr>`;
+      }).join('');
+      const sus = u.sus && u.sus.mean != null ? `<p class="rs-stat">SUS <b class="pb-num">${pbEscape(pbRsF(u.sus.mean))}</b> `
+        + `<span class="lg-dim">${u.sus.low != null && u.sus.high != null ? '95% interval ' + pbEscape(pbRsF(u.sus.low, 0)) + '–' + pbEscape(pbRsF(u.sus.high, 0)) + ' · ' : ''}n ${pbEscape(u.sus.n)} ·</span> ${u.sus.grade ? lgcBadge('n', 'Grade ' + pbEscape(u.sus.grade)) : ''}</p>` : '';
+      const ov = u.overall && u.overall.success && u.overall.success.n ? `<p class="rs-stat">All tasks <b class="pb-num">${pbEscape(u.overall.success.x)}</b> of ${pbEscape(u.overall.success.n)} succeeded <span class="lg-dim">${pbEscape(pbRsPct(u.overall.success.rate))}</span> ${pbRsCiBar(u.overall.success)}</p>` : '';
+      if (!rows && !sus && !ov) return '';
+      return `<h5 class="rs-h5">Usability tasks</h5>${ov}${rows ? pbRsTable(['Task', 'Success', 'Time', 'SEQ', 'Lostness', 'Dead clicks', 'Errors'], rows, 'rs-tbl--res') : ''}${sus}`;
+    }
+    function pbRsTreeHTML(s, an) {
+      const ts = (an.treeTest || {}).tasks;
+      if (!ts || typeof ts !== 'object') return '';
+      const nodes = {}; pbRsObjs((s.instrument || {}).tree).forEach(n => { nodes[n.id] = n.label; });
+      const rows = Object.keys(ts).map(tid => {
+        const t = ts[tid] || {}, top = pbRsObjs(t.destinations)[0];
+        return `<tr data-rs-task="${escapeHtmlAttr(tid)}">${pbRsTaskTD(s, tid)}${pbRsRateTD(t.success)}${pbRsRateTD(t.direct)}${pbRsRateTD(t.firstClick)}`
+          + `<td>${top ? `${pbEscape(nodes[top.node] || top.node)} <span class="lg-dim">${pbEscape(top.count)}</span>` : '—'}</td></tr>`;
+      }).join('');
+      return rows ? `<h5 class="rs-h5">Tree test</h5>${pbRsTable(['Task', 'Success', 'Direct', 'First click', 'Top destination'], rows, 'rs-tbl--res')}` : '';
+    }
+    function pbRsSortHTML(s, an) {
+      const c = an.cardSort;
+      if (!c || typeof c !== 'object') return '';
+      const ids = pbRsArr(c.cards), sim = c.similarity && typeof c.similarity === 'object' ? c.similarity : {};
+      const lab = {}; pbRsObjs((s.instrument || {}).cards).forEach(x => { lab[x.id] = x.label; });
+      const nm = id => String(lab[id] || id);
+      const at = (a, b) => { const v = sim[a + '|' + b] != null ? sim[a + '|' + b] : sim[b + '|' + a]; return v == null || !isFinite(+v) ? null : pbRsClamp(v); };
+      const head = ids.map(id => `<th title="${escapeHtmlAttr(nm(id))}">${pbEscape(nm(id).slice(0, 10))}</th>`).join('');
+      const body = ids.map(a => `<tr><th class="rs-rowh" title="${escapeHtmlAttr(nm(a))}">${pbEscape(nm(a))}</th>${ids.map(b => {
+        if (a === b) return '<td class="rs-hm rs-hm--self">—</td>';
+        const v = at(a, b);
+        return v == null ? '<td class="rs-hm">—</td>' : `<td class="rs-hm" style="--rs-v:${Math.round(v * 70)}%">${pbEscape(v.toFixed(2))}</td>`;
+      }).join('')}</tr>`).join('');
+      const cl = pbRsArr(c.clusters).filter(Array.isArray);
+      const cats = c.categories && typeof c.categories === 'object' ? Object.keys(c.categories) : [];
+      return `<h5 class="rs-h5">Card sort <span class="lg-dim">${pbEscape(c.kind || '')}${c.n != null ? ' · ' + pbEscape(c.n) + ' sorted' : ''}</span></h5>`
+        + (ids.length ? `<div class="rs-scroll"><table class="rs-tbl rs-heat"><thead><tr><th></th>${head}</tr></thead><tbody>${body}</tbody></table></div>` : '')
+        + (cl.length ? `<h5 class="rs-h5">Clusters${c.threshold != null ? ` <span class="lg-dim">at similarity ${pbEscape(pbRsF(c.threshold, 2))} or more</span>` : ''}</h5><ul class="rs-list rs-clusters">${cl.map(g => `<li class="pb-tags">${pbRsArr(g).map(id => `<span class="pb-tag">${pbEscape(nm(id))}</span>`).join('')}</li>`).join('')}</ul>` : '')
+        + (cats.length ? `<h5 class="rs-h5">Categories</h5><ul class="rs-ul">${cats.map(k => `<li>${pbEscape(k)} <span class="lg-dim">${pbEscape((c.categories[k] || {}).count)} used it</span></li>`).join('')}</ul>` : '');
+    }
+    function pbRsClickHTML(s, an) {
+      const ts = (an.firstClick || {}).tasks;
+      if (!ts || typeof ts !== 'object') return '';
+      const ids = Object.keys(ts);
+      const rows = ids.map(tid => {
+        const t = ts[tid] || {}, tm = t.time || {};
+        return `<tr data-rs-task="${escapeHtmlAttr(tid)}">${pbRsTaskTD(s, tid)}${pbRsRateTD(t.success)}<td class="rs-n">${tm.median != null ? pbEscape(pbRsF(tm.median)) + ' s' : '—'}</td></tr>`;
+      }).join('');
+      const plots = ids.map(tid => {
+        const cs = pbRsArr((ts[tid] || {}).clicks).filter(Array.isArray).slice(0, 500);
+        if (!cs.length) return '';
+        const hits = cs.filter(c => c[2]).length;
+        const t = `${cs.length} clicks, ${hits} on target`;
+        return `<figure class="rs-fc"><div class="rs-plot" role="img" aria-label="${escapeHtmlAttr(tid + ': ' + t)}">${cs.map(c => `<i class="rs-dot${c[2] ? ' is-hit' : ''}" style="left:${(pbRsClamp(c[0]) * 100).toFixed(1)}%;top:${(pbRsClamp(c[1]) * 100).toFixed(1)}%"></i>`).join('')}</div>`
+          + `<figcaption class="lg-dim"><code>${pbEscape(tid)}</code> · ${pbEscape(t)}</figcaption></figure>`;
+      }).join('');
+      return rows ? `<h5 class="rs-h5">First click</h5>${pbRsTable(['Task', 'Success', 'Median time'], rows, 'rs-tbl--res')}${plots ? `<div class="rs-plots">${plots}</div>` : ''}` : '';
+    }
+    function pbRsResultsHTML(s) {
+      const an = s.analysis;
+      if (!an || typeof an !== 'object') return '';
+      const parts = [pbRsUsabilityHTML(s, an), pbRsTreeHTML(s, an), pbRsSortHTML(s, an), pbRsClickHTML(s, an)].join('');
+      if (!parts) return '';
+      const tn = (s.audience || {}).targetN, dir = an.n != null && tn && +an.n < +tn;
+      const note = `<p class="rs-note lg-dim">${an.n != null ? 'n ' + pbEscape(an.n) + (tn ? ' of ' + pbEscape(tn) + ' planned' : '') : ''}${dir ? ' ' + lgcBadge('warn', 'Directional', 'Fewer people than planned, so read these as a direction, not a measure') : ''}</p>`;
+      return `<h4 class="rs-h">Results</h4>${note}${parts}`;
+    }
+    function pbRsObsHTML(o) {
+      const who = [o.participant, o.evidence, o.event != null ? 'event ' + o.event : '', o.t != null ? pbRsMs(o.t) : ''].filter(x => x !== '' && x != null).map(String).join(' · ');
+      return `<li>${o.quote != null ? `“${pbEscape(o.quote)}”` : pbEscape(o.note || '')}${o.quote != null && o.note ? ` <span class="lg-dim">${pbEscape(o.note)}</span>` : ''}${who ? ` <span class="lg-dim">· ${pbEscape(who)}</span>` : ''}</li>`;
+    }
+    function pbRsIssuesHTML(s) {
+      const is = pbRsObjs(s.issues);
+      if (!is.length) return '';
+      const m = ((s.analysis || {}).issues) || {}, n = (s.analysis || {}).n, obs = {};
+      pbRsObjs(s.observations).forEach(o => { obs[o.id] = o; });
+      const sev = u => Math.max(0, Math.min(4, Math.round(+u.severity) || 0));
+      const pr = u => { const v = (m[u.id] || {}).priority; return isFinite(+v) && v != null ? +v : -1; };
+      const sorted = is.map((u, i) => [u, i]).sort((a, b) => (pr(b[0]) - pr(a[0])) || (sev(b[0]) - sev(a[0])) || (a[1] - b[1])).map(x => x[0]);
+      return `<h4 class="rs-h">Issues</h4><ol class="rs-list rs-issues">${sorted.map(u => {
+        const k = PB_RS_SEVERITY[sev(u)], mt = m[u.id] || {}, task = u.task ? pbRsQuestionText(s, u.task) : '';
+        const os = pbRsArr(u.observations).map(id => obs[id]).filter(Boolean);
+        return `<li data-rs-issue="${escapeHtmlAttr(u.id || '')}">
+          <div class="rs-hd"><code>${pbEscape(u.id)}</code><span class="rs-ht">${pbEscape(u.title)}</span>${lgcBadge(k[0], sev(u) + ' ' + pbEscape(k[1]))}</div>
+          <dl class="pb-kv rs-kv">
+            ${mt.participants != null ? `<dt>Affected</dt><dd>${pbEscape(mt.participants)}${n != null ? ' of ' + pbEscape(n) : ''} participants${mt.priority != null ? ` <span class="lg-dim">· priority ${pbEscape(pbRsF(mt.priority, 2))}</span>` : ''}</dd>` : ''}
+            ${u.task ? `<dt>Task</dt><dd><code>${pbEscape(u.task)}</code>${task ? ' ' + pbEscape(task) : ''}</dd>` : ''}
+            ${u.screen ? `<dt>Screen</dt><dd>${pbRsTargetHTML({ kind: 'screen', id: u.screen })}</dd>` : ''}
+            ${pbRsObjs(u.targets).length ? `<dt>About</dt><dd class="pb-tags">${pbRsObjs(u.targets).map(pbRsTargetHTML).join('')}</dd>` : ''}
+            ${u.recommendation ? `<dt>Recommendation</dt><dd>${pbEscape(u.recommendation)}</dd>` : ''}
+            ${os.length ? `<dt>Observed</dt><dd><ul class="rs-ul rs-obs">${os.map(pbRsObsHTML).join('')}</ul></dd>` : ''}
+          </dl></li>`;
+      }).join('')}</ol>`;
+    }
+    function pbRsThemesHTML(s) {
+      const ts = pbRsObjs(s.themes);
+      if (!ts.length) return '';
+      return `<h4 class="rs-h">Themes</h4><ul class="rs-list rs-themes">${ts.map(t => `<li data-rs-theme="${escapeHtmlAttr(t.id || '')}">
+        <div class="rs-hd"><code>${pbEscape(t.id)}</code><span class="rs-ht">${pbEscape(t.title)}</span></div>
+        ${pbRsArr(t.tags).length ? `<div class="pb-tags">${pbRsArr(t.tags).map(g => `<span class="pb-tag">${pbEscape(g)}</span>`).join('')}</div>` : ''}
+        ${t.insight ? `<p class="meta-p">${pbEscape(t.insight)}</p>` : ''}</li>`).join('')}</ul>`;
+    }
+    function pbRsReportHTML(s) {
+      if (!pbRsIsSession(s) && !s.report) return '';
+      const link = pbRsServed() ? `${pbRsLink(pbRsUrl(s.id, 'report'), 'Open report')} · ` : '';
+      return `<h4 class="rs-h">Report</h4><p class="rs-links">${link}<span class="rs-path">${pbEscape('memory/research/' + s.id + '/report/report.html')}</span></p>`;
+    }
     function pbRsStudyDetail(s) {
       const a = s.audience || {}, roles = (a.roles || []).map(r => `${pbRoleDot(r)}${pbEscape(pbRoleName(r))}`).join(' · ');
       const n = pbRsCount(s), t = s.tally || {};
@@ -7006,7 +7247,7 @@
       return `<div class="rs rs-body">
         ${s.question ? `<p class="meta-p rs-q">${pbEscape(s.question)}</p>` : ''}
         <dl class="pb-kv">
-          <dt>Method</dt><dd>${pbEscape(pbCap(s.method || ''))} · ${pbEscape(pbCap(s.status || 'draft'))}</dd>
+          <dt>Method</dt><dd>${pbEscape(pbRsMethodName(s.method))} · ${pbEscape(pbCap(s.status || 'draft'))}</dd>
           <dt>Who</dt><dd>${[roles, a.segment ? pbEscape(a.segment) : ''].filter(Boolean).join(' · ') || '—'}</dd>
           <dt>Scope</dt><dd>${pbRsAskOnly(s) ? 'Questions only' : 'Questions and results'}</dd>
           ${s.setup ? `<dt>Setup</dt><dd>${pbEscape(s.setup)}</dd>` : ''}
@@ -7015,7 +7256,8 @@
           ${gates ? `<dt>Approved</dt><dd>${gates}</dd>` : ''}
           ${s.refilled && s.refilled.at ? `<dt>In Insights</dt><dd>${pbEscape(pbRsDay(s.refilled.at))}</dd>` : ''}
         </dl>
-        ${pbRsHypothesesHTML(s)}${pbRsScoresHTML(s)}${pbRsFindingsHTML(s)}${pbRsInstrumentHTML(s)}${pbRsBiasHTML(s)}${pbRsEvidenceTable(s)}
+        ${pbRsPlanHTML(s)}${pbRsParticipantsHTML(s)}${pbRsSessionsHTML(s)}${pbRsResultsHTML(s)}${pbRsIssuesHTML(s)}${pbRsThemesHTML(s)}
+        ${pbRsHypothesesHTML(s)}${pbRsScoresHTML(s)}${pbRsFindingsHTML(s)}${pbRsReportHTML(s)}${pbRsInstrumentHTML(s)}${pbRsBiasHTML(s)}${pbRsEvidenceTable(s)}
       </div>`;
     }
     function pbRenderResearch() {
@@ -7031,7 +7273,7 @@
         const tally = {}; hs.forEach(h => { const k = h.verdict || ''; tally[k] = (tally[k] || 0) + 1; });
         const vd = pbRsDone(s) ? '' : Object.keys(PB_RS_VERDICT).concat(['']).filter(k => tally[k]).map(k => k ? pbRsVerdictBadge(k, tally[k]) : lgcBadge('n', tally[k] + ' open')).join('');
         const st = String(s.status || 'draft'), who = (a.roles || []).map(pbRoleName).join(', ') || a.segment || '';
-        const kd = pbRsDone(s) ? pbCap(s.method || '') : [pbCap(s.method || ''), 'n ' + n + (a.targetN ? ' of ' + a.targetN : '')].join(' · ');
+        const kd = pbRsDone(s) ? pbRsMethodName(s.method) : [pbRsMethodName(s.method), 'n ' + n + (a.targetN ? ' of ' + a.targetN : '')].join(' · ');
         return pbScanRowHTML('rs', s.id, [
           `<span class="id">${pbEscape(s.id)}</span>`,
           `<span class="ti" title="${escapeHtmlAttr([s.title || s.id, who].filter(Boolean).join(' — '))}">${(a.roles || []).map(pbRoleDot).join('')}${pbEscape(s.title || s.id)}</span>`,
@@ -12522,6 +12764,8 @@
         add('Research', s.title || s.id, s.id, [s.question, s.method, s.status, (a.roles || []).join(' '), a.segment].join(' '), () => pbGoStudy(s.id), true);
         (s.findings || []).forEach(f => add('Research', f.text || f.id, 'Finding · ' + s.id,
           [(f.evidence || []).map(x => x && x.quote).filter(Boolean).join(' '), (f.hypotheses || []).join(' ')].join(' '), () => pbGoStudy(s.id, f.id)));
+        pbRsObjs(s.issues).forEach(u => add('Research', u.title || u.id, 'Issue · ' + s.id,
+          [u.recommendation, u.task, u.screen].filter(Boolean).join(' '), () => pbGoStudy(s.id, u.id)));
       });
       (PB_REGISTRY.screens || []).forEach(sc => add('Screens', sc.name || sc.id, sc.id, 'prototype screen',
         () => { state.metaView = 'prototype'; state.protoScreenId = sc.id; render(); }, true));
