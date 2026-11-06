@@ -43,7 +43,7 @@ written as `kind: "decision"` with prose only and no `blocks[]`: the tab could s
 nothing to look at. **A rule with a detectable shape is never decision-only.** After writing the rule,
 run `python3 "${CLAUDE_PLUGIN_ROOT}/tools/logic_shape.py" registry.json --rule <id> --json`; it lists
 the shapes the prose has but the structure lacks. Author them from facts the rule already states —
-never invent a value; an unknown stays out of the block, not guessed. `rules.md` exports each block as a table.
+never invent a value; an unknown stays out of the block, not guessed.
 
 Each block below has one line, "use when the prose says…". Fields marked `?` are optional.
 

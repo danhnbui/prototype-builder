@@ -1,5 +1,5 @@
 ---
-description: The one hand-off command. Asks who is receiving the work, then delivers it — (1) everything including a vendored Product Builder, so they keep building; (2) engineering, as prototype.html + design-system.html + logic.md + rules.md + constitution.md, with an optional runnable tier; (3) Figma, lowered deterministically from the registry and written through the Figma MCP, with the DS Bridge plugin as the fallback; (4) tickets for front-end developers, one file per buildable slice in a fixed template, linted, then published one-way to Notion or Jira. Replaces the four commands that used to do this: handoff-close, handoff-dev, hand-off and build-figma-handoff.
+description: The one hand-off command. Asks who is receiving the work, then delivers it — (1) everything including a vendored Product Builder, so they keep building; (3) Figma, lowered deterministically from the registry and written through the Figma MCP, with the DS Bridge plugin as the fallback; (4) tickets for front-end developers, one file per buildable slice in a fixed template, linted, then published one-way to Notion or Jira. Mode 2 (engineering) was retired in v3.0.0 and the numbers were not reused. Replaces the four commands that used to do this: handoff-close, handoff-dev, hand-off and build-figma-handoff.
 ---
 
 # /pb:handoff
@@ -14,11 +14,10 @@ $ARGUMENTS
 
 | Flag | Default | Effect |
 |---|---|---|
-| `--mode=1\|2\|3\|4` | **ask** | Skip the question (also `all` · `dev` · `figma` · `tickets`) |
+| `--mode=1\|3\|4` | **ask** | Skip the question (also `all` · `figma` · `tickets`). `--mode=2` / `dev` and `--tier` are **retired** (v3.0.0, §Retired) |
 | `--out <dir>` | per mode | Where to write |
 | `--people` / `--context` | — | Mode 1, narrowed: the viewer artifact only / the bundle only |
-| `--tier=host\|scaffold` | ask, mode 2 | Also emit a runnable app |
-| `--component <id>` | all | Mode 2/3: restrict to one component |
+| `--component <id>` | all | Mode 3: restrict to one component |
 | `--scope=components\|screens\|both` | ask (G-FP0) | Mode 3: what to push |
 | `--screen=<id>` | all in scope | Mode 3: restrict the screens push |
 | `--bridge` | false | Mode 3: emit node JSON to paste, instead of writing through the MCP |
@@ -32,18 +31,20 @@ $ARGUMENTS
 
 ## 0 · Ask (skip only when `--mode` is given)
 
-Ask **once**, as one question with four options, and wait. Do not infer from context — the same
-project hands off to all four audiences at different times, and guessing wrong produces a folder
-the recipient cannot use.
+Ask **once**, as one question with three options, and wait. Do not infer from context — the same
+project hands off to all three audiences at different times, and guessing wrong produces a folder
+the recipient cannot use. The numbers are 1, 3 and 4: **2 is retired and not reused**, so a
+`--mode=3` in an old script or in the design-system site's Push-to-Figma prompt still means Figma.
 
 > **What are you handing off?**
 > 1. **Everything, including Product Builder** — they continue the work. The prototype, the full
 >    portable bundle, and a vendored copy of the plugin so `/pb:*` works for them on day one.
-> 2. **For engineering** — `prototype.html` to run, `design-system.html` as the component usage
->    reference, and the logic + rules as Markdown they can read, review and diff.
 > 3. **For Figma** — push the components and screens into a Figma file.
 > 4. **Tickets for front-end developers** — one ticket per buildable slice, in a fixed template,
 >    published to Notion or Jira.
+
+`--mode=2`, `--mode=dev` or `--tier=…` → do not run anything. Print the **Retired** note at the end of
+this file and re-ask the question.
 
 ## 1 · Contract gate (fail-closed — runs first, every mode)
 ```
@@ -63,18 +64,16 @@ A hand-off sends the registry, its render bodies and its mock data off this mach
 ```
 python3 "${CLAUDE_PLUGIN_ROOT}/tools/security_scan.py" registry.json
 ```
-Modes 1, 2 and 4 also scan what was written, once the output folder exists (it skips `prototype.html`,
+Modes 1 and 4 also scan what was written, once the output folder exists (it skips `prototype.html`,
 `design-system.html`, any `pb/`, `.git/` and `node_modules/`, so a vendored plugin is not scanned):
 ```
 python3 "${CLAUDE_PLUGIN_ROOT}/tools/security_scan.py" --dir handoff        # mode 1 (or --out)
-python3 "${CLAUDE_PLUGIN_ROOT}/tools/security_scan.py" --dir handoff-dev    # mode 2 (or --out)
 python3 "${CLAUDE_PLUGIN_ROOT}/tools/security_scan.py" --dir handoff/tickets # mode 4
 ```
 - **Exit 2 (errors) → STOP.** Show the findings and ask the user whether to continue. Continue only on
   `--accept-findings` or the user's explicit yes in this conversation; silence is not a yes. Then record the
-  override: print it in the Report (the finding codes and counts, and who accepted), and in modes 1 and 2 write
-  a `## Security scan override` section into the hand-off's own docs — `AGENTS.md` in mode 1, `rules.md` in mode 2
-  (re-add it after a regeneration, since `handoff_docs.py` rewrites that file).
+  override: print it in the Report (the finding codes and counts, and who accepted), and in mode 1 write
+  a `## Security scan override` section into the hand-off's own `AGENTS.md`.
 - **Exit 1 (warnings only) → continue.** Show the count and say the prototype may contain mock personal data
   (emails, phone numbers) that the recipient will see.
 - **Exit 0 → continue**, silently.
@@ -118,7 +117,7 @@ Copy the tree above, preserving the shape `/pb:init --import` expects. **The `de
 load-bearing** — rotation moves older entries to dated siblings, so a bare `decisions.md` ships a
 hand-off whose history stops at the last rotation, silently. **`memory/research/` holds what participants
 said.** Copy it for mode 1, and tell the user it is in the folder before it goes anywhere (`--people`
-leaves it behind with the rest of the bundle). Mode 2 never carries it: `rules.md` cites findings only.
+leaves it behind with the rest of the bundle). Mode 1 is the only mode that carries it.
 
 ### 1.3 · Vendor the plugin
 Copy `${CLAUDE_PLUGIN_ROOT}` to `handoff/pb/`, **excluding** `.venv/`, `__pycache__/`, `node_modules/`,
@@ -141,75 +140,10 @@ Run the `--dir` scan from §1b on `handoff/` now that it is complete, and apply 
 
 ---
 
-# Mode 2 · For engineering
+# Mode 2 · retired
 
-```
-handoff-dev/
-  prototype.html            # the running prototype — NOT view-only
-  design-system.html        # every component: live demo + variant grid — the usage reference
-  logic.md                  # per item: handlers, writes[], affordances + why, the DOM seam
-  rules.md                  # ia.rules, jobs, layers
-  constitution.md           # the Stack Lock + DS Lock, verbatim
-  host/                     # --tier=host: a Vite/Next skeleton that serves prototype.html
-  scaffold/                 # --tier=scaffold: a real React+Tailwind app
-```
-
-1. `/pb:build --render` writes both sites; copy both. **Do not set `config.viewOnly`** — that hides the
-   authoring affordances, and an engineer reading the prototype needs to see them.
-2. Emit the two Markdown docs:
-   ```
-   python3 "${CLAUDE_PLUGIN_ROOT}/tools/handoff_docs.py" . --out handoff-dev
-   ```
-   Deterministic and byte-stable — no timestamp — so next month's regeneration diffs cleanly against
-   this one. It reads the derived logic graph plus the authored half of each contract (`writes[]`,
-   `affordances[].why`) and never writes back to `logic/`.
-3. Copy `memory/constitution.md` to `handoff-dev/constitution.md`.
-4. Run the `--dir handoff-dev` scan from §1b and apply its exit-code rule before going further.
-5. **Ask whether they also want runnable source.** If not, stop here — a scaffold nobody asked for is
-   the most expensive file in the folder.
-
-> **`design-system.html` IS the component usage doc.** Per component it already carries a live clickable
-> demo, the full variant grid (the cartesian product of its enum properties), and the token foundations.
-> A separate usage page would duplicate it and go stale.
-
-### 2.1 · `--tier=host` — the runnable reference build
-Wrap the rendered `prototype.html` in a deployable skeleton that serves it. The bridge from "open the
-file" to "host it like an app." Absorbs the former `/pb:validate`, which was this tier under another
-name.
-
-Create `handoff-dev/host/` (or `--out`):
-- **Vite (default)** — `package.json` (`vite` dev dep; `dev` / `build` / `preview` scripts), a minimal
-  `vite.config.js`, and `index.html` = the rendered `prototype.html` copied in as the entry.
-- **Next** (`--next`) — a Next app with the prototype as a static page + the same scripts.
-
-Then `npm install` and `npm run build`. **The build must exit 0** and `npm run preview` must serve it.
-Report the dev URL. Set `meta.outputTier = "host"`.
-
-> **What this is, and is not (NS9).** The output **runs** the prototype — Vite/Next dev, build and
-> preview — as a thin wrapper around the one `prototype.html`. It is **not** a component-level source
-> export: there are no per-component `.jsx` / `.tsx` modules to import. The artifact stays HTML
-> **regardless of the Stack Lock** — that lock records the *intended production* stack; it does not
-> change what this emits. Engineers reuse the design intent (tokens, specs, flows), not these files as
-> modules. A real JSX/TSX export is `--tier=scaffold` below, or the deferred hardened tier.
-
-### 2.2 · `--tier=scaffold` — deterministic React + Tailwind
-Load the **`design-component-export`** skill for the scaffold contract and its honesty guardrails, then:
-```
-python3 "${CLAUDE_PLUGIN_ROOT}/tools/render_react.py" registry.json --out handoff-dev/scaffold [--screen <id> | --component <id>]
-```
-A self-contained React+Vite app: one wrapper per registry component/screen (reusing its render body),
-`tokens.css` (`:root` vars) + a token-mapped `tailwind.config.js`, and `npm run dev` scaffolding.
-Deterministic, no MCP. Set `meta.outputTier = "scaffold"`, `meta.exportTarget = "react-tailwind"`, and
-tell them: `cd handoff-dev/scaffold && npm install && npm run dev`.
-
-> **Honest scope (NS9).** The scaffold is **mechanical** — wrappers around pb render bodies, styled by
-> the DS tokens. It runs and lints clean. It is **not** idiomatic per-component JSX.
-
-### 2.3 · `--tier=hardened` — ⛔ NOT AVAILABLE
-Idiomatic per-component JSX, MCP-resolved against the real DS, repo-matched, reviewed. **Deferred** — it
-needs a resolved **G-B** decision (does the target repo adopt AntD or stay Tailwind-only), the
-export contracts for this tier, which aren't written yet, and the DS MCP resolution path. **STOP** and say so; offer
-`scaffold`. Do **not** fake an idiomatic export.
+Mode 2 (engineering) was removed in v3.0.0; its number is not reused. See **Retired** at the end of this
+file for what replaces it.
 
 ---
 
@@ -443,7 +377,7 @@ and a dropped id is never reused.
 ## Report
 State the mode, the output path, the file count and the total size, and the security scan result
 (clean, N warnings, or the accepted override and its codes). Mode 1: say the plugin is vendored
-and what it added. Mode 2: say whether a runnable tier was built. Mode 3: say which frames were created
+and what it added. Mode 3: say which frames were created
 and whether anything fell back to the bridge. Mode 4: say how many tickets were written, the lint
 result, how many were published (and where) and how many are stale.
 
@@ -453,12 +387,10 @@ result, how many were published (and where) and how many are stale.
 - NEVER deliver past a `security_scan.py` exit 2 without `--accept-findings` or the user's explicit yes,
   and never without recording that override in the output.
 - NEVER ship a mode-1 `prototype.html` with authoring CTAs visible — set `config.viewOnly`.
-- NEVER set `config.viewOnly` in mode 2 — engineers need the authoring surface.
 - NEVER omit `constitution.md` / `decisions*.md` from a mode-1 bundle, and **never narrow that glob to
   `decisions.md`** — rotated siblings vanish from every hand-off, silently.
-- NEVER present the scaffold as idiomatic production JSX (NS9), or emit a hardened export before its
-  inputs exist; and never describe a `host` build as reusable component code — it serves one HTML file.
-- NEVER claim a `host` build succeeded without an actual `npm run build` exit 0.
+- NEVER run the retired engineering hand-off (`--mode=2` / `dev`, `--tier`) or recreate it under another
+  name — print the **Retired** note instead.
 - NEVER invent a DS publish key or a variable — an unmatched component or token is a **gap**, never a
   fabricated reference; and never coerce a token to a raw value.
 - NEVER auto-add a variant axis, push > 1 screen or 5 components without `--batch`, or hardcode a
@@ -476,3 +408,22 @@ result, how many were published (and where) and how many are stale.
 
 > **Skill degrade (NS6).** If a step's tool, skill or template fails to load, say so explicitly and
 > proceed with its core intent — never silently skip it.
+
+## Retired (v3.0.0)
+
+Mode 2, **For engineering**, is removed completely, along with everything that served it: `--mode=2` /
+`dev`, `--tier=host|scaffold|hardened`, the `handoff-dev/` folder, `logic.md` and `rules.md`
+(`tools/handoff_docs.py`), the React + Tailwind scaffold (`tools/render_react.py`) and the skill that
+described it. `/pb:validate`, already retired, pointed at `--tier=host` and now has no
+replacement. Mode numbers were not renumbered, so Figma stays `--mode=3`.
+
+When a run asks for any of it, say this and re-ask §0:
+
+- **Developers** who build the front end → `--mode=4`, tickets: one file per buildable slice, linted,
+  published one-way to Notion or Jira.
+- **A full working copy** of the project → `--mode=1`, which carries the prototype, the bundle and a
+  vendored Product Builder.
+
+`design-system.html` is still rendered by `/pb:build` and served by `/pb:preview` at `/design-system`;
+it is no longer a hand-off artifact on its own. `meta.outputTier` and `meta.exportTarget` are inert: an
+existing registry keeps them harmlessly, and nothing reads or writes them.

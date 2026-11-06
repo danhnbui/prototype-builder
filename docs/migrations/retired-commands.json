@@ -7,11 +7,11 @@
   "flow": "`/pb:plan --flow` (first authoring; `/pb:build` keeps the `flow` slice in sync after that)",
   "hand-off": "`/pb:handoff` → mode 1 (everything)",
   "handoff-close": "`/pb:handoff` → mode 1 (everything)",
-  "handoff-dev": "`/pb:handoff` → mode 2 (engineering)",
+  "handoff-dev": "`/pb:handoff` → mode 4 (tickets for front-end developers), or mode 1 (everything) for a full working copy; the engineering mode 2 was retired in v3.0.0",
   "migrate": "`/pb:update-version`",
   "preview-ds": "`/pb:preview`, then open the `/design-system` route",
   "snapshot": "no command — `/pb:update-version` backs up `registry.json` before it writes (`--rollback` restores it); keep other history in git",
   "sync-erd": "`/pb:plan --data`, or nothing: `/pb:build` reconciles the `erd` slice on every trio write",
   "sync-flow": "`/pb:plan --flow`, or nothing: `/pb:build` reconciles the `flow` slice on every trio write",
-  "validate": "`/pb:handoff --tier=host`"
+  "validate": "no replacement — the runnable `--tier=host` build was retired in v3.0.0; `/pb:preview` serves the prototype"
 }

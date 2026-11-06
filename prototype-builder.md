@@ -39,8 +39,8 @@ canonical text ships with the plugin: `pb/docs/canon.md` § *Responsive styles*.
 | `meta.designSystem` | `{ name, designLink, codeLibrary, linked }` | design-system site | the linked design system — `name`, `designLink` (the project's Figma file), `codeLibrary` (folder path or repo URL). Seeded from the DS Lock at `/pb:init`. **Editable in the Project settings dialog**, saved through `POST /api/meta` on `/pb:preview` (read-only over `file://`): **`name` is required**; `designLink` is optional and, when set, must be a `figma.com/file/…` or `figma.com/design/…` link — except that a non-Figma link the project already carries is **kept with a warning** rather than blocking a save of the names. Hand-off, the Figma push and the drift check read it. Absent → Project settings shows it empty |
 | `meta.platform` | `'web'\|'ios'\|'android'\|'desktop'` | — | the DS/target platform; set at `/pb:init`. Defaults to `'web'`. Schema 5 (v1.6) |
 | `meta.dsSource` | `{ type, ref, clonedAt } \| null` | — | provenance of the cloned DS: `type ∈ figma\|code-library\|mcp\|common`, `ref` the literal URL/path/name, `clonedAt` ISO stamp. `null` until `/pb:pull-ds` clones. The full token/component snapshot lives in `design-system/<name>/.source.json`; `/pb:test --drift` §5 diffs the live source against it. Schema 5 (v1.6) |
-| `meta.outputTier` | `'host'\|'scaffold'\|'hardened'` | — | which export tier `/pb:handoff` targets. `host` = the runnable single-file prototype; `scaffold` = deterministic React+Tailwind (`render_react.py`); `hardened` = idiomatic/DS-integrated (deferred). Defaults to `host`. Schema 6 (v1.7) |
-| `meta.exportTarget` | string \| null | — | machine-readable export target mirroring the Stack Lock (e.g. `'react-tailwind'`); `null` until set. Schema 6 (v1.7) |
+| `meta.outputTier` | `'host'\|'scaffold'\|'hardened'` | — | **inert since v3.0.0** — it named the export tier of the retired engineering hand-off. New projects no longer carry it; an existing registry keeps it harmlessly, and no schema change was made. Schema 6 (v1.7) |
+| `meta.exportTarget` | string \| null | — | **inert since v3.0.0** — it mirrored the Stack Lock for that export (e.g. `'react-tailwind'`). Same treatment as `meta.outputTier`. Schema 6 (v1.7) |
 | `meta.entry` | `'prd'\|'figma'` | — | intake provenance — `prd` (PRD/Q&A) or `figma` (`/pb:init --figma` resolved a frame). Defaults to `prd`. Schema 7 (v1.8) |
 | `meta.overview` | `{ objectives, principles[] }` | Project Summary | from spec + constitution |
 | `meta.userInsights` | `{ quantitative, researchSummary, executiveSummary }` | Project Summary | from `/pb:clarify` |
@@ -395,18 +395,10 @@ footprint* (this section only lists the tools; if the two disagree, the canon wi
 _(Phase 5)_ — DS-first, Local-first (R0); extend with a variant before spawning (R2); auto-layout
 on every Figma frame (R3); kebab-case non-colliding IDs (R4); the naming contract.
 
-## Export tiers — JSX/TSX component export (v1.7)
+## Export tiers — retired (v3.0.0)
 
-Three tiers via `/pb:handoff --tier=…`:
-
-- **`host`** — the runnable single-file `prototype.html` (`/pb:handoff --tier=host`). Not reusable components.
-- **`scaffold`** *(shipped v1.7)* — `render_react.py` deterministically emits a **React + Vite** app:
-  one wrapper component per registry component/screen (reusing its render body), tokens as CSS vars +
-  a Tailwind theme. Runs + lints; **mechanical** (wrappers), not idiomatic JSX (NS9).
-- **`hardened`** *(deferred)* — idiomatic per-component Tailwind JSX, MCP-resolved against the real DS,
-  repo-matched, `validate_code`-scored, `pb-reviewer` + human approved. Needs the G-B decision,
-  `pb-full-picture.md`'s export contracts, and the DS-MCP path before it's built.
-
-**Pre-registered success criterion for the hardened tier:** a front-end engineer integrates **≥ 1
-exported component** into a fresh Vite app and renders it correctly in **< 30 minutes**, using only the
-generated files + a short README. That is the gate the hardened tier must clear.
+`/pb:handoff` no longer has export tiers. Mode 2 (engineering), `--tier=host|scaffold|hardened`, the React +
+Tailwind scaffold and the `logic.md` / `rules.md` documents were removed in v3.0.0. The three audiences
+are now **1** everything · **3** Figma · **4** tickets for front-end developers (the number 2 is not
+reused). A developer who needs to build from the prototype gets mode 4 tickets; a recipient who needs a
+full working copy gets mode 1. `meta.outputTier` and `meta.exportTarget` are inert (see the `meta` table).

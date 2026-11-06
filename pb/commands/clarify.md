@@ -290,7 +290,7 @@ what is left as `L-SHAPE`).
 
 Read what you are about to write. If any part of it is one of these shapes, write that part as a
 block instead of a sentence. `think-logic` §Rule blocks has an example of each; the Logic tab draws
-each one as a component, and `rules.md` exports it as a table.
+each one as a component.
 
 | When the prose says… | Block | Fields |
 |---|---|---|

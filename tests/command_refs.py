@@ -46,7 +46,7 @@ RETIRED = {
     "handoff-close", "handoff-dev", "hand-off", "build-figma-handoff",   # → /pb:handoff
     "build-check-design-system",                                         # → /pb:build §3a
     "preview-ds",                                                        # → /pb:preview §2b
-    "validate",                                                          # → /pb:handoff --tier=host
+    "validate",                                                          # → /pb:handoff (retired, no replacement for the tier)
 }
 
 SKIP_PREFIX = ("changelog.md", "pb/docs/changelog.md", "docs/", ".venv/")  # pb/docs/changelog.md: the shipped copy

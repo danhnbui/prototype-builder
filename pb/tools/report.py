@@ -95,7 +95,7 @@ RETIRED = {
     "build-figma-handoff": "/pb:handoff",
     "build-check-design-system": "/pb:build §3a",
     "preview-ds": "/pb:preview §2b",
-    "validate": "/pb:handoff --tier=host",
+    "validate": "/pb:handoff",
     "build-generate": "(never shipped)", "build-explore": "/pb:explore",
     "build-flow": "/pb:plan --flow", "build-logic": "/pb:build",
 }

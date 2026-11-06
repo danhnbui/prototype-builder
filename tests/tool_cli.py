@@ -3,7 +3,7 @@
 tool_cli.py — the registry-taking tools accept the registry BOTH positionally and via --registry.
 
 The command docs (pull-ds.md, check-drift.md §5, init.md 6c) invoke clone_ds.py / resolve_frame.py
-with the registry as a positional arg; other tools (render_react.py, ds_serve.py) already
+with the registry as a positional arg; other tools (ds_serve.py) already
 did. This guards that uniform CLI so a doc-vs-tool mismatch can't silently reappear.
 
 It also guards the write tools the build loop calls from its docs (round 3): the command line

@@ -176,7 +176,7 @@ in `pb/commands/`.
 | On-ramp | `init` · `pull-ds` · `specify` · `clarify` · `plan` (`--flow` / `--data` author the slices) |
 | Build loop | `build` (DS-first check + flow/erd sync folded in) · `preview` · `orchestrate` · `explore` |
 | Audit | `test` (`--drift` is the read-only audit; no flag checks everything) · `report` (a read-only retrospective of the project's history for the pb maintainer, v2.1) |
-| Exit | `handoff` — mode 1 everything · mode 2 engineering (`--tier=host` / `scaffold`) · mode 3 Figma · mode 4 front-end tickets (`handoff/tickets/`, published one-way to Notion or Jira) |
+| Exit | `handoff` — mode 1 everything · mode 3 Figma · mode 4 front-end tickets (`handoff/tickets/`, published one-way to Notion or Jira); mode 2 (engineering) and `--tier` were retired in v3.0.0 |
 | Schema | `update-version` (dry-run / `--apply` / `--rollback` / `--to <N>`) |
 
 Write-path commands (`build`, `plan --flow`, `plan --data`, `pull-ds`, `handoff`, `init --import`) carry a **soft compat

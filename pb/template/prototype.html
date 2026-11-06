@@ -15,8 +15,8 @@
     components/screens get a render/<kind>/<id>.js body file.
   • Preview live with /pb:preview (watches registry.json + render/*.js and
     live-reloads the browser).
-  • Regenerate this file with /pb:build --render (also auto-run at /pb:handoff
-    and /pb:handoff --tier=host). Never copy or edit it by hand.
+  • Regenerate this file with /pb:build --render (also auto-run at /pb:handoff).
+    Never copy or edit it by hand.
 
   THE 4 TABS  (components live on the design-system site — design-system.html at /design-system)
   ─────────────────────────────────────────────────────────────
@@ -3942,7 +3942,6 @@
       '/pb:plan --data':    'Generate the Data tab — field/type table + Mermaid ERD with PK/FK guardrails.',
       '/pb:test --drift': 'Audit the trio against the constitution. Read-only — no writes.',
       '/pb:handoff':    '--people for a view-only prototype, --context for a portable bundle.',
-      '/pb:handoff --tier=host':    'Wrap prototype.html in a runnable Vite/Next reference build.',
       '/pb:update-version': 'Run versioned schema updates. Dry-run by default; use --apply to execute.',
     };
 
@@ -3958,7 +3957,6 @@
       '/pb:plan --data':    'Run /pb:plan --data to (re)generate the Data tab — a field/type/example table plus a Mermaid erDiagram (PK/FK/cardinality guardrails).',
       '/pb:test --drift': 'Run /pb:test --drift to audit the trio (screens, components, logic) against the constitution (report-only, no writes).',
       '/pb:handoff':    'Run /pb:handoff --people for a view-only self-documenting prototype.html, or --context for a portable bundle.',
-      '/pb:handoff --tier=host':    'Run /pb:handoff --tier=host to scaffold a runnable reference build from prototype.html.',
       '/pb:update-version': 'Run /pb:update-version to apply a versioned registry schema update (dry-run by default; --apply to execute).',
     };
     function chatPromptFor(slashCommand) {

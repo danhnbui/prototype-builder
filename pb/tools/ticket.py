@@ -9,7 +9,7 @@ decision id the recipient could not look up. None of that is judgement; it is st
 structure is arithmetic. So the shape lives in one template (pb/template/fe-ticket.template.md),
 and this tool builds from it, checks against it, and keeps a ticket honest as the project moves.
 
-WHY A TOOL AND NOT A PROMPT. Same reasoning as handoff_docs.py: deterministic, byte-stable, no
+WHY A TOOL AND NOT A PROMPT. Deterministic, byte-stable, no
 timestamps in anything it derives (the one exception is the publish ledger, whose time the caller
 passes in). A regenerated ticket or index diffs cleanly against the last one.
 
