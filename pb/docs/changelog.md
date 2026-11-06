@@ -32,6 +32,11 @@ tool beside Pick, after Solum Studio's.*
   with `min-height: 40px` centring a 28px title showed nothing for its 6px above and below. That room is now drawn
   as a fourth band, hatched in its own cyan (`--pb-spec-free`, #0e7490): never grey, which melted into the
   product's own borders and fills.
+- **The bar's right-hand end no longer covers the tabs.** With Spacing added, the end group (progress, Search,
+  Pick, Spacing, Sandbox) grew wider than the room left at 1280px on a non-Mac browser, whose search hint reads
+  `Ctrl K` rather than `⌘K`, and slid over the tab strip, so a click on **UX Design** landed on a bar item. The
+  tabs now keep their width, and below 1440px the keyboard hint is dropped first; labels go only below 900px, as
+  before.
 
 ### Breaking — the engineering hand-off (mode 2) is removed
 
