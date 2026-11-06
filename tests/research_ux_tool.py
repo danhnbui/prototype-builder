@@ -355,6 +355,11 @@ check("W-SEQ" in rules(mutated(lambda s: s["instrument"]["sections"][1]["questio
 check("C-WARMUP" in rules(mutated(lambda s: s["instrument"]["sections"].pop(0)))[0], "C-WARMUP: a moderated usability test needs a warmup")
 unmod = mutated(lambda s: (s["instrument"].update(mode="unmoderated"), s["instrument"]["sections"].pop(0)))
 check("C-WARMUP" not in rules(unmod)[0] and "W-WARMUP" in rules(unmod)[1], "W-WARMUP: an unmoderated test without a warmup only warns")
+# The fixture registry opens `handover` to dispatchers only, so a courier task that must reach it cannot succeed.
+gated = mutated(lambda s: task_q(s, "t1")["task"].update(criteria=[{"screen": "handover"}]))
+check("W-ROLE" in rules(gated)[1] and "W-ROLE" not in rules(gated)[0], "W-ROLE: the task's role cannot open its success screen (a warning)")
+check("W-ROLE" in rules(mutated(lambda s: task_q(s, "t1")["task"].update(screen="handover")))[1], "W-ROLE: nor its start screen")
+check("W-ROLE" not in rules(U)[1], "W-ROLE: quiet when the role can reach every screen the task needs")
 
 
 def add_hyp(s):

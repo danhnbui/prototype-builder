@@ -104,6 +104,45 @@ tool beside Pick, after Solum Studio's.*
   those touching a screen. An empty selection exits 0 without opening a browser. `/pb:build` §4.7 runs it once per
   build turn when the preview is up; advisory, it never blocks.
 
+- **`/pb:research` runs usability tests, tree tests, card sorts and first-click tests.** It could only plan a survey
+  or an interview. A team that wanted to watch people use the prototype had to leave pb, run the test in another
+  tool, and type the result back by hand. Now the whole study is in pb, from the plan to the report.
+  - **Six methods, and a plan first.** `research.py methods` prints the catalog: what each method answers, how many
+    people it needs, how long a session takes and what it is not for. It also lists diary study, contextual inquiry,
+    concept test, five-second test and A/B preference as methods pb does not run. `init --method` takes
+    `usability`, `tree-test`, `card-sort` and `first-click`, and `/pb:research` takes the matching flags. `brief`
+    stores a research plan (objectives, questions, the decision, schedule, team, risks). Changing the objectives,
+    questions, decision, method reasons or participants withdraws G-STUDY; the logistics keys do not.
+  - **Logistics.** `participant` keeps a tracker of pseudonyms only; an email or phone number in a note is refused.
+    `logistics` is a checklist seeded from the method and the mode. `pilots` lists the rehearsals, which are never
+    evidence and never analysed. G-STUDY now also writes `plan.md`, `moderator-guide.md`, `tasks.md` (`cards.md`
+    for a card sort), `consent.md`, `screener.md` and `note-taking.csv`. The bias review also reads task wording,
+    tree labels that parrot the task, and card wording.
+  - **Run it here, or send a file.** `research.py link` prints `http://127.0.0.1:<port>/research/<id>/session` on
+    the `/pb:preview` server, with an observer window (live events, timer, notes, Assist, outcome override, the
+    moderator script). The participant gives consent first, then separately opts in to a screen and voice
+    recording; both save straight into evidence, read-only and hashed. `research.py kit` writes one
+    self-contained HTML file for an unmoderated test: no hypotheses, no answer keys, no network call. The
+    participant sends back a `.pbsession.json` and a `.webm`, and `import --kind session` and `--kind recording
+    --session <id>` store them. Nothing is hosted online, and the pages answer this machine only.
+  - **What is recorded.** Screens, clicks named by component, dead and rage clicks, field input as length only (never
+    the value), submits, validation errors, toasts, wizard steps and each task's outcome. Dropping a session also
+    drops its recording. A hand-off in mode 1 carries the recordings, so they are participant data.
+  - **Numbers by the tool.** `analyze` computes success with an adjusted-Wald interval, time on task as a geometric
+    mean with an interval, lostness, clicks, errors, SEQ, SUS with its grade, tree-test success and directness,
+    card-sort similarity and clusters, and first-click hit rates. `affinity` counts tags by participant.
+    Observations must cite a session event, a time or a verbatim quote. Issues carry a severity from 0 to 4 that the
+    model proposes and the user approves; their participants, frequency and priority are the tool's, and a typed
+    one is refused. `verify` recomputes the analysis from the evidence and adds `V-OBS`, `V-ISSUE`, `V-THEME`,
+    `V-ANALYSIS` and `V-REPORT`.
+  - **A report and a replay.** `report` writes `report.md` and a self-contained, printable `report.html`, a Draft until
+    G-INSIGHT, served at `/research/<id>/report`; `refill --approved` regenerates it without the banner.
+    `/research/<id>/replay/<eid>` plays a session back on the prototype with click dots and a timeline, in step with
+    the video. Project Summary → Research shows the plan, participants, sessions, results, ranked issues, themes and
+    the report link.
+  - **Method.** The `ref-research` skill is rewritten around the full path, with a section for each of the four
+    new methods. `security_scan` skips recordings and recorded sha256 digests.
+
 ### Breaking — the engineering hand-off (mode 2) is removed
 
 - **`/pb:handoff` mode 2, "For engineering", is gone, completely.** The hand-off is now three audiences:

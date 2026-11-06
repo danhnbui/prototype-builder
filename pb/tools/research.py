@@ -953,6 +953,39 @@ def _check_usability_task(qid, w, tk, screens, E):
             E("C-TASK", w, "%s: task.timeLimitSec is a whole number of seconds, 1 or more" % qid)
 
 
+def _task_role(tk, reg):
+    """The role a task runs as: its own `role`, else its entry's role, else meta.defaultRole."""
+    meta = as_dict(reg.get("meta"))
+    if isinstance(tk.get("role"), str) and tk["role"]:
+        return tk["role"]
+    for e in as_list(as_dict(meta.get("demo")).get("entries")):
+        if isinstance(e, dict) and e.get("id") == tk.get("entry") and isinstance(e.get("role"), str):
+            return e["role"]
+    return meta.get("defaultRole") if isinstance(meta.get("defaultRole"), str) else None
+
+
+def _check_task_reach(qid, w, tk, reg, W):
+    """W-ROLE: the role a usability task runs as cannot open its start screen or a screen its success criteria
+    need. The shell refuses the navigation, so the task could never succeed — and the researcher would only find
+    out in the session."""
+    if not isinstance(tk, dict):
+        return
+    role = _task_role(tk, reg)
+    if not role:
+        return
+    roles = as_list(as_dict(reg.get("meta")).get("roles"))
+    if any(isinstance(r, dict) and r.get("id") == role and r.get("isAdmin") for r in roles):
+        return                                    # an admin role bypasses screen gating in the shell
+    gated = {s.get("id"): s.get("roles") for s in screens_of(reg)
+             if isinstance(s, dict) and isinstance(s.get("roles"), list) and s.get("roles")}
+    need = [("start screen", tk.get("screen"))] + [("success criteria", c.get("screen")) for c in as_list(tk.get("criteria"))
+                                                   if isinstance(c, dict)]
+    for why, sid in need:
+        if isinstance(sid, str) and sid in gated and role not in gated[sid]:
+            W("W-ROLE", w, "%s: the task runs as role %r, but its %s screen %r is open only to %s — the shell will "
+              "refuse it, so the task cannot succeed" % (qid, role, why, sid, ", ".join(map(str, gated[sid]))))
+
+
 def _check_tree(inst, E):
     """C-TREE for the tree itself. Returns the set of node ids (empty when the tree is unusable)."""
     tree = inst.get("tree")
@@ -1330,6 +1363,7 @@ def check_study(reg, study):
                         else:
                             _check_usability_task(qid, w, _check_task_object(qid, w, q.get("task"), screens, declared_roles, entry_ids, E),
                                                   screens, E)
+                            _check_task_reach(qid, w, q.get("task"), reg, W)
                     elif method == "tree-test":
                         tr = q.get("tree")
                         if not (isinstance(tr, dict) and isinstance(tr.get("correct"), list) and tr["correct"]

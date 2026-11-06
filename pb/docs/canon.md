@@ -518,21 +518,53 @@ they need.
 ## Research evidence
 
 `/pb:research` validates what a project is unsure about with real people and keeps what comes back as
-evidence a later reader can check. The registry's optional `research` slice holds the studies (hypotheses,
-the instrument, the evidence index, the tally, the findings); the raw files live on disk. Absent means an
-empty state, not a schema bump. The method is in the `ref-research` skill; these are the rules that do not move.
+evidence a later reader can check. Six methods: survey and interview (asked in a tool the user already has),
+and usability test, tree test, card sort and first-click test (run in a browser on the prototype, as
+**sessions**). The registry's optional `research` slice holds the studies (the plan, hypotheses, the
+instrument, the participant tracker and logistics checklist, the evidence index, the tally or the analysis,
+the observations, themes and issues, the findings); the raw files live on disk. Absent means an empty
+state, not a schema bump. The method is in the `ref-research` skill; these are the rules that do not move.
 
+- **Nothing is hosted online.** No survey page, no panel, no public or LAN link. A survey or interview is
+  fielded elsewhere and its export comes back. A session method runs **on this machine** (the `/pb:preview`
+  server, moderated, with an optional observer window) or **from one kit file** the participant opens on
+  their own disk and sends results back from (unmoderated). The session pages and uploads answer this
+  machine only (loopback peer and Host), whatever `--host` or `--allow-host` says; the participant's page
+  never live-reloads. Screen capture needs a secure page, which `127.0.0.1` and a local file are and a
+  plain-http LAN address is not, so pb offers no LAN link.
 - **Evidence is immutable.** A raw file is copied to `memory/research/<id>/evidence/`, hashed (sha256) and
   made read-only. Nothing edits it. A mistake is fixed by dropping the evidence and importing a corrected
-  one; a drop deletes the file and keeps its row, struck out, with the hash and the reason.
-- **Numbers by the tool, quotes verified verbatim.** Every count, mean and percentage comes from
-  `research.py tally`; the model computes none. Every quote must appear verbatim in the cited evidence file,
-  and `verify` fails a finding whose quote or number does not match. A failing `verify` is fixed, never
-  presented around.
-- **Two gates, both blocking.** **▛ G-STUDY ▟** approves the instrument and the hypotheses with their
-  thresholds before anyone is asked; **▛ G-INSIGHT ▟** approves the verdicts and the exact refill text
-  before `meta.userInsights` changes. Each presents the artifact, not a summary; silence is not approval.
-  Editing an approved instrument withdraws the first; and a change after the second re-opens it.
+  one; a drop deletes the file and keeps its row, struck out, with the hash and the reason. A session and its
+  recording are two evidence files, linked: **dropping the session drops its recording too.**
+- **A recording is participant data, and consent comes first.** The participant page asks for consent to
+  take part (required), and only if the instrument asks, a **separate opt-in** to record the screen and
+  voice. A recording is stored only for a session whose participant opted in, read-only and hashed like any
+  evidence. The recorder captures events (screens, clicks, dead and rage clicks, validation errors, task
+  outcomes) and field input as **length only, never the value**.
+- **A pilot is never evidence.** A rehearsal is stored under `memory/research/<id>/pilot/`, left out of the
+  tally, the analysis, the findings and the report, whatever it showed.
+- **A participant never sees the study.** The session page and the kit carry the prototype, the tasks, the
+  tree or the cards, and the consent text. They never carry the study's title, question, hypotheses,
+  thresholds, success criteria, answer keys, the `research` slice or the insights.
+- **Numbers by the tool, quotes verified verbatim.** Every count, mean, percentage, rate, time and score
+  comes from `research.py tally` (survey) or `research.py analyze` (sessions: success with an adjusted-Wald
+  interval, time on task as a geometric mean with an interval, lostness, clicks, errors, SEQ, SUS with its
+  grade, and the tree, sort and click results); the model computes none. An issue's participants,
+  frequency and priority are the tool's too, and a typed one is refused. The model proposes an issue's
+  severity (Nielsen, 0 to 4) and the user approves it at G-INSIGHT. Every quote must appear verbatim in the
+  cited evidence file, every observation cites a session event, a time or a verbatim quote, and `verify`
+  fails a finding whose quote or number does not match, recomputing the analysis fresh from the evidence. A
+  failing `verify` is fixed, never presented around.
+- **The report.** `report` is refused unless `verify` is clean. It writes `report.md` and a self-contained,
+  printable `report.html` under `memory/research/<id>/report/`, served at `/research/<id>/report`, with
+  participants by pseudonym only. It carries a Draft banner until G-INSIGHT, and `refill --approved`
+  regenerates it without the banner.
+- **Two gates, both blocking.** **▛ G-STUDY ▟** approves the plan, the instrument and the hypotheses with
+  their thresholds before anyone is asked; **▛ G-INSIGHT ▟** approves the verdicts, the issue severities,
+  the report and the exact refill text before `meta.userInsights` changes. Each presents the artifact, not a
+  summary; silence is not approval. Editing an approved instrument, or the plan's objectives, research
+  questions, decision, method rationale or participants, withdraws the first (the plan's logistics keys do
+  not); and a change after the second re-opens it.
 - **Every run starts by asking what it is for.** `/pb:research` asks, at every run and before anything
   else, whether the user wants just the questions and the setup (scope `instrument`, which ends after
   G-STUDY and refuses `import`) or questions plus results (scope `collect`), and what survey tool, panel or
@@ -544,19 +576,23 @@ empty state, not a schema bump. The method is in the `ref-research` skill; these
   user's `--accept-review "<why>"`. The G-STUDY gate shows every such row.
 - **Thresholds are fixed before data.** `supportedIf` and `refutedIf` are written at G-STUDY and never
   moved after seeing results. Inconclusive is an honest verdict.
-- **The model never simulates respondents.** No synthetic users, no invented answers, no placeholder
-  evidence, labelled or not. An instrument is fielded with real people, or the study is not run.
+- **The model never simulates respondents or sessions.** No synthetic users, no invented answers, no
+  placeholder evidence, no session run by the model and stored, labelled or not. An instrument is fielded
+  with real people, or the study is not run. (Test fixtures in `tests/` and `fixtures/` are the only
+  synthetic data, and are marked as such.)
 - **Consent and pseudonyms.** A file is imported only with consent recorded as `yes` or `unknown`
-  (`no` is refused, and `unknown` is carried as a warning to G-INSIGHT). Participants are `P01`, `P02`;
-  no real names are asked for or stored, and PII columns are dropped on import. A participant who
-  withdraws is dropped, and no finding may rest on them.
+  (`no` is refused, and `unknown` is carried as a warning to G-INSIGHT); a session records the
+  participant's own consent. Participants are `P01`, `P02`; no real names, emails or phone numbers are asked
+  for or stored (a tracker note that looks like one is refused), and PII columns are dropped on import. A
+  participant who withdraws is dropped, and no finding may rest on them.
 - **A verdict is a proposal.** A finding that changes a job, a rule or the structure is routed
   (`/pb:clarify`, `/pb:clarify` § 2, `/pb:explore`), never applied by `/pb:research`. The only automatic
   write to the project's prose is the approved `refill` into `meta.userInsights`, with a citation and a
   backup.
 - **Hand-off.** Mode 1 (everything) carries `memory/research/` in the bundle, since the recipient keeps
-  building. Modes 3 (Figma) and 4 (tickets) carry none, and never raw
-  evidence: participants' words do not leave the team that has their consent. (Mode 2, engineering, was
-  retired in v3.0.0.)
+  building. **That includes the screen and voice recordings and the session files: they are participant
+  data.** Hand mode 1 only to someone the participants' consent covers. Modes 3 (Figma) and 4 (tickets)
+  carry none, and never raw evidence: participants' words and faces do not leave the team that has their
+  consent. (Mode 2, engineering, was retired in v3.0.0.)
 - **`/pb:clean` never prunes it.** Evidence is the one thing in `memory/` that exists to outlive the
   tool's housekeeping; removing it is a human act, on a named study.

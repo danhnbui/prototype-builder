@@ -545,9 +545,11 @@ st_x, _h, j_, closed = raw_exchange("POST", URL_S, ["Content-Length: %d" % RS.SE
 check(st_x == 400 and "incomplete" in j_.get("error", ""), "a body shorter than its length, then the client hangs up → 400 incomplete")
 serve.RESEARCH_CHUNK_TIMEOUT = 0.4
 try:
-    t0 = time.time()
+    # monotonic, like the server's deadline: a wall clock also counts a laptop's sleep and fails a test that held
+    t0 = time.monotonic()
     st_x, _h, j_, closed = raw_exchange("POST", URL_S, ["Content-Length: 5000"], b'{"a":')
-    check(st_x == 400 and "incomplete" in j_.get("error", "") and time.time() - t0 < 5, "a body that stalls is dropped after the piece timeout (%.1fs), not held open" % (time.time() - t0))
+    took = time.monotonic() - t0
+    check(st_x == 400 and "incomplete" in j_.get("error", "") and took < 5, "a body that stalls is dropped after the piece timeout (%.1fs), not held open" % took)
 finally:
     serve.RESEARCH_CHUNK_TIMEOUT = 30.0
 check(len(the_study()["evidence"]) == 1, "(none of those stored anything: still one evidence row)")

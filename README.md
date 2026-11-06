@@ -34,7 +34,12 @@ command.
 **New in v2.6 — check what you're unsure of with real users, and keep the proof.** **`/pb:research`** turns an
 unproven job, flow or rule into a survey or interview guide for a chosen role or segment. Field it in any tool and
 import the results; the raw files are kept read-only as evidence, every number and quote is checked against them,
-and the approved findings refill User Insights with a citation back to the study.
+and the approved findings refill User Insights with a citation back to the study. It also runs **UX tests on your
+prototype**: usability tests, tree tests, card sorts and first-click tests. Write the research plan, pilot, then run
+each session on your own machine (with an observer window for live notes and an optional, opt-in screen and voice
+recording) or send a participant one HTML kit file and import what comes back. Nothing is hosted online. The tool
+computes success rates with intervals, time on task, lostness, SUS and the rest, ranks the issues, replays every
+session on the prototype and writes a printable report, all before you approve anything.
 
 **New in v2.2 — pb bounds its own footprint.** Tests reuse the running preview and run their three browser
 modes in one browser (`test_run.py --all`); no more than 3 headless browsers run at once on the machine; a
@@ -104,7 +109,7 @@ Fourteen commands. Flags narrow a command; they are not commands of their own.
 | `/pb:build` | The cheap loop: targeted `registry.json` patches, trio-gated, no per-tweak render. Runs the DS-first reuse → variant → local check on every new component, and keeps flow + data in sync. `--render` to regenerate both sites |
 | `/pb:preview` | Live preview dev server: watch `registry.json` → render → live-reload. One server, two routes — the prototype at `/`, the design-system workbench at `/design-system`. Stops itself after 8 idle hours; `serve.py --status` / `--stop` |
 | `/pb:test` | **Check everything.** No flag = scenarios · roles · server · security · drift · health · shell coherence · DS drift, one verdict. Writes a yes/no test plan, then delegates it to subagents that never saw the design. A flag narrows it (`--drift`, `--roles`, `--security`, …) |
-| `/pb:research` | Generate a survey or interview guide to test what you're unsure of, for any role or segment, seeded from your jobs and flows. Keeps the raw results as read-only evidence and refills User Insights with citations. |
+| `/pb:research` | Test what you're unsure of with real people, for any role or segment, seeded from your jobs and flows: a survey, an interview guide, or a usability test, tree test, card sort or first-click test run on your prototype (on your machine or from a kit file). Keeps the raw results as read-only evidence, computes every number, writes a report and refills User Insights with citations. |
 | `/pb:report` | A retrospective for the pb maintainer: scans the project's decisions log, `memory/`, backups, explore rounds and (opt-in, `--sessions`) session transcripts, then writes one report of facts and ranked proposals for the next pb release to `memory/reports/`. Read-only on the project |
 | `/pb:explore` | An **id** → N agents diverge that render body, side by side on one page (scores optional), keep one. A **goal sentence** → the gated discovery pipeline |
 | `/pb:clean` | What the project has piled up — open and closed explore rounds, backups, the preview log, screenshots, scratch candidate folders — as a dry run, then pruned on request. Bare `--apply` does only the always-safe set; a backup or a closed round goes only with an explicit `--keep-backups N` / `--keep-closed N` |
