@@ -394,6 +394,33 @@ def main():
     check("1 assisted completion(s)" in md, "limitation: assisted")
     check("Only the laptop layout was tested." in md, "model's own limitation kept")
     check("3 of the target 5 participants: results are directional" in md, "limitation: below target")
+
+    # 7b · one target number, withdrawn people, withheld recordings ----------------------------------------------
+    disagree = usability_study()
+    disagree["audience"]["targetN"], disagree["plan"]["participants"]["n"] = 8, 6
+    check("- Target n: 8 " in rr.plan_md(disagree, REG) and "- Target n: 6" not in rr.plan_md(disagree, REG),
+          "plan.md target line is audience.targetN when plan.participants.n disagrees")
+    check("3 of the target 8 participants" in rr.report_md(disagree, REG), "report limitations use the same target number")
+    wd = usability_study()
+    wd["evidence"] += [
+        {"id": "e5", "kind": "session", "date": "2026-11-05", "participant": "P05", "consent": "yes", "sha256": "11" * 32,
+         "session": {"id": "s-d", "method": "usability", "recording": True}, "dropped": {"at": "2026-11-06T09:00:00Z", "reason": "withdrew"}},
+        {"id": "e6", "kind": "recording", "date": "2026-11-05", "session": "s-d", "consent": "yes", "sha256": "22" * 32,
+         "dropped": {"at": "2026-11-06T09:00:00Z", "reason": "withdrew"}}]
+    check("1 participant(s) withdrew and are excluded" in rr.report_md(wd, REG), "a dropped session plus its dropped recording counts one person")
+    wd["evidence"].append({"id": "e7", "kind": "notes", "date": "2026-11-05", "participant": "P05", "consent": "yes", "sha256": "33" * 32,
+                           "dropped": {"at": "2026-11-06T09:00:00Z", "reason": "withdrew"}})
+    check("1 participant(s) withdrew and are excluded" in rr.report_md(wd, REG), "two dropped rows of one participant still count one person")
+    wd["evidence"].append({"id": "e8", "kind": "notes", "date": "2026-11-05", "sha256": "44" * 32, "dropped": {"at": "2026-11-06T09:00:00Z"}})
+    check("2 participant(s) withdrew and are excluded" in rr.report_md(wd, REG), "a dropped row with no participant counts as its own person")
+    check("left out of this hand-off" not in md, "no withheld line when no recording is withheld")
+    hw = usability_study()
+    hw["evidence"].append({"id": "e9", "kind": "recording", "date": "2026-11-02", "session": "s-a", "consent": "yes", "sha256": "55" * 32,
+                           "withheld": {"at": "2026-11-07T08:00:00Z", "reason": "hand-off without recordings"}})
+    hmd = rr.report_md(hw, REG)
+    check("1 screen recording(s) were left out of this hand-off" in hmd and "replay from the event log only" in hmd, "withheld recording draws its limitation line")
+    hw["evidence"][-1]["dropped"] = {"at": "2026-11-07T09:00:00Z"}
+    check("left out of this hand-off" not in rr.report_md(hw, REG), "a dropped withheld recording draws no withheld line")
     check("| P01 | new | shopper | done |" in md and "P09" not in md.split("## 4.")[0].split("Participants (by code)")[1], "participants by pseudonym, pilots out of the table")
     check("e1 | session | 2026-11-02 | P01 | " + "ab" * 6 + " |" in md.replace("  ", " "), "evidence index with sha prefix")
     check("jane.doe" not in md and "7946" not in md, "no PII in report_md")

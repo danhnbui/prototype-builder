@@ -127,7 +127,17 @@ tool beside Pick, after Solum Studio's.*
     --session <id>` store them. Nothing is hosted online, and the pages answer this machine only.
   - **What is recorded.** Screens, clicks named by component, dead and rage clicks, field input as length only (never
     the value), submits, validation errors, toasts, wizard steps and each task's outcome. Dropping a session also
-    drops its recording. A hand-off in mode 1 carries the recordings, so they are participant data.
+    drops its recording. A hand-off in mode 1 used to carry the recordings; see the next two bullets.
+  - **Recordings stay out of a mode 1 hand-off.** A recording is a face and a voice, and mode 1 copied
+    `memory/research/` whole, so it went to whoever received the bundle. Now `/pb:handoff` calls
+    `research.py bundle`, which leaves out every video file unless you pass `--with-recordings` (the model asks first).
+    The bundle's registry copy marks each left-out recording row `withheld`, and `memory/research/HANDOFF.md` lists
+    what was left out (path, bytes, sha256) and how to put one back. In the received project `verify` warns
+    `W-WITHHELD` instead of failing, the report adds a limitation line, and the replay plays the event log without video.
+  - **One sample target per study.** A study held two numbers, `audience.targetN` and `plan.participants.n`, and
+    they could differ. Now `audience.targetN` is the target and the plan shows the same number. `brief` sets it, a
+    `plan` file with two different values is refused, it cannot change once evidence is stored (open a new study),
+    and `check` warns `W-TARGET` on an older or hand-edited study that holds two.
   - **Numbers by the tool.** `analyze` computes success with an adjusted-Wald interval, time on task as a geometric
     mean with an interval, lostness, clicks, errors, SEQ, SUS with its grade, tree-test success and directness,
     card-sort similarity and clusters, and first-click hit rates. `affinity` counts tags by participant.

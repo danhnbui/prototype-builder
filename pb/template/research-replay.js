@@ -1,7 +1,8 @@
 /* research-replay.js — the session replay player (research UX extension, §8.4).
  *
  * Inlined before </body> of a rendered prototype page by the /research/<id>/replay/<eid> route, after
- * `window.PB_RS_REPLAY = {study, eid, session, media:[{eid,url,mime,startT?}]}`. It re-plays a recorded
+ * `window.PB_RS_REPLAY = {study, eid, session, media:[{eid,url,mime,startT?}], withheld:[eid…]}`
+ * (`withheld`: this session's recordings a hand-off left out; absent or empty means none). It re-plays a recorded
  * `pb-session` on the prototype: the screens the participant visited, a dot for every click (a warning
  * colour for dead and rage clicks), small labels for errors, toasts, notes and typed input, and a
  * bottom timeline with task bands. When the session has a screen video, it plays in a draggable
@@ -224,6 +225,7 @@
     '.pb-rs-rp-pip-h{display:flex;align-items:center;justify-content:space-between;gap:var(--pb-s2);padding:var(--pb-s1) var(--pb-s2);font-size:var(--pb-t-sm);color:var(--pb-ink-2);cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none;background:var(--pb-wash)}',
     '.pb-rs-rp-pip video{display:block;width:100%;max-height:40vh;background:#000;object-fit:contain}',
     '.pb-rs-rp-pip-s{padding:var(--pb-s2);font-size:var(--pb-t-sm);color:var(--pb-ink-3)}',
+    '.pb-rs-rp-note{flex:1 1 14rem;min-width:0;font-size:var(--pb-t-sm);color:var(--pb-ink-2);overflow-wrap:anywhere}',
     /* result views */
     '.pb-rs-rp-result{position:fixed;z-index:1300;left:0;right:0;top:0;bottom:var(--pb-rs-rp-h,7.5rem);overflow:auto;background:var(--pb-page);color:var(--pb-ink);font:var(--pb-w-reg) var(--pb-t-md)/var(--pb-lh) var(--pb-font);padding:var(--pb-s4) var(--pb-s4) var(--pb-s5)}',
     '.pb-rs-rp-result[hidden]{display:none}',
@@ -311,6 +313,7 @@
     UI.vbtn.hidden = true;
     UI.vbtn.addEventListener('click', function () { var on = UI.pip.hidden; UI.pip.hidden = !on; UI.vbtn.setAttribute('aria-pressed', String(on)); });
     r1.appendChild(UI.vbtn);
+    UI.r1 = r1;
     bar.appendChild(r1);
 
     var r2 = h('div', 'pb-rs-rp-row');
@@ -694,7 +697,14 @@
     var list = Array.isArray(CFG.media) ? CFG.media : [];
     var m = null;
     for (var i = 0; i < list.length; i++) if (list[i] && list[i].url && (!list[i].mime || /^video\//.test(list[i].mime))) { m = list[i]; break; }
-    if (!m) return;
+    if (!m) {
+      /* The hand-off left the recording out on purpose: say so once, in plain text, in the bar. The timeline and events play on without it. */
+      if (Array.isArray(CFG.withheld) && CFG.withheld.length && UI.r1) {
+        UI.r1.insertBefore(h('span', 'pb-rs-rp-note', 'The screen recording was left out of this hand-off.', { role: 'note' }), UI.vbtn);
+        syncBarHeight();
+      }
+      return;
+    }
     var sm = Array.isArray(S.media) ? S.media[0] : null;
     vStart = num(m.startT, sm ? num(sm.startT, 0) : 0);
     vState = 'loading';

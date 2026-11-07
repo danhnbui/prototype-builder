@@ -171,7 +171,8 @@ STUDY_D = {
         {"id": "P03", "segment": "rural", "role": "member", "status": "withdrawn", "sessionAt": "2026-11-12", "incentive": "none", "pilot": False},
         {"id": "P04", "segment": "rural", "role": "member", "status": "scheduled", "sessionAt": "", "incentive": "none", "pilot": True},
     ],
-    "pilots": [{"sessionId": "s-pilot1", "participant": "P04", "at": "2026-11-09T09:00:00Z", "file": "memory/research/rs-ux-usability/pilot/s-pilot1.json", "media": []}],
+    "pilots": [{"sessionId": "s-pilot1", "participant": "P04", "at": "2026-11-09T09:00:00Z", "file": "memory/research/rs-ux-usability/pilot/s-pilot1.json", "media": [],
+                "withheld": {"at": "2026-11-14T08:00:00Z", "reason": "hand-off without recordings"}}],
     "instrument": {"lang": "en", "intro": "", "consent": "", "durationMin": 45, "closing": "", "sections": [
         {"title": "Tasks", "purpose": "task", "questions": [
             {"id": "t1", "text": "Pay for the parcel", "tests": [], "task": {"screen": "SCREEN", "success": "paid"}},
@@ -186,6 +187,9 @@ STUDY_D = {
         {"id": "e3", "file": "memory/research/rs-ux-usability/evidence/e3-s-ccc3.json", "kind": "session", "sha256": "3333333333333333", "date": "2026-11-12",
          "participant": "P03", "consent": "yes", "dropped": {"at": "2026-11-13T10:00:00Z", "reason": "Withdrew"},
          "session": {"id": "s-ccc3", "method": "usability", "mode": "moderated", "durationMs": 30000, "tasks": 2, "outcomes": {"success": 2}, "recording": False, "media": []}},
+        {"id": "e4", "file": "memory/research/rs-ux-usability/evidence/e4-s-ddd4.webm", "kind": "recording", "sha256": "4444444444444444", "date": "2026-11-10",
+         "participant": "P01", "consent": "yes", "dropped": None, "session": "s-ddd4",
+         "withheld": {"at": "2026-11-14T08:00:00Z", "reason": "hand-off without recordings"}},
     ],
     "analysis": {"method": "usability", "n": 2, "inputs": ["e1", "e2"], "usability": {
         "tasks": {"t1": {"n": 2, "success": {"x": 1, "n": 2, "rate": 0.5, "low": 0.09, "high": 0.91}, "time": {"n": 1, "geoMean": 41.2, "low": 30.1, "high": 56.4},
@@ -535,6 +539,17 @@ def ux_blocks(pg, shots_dir=None):
     check(len(sess) == 3 and "2:05" in sess[0]["text"] and "✓ 1" in sess[0]["text"] and "✗ 1" in sess[0]["text"] and "Yes" in sess[0]["text"], f"Sessions: duration m:ss, outcome glyphs, recording ({sess[0]['text'] if sess else ''!r})")
     check("↩ 1" in sess[1]["text"] and sess[1]["text"].rstrip().endswith("No"), f"…abandoned shows the return glyph; no recording says No ({sess[1]['text']!r})")
     check(sess[2]["cls"] == "is-dropped", "…a dropped session is struck")
+    ev4 = pg.evaluate(f"(() => {{ const r = document.querySelector('{d} tr[data-rs-ev=\"e4\"]'); return r ? {{cls: r.className, text: r.innerText.replace(/\\s+/g,' ').trim(), struck: getComputedStyle(r.cells[0]).textDecorationLine}} : null; }})()")
+    check(ev4 and "Left out of the hand-off" in ev4["text"] and ev4["cls"] != "is-dropped" and "line-through" not in ev4["struck"],
+          f"Evidence: a withheld recording carries the label and is not struck like a dropped row ({ev4!r})")
+    check("Left out of the hand-off" not in pg.locator(f"{d} tr[data-rs-ev='e1']").inner_text(), "…and an ordinary row does not")
+    check("Left out of the hand-off" in pg.locator(f"{d} tr[data-rs-pilot='s-pilot1']").inner_text(), "Sessions: a pilot whose recordings were left out says so instead of Yes or No")
+    only = pg.evaluate("""(() => { const st = pbRsStudies().find(s => s.id === 'rs-ux-usability');
+        const mk = ev => { const w = document.createElement('div'); w.innerHTML = pbRsSessionsHTML(Object.assign({}, st, {evidence: ev})); return [...w.querySelectorAll('tr[data-rs-session]')].map(r => r.cells[5].textContent.replace(/\\s+/g,' ').trim()); };
+        const e1 = st.evidence.find(e => e.id === 'e1'), w = {at: '2026-11-14T08:00:00Z'};
+        return {only: mk([e1, {id: 'e9', kind: 'recording', session: 's-aaa1', withheld: w}]), put: mk([e1, {id: 'e9', kind: 'recording', session: 's-aaa1'}]), none: mk([e1])}; })()""")
+    check(only["only"] == ["Left out of the hand-off"] and only["put"] == ["Yes"] and only["none"] == ["Yes"],
+          f"…a session whose only recording is withheld does not claim a video; one put back, or none stored, reads as before ({only!r})")
     check(pg.locator(f"{d} tr[data-rs-pilot='s-pilot1']").count() == 1 and "Pilot" in pg.locator(f"{d} tr[data-rs-pilot='s-pilot1']").inner_text(), "…a pilot is listed and marked Pilot")
     check(pg.locator(f"{d} a[href^='/research/']").count() == 0, "over file:// there are no session, observer, replay or report links")
     check("research.py link rs-ux-usability" in pg.locator(f"{d} .rs-links").first.inner_text(), "…the CLI hint stands in")

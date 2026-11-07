@@ -990,8 +990,8 @@ def build_page(reg_path, sid, page, *, participant=None, pilot=False, eid=None, 
     # replay
     if not isinstance(eid, str):
         raise _err("replay needs the evidence id of a session (e3) or pilot-<sessionId>")
-    obj, media = _replay_source(base, st, eid)
-    payload = {"study": sid, "eid": eid, "session": obj, "media": media}
+    obj, media, withheld = _replay_source(base, st, eid)
+    payload = {"study": sid, "eid": eid, "session": obj, "media": media, "withheld": withheld}
     html = _prototype_html(reg, base, shell_path, runtime_path)
     html = _inject_head(html, "<script>window.PB_RS_REPLAY=%s;</script>" % _js_json(payload))
     return _inject_body_end(html, "<script id=\"pb-rs-replay-js\">%s</script>\n" % _template_js("replay"))
@@ -1074,6 +1074,15 @@ def load_session(base, row):
     return parse_session_bytes(raw)
 
 
+def _left_out(base, obj, rel):
+    """True for a recording row or a pilot marked `withheld` (by `research.py bundle`) whose file is absent at `rel`:
+    left out of this copy on purpose, so it is not offered as media. With the file back it plays like any other."""
+    R = _R()
+    if not R.is_withheld(obj) or not rel or os.path.isabs(rel) or ".." in rel.replace("\\", "/").split("/"):
+        return False
+    return not os.path.lexists(os.path.join(base, *rel.split("/")))
+
+
 def _replay_source(base, st, eid):
     sid = st["id"]
     m = PILOT_EID.match(eid)
@@ -1082,12 +1091,15 @@ def _replay_source(base, st, eid):
         if entry is None:
             raise _err("%s has no pilot %s" % (sid, m.group(1)))
         obj = _load_pilot(base, sid, entry)
-        media = []
+        media, withheld = [], []
         for rel in _list(entry.get("media")):
             if isinstance(rel, str) and rel == "%s/%s-screen.webm" % (_pilot_dir_rel(sid), m.group(1)):
+                if _left_out(base, entry, rel):
+                    withheld.append("pilot-%s-screen" % m.group(1))
+                    continue
                 media.append({"eid": "pilot-%s-screen" % m.group(1), "url": "/__pb_research/%s/evidence/pilot-%s-screen" % (sid, m.group(1)),
                               "mime": "video/webm"})
-        return obj, media
+        return obj, media, withheld
     if not EVIDENCE_ID.match(eid):
         raise _err("%r is not an evidence id" % eid)
     row = next((e for e in _list(st.get("evidence")) if isinstance(e, dict) and e.get("id") == eid), None)
@@ -1095,13 +1107,16 @@ def _replay_source(base, st, eid):
         raise _err("%s has no evidence %s" % (sid, eid))
     obj = load_session(base, row)
     sess_id = _dict(row.get("session")).get("id")
-    media = []
+    media, withheld = [], []
     for e in _list(st.get("evidence")):
         if isinstance(e, dict) and e.get("kind") == "recording" and e.get("session") == sess_id and not e.get("dropped") \
                 and isinstance(e.get("id"), str) and EVIDENCE_ID.match(e["id"]):
+            if _left_out(base, e, _str(e.get("file"))):
+                withheld.append(e["id"])          # left out of this hand-off on purpose: no player, and the page says why
+                continue
             media.append({"eid": e["id"], "url": "/__pb_research/%s/evidence/%s" % (sid, e["id"]),
                           "mime": _str(e.get("mime")) or "video/webm"})
-    return obj, media
+    return obj, media, withheld
 
 
 # ── the evidence store ───────────────────────────────────────────────────────

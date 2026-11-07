@@ -59,7 +59,7 @@ Rules (severity · default → under --strict):
                                      the matrix does not declare                      WARN → ERROR
   R-RESEARCH                         research only: a study with a bad id or status, a target
                                      the registry no longer holds, or an evidence file that is
-                                     gone. ADVISORY: research.py verify is the gate    WARN · always
+                                     gone (not a recording the hand-off withheld). ADVISORY: research.py verify is the gate    WARN · always
   R-COVERAGE                         a populated flow where an ia.jobs[] job has no story linking it
                                      through jobs[], or a story has no scenarios[]. ADVISORY:
                                      a WARN in every mode, never promoted by --strict, never
@@ -535,6 +535,8 @@ def _check_research(add, reg, components, screens, base_dir):
         for ev in study.get("evidence") or []:
             if not isinstance(ev, dict) or ev.get("dropped"):
                 continue
+            if isinstance(ev.get("withheld"), dict) and ev["withheld"]:
+                continue        # left out of this hand-off on purpose: the row and its sha256 stay, the file is absent
             src = ev.get("file")
             if not (isinstance(src, str) and base_dir and os.path.isfile(os.path.join(base_dir, src))):
                 add(WARN, "R-RESEARCH", where, f"evidence {ev.get('id')!r} is missing on disk: {src!r}")

@@ -375,7 +375,7 @@ def plan_md(study, reg):
     aud = as_dict(study.get("audience"))
     roles = ", ".join(str(r) for r in as_list(aud.get("roles")))
     L += ["", "- Audience: %s" % (roles or DASH) + (" (%s)" % _squash(aud.get("segment")) if _squash(aud.get("segment")) else ""),
-          "- Target n: %s (rule of thumb for %s: about %s)" % (_n(pp.get("n") if isinstance(pp.get("n"), int) else aud.get("targetN")),
+          "- Target n: %s (rule of thumb for %s: about %s)" % (_n(_target_n(study)),
                                                               method, DEFAULT_N.get(method, DASH)),
           "- Segments: %s" % (", ".join(_squash(s) for s in as_list(pp.get("segments")) if _squash(s)) or DASH)]
     parts = [p for p in as_list(study.get("participants")) if isinstance(p, dict) and not p.get("pilot")]
@@ -1131,9 +1131,20 @@ def _limitations(study):
         auto.append("%d assisted completion(s) are not counted as successes." % ass)
     if as_list(study.get("pilots")):
         auto.append("%d pilot session(s) were excluded from every number." % len(as_list(study.get("pilots"))))
-    dropped = [e for e in as_list(study.get("evidence")) if isinstance(e, dict) and e.get("dropped")]
-    if dropped:
-        auto.append("%d participant(s) withdrew and are excluded." % len(dropped))
+    # People, not rows: dropping a session drops its recording too, so count each withdrawn participant once.
+    # A recording row is never a person of its own; a row with no participant stands for its session, then itself.
+    dropped = [e for e in as_list(study.get("evidence")) if isinstance(e, dict) and e.get("dropped") and e.get("kind") != "recording"]
+    people = set()
+    for e in dropped:
+        sess = e.get("session")
+        sid = sess.get("id") if isinstance(sess, dict) else sess
+        people.add(e.get("participant") or sid or e.get("id"))
+    if people:
+        auto.append("%d participant(s) withdrew and are excluded." % len(people))
+    held = [e for e in live if e.get("kind") == "recording" and e.get("withheld")]
+    if held:
+        auto.append("%d screen recording(s) were left out of this hand-off: they stay with the team the participants consented to, "
+                    "so these sessions replay from the event log only." % len(held))
     return out, auto
 
 

@@ -144,7 +144,7 @@ $T brief <id> --file <scratch.json>      # {background, objectives, researchQues
                                          #  materials, risks[{risk, mitigation}], timeline[{milestone, date}], budget}
 ```
 
-`brief` merges into `study.plan`; an unknown key is refused. It needs `init` first (§4), so draft the plan
+`brief` merges into `study.plan`; an unknown key is refused. **The sample target is one number:** `study.audience.targetN` is the target, and `plan.participants.n` is the same number as the plan shows it. `brief` with `participants.n` sets it; `plan --file` with `audience.targetN` sets the plan's n, and a file giving two different values is refused. Once evidence is stored the target cannot change (it was fixed before data): open a new study instead. `check` warns `W-TARGET` when an older or hand-edited study holds two different numbers. It needs `init` first (§4), so draft the plan
 in the conversation now and save it right after `init`. **For a session method the plan is required:** `check`
 refuses a study with no `objectives` or `researchQuestions` (`C-PLAN`) and warns when the schedule, the
 recruitment or the participant criteria are missing (`W-PLAN`). On an approved study, changing the
@@ -450,8 +450,12 @@ $T import <id> <p01>-screen.webm --kind recording --session <sessionId> --consen
   edit it, and never edit a copy and call it the original.** A mistake in the file is fixed by dropping the
   evidence and importing a corrected export.
 - **A recording is participant data.** It carries a voice and a face of the screen. It is stored only for a
-  session whose participant opted in, and it goes wherever the evidence goes (the hand-off, mode 1, carries
-  it). Say so to the user.
+  session whose participant opted in, and a mode 1 hand-off leaves it out unless `/pb:handoff --with-recordings` is given (`/pb:handoff` calls
+  `$T bundle --out handoff/bundle [--with-recordings]`; you do not run it for a hand-off). In a received project a
+  withheld recording keeps its evidence row and sha256: `verify` warns `W-WITHHELD` (not an error), the report adds a
+  limitation line, and the replay plays the event log without video and says the recording was left out. If the
+  sender passes the file on separately, put it at the path `memory/research/HANDOFF.md` lists and run `$T verify <id>`,
+  which checks its sha256. Say all of this to the user.
 - **A participant withdraws** → `$T drop-evidence <id> <eid> --reason "<their words or the user's note>"`.
   The file goes; the row stays, struck out, with its hash. **Dropping a session drops its linked recording
   too.** Any finding or observation that cited it now fails `verify`; rewrite it (§8) without that person.

@@ -539,7 +539,7 @@ state, not a schema bump. The method is in the `ref-research` skill; these are t
 - **A recording is participant data, and consent comes first.** The participant page asks for consent to
   take part (required), and only if the instrument asks, a **separate opt-in** to record the screen and
   voice. A recording is stored only for a session whose participant opted in, read-only and hashed like any
-  evidence. The recorder captures events (screens, clicks, dead and rage clicks, validation errors, task
+  evidence. It is left out of a mode 1 hand-off unless `--with-recordings` is given (see Hand-off). The recorder captures events (screens, clicks, dead and rage clicks, validation errors, task
   outcomes) and field input as **length only, never the value**.
 - **A pilot is never evidence.** A rehearsal is stored under `memory/research/<id>/pilot/`, left out of the
   tally, the analysis, the findings and the report, whatever it showed.
@@ -590,9 +590,14 @@ state, not a schema bump. The method is in the `ref-research` skill; these are t
   write to the project's prose is the approved `refill` into `meta.userInsights`, with a citation and a
   backup.
 - **Hand-off.** Mode 1 (everything) carries `memory/research/` in the bundle, since the recipient keeps
-  building. **That includes the screen and voice recordings and the session files: they are participant
-  data.** Hand mode 1 only to someone the participants' consent covers. Modes 3 (Figma) and 4 (tickets)
-  carry none, and never raw evidence: participants' words and faces do not leave the team that has their
-  consent. (Mode 2, engineering, was retired in v3.0.0.)
+  building, through `research.py bundle`, never a hand copy. **Screen and voice recordings stay out by
+  default**; `/pb:handoff --with-recordings` carries them, and only when the recipient is covered by the
+  participants' consent (the model asks first). The bundle's registry copy marks each left-out recording
+  row with `withheld: {at, reason}`, and `memory/research/HANDOFF.md` lists what was left out (path, bytes,
+  sha256) and how to put one back. The recipient keeps the row and its sha256: `verify` warns `W-WITHHELD`
+  (never an error), the report adds a limitation line, and the replay plays the event log without video.
+  Session event files (clicks, screens, no typed text) and transcripts still travel. Modes 3 (Figma) and 4
+  (tickets) carry none, and never raw evidence: participants' words and faces do not leave the team that
+  has their consent. (Mode 2, engineering, was retired in v3.0.0.)
 - **`/pb:clean` never prunes it.** Evidence is the one thing in `memory/` that exists to outlive the
   tool's housekeeping; removing it is a human act, on a named study.

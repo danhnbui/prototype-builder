@@ -7010,6 +7010,9 @@
         summary: `<span class="rs-insth">Instrument</span> <span class="lg-dim">${secs.reduce((n, x) => n + (x.questions || []).length, 0)} questions</span>`,
         body: `${ins.intro ? `<p class="meta-p">${pbEscape(ins.intro)}</p>` : ''}${ins.consent ? `<p class="meta-p lg-dim">Consent: ${pbEscape(ins.consent)}</p>` : ''}${qs}` });
     }
+    /* A recording the hand-off left out on purpose: the row and its hash stay, the file is absent. Not struck through: nobody withdrew, the copy just omits the file. */
+    const pbRsWithheld = e => !!(e && e.withheld && typeof e.withheld === 'object' && Object.keys(e.withheld).length);
+    const pbRsWithheldBadge = w => lgcBadge('n', 'Left out of the hand-off', [w && w.reason, w && w.at ? 'Left out ' + pbRsDay(w.at) : ''].filter(Boolean).join(' · '));
     /* The evidence kept for a study: what is on disk, never its content. A withdrawn file stays listed, struck out, with why. */
     function pbRsEvidenceTable(s) {
       const ev = s.evidence || [];
@@ -7018,7 +7021,7 @@
         const d = e.dropped;
         return `<tr class="${d ? 'is-dropped' : ''}" data-rs-ev="${escapeHtmlAttr(e.id || '')}"><td><code>${pbEscape(e.id)}</code></td><td>${pbEscape(e.kind)}</td><td>${pbEscape(pbRsDay(e.date || e.importedAt))}</td>`
           + `<td>${pbEscape(e.participant || '—')}</td><td class="rs-n">${pbEscape(e.responses != null ? e.responses : '—')}</td><td>${pbEscape(e.consent || '—')}</td>`
-          + `<td class="rs-path">${pbEscape(e.file)}</td><td class="rs-hash">${pbEscape(String(e.sha256 || '').slice(0, 8))}</td></tr>`
+          + `<td class="rs-path">${pbEscape(e.file)}${pbRsWithheld(e) ? ' ' + pbRsWithheldBadge(e.withheld) : ''}</td><td class="rs-hash">${pbEscape(String(e.sha256 || '').slice(0, 8))}</td></tr>`
           + (d ? `<tr class="rs-why"><td></td><td colspan="7">Dropped ${pbEscape(pbRsDay(d.at))}${d.reason ? ' — ' + pbEscape(d.reason) : ''}</td></tr>` : '');
       }).join('');
       return `<h4 class="rs-h">Evidence</h4><div class="rs-scroll"><table class="rs-tbl"><thead><tr><th>ID</th><th>Kind</th><th>Date</th><th>Participant</th><th class="rs-n">n</th><th>Consent</th><th>File</th><th>Hash</th></tr></thead><tbody>${rows}</tbody></table></div>`;
@@ -7058,7 +7061,7 @@
         pbRsKv('Research questions', pbRsList(p.researchQuestions)),
         pbRsKv('Decision', p.decision ? pbEscape(p.decision) : ''),
         pbRsKv('Why this method', p.methodRationale ? pbEscape(p.methodRationale) : ''),
-        pbRsKv('Participants', [pp.n != null ? `<div>${pbEscape(pp.n)} planned</div>` : '', pbRsList(pp.criteria), pp.exclude && pbRsArr(pp.exclude).length ? `<div class="lg-dim">Exclude</div>${pbRsList(pp.exclude)}` : ''].join('')),
+        pbRsKv('Participants', [(s.audience || {}).targetN != null || pp.n != null ? `<div>${pbEscape((s.audience || {}).targetN != null ? s.audience.targetN : pp.n)} planned</div>` : '', pbRsList(pp.criteria), pp.exclude && pbRsArr(pp.exclude).length ? `<div class="lg-dim">Exclude</div>${pbRsList(pp.exclude)}` : ''].join('')),
         pbRsKv('Segments', pbRsList(pp.segments)),
         pbRsKv('Recruitment', [rc.channel, rc.incentive && 'incentive ' + rc.incentive, rc.note].filter(Boolean).map(pbEscape).join(' · ')),
         pbRsKv('Schedule', [sc.start && sc.end ? sc.start + ' to ' + sc.end : (sc.start || sc.end), sc.sessionMinutes != null && sc.sessionMinutes + ' min a session'].filter(Boolean).map(pbEscape).join(' · ')),
@@ -7098,16 +7101,18 @@
       const bar = pbRsIsSession(s) ? (served
         ? `<p class="rs-links">${pbRsLink(pbRsUrl(s.id, 'session'), 'Start a moderated session')} · ${pbRsLink(pbRsUrl(s.id, 'observer'), 'Open observer')}</p>`
         : `<p class="rs-links lg-dim">Open the live preview to run sessions, or get the links with <code>research.py link ${pbEscape(s.id)}</code></p>`) : '';
+      const recs = (s.evidence || []).filter(e => e && e.kind === 'recording' && !e.dropped);
       let rows = ev.map(e => {
         const x = e.session || {}, d = e.dropped;
+        const mine = recs.filter(r => r.session === x.id), out = mine.length && mine.every(pbRsWithheld);   // only recording withheld: no playable video
         return `<tr class="${d ? 'is-dropped' : ''}" data-rs-session="${escapeHtmlAttr(e.id || '')}"><td><code>${pbEscape(e.id)}</code></td><td>${pbEscape(e.participant || '—')}</td>`
           + `<td>${pbEscape(pbRsDay(e.date || e.importedAt))}</td><td class="rs-n">${pbEscape(pbRsMs(x.durationMs))}</td>`
-          + `<td>${x.tasks != null ? `<span class="lg-dim">${pbEscape(x.tasks)}</span> ` : ''}${pbRsOutcomes(x.outcomes)}</td><td>${x.recording ? 'Yes' : 'No'}</td>`
+          + `<td>${x.tasks != null ? `<span class="lg-dim">${pbEscape(x.tasks)}</span> ` : ''}${pbRsOutcomes(x.outcomes)}</td><td>${out ? pbRsWithheldBadge(mine[0].withheld) : (x.recording ? 'Yes' : 'No')}</td>`
           + (served ? `<td>${d || !e.id ? '' : pbRsLink(pbRsUrl(s.id, 'replay/' + e.id), 'Replay')}</td>` : '') + `</tr>`
           + (d ? `<tr class="rs-why"><td></td><td colspan="${served ? 6 : 5}">Dropped ${pbEscape(pbRsDay(d.at))}${d.reason ? ' — ' + pbEscape(d.reason) : ''}</td></tr>` : '');
       }).join('');
       rows += pl.map(p => `<tr data-rs-pilot="${escapeHtmlAttr(p.sessionId || '')}"><td>${lgcBadge('n', 'Pilot')}</td><td>${pbEscape(p.participant || '—')}</td><td>${pbEscape(pbRsDay(p.at))}</td>`
-        + `<td class="rs-n">—</td><td>—</td><td>${pbRsArr(p.media).length ? 'Yes' : 'No'}</td>`
+        + `<td class="rs-n">—</td><td>—</td><td>${pbRsWithheld(p) ? pbRsWithheldBadge(p.withheld) : (pbRsArr(p.media).length ? 'Yes' : 'No')}</td>`
         + (served ? `<td>${p.sessionId ? pbRsLink(pbRsUrl(s.id, 'replay/pilot-' + p.sessionId), 'Replay') : ''}</td>` : '') + `</tr>`).join('');
       const heads = ['Session', 'Participant', 'Date', 'Time', 'Tasks', 'Recorded'].concat(served ? ['Replay'] : []);
       return `<h4 class="rs-h">Sessions</h4>${bar}${rows ? pbRsTable(heads, rows) : '<p class="sum-empty">No sessions yet.</p>'}`;

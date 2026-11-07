@@ -16,6 +16,7 @@ $ARGUMENTS
 |---|---|---|
 | `--mode=1\|3\|4` | **ask** | Skip the question (also `all` · `figma` · `tickets`). `--mode=2` / `dev` and `--tier` are **retired** (v3.0.0, §Retired) |
 | `--out <dir>` | per mode | Where to write |
+| `--with-recordings` | false | Mode 1: also carry participants' screen and voice recordings. Off by default; ask before using it (§1.2) |
 | `--people` / `--context` | — | Mode 1, narrowed: the viewer artifact only / the bundle only |
 | `--component <id>` | all | Mode 3: restrict to one component |
 | `--scope=components\|screens\|both` | ask (G-FP0) | Mode 3: what to push |
@@ -96,7 +97,8 @@ handoff/
     design-system/
     memory/constitution.md
     memory/decisions*.md    #   the log AND its rotated siblings
-    memory/research/        #   when it exists: instruments and raw evidence, the proof behind the insights
+    memory/research/        #   when it exists: instruments and evidence, the proof behind the insights;
+                            #   recordings left out unless --with-recordings; HANDOFF.md lists what was withheld
   pb/                       # a copy of ${CLAUDE_PLUGIN_ROOT}
   .claude-plugin/
     marketplace.json        #   rewritten to point at ./pb
@@ -116,8 +118,24 @@ handoff/
 Copy the tree above, preserving the shape `/pb:init --import` expects. **The `decisions*.md` glob is
 load-bearing** — rotation moves older entries to dated siblings, so a bare `decisions.md` ships a
 hand-off whose history stops at the last rotation, silently. **`memory/research/` holds what participants
-said.** Copy it for mode 1, and tell the user it is in the folder before it goes anywhere (`--people`
-leaves it behind with the rest of the bundle). Mode 1 is the only mode that carries it.
+said.** Never copy it by hand. After `registry.json` is in the bundle, run:
+```
+python3 "${CLAUDE_PLUGIN_ROOT}/tools/research.py" bundle --out handoff/bundle [--with-recordings]
+```
+It refuses if the bundle has no `registry.json`. It copies `memory/research/` into
+`<out>/memory/research/` and leaves out every video file (`.webm` `.mp4` `.mov` `.mkv`) unless
+`--with-recordings` is given. It always leaves out `.incoming/` temp folders and symlinks. In the bundle's
+copy of the registry it marks each left-out recording row, and each pilot whose media were left out, with
+`withheld: {at, reason}`, and it writes `<out>/memory/research/HANDOFF.md`: what was carried and what was
+left out (path, bytes, sha256), and how to put one back. It never writes to the source project, replaces
+its own earlier output, and refuses a foreign existing folder. Session event files (`kind: session`:
+clicks, screens, no typed text) and transcripts are still carried.
+
+**Ask before `--with-recordings`.** A recording is a face and a voice. Use the flag only when the user
+confirms the recipient is covered by the participants' consent; otherwise leave it off. Tell the user that
+`memory/research/` is in the folder, and how many recordings were left out or included, before it goes
+anywhere. `--people` leaves `memory/research/` behind with the rest of the bundle. Mode 1 is the only mode
+that carries research evidence; modes 3 and 4 carry none.
 
 ### 1.3 · Vendor the plugin
 Copy `${CLAUDE_PLUGIN_ROOT}` to `handoff/pb/`, **excluding** `.venv/`, `__pycache__/`, `node_modules/`,
@@ -377,7 +395,7 @@ and a dropped id is never reused.
 ## Report
 State the mode, the output path, the file count and the total size, and the security scan result
 (clean, N warnings, or the accepted override and its codes). Mode 1: say the plugin is vendored
-and what it added. Mode 3: say which frames were created
+and what it added, and how many research recordings were left out or included (`--with-recordings`). Mode 3: say which frames were created
 and whether anything fell back to the bridge. Mode 4: say how many tickets were written, the lint
 result, how many were published (and where) and how many are stale.
 

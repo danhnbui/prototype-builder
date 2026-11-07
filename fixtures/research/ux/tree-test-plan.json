@@ -1,5 +1,5 @@
 {
-  "audience": {"targetN": 2},
+  "audience": {"targetN": 50},
   "plan": {
     "objectives": ["TEST DATA. Find out whether people look under Orders for a refund."],
     "researchQuestions": ["TEST DATA. Where would people go to get their money back?"],

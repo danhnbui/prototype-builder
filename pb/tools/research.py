@@ -100,6 +100,21 @@ Subcommands (all take --registry PATH, default ./registry.json, and --json):
   report <id>                     refused unless verify is clean; writes report/report.md and report.html (Draft until G-INSIGHT)
   refill <id> --approved [--note N]     G-INSIGHT: append the refill text to meta.userInsights.*; rewrites an existing report
   list · show <id>                read-only
+  bundle --out DIR [--with-recordings]
+                                  copy memory/research/ into a hand-off bundle at DIR/memory/research/, WITHOUT the participants'
+                                  screen / voice recordings (every .webm .mp4 .mov .mkv) unless --with-recordings; never `.incoming/`
+                                  or a symlink. DIR/registry.json must already exist: each recording row and pilot left out is marked
+                                  `withheld` THERE (never in the source). Writes DIR/memory/research/HANDOFF.md. Writes nothing in
+                                  the source project; a re-run replaces its own output and refuses any other existing directory
+
+The sample target is ONE number: `study.audience.targetN`. `study.plan.participants.n` is the same number as the plan shows it;
+brief and plan keep them equal (set_target), refuse two different numbers in one file, and refuse a CHANGE once the study holds
+live evidence (it was fixed before data; a different bar means a new study). `check` warns W-TARGET on a study whose two differ.
+
+A recording row (kind `recording`) or a pilot may carry `withheld: {at, reason}` — only `bundle` sets it, only in the bundle's
+copy of the registry. It means the file was left out of that copy on purpose; the row and its sha256 stay. `evidence_file` answers
+status `withheld` for it while the file is absent, `verify` says W-WITHHELD (a warning, never V-EVIDENCE), and with the file put
+back at its path everything checks as normal, sha256 included.
 
 Every registry write holds slice.registry_lock and goes through slice._write (atomic).
 
@@ -533,7 +548,9 @@ def next_evidence_number(study):
 
 
 def evidence_file(base, sid, row):
-    """(status, bytes|None, message). status: ok | missing | mismatch | unsafe."""
+    """(status, bytes|None, message). status: ok | missing | mismatch | unsafe | withheld.
+    `withheld`: a recording row marked `withheld` (by `bundle`, in a hand-off copy) whose file is absent — left out on purpose.
+    With the file back at its path the row is checked like any other, sha256 included."""
     rel = sstr(row.get("file"))
     prefix = evidence_dir_rel(sid) + "/"
     if (not rel.startswith(prefix) or posixpath.normpath(rel) != rel or ".." in rel.split("/")
@@ -550,12 +567,23 @@ def evidence_file(base, sid, row):
             raw = read_nofollow(path)
             digest = sha256_bytes(raw)
     except FileNotFoundError:
+        if row.get("kind") == "recording" and is_withheld(row):
+            return "withheld", None, "%s was left out of this copy on purpose (%s)" % (rel, withheld_reason(row))
         return "missing", None, "%s is missing from disk" % rel
     except OSError as e:
         return "unsafe", None, "%s cannot be read (%s)" % (rel, e.strerror or e)
     if digest != sstr(row.get("sha256")):
         return "mismatch", None, "%s no longer matches its recorded sha256 — it was changed after import" % rel
     return "ok", raw, ""
+
+
+def is_withheld(obj):
+    """True for an evidence row or a pilot carrying a `withheld` mark: {at, reason}."""
+    return isinstance(obj, dict) and isinstance(obj.get("withheld"), dict) and bool(obj["withheld"])
+
+
+def withheld_reason(obj):
+    return squash(as_dict(as_dict(obj).get("withheld")).get("reason")) or "no reason recorded"
 
 
 def hash_file(path):
@@ -1224,6 +1252,11 @@ def check_study(reg, study):
         p = target_problem(reg, t)
         if p:
             E("C-TARGET", "targets", p)
+    tn, pn = audience.get("targetN"), as_dict(as_dict(study.get("plan")).get("participants")).get("n")
+    if is_target(tn) and is_target(pn) and tn != pn:
+        W("W-TARGET", "audience", "audience.targetN is %d but plan.participants.n is %d — the tool reads audience.targetN (%d) for "
+          "every directional-not-conclusive warning. Send the number you mean through `brief` (participants.n) or `plan` "
+          "(audience.targetN); either writes both." % (tn, pn, tn))
 
     hyps = [h for h in as_list(study.get("hypotheses"))]
     hyp_ids, seen = [], set()
@@ -1520,7 +1553,10 @@ def verify_study(reg, study, base):
     for eid, row in rows.items():
         if not row.get("dropped"):
             st, _raw, msg = file_of(eid)
-            if st != "ok":
+            if st == "withheld":
+                W("W-WITHHELD", "evidence.%s" % eid, "%s: %s — put the file back at that path and verify again to check it "
+                  "against its sha256" % (eid, msg))
+            elif st != "ok":
                 E("V-EVIDENCE", "evidence.%s" % eid, msg)
         if not row.get("dropped") and row.get("consent") == "unknown":
             W("W-CONSENT", "evidence.%s" % eid, "%s has consent: unknown — confirm before the quotes go further" % eid)
@@ -1646,7 +1682,7 @@ def verify_study(reg, study, base):
                 E("V-EVIDENCE", rw, "cites evidence %r, which is not stored for this study" % eid)
                 continue
             st, raw, msg = file_of(eid)
-            if st != "ok":
+            if st not in ("ok", "withheld"):       # a withheld recording is not text: it falls to V-QUOTE-OPAQUE below, as a present one would
                 E("V-EVIDENCE", rw, msg)
                 continue
             if not quote:
@@ -1775,7 +1811,7 @@ def _verify_ux(reg, study, rows, file_of, session, fresh, why, observations, iss
             E("V-OBS", w, "%s cites %s, which was dropped (a participant withdrew)" % (oid, eid))
             continue
         stt, raw, msg = file_of(eid)
-        if stt != "ok":
+        if stt not in ("ok", "withheld"):          # a withheld recording is checked like a present one, minus its bytes
             E("V-OBS", w, "%s cannot be checked: %s" % (oid, msg))
             continue
         if o.get("participant") and row.get("participant") and o["participant"] != row["participant"]:
@@ -2562,6 +2598,29 @@ def merge_plan(old, new):
     return out
 
 
+def is_target(n):
+    return isinstance(n, int) and not isinstance(n, bool) and n >= 1
+
+
+def set_target(st, n):
+    """Make `n` THE sample target of the study: `audience.targetN`, and `plan.participants.n` when the plan has a
+    participants object, so the two can never disagree. Once the study holds live evidence a CHANGE is refused
+    (exit 1): the bar was fixed before data and moving it would move what the results are read against. Re-sending
+    the current value is accepted. The caller writes the registry."""
+    aud = st.get("audience")
+    if not isinstance(aud, dict):
+        aud = st["audience"] = {}
+    cur = aud.get("targetN")
+    if is_target(cur) and cur != n and live_evidence(st):
+        raise ResearchError("%s already holds evidence: its sample target (%d) was fixed before the data, and moving it to %d "
+                            "would move the bar the results are read against. Open a new study (`init`) with the target "
+                            "you want." % (st.get("id"), cur, n))
+    aud["targetN"] = n
+    part = as_dict(st.get("plan")).get("participants")
+    if isinstance(part, dict):
+        part["n"] = n
+
+
 def _plan_arg(data):
     """The plan inside a brief/plan file: the object itself, or {"plan": {...}}."""
     if set(data) == {"plan"} and isinstance(data["plan"], dict):
@@ -2620,6 +2679,8 @@ def cmd_brief(a):
         gate_changed = [k for k in changed if k in PLAN_GATE_KEYS]
         withdrawn = st.get("status") == "approved" and bool(gate_changed)
         st["plan"] = merged
+        if "n" in as_dict(new.get("participants")):
+            set_target(st, new["participants"]["n"])       # one sample target: the plan's n IS audience.targetN
         if withdrawn:
             withdraw_gate(st)
         if st.get("status") != "draft" or withdrawn:
@@ -2651,9 +2712,21 @@ def cmd_plan(a):
     if "instrument" in data:
         data["instrument"] = expand_templates(data["instrument"])     # raises a ResearchError on a bad template entry
     new_plan = validate_plan(data["plan"]) if "plan" in data else None
+    # one sample target: audience.targetN, mirrored into plan.participants.n (set_target)
+    aud_n = data["audience"].get("targetN") if "targetN" in as_dict(data.get("audience")) else None
+    plan_n = as_dict(as_dict(new_plan).get("participants")).get("n")
+    if "targetN" in as_dict(data.get("audience")) and not is_target(aud_n):
+        raise ResearchError("audience.targetN must be a whole number, 1 or more (it is the study's sample target)", EXIT_USAGE)
+    if aud_n is not None and plan_n is not None and aud_n != plan_n:
+        raise ResearchError("audience.targetN (%d) and plan.participants.n (%d) differ — a study has one sample target; "
+                            "send the same number in both, or only one of them" % (aud_n, plan_n), EXIT_USAGE)
+    target_n = aud_n if aud_n is not None else plan_n
     study_part = bool(set(data) & {"hypotheses", "instrument", "audience"})
     with locked(a.registry, "research.py plan") as reg:
         st = find_study(reg, a.id)
+        if "audience" in data and not (set(data) & {"hypotheses", "instrument"}) and all(
+                as_dict(st.get("audience")).get(k) == v for k, v in data["audience"].items()):
+            study_part = False                  # the audience as it already is: not a change to the study
         if study_part and st.get("evidence"):
             raise ResearchError("%s already holds evidence — a changed instrument would no longer match the "
                                 "responses. Open a new study (`init`) instead." % a.id)
@@ -2691,8 +2764,10 @@ def cmd_plan(a):
             merged = merge_plan(old_plan, new_plan)
             gate_changed = [k for k in new_plan if k in PLAN_GATE_KEYS and merged.get(k) != old_plan.get(k)]
             st["plan"] = merged
+        if target_n is not None:
+            set_target(st, target_n)
         if study_part:
-            st.pop("biasReview", None)      # a review answers one instrument; any plan makes it stale
+            st.pop("biasReview", None)     # a review answers one instrument; any plan makes it stale
         withdrawn = st.get("status") == "approved" and (study_part or bool(gate_changed))
         if withdrawn:
             withdraw_gate(st)
@@ -3974,11 +4049,27 @@ def regenerate_report(base, st, reg, notes=None):
         return []
 
 
+def _as_held_here(base, st):
+    """The study as this copy of the project holds it: a `withheld` recording whose file was put back and matches its
+    sha256 is not left out any more, so the report must not say it is. The registry keeps the mark; only the copy
+    the report reads from drops it."""
+    out = copy_study(st)
+    for e in as_list(out.get("evidence")):
+        if is_withheld(e) and evidence_file(base, out["id"], e)[0] == "ok":
+            e.pop("withheld", None)
+    for p in as_list(out.get("pilots")):
+        media = [m for m in as_list(as_dict(p).get("media")) if isinstance(m, str)]
+        if is_withheld(p) and media and all(os.path.isfile(os.path.join(base, *m.split("/"))) for m in media):
+            p.pop("withheld", None)
+    return out
+
+
 def write_report(base, st, reg):
     rr = _rr()
     sid = st["id"]
     ensure_dir(base, study_rel(sid))
     ensure_dir(base, study_rel(sid) + "/report")
+    st = _as_held_here(base, st)
     written = []
     for name, text in (("report.md", rr.report_md(st, reg)), ("report.html", rr.report_html(st, reg))):
         rel = "%s/report/%s" % (study_rel(sid), name)
@@ -4020,6 +4111,220 @@ def cmd_report(a):
         lines.append("  open: %s%s" % (url, note))
     lines += ["warn  %s %s: %s" % (w["code"], w["where"], w["msg"]) for w in warns]
     return {"report": written, "url": url, "status": st2.get("status"), "warnings": warns}, lines, EXIT_OK
+
+
+# ── bundle: the research files of a hand-off, without the participants' recordings ──────────────────
+
+VIDEO_EXTS = (".webm", ".mp4", ".mov", ".mkv")
+BUNDLE_MARKER = "<!-- pb-research-handoff: written by `research.py bundle`; the next run of it replaces this folder -->"
+WITHHELD_WHY = ("screen / voice recording left out of this hand-off: it shows the participant's face and voice and stays with "
+                "the team they consented to")
+
+
+def _rmtree_writable(path):
+    """Remove a tree whose files may be 0444 (evidence) or whose folders lost a write bit."""
+    def onerror(func, p, _exc):
+        os.chmod(p, 0o700 if os.path.isdir(p) else 0o600)
+        func(p)
+    shutil.rmtree(path, onerror=onerror)
+
+
+def _is_previous_bundle(dest):
+    try:
+        with open(os.path.join(dest, "HANDOFF.md"), encoding="utf-8") as f:
+            return BUNDLE_MARKER in f.read(4096).splitlines()
+    except (OSError, UnicodeDecodeError):
+        return False
+
+
+def _recording_index(reg):
+    """{posix path from the project base: (study id, evidence row | None, pilot | None)} for every recording the registry names."""
+    idx = {}
+    for st in studies_of(reg):
+        for e in as_list(st.get("evidence")):
+            if isinstance(e, dict) and e.get("kind") == "recording" and sstr(e.get("file")):
+                idx[e["file"]] = (st.get("id"), e, None)
+        for p in as_list(st.get("pilots")):
+            if isinstance(p, dict):
+                for rel in as_list(p.get("media")):
+                    if isinstance(rel, str):
+                        idx[rel] = (st.get("id"), None, p)
+    return idx
+
+
+def _handoff_md(studies, files, nbytes, withheld, with_recordings, skipped):
+    L = [BUNDLE_MARKER, "", "# Research hand-off", "",
+         "What this folder carries: %d stud%s (%s), %d file(s), %d bytes." % (
+             len(studies), "y" if len(studies) == 1 else "ies", ", ".join(studies) or "none", files, nbytes), ""]
+    if with_recordings:
+        L += ["## Recordings are included", "",
+              "This copy was made with `--with-recordings`: the participants' screen and voice recordings ARE in this folder. "
+              "They show faces and voices. Whoever receives it must be covered by the consent the participants gave "
+              "(`consent.md` of each study says what they agreed to); if they are not, take the video files out before it goes further.", ""]
+        if withheld:
+            L += ["Some video files could still not be carried:", ""]
+    if withheld:
+        if not with_recordings:
+            L += ["## Left out on purpose", ""]
+        L += ["| study | evidence / pilot | session | path | bytes | sha256 |", "|---|---|---|---|---|---|"]
+        for w in withheld:
+            L.append("| %s | %s | %s | `%s` | %d | `%s` |" % (w["study"], w.get("id") or ("pilot " + w["pilot"] if w.get("pilot") else "—"),
+                                                          w.get("session") or "—", w["file"], w["bytes"], w["sha256"]))
+        L.append("")
+    elif not with_recordings:
+        L += ["## Left out on purpose", "", "No recording was found in the project, so nothing was left out.", ""]
+    if not with_recordings:
+        L += ["## Why", "",
+              "A screen and voice recording shows a participant's face and voice. The participants agreed to be recorded by the "
+              "team that ran the study, so the recordings stay with that team. The rows and their sha256 stay in the registry, "
+              "marked `withheld`, so the study can still be read and `verify` still knows what is missing.", "",
+              "## How to put one back", "",
+              "1. The sender passes the file on separately, outside this folder, to someone covered by the participants' consent.",
+              "2. The recipient puts it at that exact path (the one in the table above, relative to the project root).",
+              "3. Run `research.py verify <study>`. The warning `W-WITHHELD` for that file goes away only if its sha256 "
+              "matches the one in the table; a file that does not match is an error.", ""]
+    if skipped.get("symlinks") or skipped.get("incoming") or skipped.get("special"):
+        L += ["## Also not carried", ""]
+        for label, key_ in (("symlinks (never followed)", "symlinks"), ("temporary upload folders", "incoming"),
+                            ("not regular files", "special")):
+            for p in skipped.get(key_, []):
+                L.append("- %s: `%s`" % (label, p))
+        L.append("")
+    return "\n".join(L)
+
+
+def cmd_bundle(a):
+    base = base_of(a.registry)
+    real_base = os.path.realpath(base)
+    out = os.path.abspath(a.out)
+    real_out = os.path.realpath(out)
+    mem = os.path.join(real_base, "memory")
+    if real_out == real_base or real_out == mem or real_out.startswith(mem + os.sep):
+        raise ResearchError("--out %s is the project itself or inside its memory/ — a bundle goes to a folder of its own "
+                            "(for example handoff/bundle), never into the source" % a.out)
+    src_root = os.path.join(base, "memory", "research")
+    if os.path.islink(os.path.join(base, "memory")) or os.path.islink(src_root):
+        raise ResearchError("memory/research is a symlink — bundle does not follow symlinks")
+    if not os.path.isdir(src_root):
+        return ({"studies": 0, "files": 0, "bytes": 0, "withheld": [], "manifest": None},
+                ["nothing to carry: %s has no memory/research/" % base], EXIT_OK)
+    out_reg = os.path.join(out, "registry.json")
+    if not os.path.isfile(out_reg):
+        raise ResearchError("%s has no registry.json — copy registry.json into %s first (the recordings left out are marked "
+                            "there)" % (a.out, a.out), EXIT_USAGE)
+    load_registry(out_reg)                                    # not valid JSON -> exit 2 before anything is touched
+    dest = os.path.join(out, "memory", "research")
+    if os.path.islink(os.path.join(out, "memory")):
+        raise ResearchError("%s/memory is a symlink — refusing to write through it" % a.out)
+    replaced = False
+    if os.path.lexists(dest):
+        if os.path.islink(dest) or not os.path.isdir(dest) or not _is_previous_bundle(dest):
+            raise ResearchError("%s already exists and is not the output of a previous `bundle` (no HANDOFF.md carrying its "
+                                "marker) — not touching it. Choose another --out or remove it yourself." % dest)
+        _rmtree_writable(dest)
+        replaced = True
+    os.makedirs(dest)
+    with open(os.path.join(dest, "HANDOFF.md"), "w", encoding="utf-8") as f:     # the marker first: a half-done run is still ours
+        f.write(BUNDLE_MARKER + "\n\n(bundle in progress)\n")
+
+    src_reg = load_registry(a.registry) if os.path.isfile(a.registry) else {}
+    index = _recording_index(src_reg)
+    studies, files, nbytes, left = set(), 0, 0, []
+    skipped = {"symlinks": [], "incoming": [], "special": []}
+    try:
+        for root, dirnames, filenames in os.walk(src_root, topdown=True, followlinks=False):
+            rel_dir = os.path.relpath(root, src_root)
+            keep = []
+            for d in sorted(dirnames):
+                p = os.path.join(root, d)
+                rel = posixpath.join("memory/research", *([] if rel_dir == "." else rel_dir.split(os.sep)), d)
+                if os.path.islink(p):
+                    skipped["symlinks"].append(rel)
+                elif d == ".incoming":
+                    skipped["incoming"].append(rel)
+                else:
+                    keep.append(d)
+            dirnames[:] = keep
+            droot = dest if rel_dir == "." else os.path.join(dest, rel_dir)
+            os.makedirs(droot, exist_ok=True)
+            if rel_dir == ".":
+                studies.update(keep)
+            for fn in sorted(filenames):
+                p = os.path.join(root, fn)
+                rel = posixpath.join("memory/research", *([] if rel_dir == "." else rel_dir.split(os.sep)), fn)
+                if rel_dir == "." and fn == "HANDOFF.md":
+                    continue
+                if os.path.islink(p):
+                    skipped["symlinks"].append(rel)
+                    continue
+                stt = os.lstat(p)
+                if not stat.S_ISREG(stt.st_mode):
+                    skipped["special"].append(rel)
+                    continue
+                if os.path.splitext(fn)[1].lower() in VIDEO_EXTS and not a.with_recordings:
+                    sid_, row, pilot = index.get(rel, (None, None, None))
+                    study_dir = rel.split("/")[2] if rel.count("/") >= 3 else None
+                    digest = sstr(as_dict(row).get("sha256")) or hash_file(p)
+                    left.append({"study": sid_ or study_dir, "id": as_dict(row).get("id"),
+                                 "pilot": as_dict(pilot).get("sessionId"),
+                                 "session": (as_dict(row).get("session") if row else as_dict(pilot).get("sessionId")),
+                                 "file": rel, "bytes": stt.st_size, "sha256": digest})
+                    continue
+                shutil.copy2(p, os.path.join(droot, fn))          # keeps the mode (evidence is 0444) and the times
+                files += 1
+                nbytes += stt.st_size
+    except OSError as e:
+        raise ResearchError("bundle stopped at %s: %s" % (getattr(e, "filename", "") or "a file", e.strerror or e))
+
+    # the bundle's registry: mark what was left out, unmark what is back
+    marked = unmarked = 0
+    with locked(out_reg, "research.py bundle") as oreg:
+        stamp = now_iso()
+        for w in left:
+            st = next((s for s in studies_of(oreg) if s.get("id") == w["study"]), None)
+            if st is None:
+                continue
+            if w["id"]:
+                row = next((e for e in as_list(st.get("evidence")) if isinstance(e, dict) and e.get("id") == w["id"]), None)
+            else:
+                row = next((p for p in as_list(st.get("pilots")) if isinstance(p, dict) and w["pilot"]
+                            and p.get("sessionId") == w["pilot"]), None)
+            if row is not None:
+                row["withheld"] = {"at": stamp, "reason": WITHHELD_WHY}
+                marked += 1
+        if a.with_recordings:
+            for st in studies_of(oreg):
+                for obj, rels in ([(e, [e.get("file")]) for e in as_list(st.get("evidence"))
+                                   if isinstance(e, dict) and e.get("kind") == "recording"]
+                                  + [(p, as_list(p.get("media"))) for p in as_list(st.get("pilots")) if isinstance(p, dict)]):
+                    if is_withheld(obj) and rels and all(isinstance(r, str) and os.path.isfile(os.path.join(out, *r.split("/")))
+                                                         for r in rels):
+                        obj.pop("withheld", None)
+                        unmarked += 1
+        if marked or unmarked:
+            pbslice._write(out_reg, oreg)
+
+    manifest = "memory/research/HANDOFF.md"
+    with open(os.path.join(out, *manifest.split("/")), "w", encoding="utf-8") as f:
+        f.write(_handoff_md(sorted(studies), files, nbytes, left, bool(a.with_recordings), skipped))
+    lines = ["bundle: %d stud%s, %d file(s), %d bytes -> %s%s" % (len(studies), "y" if len(studies) == 1 else "ies", files, nbytes,
+                                                                os.path.relpath(dest, os.getcwd()) if dest.startswith(os.getcwd() + os.sep) else dest,
+                                                                " (replaced the previous bundle)" if replaced else "")]
+    if a.with_recordings:
+        lines.append("recordings are INCLUDED (--with-recordings): the recipient must be covered by the participants' consent"
+                     + ("; %d withheld mark(s) removed" % unmarked if unmarked else ""))
+    else:
+        lines.append("left out %d recording file(s), %d bytes; %d row/pilot(s) marked withheld in %s" % (
+            len(left), sum(w["bytes"] for w in left), marked, os.path.join(a.out, "registry.json")))
+    for w in left:
+        lines.append("  left out  %s  %s" % (w["file"], w["sha256"][:12]))
+    for label, key_ in (("symlink, not followed", "symlinks"), (".incoming, not carried", "incoming"), ("not a regular file", "special")):
+        for p in skipped[key_]:
+            lines.append("  skipped  %s (%s)" % (p, label))
+    lines.append("wrote %s/%s" % (a.out, manifest))
+    return ({"studies": len(studies), "files": files, "bytes": nbytes, "withheld": left, "manifest": manifest,
+             "out": out, "withRecordings": bool(a.with_recordings), "marked": marked, "unmarked": unmarked,
+             "skipped": skipped, "replaced": replaced}, lines, EXIT_OK)
 
 
 # ── main ─────────────────────────────────────────────────────────────────────
@@ -4114,6 +4419,10 @@ def build_parser():
     p.add_argument("--participant", help="prefill the participant code, e.g. P01")
     p.add_argument("--pilot", action="store_true")
     p.add_argument("--open", action="store_true", help="open it in the browser")
+    p = sub.add_parser("bundle")
+    p.add_argument("--out", required=True, help="the hand-off bundle folder; its registry.json must already be there")
+    p.add_argument("--with-recordings", action="store_true",
+                   help="also carry the participants' screen / voice recordings (default: leave them out)")
     sp("list")
     sp("show", "id")
     return ap
@@ -4124,7 +4433,7 @@ COMMANDS = {"gaps": cmd_gaps, "seed": cmd_seed, "init": cmd_init, "scope": cmd_s
             "tally": cmd_tally, "analyze": cmd_analyze, "affinity": cmd_affinity, "synthesize": cmd_synthesize, "verify": cmd_verify,
             "refill": cmd_refill, "report": cmd_report, "methods": cmd_methods, "participant": cmd_participant,
             "logistics": cmd_logistics, "pilots": cmd_pilots, "kit": cmd_kit, "link": cmd_link,
-            "list": cmd_list, "show": cmd_show}
+            "list": cmd_list, "show": cmd_show, "bundle": cmd_bundle}
 
 
 def main(argv=None):

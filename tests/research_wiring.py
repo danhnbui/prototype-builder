@@ -128,6 +128,20 @@ def main():
             json.dump(none, f, ensure_ascii=False)
         _, out = lint_output(path)
         check("R-RESEARCH" not in out, "no research, no finding")
+        # a recording the hand-off left out on purpose is absent by design; the same row without `withheld` is a real gap
+        gone = copy.deepcopy(reg)
+        gone["research"]["studies"][0]["evidence"].append(
+            {"id": "e2", "file": "memory/research/rs-cod/evidence/e2-screen.webm", "kind": "recording", "consent": "yes",
+             "participant": "P01", "sha256": "ab" * 32, "dropped": None})
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(gone, f, ensure_ascii=False)
+        _, out = lint_output(path)
+        check(out.count("R-RESEARCH") == 1 and "'e2' is missing on disk" in out, "a missing recording without `withheld` still warns (%d)" % out.count("R-RESEARCH"))
+        gone["research"]["studies"][0]["evidence"][1]["withheld"] = {"at": "2026-11-07T08:00:00Z", "reason": "hand-off without recordings"}
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(gone, f, ensure_ascii=False)
+        _, out = lint_output(path)
+        check("R-RESEARCH" not in out, "a withheld recording whose file is absent draws no R-RESEARCH")
         with open(path, "w", encoding="utf-8") as f:
             json.dump(reg, f, ensure_ascii=False, indent=2)
 
