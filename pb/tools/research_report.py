@@ -243,6 +243,10 @@ def _n_done(study):
     n = as_dict(study.get("analysis")).get("n")
     if isinstance(n, int):
         return n
+    # A survey's people are its qualified respondents, counted by `tally` — one CSV file holds many of them.
+    tn = as_dict(study.get("tally")).get("n")
+    if study.get("method") == "survey" and isinstance(tn, int) and not isinstance(tn, bool):
+        return tn
     rows = _session_rows(study) if study.get("method") in SESSION_METHODS else _live_evidence(study)
     if study.get("method") in SESSION_METHODS:
         return len(rows)

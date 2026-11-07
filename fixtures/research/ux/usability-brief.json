@@ -1,11 +1,11 @@
 {
   "background": "TEST DATA. The parcel-desk prototype may need to show the cash amount on its first screen; nobody has watched a courier use the flow yet.",
   "objectives": [
-    "Find out whether a courier can take a cash payment and finish the delivery without help",
+    "Find out whether a courier can take a cash payment without help",
     "Find out where couriers look for the total to collect"
   ],
   "researchQuestions": [
-    "Can a courier reach the handover screen after paying?",
+    "Can a courier reach the payment step from their route?",
     "Where do couriers expect to see the amount they must collect?"
   ],
   "decision": "Whether the amount moves to the first screen in the next build.",

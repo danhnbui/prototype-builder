@@ -461,6 +461,12 @@ def main():
     pipe["themes"][0]["insight"] = "a | b"
     check("a \\| b" in rr.report_md(pipe, REG), "pipe escaped in md tables")
 
+    # A survey's n is its qualified respondents (tally.n), not its evidence files: one CSV holds them all.
+    sv = {"id": "rs-sv", "method": "survey", "status": "analysed", "audience": {"targetN": 30},
+          "tally": {"n": 12, "excluded": 2}, "instrument": {"sections": []},
+          "evidence": [{"id": "e1", "kind": "responses", "responses": 14, "date": "2026-03-02"}]}
+    check("12 of target 30" in rr.report_md(sv, REG), "survey: participants = tally.n (12 qualified), not the 1 CSV file")
+
     if FAILS:
         print("\nFAIL: %d of %d checks failed" % (len(FAILS), CHECKS[0]))
         return 1
