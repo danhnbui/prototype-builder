@@ -159,6 +159,16 @@ with tempfile.TemporaryDirectory() as tmp:
     code, out, err = run(SESSION, "", cwd=pb_dir, env_extra={"CLAUDE_PLUGIN_ROOT": "/x/plugin"})
     ctx, _ = hook_json(out)
     check(ctx is not None and "/x/plugin/tools/serve.py" in ctx, "CLAUDE_PLUGIN_ROOT, when set, is the expanded root")
+    # A long install path is printed four times; the digest must give up whole low-rank lines, never the tail rule.
+    long_root = "/x/" + "/".join(["a-long-plugin-cache-folder"] * 4) + "/pb/3.1.0"
+    code, out, err = run(SESSION, "", cwd=pb_dir, env_extra={"CLAUDE_PLUGIN_ROOT": long_root})
+    ctx, _ = hook_json(out)
+    check(ctx is not None and len(ctx) <= 1600, "long plugin root (%d chars): still at most 1,600 characters" % len(long_root))
+    check(ctx is not None and ctx.endswith('Point changes: /pb:build.') and "--ensure" in ctx and "/pb:explore" in ctx,
+          "  the last rule (/pb:explore, /pb:build) survives whole")
+    check(ctx is not None and "kill a preview (serve.py --stop)" in ctx and os.path.join(long_root, "tools", "slice.py") in ctx,
+          "  the NEVER lines and every tool's absolute path survive")
+    check(ctx is not None and "meta.permissions" not in ctx, "  the lowest-rank line (roles, permissions) is the one dropped")
     for label, folder in (("no registry.json", plain), ("registry.json without render/ or constitution", half)):
         code, out, err = run(SESSION, "", cwd=folder)
         check(code == 0 and out == "", "non-pb folder (%s): silent, exit 0" % label)
