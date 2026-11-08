@@ -379,19 +379,9 @@ def scenario_a(p, b, base, W, S_):
     obs.goto("%s/research/%s/observer?p=P01" % (base, U))
     expect(obs.locator("#pb-rs-ob-note")).to_be_visible()
 
-    probe = obs.evaluate("""async () => {
-      try {
-        const s = await navigator.mediaDevices.getDisplayMedia({video: true, audio: false, preferCurrentTab: true});
-        s.getTracks().forEach(t => t.stop());
-        const m = await navigator.mediaDevices.getUserMedia({audio: true});
-        m.getTracks().forEach(t => t.stop());
-        return 'ok';
-      } catch (e) { return e.name + ': ' + e.message; }
-    }""")
-    if probe != "ok":
+    # The capture mode was decided once, before any scenario (decide_capture); A only applies it.
+    if S_["capture_mode"] == "stub":
         ctx.add_init_script(CANVAS_STUB)
-        not_verified("real getDisplayMedia/getUserMedia is not available in this Chromium (%s); the recording path "
-                     "ran on a synthetic canvas+oscillator MediaStream instead of a real screen capture" % probe)
         S_["real_capture"] = False
     else:
         S_["real_capture"] = True
@@ -879,6 +869,63 @@ def scenario_e(p, b, base, W, S_):
 
 # ═════════════════════════════════════════════════════════════════════════════
 
+PROBE_JS = """async () => {
+  try {
+    const s = await navigator.mediaDevices.getDisplayMedia({video: true, audio: false, preferCurrentTab: true});
+    s.getTracks().forEach(t => t.stop());
+    const m = await navigator.mediaDevices.getUserMedia({audio: true});
+    m.getTracks().forEach(t => t.stop());
+    return 'ok';
+  } catch (e) { return e.name + ': ' + e.message; }
+}"""
+
+
+def probe_capture(br, base):
+    """Ask a browser for a real screen + voice capture on the preview's own http://127.0.0.1 page
+    (a data: URL is not a secure context, so it would fail for the wrong reason)."""
+    ctx = br.new_context()
+    try:
+        pg = ctx.new_page()
+        pg.goto(base + "/", wait_until="domcontentloaded")
+        return pg.evaluate(PROBE_JS)
+    finally:
+        with contextlib.suppress(Exception):
+            ctx.close()
+
+
+def decide_capture(pw, base, S_):
+    """Pick the browser once: the default (headless shell), then Chromium's new headless, then the
+    canvas stub. Returns the open browser; S_['capture_mode'] is 'headless-shell' | 'chromium' | 'stub'.
+    With PB_REQUIRE_REAL_CAPTURE=1 (CI) landing on the stub is a failed check, not a NOT VERIFIED note."""
+    section("capture · which Chromium gives a real screen capture")
+    errors = []
+    for mode, launch in (("headless-shell", {}), ("chromium", {"channel": "chromium"})):
+        try:
+            br = pbbrowser.open_browser(pw, who=WHO, args=REAL_CAPTURE, **launch)
+        except Exception as e:
+            errors.append("%s: launch failed: %s" % (mode, str(e).splitlines()[0][:160] if str(e) else type(e).__name__))
+            continue
+        try:
+            res = probe_capture(br, base)
+        except Exception as e:
+            res = "%s: %s" % (type(e).__name__, str(e).splitlines()[0][:160] if str(e) else "")
+        if res == "ok":
+            S_["capture_mode"] = mode
+            check(True, "capture mode: %s (real getDisplayMedia + getUserMedia)" % mode)
+            return br
+        errors.append("%s: %s" % (mode, res))
+        with contextlib.suppress(Exception):
+            br.close()
+    S_["capture_mode"] = "stub"
+    detail = "; ".join(errors)
+    if os.environ.get("PB_REQUIRE_REAL_CAPTURE") == "1":
+        check(False, "capture mode: stub, but PB_REQUIRE_REAL_CAPTURE=1 demands a real screen capture (%s)" % detail)
+    else:
+        not_verified("capture mode: stub; real getDisplayMedia/getUserMedia is not available in this Chromium (%s); "
+                     "the recording path ran on a synthetic canvas+oscillator MediaStream instead of a real screen capture" % detail)
+    return pbbrowser.open_browser(pw, who=WHO, args=REAL_CAPTURE)
+
+
 def main():
     W = Watch()
     p = Proj()
@@ -897,7 +944,7 @@ def main():
               "link: the preview server answers (%s)" % base)
 
         with sync_playwright() as pw:
-            br = pbbrowser.open_browser(pw, who=WHO, args=REAL_CAPTURE)
+            br = decide_capture(pw, base, S_)
             for name, fn in (("A", lambda: scenario_a(p, br, base, W, S_)),
                              ("B", lambda: scenario_b(p, br, base, W, S_)),
                              ("C", lambda: scenario_c(p, br, W, S_)),
