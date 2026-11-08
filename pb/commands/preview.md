@@ -212,8 +212,9 @@ shows each line as it lands.
   show a Draft chip on them.
 - **The activity strip** (v2.7, a row under the bar, `#pb-agent`) says what Claude is doing: *Thinking* (working,
   no line landed in the last few seconds) · *Writing · <step> · N saved* · *Waiting · no word from Claude* (90 s
-  without a write — Stop does not fire on Esc) · *Your turn · N drafts to approve — reply in Claude Code*, or
-  *Claude finished this turn · in m:ss*. It needs the plugin hook (`hooks/activity.py`, on `UserPromptSubmit`,
+  without a write — Stop does not fire on Esc) · *Your turn · G-JTBD — approve 4 jobs and 3 terms — reply in Claude
+  Code* at a human gate (the gated command ran `hooks/activity.py --gate <id> "<ask>"`), else *Your turn · N drafts to
+  approve — reply in Claude Code*, or *Claude finished this turn · in m:ss*. It needs the plugin hook (`hooks/activity.py`, on `UserPromptSubmit`,
   `PostToolUse` and `Stop`, which writes `.preview/activity.json` — with `since`, when the turn began — when that
   folder exists); without it there is no strip. It shows on every project and tab while the activity is under 30
   minutes old, never on view-only pages or off the preview server. Before the first screen its step name is the

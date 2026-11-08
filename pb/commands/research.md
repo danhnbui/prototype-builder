@@ -306,7 +306,8 @@ then is a new study.
 - the scope and setup from §0, as stored
 
 Ask for **approve**, **edit** or **reject**. Silence is not approval. **Nothing below runs until this is
-answered.**
+answered.** Make this the last tool call before the message, so the preview's strip names the gate (it prints
+nothing): `python3 "${CLAUDE_PLUGIN_ROOT}/hooks/activity.py" --gate G-STUDY "approve the study plan"`
 
 - **Approve** → `$T approve <id> [--note "<what was said>"]`. It requires a clean `check` and a current
   bias review, sets the status to `approved`, records the gate, **ticks `plan-approved` on the logistics
@@ -583,7 +584,8 @@ Start when the evidence is in, or when the user stops fielding. Say `n` before a
   no recording, the assisted successes
 
 Ask for **approve**, **edit** or **reject**. Silence is not approval. **Nothing is appended before this
-is answered.**
+is answered.** Make this the last tool call before the message, so the preview's strip names the gate (it prints
+nothing): `python3 "${CLAUDE_PLUGIN_ROOT}/hooks/activity.py" --gate G-INSIGHT "approve the findings"`
 
 - **Approve** → `$T refill <id> --approved [--note "<what was said>"]`. It backs the registry up under
   `memory/backups/research-<id>-<stamp>/`, appends to `meta.userInsights.*`, sets the status to `applied`,

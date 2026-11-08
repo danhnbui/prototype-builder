@@ -120,7 +120,8 @@ summary of it — **and under it every term** (`term · definition · aka · avo
 two terms saying one), the jobs no existing screen serves, any job still at feature or goal altitude, any
 term whose meaning came from nowhere, and the open questions. Ask for **approve**, **edit** or
 **reject**; one answer covers both lists. Silence is not approval. **Nothing below runs until this is
-answered.**
+answered.** Make this the last tool call before the message, so the preview's strip names the gate (it prints
+nothing; put the real counts in): `python3 "${CLAUDE_PLUGIN_ROOT}/hooks/activity.py" --gate G-JTBD "approve <N> jobs and <M> terms"`
 - **Approve** → write the approved list to `ia.jobs[]` now, refined in place by `id`
   (`slice.py set ia jobs.<id> --create-list`; the path is `jobs.<id>`, never `ia.jobs.<id>`) — §1c's `check`
   reads the jobs from the registry. Then the terms, one element each, creating the list the first time:
@@ -197,7 +198,8 @@ and N agents given one job list converge on one grouping.
 
 ## ▛ G-IA — human gate ▟
 **STOP.** Wait for the user's pick on the page (scores there are optional). Silence is not approval. Every message sent while waiting,
-and the verdict, ends with the URL from `$T link <ia-id>`.
+and the verdict, ends with the URL from `$T link <ia-id>`. Before the first of those messages, name the gate on the
+preview's strip (it prints nothing; put the real count in): `python3 "${CLAUDE_PLUGIN_ROOT}/hooks/activity.py" --gate G-IA "pick one of <N> groupings"`
 1. `$T gate <ia-id>` — reports which criterion × grouping cells are unscored (it always exits 0). **Scores are
    optional**: do not hold the verdict for them.
 2. **The verdict, from the pattern** (`ref-ia` §5) when scores exist, not the total: name the grouping the scores

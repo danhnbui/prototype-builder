@@ -12946,7 +12946,10 @@
       PB_LIVE.activity = (a && (a.state === 'working' || a.state === 'idle') && typeof a.at === 'number')
         ? { state: a.state, age: Math.max(0, (+d.now || a.at) - a.at), rx: performance.now(),
             since: typeof a.since === 'number' ? a.since : null,
-            turn: typeof a.since === 'number' ? Math.max(0, (+d.now || a.at) - a.since) : null } : null;
+            turn: typeof a.since === 'number' ? Math.max(0, (+d.now || a.at) - a.since) : null,
+            // the human gate a command stopped at (hooks/activity.py --gate): only a well-formed one is believed
+            gate: (a.gate && typeof a.gate.id === 'string' && /^G-[A-Z][A-Z0-9-]*$/.test(a.gate.id) && typeof a.gate.ask === 'string' && a.gate.ask.trim())
+              ? { id: a.gate.id, ask: a.gate.ask.trim() } : null } : null;
       PB_LIVE.drafts = (d.drafts && +d.drafts.count) || 0;
 
       const keys = Object.keys(Object.assign({}, PB_REGISTRY, reg));
@@ -13185,7 +13188,9 @@
        turn cancelled with Esc). Your turn: Stop fired; "N drafts to approve" while drafts wait, else how long the turn
        took. It shows on every project and tab while a session is live — from the first activity until it is 30
        minutes old — so a page does not jump a row at every turn; never on a view-only, embedded or file:// page.
-       The gate is generic: the page knows only that Claude stopped, not at which gate, until a command says so. */
+       At a human gate the command says which (`hooks/activity.py --gate <id> "<ask>"` puts `gate` in the file, the data
+       route passes it when well formed): "Your turn · G-JTBD — approve 4 jobs and 3 terms — reply in Claude Code",
+       instead of the drafts count. With no gate the text stays generic: the page knows only that Claude stopped. */
     const PB_AGENT_WRITING_S = 8, PB_AGENT_STALE_S = 30 * 60;
     const PB_AGENT = { since: null, base: null, total: null, last: 0, tick: null, said: '' };
     const pbAgentTotal = c => Object.keys(c || {}).reduce((n, k) => n + (+c[k] || 0), 0);
@@ -13224,6 +13229,7 @@
                  time: a.turn === null ? '' : pbAgentClock(a.turn + (now - a.rx) / 1000) };
       }
       const d = PB_LIVE.drafts;
+      if (a.gate) return { mode: 'turn', verb: 'Your turn', step, menu, parts: [`${a.gate.id} — ${a.gate.ask} — reply in Claude Code`], time: 'Waiting ' + pbAgentClock(age) };
       if (d) return { mode: 'turn', verb: 'Your turn', step, menu, parts: [`${d} draft${d > 1 ? 's' : ''} to approve — reply in Claude Code`], time: 'Waiting ' + pbAgentClock(age) };
       const took = a.turn === null ? null : a.turn - a.age;          // at − since: how long the turn ran
       return { mode: 'done', verb: 'Your turn', step, menu, parts: ['Claude finished this turn'], time: took === null ? '' : 'in ' + pbAgentClock(took) };

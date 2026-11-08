@@ -806,9 +806,10 @@ def render_ds_current(state):
 
 
 def read_hook(state):
-    """What the plugin hook last wrote to .preview/activity.json — {state: "working"|"idle", at: <epoch s>, since?} —
+    """What the plugin hook last wrote to .preview/activity.json — {state: "working"|"idle", at: <epoch s>, since?, gate?} —
     or None when there is none, it is unreadable or it is not that shape. A bad file is no activity, never an error.
-    `since` (when the turn began) is passed on only when it is a number no later than `at`; otherwise it is left out."""
+    `since` (when the turn began) is passed on only when it is a number no later than `at`; otherwise it is left out.
+    `gate` (the human gate a command stopped at) is passed on only when `hook_gate` finds it well formed."""
     try:
         with open(state.hook_path, encoding="utf-8") as f:
             d = json.load(f)
@@ -823,7 +824,28 @@ def read_hook(state):
     since = d.get("since")
     if isinstance(since, (int, float)) and not isinstance(since, bool) and since <= at:
         out["since"] = since
+    gate = hook_gate(d.get("gate"))
+    if gate:
+        out["gate"] = gate
     return out
+
+
+HOOK_GATE_ID = re.compile(r"^G-[A-Z][A-Z0-9-]*$")
+
+
+def hook_gate(g):
+    """The gate a command stopped at — {id: "G-JTBD", ask: "approve 4 jobs and 3 terms", at: <epoch s>} — only when
+    it is well formed (an id shaped G-…, a non-empty one-line ask of at most 160 characters, a number); else None."""
+    if not isinstance(g, dict):
+        return None
+    gid, ask, at = g.get("id"), g.get("ask"), g.get("at")
+    if not isinstance(gid, str) or not HOOK_GATE_ID.match(gid):
+        return None
+    if not isinstance(ask, str) or not ask.strip() or len(ask) > 160 or "\n" in ask or "\r" in ask:
+        return None
+    if isinstance(at, bool) or not isinstance(at, (int, float)):
+        return None
+    return {"id": gid, "ask": ask.strip(), "at": at}
 
 
 def data_current(state):

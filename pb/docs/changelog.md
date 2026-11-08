@@ -17,9 +17,14 @@ common rules at call time. The preview says in words what Claude is doing, and e
   page. New lines also come in left to right as they land. The bar's **progress item is gone** — it said the same
   thing twice — and its menu of the eight steps opens from the strip's step name instead (before the first screen,
   as before). Chosen from three options rated side by side
-  (`/pb:explore`, a page round). The gate is still generic: naming it ("G-JTBD — approve 4 jobs and 3 terms") needs
-  each gated command to write it, which comes next. `.preview/activity.json` gains `since` (when the turn began),
-  written by `hooks/activity.py`; an older file without it still works, with no clock.
+  (`/pb:explore`, a page round). `.preview/activity.json` gains `since` (when the turn began), written by
+  `hooks/activity.py`; an older file without it still works, with no clock.
+- **The strip names the gate.** At a human gate it said only *Your turn*, so you could not tell from the preview
+  what Claude was waiting for. Now each gated command runs `hooks/activity.py --gate <id> "<ask>"` as its last call
+  before it stops, and the strip reads **Your turn · G-JTBD — approve 4 jobs and 3 terms — reply in Claude Code**.
+  The six gates write it: G-JTBD and G-IA (`/pb:clarify`), G-DIRECTION and G-DESIGN (`/pb:explore`), G-STUDY and
+  G-INSIGHT (`/pb:research`). The gate stays on file until your next prompt; a file with none, or a malformed one,
+  keeps the generic text. `activity.json` gains `gate: {id, ask, at}`; the ask is one line of at most 160 characters.
 - **The bar fits at every width.** Below about 1060 px the bar's items painted over the tabs and the page scrolled
   sideways, so the laptop window seemed not to follow the viewport. The bar now measures itself and drops labels,
   then the step name, then the project name, and finally scrolls its tabs. Laptop and monitor windows fill the stage

@@ -355,8 +355,12 @@ split a list into lines to be tidy; split it because someone is watching the pre
 - **Before any screen**, the Prototype tab is an undesigned outline in the device frame, built by code from
   the registry and the drafts (name, objective, planned screens, their jobs, then paths and sample rows),
   and the **activity strip** under the bar (v2.7; on every project, while a session is live) says what Claude is
-  doing from the hook: *Thinking* · *Writing · <step> · N saved* · *Your turn* (drafts to approve, or how long the
-  turn took). Stop does not fire on Esc, so *working* is believed for 90 s after the hook last wrote, then the strip
+  doing from the hook: *Thinking* · *Writing · <step> · N saved* · *Your turn* (the gate it stopped at and what to
+  approve, e.g. *G-JTBD — approve 4 jobs and 3 terms*; else the drafts to approve, or how long the turn took). A gated
+  command names its gate with `python3 "${CLAUDE_PLUGIN_ROOT}/hooks/activity.py" --gate <G-ID> "<ask>"` as the last
+  tool call before its STOP message: it adds `gate: {id, ask, at}` to `.preview/activity.json` (never creating
+  `.preview/`; a bad id or an empty ask writes nothing), `PostToolUse` and `Stop` keep it, `UserPromptSubmit` drops
+  it. Stop does not fire on Esc, so *working* is believed for 90 s after the hook last wrote, then the strip
   reads *Waiting*. Before the first screen the strip's step name is the button of the **steps menu** — Brief ·
   Design system · Jobs and glossary · Structure · Flows and test cases · Wording · Data · First screen, each a jump,
   their counts from the registry and the drafts only; the menu is gone once `screens` is non-empty. The bar itself

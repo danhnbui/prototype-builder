@@ -64,9 +64,11 @@ lines nobody has approved yet, in the registry's own shape (`{ "ia": { "jobs": [
 `slice.py set … --draft` and `append … --draft` write it under the registry lock, `slice.py drafts --clear` empties it,
 and nothing that renders to disk reads it (`render.py` stays deterministic). The preview folds it into what it shows
 (`GET /__pb_data`), marking each draft list element `_draft: true` — a key that never reaches `registry.json`.
-`.preview/activity.json` is `{ state: 'working' | 'idle', at: <epoch s>, event, since? }`, written by the plugin hook
+`.preview/activity.json` is `{ state: 'working' | 'idle', at: <epoch s>, event, since?, gate? }`, written by the plugin hook
 `hooks/activity.py` on `UserPromptSubmit` / `PostToolUse` / `Stop` (`since`, v2.7: when the turn began — set by
-UserPromptSubmit, kept by the other two); the **activity strip** under the bar reads it (*working* is believed for
+UserPromptSubmit, kept by the other two; `gate`, `{ id: 'G-JTBD', ask: 'approve 4 jobs and 3 terms', at }`: written by a
+gated command with `hooks/activity.py --gate <id> "<ask>"` at its STOP, kept by PostToolUse and Stop, dropped by
+UserPromptSubmit, and shown by the strip as *Your turn · G-JTBD — approve 4 jobs and 3 terms — reply in Claude Code*); the **activity strip** under the bar reads it (*working* is believed for
 90 s after the last write, then the strip reads *Waiting*, because Stop does not fire on Esc). `slice.py append <kind> <path>` adds one element
 to a list with no ids (`content.strings`, `erd.table`, a story's `scenarios`); `--key a,b` makes a repeat a merge.
 Canonical rule: `pb/docs/canon.md` § *Line by line*.

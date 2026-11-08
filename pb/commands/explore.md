@@ -112,7 +112,9 @@ something genuinely different (`think-direction` §3 says what to do with fewer 
 **STOP.** Present the brief itself, not a summary of it: the jobs, the constraints, the locked and free
 axes, and the N bets. Ask for approval, edits, or rejection. Silence is not approval. An edit changes
 the brief and **re-opens A1a** — the gate is asked again on the new text; a rejection returns to A1a.
-No plan exists yet, and none is ever shown here: **the user approves a direction**.
+No plan exists yet, and none is ever shown here: **the user approves a direction**. Make this the last tool call
+before the message, so the preview's strip names the gate (it prints nothing; put the real count in):
+`python3 "${CLAUDE_PLUGIN_ROOT}/hooks/activity.py" --gate G-DIRECTION "approve the direction and <N> bets"`
 
 ### A1c · Plans (coordinator, after approval)
 Write one `memory/explore/<id>/plans/<slot>.md` per approved bet (`think-direction` §5b) — the whole
@@ -261,7 +263,7 @@ genuinely new:
 - **B4a · Direction** — **`think-direction`** writes the brief: the approved jobs and their IA, B3's
   findings as constraints, the behaviour each approach must keep, and N one-line bets whose free axes
   differ on ≥ 4 of 7 (the **`ref-design-compare`** contract applies here too).
-- **B4b · ▛ G-DIRECTION — human gate ▟** — exactly as A1b: the brief, never a plan; silence is not
+- **B4b · ▛ G-DIRECTION — human gate ▟** — exactly as A1b, its activity-strip line included: the brief, never a plan; silence is not
   approval; an edit re-opens B4a.
 - **B4c · Plans** — one `plans/<slot>.md` per approved bet (`think-direction` §5b), anti-brief
   included, naming the one file its executor writes: `memory/explore/<goal-id>/<slot>.approach.md`.
@@ -288,7 +290,9 @@ Turn the chosen approach into `memory/tasks.md`: per task **acceptance · skill 
 run usually ends for now, so the message **ends with the compare page's URL** (`python3 $T link
 <goal-id>`). That is where the user checks the pick against its scores and the options it beat. Keep
 the round open until G-DESIGN is approved, so the link still works. After approval, a page round is
-closed with `promote <goal-id> <slot>`.
+closed with `promote <goal-id> <slot>`. Make the gate's strip line the last tool call before the message (it
+prints nothing; put the real count in):
+`python3 "${CLAUDE_PLUGIN_ROOT}/hooks/activity.py" --gate G-DESIGN "keep one of <N> options"`
 
 ## B7 · Build + test — `/pb:orchestrate` → `/pb:test` · `pb-tester` → `pb-reviewer`
 Dispatch the plan in dependency waves. `/pb:orchestrate` already gates each wave on `pb-tester` +

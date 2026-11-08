@@ -557,6 +557,27 @@ def run():
                 check(page.inner_text("#pb-agent .pb-agent-time").startswith("in "),
                       f"…the clock says how long the turn took ({page.inner_text('#pb-agent .pb-agent-time')!r})")
 
+                # e2 · a gated command named its gate (hooks/activity.py --gate): the strip says which and what to approve
+                write_act({"state": "idle", "at": time.time() - 3, "event": "Stop", "since": time.time() - 40,
+                           "gate": {"id": "G-JTBD", "ask": "approve 4 jobs and <3> terms", "at": time.time() - 4}})
+                page.wait_for_function(f"({strip_text}).includes('G-JTBD')", timeout=8000)
+                check(page.evaluate("document.getElementById('pb-agent').dataset.mode") == "turn"
+                      and page.inner_text("#pb-agent .pb-agent-verb") == "Your turn",
+                      "e2 · an idle file with a gate → data-mode=turn, verb Your turn")
+                check("G-JTBD — approve 4 jobs and <3> terms — reply in Claude Code" in page.evaluate(strip_text),
+                      f"…the line names the gate and the ask, as text ({page.evaluate(strip_text)!r})")
+                check("Claude finished this turn" not in page.evaluate(strip_text) and "drafts to approve" not in page.evaluate(strip_text),
+                      "…instead of the generic line")
+                check(page.locator("#pb-agent .pb-agent-line b, #pb-agent .pb-agent-line i").count() == 0,
+                      "…and the ask is escaped, not parsed as markup")
+                write_act({"state": "idle", "at": time.time() - 3, "event": "Stop", "since": time.time() - 40,
+                           "gate": {"id": "not-a-gate", "ask": "x", "at": 1}})
+                page.wait_for_function(f"({strip_text}).includes('Claude finished this turn')", timeout=8000)
+                check("G-" not in page.evaluate(strip_text), "…a malformed gate on file shows nothing of itself")
+                write_act({"state": "idle", "at": time.time() - 3, "event": "Stop", "since": time.time() - 40})
+                page.wait_for_function(f"({strip_text}).includes('Claude finished this turn')", timeout=8000)
+                check("Claude finished this turn" in page.evaluate(strip_text), "…and with no gate the generic text still shows")
+
                 # g · a content write neither resets nor removes the strip
                 hook("UserPromptSubmit", tmp)
                 page.wait_for_function("document.getElementById('pb-agent').dataset.mode === 'working'", timeout=8000)
