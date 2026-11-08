@@ -4,6 +4,7 @@
 
 One guide per release. Each covers the upgrade from **every** earlier release, so open the one for the version you are moving to — normally the newest.
 
+- [v3.1.0](v3.1.0.md)
 - [v3.0.0](v3.0.0.md)
 - [v2.6.2](v2.6.2.md)
 - [v2.6.1](v2.6.1.md)

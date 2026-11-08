@@ -2,7 +2,7 @@
 
 All notable changes to Product Builder. Format follows [Keep a Changelog](https://keepachangelog.com/).
 
-## [Unreleased]
+## [3.1.0] — 2026-11-08
 
 *A minor with a schema step: schema 14 moves `meta.others` out of the registry (see **Upgrading**). `/pb:research`
 runs usability tests, tree tests, card sorts and first-click tests from the plan to the report. New hooks hold the
