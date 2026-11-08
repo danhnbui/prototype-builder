@@ -2,6 +2,166 @@
 
 All notable changes to Product Builder. Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [3.1.0] — 2026-11-08
+
+*A minor with a schema step: schema 14 moves `meta.others` out of the registry (see **Upgrading**). `/pb:research`
+runs usability tests, tree tests, card sorts and first-click tests from the plan to the report. New hooks hold the
+common rules at call time. The preview says in words what Claude is doing, and every tab fits a narrow screen.*
+
+- **The activity strip: what Claude is doing, in words.** While Claude worked, the preview's only sign was a 6 px
+  pulsing dot and "Working" in the bar, and a step that had saved nothing yet looked finished or broken. A row under
+  the bar now says it: **Thinking** (three dots in a calm wave, a thin beam along its edge, the time since the turn
+  began), **Writing · Jobs and glossary · 3 saved**, **Waiting · no word from Claude** after 90 s without a write, and
+  **Your turn · 7 drafts to approve — reply in Claude Code** (or *Claude finished this turn · in 1:42*). It shows on
+  every project and tab while a session is live and goes once the activity is 30 minutes old; never on a view-only
+  page. New lines also come in left to right as they land. The bar's **progress item is gone** — it said the same
+  thing twice — and its menu of the eight steps opens from the strip's step name instead (before the first screen,
+  as before). Chosen from three options rated side by side
+  (`/pb:explore`, a page round). `.preview/activity.json` gains `since` (when the turn began), written by
+  `hooks/activity.py`; an older file without it still works, with no clock.
+- **The strip names the gate.** At a human gate it said only *Your turn*, so you could not tell from the preview
+  what Claude was waiting for. Now each gated command runs `hooks/activity.py --gate <id> "<ask>"` as its last call
+  before it stops, and the strip reads **Your turn · G-JTBD — approve 4 jobs and 3 terms — reply in Claude Code**.
+  The six gates write it: G-JTBD and G-IA (`/pb:clarify`), G-DIRECTION and G-DESIGN (`/pb:explore`), G-STUDY and
+  G-INSIGHT (`/pb:research`). The gate stays on file until your next prompt; a file with none, or a malformed one,
+  keeps the generic text. `activity.json` gains `gate: {id, ask, at}`; the ask is one line of at most 160 characters.
+- **The bar fits at every width.** Below about 1060 px the bar's items painted over the tabs and the page scrolled
+  sideways, so the laptop window seemed not to follow the viewport. The bar now measures itself and drops labels,
+  then the step name, then the project name, and finally scrolls its tabs. Laptop and monitor windows fill the stage
+  with no margin, up to the device's own width. The undesigned draft's sidebar lines up on one edge.
+- **Narrow screens, checked tab by tab.** A review at 1440, 1280, 1024, 834, 600 and 390 px found the User Flow
+  canvas squeezed to nothing below 1100 px (its one-column rule was declared before the two-column one, so it never
+  won): it now stacks, canvas on top, and the pane scrolls. Under 720 px the page gutters drop from 48 px to the
+  bar's 16 px and the segment tabs are one sideways row instead of three. The ERD canvas fits the window (its zoom
+  controls were below the fold), and a canvas in a page that scrolls lets the plain wheel scroll the page
+  (⌘/Ctrl+wheel zooms). Glossary cards, the Data tables (whole words, a sideways scroll instead of "ide/ntif/ier"),
+  test-case titles, label–value rows, the Structure panel (it slides over the preview below 1024 px instead of
+  crushing it), the undesigned draft (it stacks in a narrow frame, by container query) and the legend popover all
+  fit. Spacing's chips now read CSS pixels on a scaled phone or tablet frame (a designed 20 read 15.46), and the bar
+  no longer shifts its tabs when you switch tabs at a width where it is compacted. `tests/responsive.py` pins the
+  worst of them at 390 and 1024 px.
+
+- **Hooks that send the common rules down the safe path.** A new `route.py` runs before and after Bash, Agent, Read,
+  Edit and Write in a pb project. A built-in generic subagent call (general-purpose, Explore, Plan, claude, or no
+  type) with no `model` gets one: haiku for Explore, else sonnet. In `auto` permission mode it only advises; named
+  agents (`pb:*`, another plugin's, a project's) are never touched. Before a hand write of `registry.json` it stashes
+  the file, and after the write it checks the JSON parses, no top-level key is lost and no id is newly duplicated,
+  and restores the stash if not, after a failed call too (`PostToolUseFailure`, plus a later check of any stash
+  nothing settled). Before an edit in a different pb project, git work tree or the plugin root it asks, and keeps
+  asking for that root until an edit there has gone through. It advises, at a limited rate, on parsing `registry.json` inline, on `grep -r` / `rg` / `sed -n` /
+  `cat` of a big file, on `touch registry.json` and on a whole Read of `registry.json`, `prototype.html` or
+  `design-system.html`. It never denies a call and never approves one; the only decision it can print is `ask`.
+  `memory/doctor.json` `"enforce"` is `route` (default), `advise` or `off`; `PB_ENFORCE` overrides it. Actions go
+  to `.preview/route.log`, trimmed to 128 KB past 256 KB. `bash_advice.py` no longer owns the registry-write rule and
+  finds a project one folder down. The session digest gains one line. `tests/hook_route.py` pins it, and `AGENTS.md`
+  now says a hook may print `updatedInput` or `ask`, never `allow` or `deny`.
+- **Housekeeping.** A new `housekeep.py` runs at session start and after an edit of `memory/decisions.md`: it rotates
+  `decisions.md` past 500 KB with `decisions_rotate.py` (older entries move to `decisions-<YEAR>.md`, nothing is
+  lost), trims `.preview/server.log`, and prints one short notice for backups, `.pb-patches/`, memory files over
+  budget and generated HTML tracked by git. It deletes nothing; backups are still pruned only by `/pb:clean` flags.
+  `/pb:clean --rotate-decisions` still works. The budgets are in `pb/docs/canon.md` § *Size budgets*.
+- **`slice.py find`, and a capped `get`.** `slice.py find <text> [--kind K] [--limit 20] [--json]` locates a word
+  across the registry, one line per hit, so nothing needs an inline script over `registry.json`. `get` prints at most
+  8,000 characters unless `--full`; the cut output is deliberately not valid JSON, so a parser fails loudly.
+  `list <kind|path> --fields a,b` adds fields to each line. `/pb:build` names `find` as its locate step.
+- **Schema 14: `meta.others` moves out of the registry.** Migration `0012` moves a non-empty `meta.others` to
+  `memory/others.md` (a readable section plus an exact JSON block) and empties the field. If a render body, `styleSrc`,
+  runtime module or `registry.runtime[]` source reads `meta.others`, it stays where it is: the migration still
+  stamps schema 14 and prints one line naming the files that read it. `--rollback` or `--to 13` restores the moved
+  value. In a real project it had been a third of the file.
+- **`/pb:explore` has no scoring gate.** `promote` no longer needs scored cells, scores are optional, and
+  `promote --why "<text>"` records an optional reason. `explore.py gate` only reports which cells are unscored.
+  The `CANDIDATE` / `opt-N` header comments are stripped from a promoted body. `/pb:report` no longer aborts on a
+  manifest whose verdict is a string, and counts `.pb-backups/pre-rollback.*` folders.
+- **Lint.** `R-LOGICSRC`: a `logicSrc` file that is missing is an ERROR. `R-INLINE-DATA`: a `data:` URI or base64 run
+  over 8 KB in a body, `styleSrc` or runtime file is a WARN, an ERROR under `--strict`. `R-RETIRED-DATA`: an unread non-empty
+  `meta.others` is a WARN, an ERROR under `--strict` (fix: `/pb:update-version --apply`). A live reader, code that reads
+  it, gets the advisory `R-RETIRED-LIVE`, which never changes the exit code. `R-RETIRED` now covers only `meta.tradeoffs`, advisory. `--report` gains a "where
+  the size goes" block: registry bytes and approximate tokens, the five largest slices, `memory/*.md` over
+  `memory_file_kb` (default 64), the `decisions` sizes and generated HTML tracked by git.
+- **The preview watches more.** `serve.py` reloads the page when `spec/**/*.json`, `logic/**/*.json` or the explore
+  compare shell change, and trims `.preview/server.log` over 1 MB to its last 256 KB when it starts.
+- **`/pb:test --stale` and `--screen <id>`.** Run only the scenarios with no result or changed input digests, or only
+  those touching a screen. An empty selection exits 0 without opening a browser. `/pb:build` §4.7 runs it once per
+  build turn when the preview is up; advisory, it never blocks.
+
+- **`/pb:research` runs usability tests, tree tests, card sorts and first-click tests.** It could only plan a survey
+  or an interview. A team that wanted to watch people use the prototype had to leave pb, run the test in another
+  tool, and type the result back by hand. Now the whole study is in pb, from the plan to the report.
+  - **Six methods, and a plan first.** `research.py methods` prints the catalog: what each method answers, how many
+    people it needs, how long a session takes and what it is not for. It also lists diary study, contextual inquiry,
+    concept test, five-second test and A/B preference as methods pb does not run. `init --method` takes
+    `usability`, `tree-test`, `card-sort` and `first-click`, and `/pb:research` takes the matching flags. `brief`
+    stores a research plan (objectives, questions, the decision, schedule, team, risks). Changing the objectives,
+    questions, decision, method reasons or participants withdraws G-STUDY; the logistics keys do not.
+  - **Logistics.** `participant` keeps a tracker of pseudonyms only; an email or phone number in a note is refused.
+    `logistics` is a checklist seeded from the method and the mode. `pilots` lists the rehearsals, which are never
+    evidence and never analysed. G-STUDY now also writes `plan.md`, `moderator-guide.md`, `tasks.md` (`cards.md`
+    for a card sort), `consent.md`, `screener.md` and `note-taking.csv`. The bias review also reads task wording,
+    tree labels that parrot the task, and card wording.
+  - **Run it here, or send a file.** `research.py link` prints `http://127.0.0.1:<port>/research/<id>/session` on
+    the `/pb:preview` server, with an observer window (live events, timer, notes, Assist, outcome override, the
+    moderator script). The participant gives consent first, then separately opts in to a screen and voice
+    recording; both save straight into evidence, read-only and hashed. `research.py kit` writes one
+    self-contained HTML file for an unmoderated test: no hypotheses, no answer keys, no network call. The
+    participant sends back a `.pbsession.json` and a `.webm`, and `import --kind session` and `--kind recording
+    --session <id>` store them. Nothing is hosted online, and the pages answer this machine only.
+  - **What is recorded.** Screens, clicks named by component, dead and rage clicks, field input as length only (never
+    the value), submits, validation errors, toasts, wizard steps and each task's outcome. Dropping a session also
+    drops its recording. A hand-off in mode 1 used to carry the recordings; see the next two bullets.
+  - **Recordings stay out of a mode 1 hand-off.** A recording is a face and a voice, and mode 1 copied
+    `memory/research/` whole, so it went to whoever received the bundle. Now `/pb:handoff` calls
+    `research.py bundle`, which leaves out every video file unless you pass `--with-recordings` (the model asks first).
+    The bundle's registry copy marks each left-out recording row `withheld`, and `memory/research/HANDOFF.md` lists
+    what was left out (path, bytes, sha256) and how to put one back. In the received project `verify` warns
+    `W-WITHHELD` instead of failing, the report adds a limitation line, and the replay plays the event log without video.
+  - **One sample target per study.** A study held two numbers, `audience.targetN` and `plan.participants.n`, and
+    they could differ. Now `audience.targetN` is the target and the plan shows the same number. `brief` sets it, a
+    `plan` file with two different values is refused, it cannot change once evidence is stored (open a new study),
+    and `check` warns `W-TARGET` on an older or hand-edited study that holds two.
+  - **Numbers by the tool.** `analyze` computes success with an adjusted-Wald interval, time on task as a geometric
+    mean with an interval, lostness, clicks, errors, SEQ, SUS with its grade, tree-test success and directness,
+    card-sort similarity and clusters, and first-click hit rates. `affinity` counts tags by participant.
+    Observations must cite a session event, a time or a verbatim quote. Issues carry a severity from 0 to 4 that the
+    model proposes and the user approves; their participants, frequency and priority are the tool's, and a typed
+    one is refused. `verify` recomputes the analysis from the evidence and adds `V-OBS`, `V-ISSUE`, `V-THEME`,
+    `V-ANALYSIS` and `V-REPORT`.
+  - **A report and a replay.** `report` writes `report.md` and a self-contained, printable `report.html`, a Draft until
+    G-INSIGHT, served at `/research/<id>/report`; `refill --approved` regenerates it without the banner.
+    `/research/<id>/replay/<eid>` plays a session back on the prototype with click dots and a timeline, in step with
+    the video. Project Summary → Research shows the plan, participants, sessions, results, ranked issues, themes and
+    the report link.
+  - **Method.** The `ref-research` skill is rewritten around the full path, with a section for each of the four
+    new methods. `security_scan` skips recordings and recorded sha256 digests.
+
+### Fixed
+
+- **A component that passes other components into a child's slot can pass `lint --strict`.**
+  `spec_measure.py` recorded a `pbUse` child as an `instance` part and stopped there, so a heading
+  passed into `text-link`'s `content` slot, or a widget's content passed into `widget-shell`'s body,
+  never reached the parent's measured anatomy. The parent's body composes them, so R-COMPOSE-MATCH
+  warned "body composes […] not declared in anatomy (instanceOf)". Anatomy is measured, not typed, so
+  nothing could clear the warning, `--strict` exited 1, and `/pb:orchestrate`'s fail-closed final gate
+  could not close for any project that uses slots. The measurer now walks an instance's **slot regions**
+  (`data-part-type="slot"`, `[data-slot]` or `<slot>` that the instance renders itself, not one inside a
+  deeper instance). Their children are the caller's parts, nested under the instance part in `layout`
+  and `elements`, instances and plain parts alike. Everything else inside an instance is still its own
+  spec. Re-measure the affected components (`spec_measure.py --component <id> --write`). Their sidecars
+  gain the slotted parts.
+- **The Inspector names parts the same way.** `runtime.js`'s live walk (`pbSpecLive`) follows the same
+  slot rule, so a measured slotted part finds its element on the design-system site.
+- `pbSlot()` still emits no element of its own. Wrapping slot content would change every existing
+  layout. A component marks the container it renders the slot into instead, and `/pb:build` and the
+  `design-component-build` skill now say so. The R-COMPOSE-MATCH "composed, not declared" warning on a
+  measured anatomy now says to re-measure and to mark the slot container.
+
+### Upgrading
+
+The schema is now 14. `/pb:update-version --apply` moves a non-empty `meta.others` into `memory/others.md`, only when no
+code reads the field (`--rollback` or `--to 13` restores it); a project with nothing in it just records the new schema.
+Restart Claude Code after the plugin updates so the new hooks load; `memory/doctor.json` `"enforce": "advise"` or
+`"off"` turns `route.py` down.
+
 ## [3.0.0] — 2026-11-06
 
 *Planned as **v3.0.0**, a major: `/pb:handoff` mode 2 (engineering) and `--tier` are removed (see **Breaking**

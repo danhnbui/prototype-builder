@@ -232,13 +232,8 @@ def main():
             httpd.server_close()
 
         print("gate + promote")
-        try:
-            explore.cmd_promote(reg_path, "nav-ia", "opt-2")
-            check(False, "promote refuses before the gate passes")
-        except explore.ExploreError as e:
-            check("scoring gate" in str(e), "promote refuses before the gate passes")
-        score_all(project, "nav-ia")
-        check(explore.main(["--registry", reg_path, "gate", "nav-ia"]) == explore.EXIT_OK, "gate passes once every cell is scored")
+        check(explore.main(["--registry", reg_path, "gate", "nav-ia"]) == explore.EXIT_OK,
+              "gate reports unscored cells without blocking — scores are optional")
         code = explore.main(["--registry", reg_path, "promote", "nav-ia", "opt-1"])
         after = json.loads(read(reg_path))
         backups = glob.glob(os.path.join(glob.escape(project), "memory", "backups", "explore-nav-ia-*", "registry.json"))

@@ -93,7 +93,7 @@ authors all read these terms, and two names for one thing is cheaper to fix here
 **with or without `--skip-ia`** — a changed job can bring a new word.
 
 **Source.** The drafted jobs above, `memory/spec.md`, `memory/prd.md` and the insights. **Refine by
-`id`** — `slice.py get content terms` first; a word already defined is edited, never defined a second time.
+`id`** — `slice.py get content terms --full` first (`get` caps at 8,000 characters without `--full`); a word already defined is edited, never defined a second time.
 Draft only words that carry meaning in this product (a role, an object, a status, a quantity) — not every
 noun. Each term is:
 
@@ -120,7 +120,8 @@ summary of it — **and under it every term** (`term · definition · aka · avo
 two terms saying one), the jobs no existing screen serves, any job still at feature or goal altitude, any
 term whose meaning came from nowhere, and the open questions. Ask for **approve**, **edit** or
 **reject**; one answer covers both lists. Silence is not approval. **Nothing below runs until this is
-answered.**
+answered.** Make this the last tool call before the message, so the preview's strip names the gate (it prints
+nothing; put the real counts in): `python3 "${CLAUDE_PLUGIN_ROOT}/hooks/activity.py" --gate G-JTBD "approve <N> jobs and <M> terms"`
 - **Approve** → write the approved list to `ia.jobs[]` now, refined in place by `id`
   (`slice.py set ia jobs.<id> --create-list`; the path is `jobs.<id>`, never `ia.jobs.<id>`) — §1c's `check`
   reads the jobs from the registry. Then the terms, one element each, creating the list the first time:
@@ -196,18 +197,19 @@ and N agents given one job list converge on one grouping.
    Never ask "which do you like?" — a preference cannot be acted on; a pattern of scores can.
 
 ## ▛ G-IA — human gate ▟
-**STOP.** Wait for the scores on the page. Silence is not approval. Every message sent while waiting,
-and the verdict, ends with the URL from `$T link <ia-id>`.
-1. `$T gate <ia-id>` — exit 0 only when every criterion × grouping is scored. **No verdict before it
-   passes.**
-2. **The verdict, from the pattern** (`ref-ia` §5), not the total: name the grouping the scores
+**STOP.** Wait for the user's pick on the page (scores there are optional). Silence is not approval. Every message sent while waiting,
+and the verdict, ends with the URL from `$T link <ia-id>`. Before the first of those messages, name the gate on the
+preview's strip (it prints nothing; put the real count in): `python3 "${CLAUDE_PLUGIN_ROOT}/hooks/activity.py" --gate G-IA "pick one of <N> groupings"`
+1. `$T gate <ia-id>` — reports which criterion × grouping cells are unscored (it always exits 0). **Scores are
+   optional**: do not hold the verdict for them.
+2. **The verdict, from the pattern** (`ref-ia` §5) when scores exist, not the total: name the grouping the scores
    favour, say so when two lock for different roles or devices, and give **one sentence per rejected
    grouping** on what it taught. Then ask the user to confirm the pick — never make it for them.
 3. **Coverage low on every grouping** means the jobs are wrong: `$T reject <ia-id>` and return to
    **G-JTBD**, which re-opens. A re-run of §1c re-opens G-IA; an approval does not outlive its artifact.
 4. **A mixed pick** ("opt-1's tabs with opt-3's overlays") is not a pick. Add it as its own slot —
    `$T slot <ia-id> opt-merge --label "…"` — write its `.ia.json`, `check` it, and have it scored
-   beside the plain pick. Only a single, scored slot is promoted.
+   beside the plain pick. Only a single slot is promoted.
 5. **Promote the pick, or reject.** *Line by line* (`${CLAUDE_PLUGIN_ROOT}/docs/canon.md`): once the user has
    confirmed the pick and **before** `promote`, write the chosen grouping's screens as the site map, **one
    call per node** and parents before children — `slice.py set ia sitemap.<screen-id> --create-list` with the patch
@@ -403,7 +405,7 @@ the chosen IA into tasks. **Do not render.**
 - NEVER write `ia.layers[]` membership, edges or overlays — they are derived from the hub and the
   render bodies.
 - NEVER pick for the user, at either gate — present, then wait. Silence is not approval.
-- NEVER state a G-IA verdict before `gate` passes, and NEVER promote a mixed pick.
+- NEVER wait on scores before a G-IA verdict (they are optional), and NEVER promote a mixed pick.
 - NEVER hand the groupings to sub-agents, and NEVER author N with one scheme, or N that differ only in
   labels.
 

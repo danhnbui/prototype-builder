@@ -1,0 +1,48 @@
+{
+  "audience": {"targetN": 3},
+  "hypotheses": [
+    {"id": "h1", "statement": "Couriers reach the payment step from their route without help.",
+     "targets": [{"kind": "screen", "id": "pay"}],
+     "supportedIf": "Most couriers complete t1 without help.",
+     "refutedIf": "Fewer than half of the couriers complete t1 without help."},
+    {"id": "h2", "statement": "Couriers can find where the total to collect is shown.",
+     "targets": [{"kind": "job", "id": "pay-cod"}],
+     "supportedIf": "Most couriers find the total in t2.",
+     "refutedIf": "Most couriers cannot find the total in t2."}
+  ],
+  "instrument": {
+    "lang": "en",
+    "mode": "moderated",
+    "recording": {"screen": true, "voice": true},
+    "device": "mobile",
+    "thinkAloud": true,
+    "intro": "TEST DATA. Thank you for helping. We are testing a prototype, not you. There are no wrong answers and you can stop at any time.",
+    "consent": "TEST DATA. With your permission we record what happens on screen and keep it without your name.",
+    "durationMin": 30,
+    "closing": "Thank you. That is all we needed.",
+    "sections": [
+      {"title": "About you", "purpose": "warmup", "questions": [
+        {"id": "w1", "text": "How long have you delivered parcels?", "type": "single",
+         "options": ["Under a year", "1 to 3 years", "Over 3 years"], "tests": []}
+      ]},
+      {"title": "Pay for the parcel", "purpose": "task", "questions": [
+        {"id": "t1", "text": "TEST DATA. A customer opens the door and wants to pay for their parcel in cash. Take the payment.",
+         "tests": ["h1"], "probes": ["What are you looking for?"],
+         "task": {"screen": "route", "role": "courier", "entry": "courier-start",
+                  "success": "The pay screen is reached from the route.",
+                  "criteria": [{"screen": "pay"}], "optimalPath": ["route", "pay"], "timeLimitSec": 300}},
+        {"id": "t1-seq", "template": "seq"}
+      ]},
+      {"title": "Find the total", "purpose": "task", "questions": [
+        {"id": "t2", "text": "TEST DATA. Before you ring the bell you want to know how much cash to ask for. Find that amount.",
+         "tests": ["h2"],
+         "task": {"screen": "route", "role": "courier", "success": "The participant names the total shown on the pay screen.",
+                  "optimalPath": ["route", "pay"]}},
+        {"id": "t2-seq", "template": "seq"}
+      ]},
+      {"title": "Wrap up", "purpose": "closing", "questions": [
+        {"id": "sus", "template": "sus"}
+      ]}
+    ]
+  }
+}

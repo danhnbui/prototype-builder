@@ -261,7 +261,7 @@
        META-PANEL — typography + layout for the 4 documentation tabs
        ======================================================================== */
     .meta-panel {
-      min-height: calc(100vh - 44px);
+      min-height: calc(100vh - var(--pb-top));
       background: var(--bg-soft);
       padding: 48px 60px;
       max-width: 960px;
@@ -641,6 +641,13 @@
     .meta-subtabs--view .meta-subtab { height: 1.75rem; border-radius: 0; }
     .meta-subtabs--view .meta-subtab + .meta-subtab { border-left: var(--pb-hair-w) solid var(--pb-hair); }   /* segment divider: structure */
     .meta-subtabs--view .meta-subtab.active { background: transparent; box-shadow: inset 0 0 0 var(--pb-hair-w) var(--pb-ink); border-radius: var(--pb-r); }
+    /* ≤719px the segment strip is ONE row that scrolls sideways (it wrapped to three rows at 390);
+       pbSubtabsReveal() scrolls the active segment into view when the strip is drawn. */
+    @media (max-width: 719px) {
+      .meta-subtabs:not(.meta-subtabs--view) { flex-wrap: nowrap; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; }
+      .meta-subtabs:not(.meta-subtabs--view)::-webkit-scrollbar { display: none; }
+      .meta-subtabs:not(.meta-subtabs--view) .meta-subtab { flex: none; white-space: nowrap; }
+    }
 
     /* Legend on LEFT, canvas on RIGHT (only at wide viewports — narrow uses column from earlier media query). */
     @media (min-width: 1081px) {
@@ -679,7 +686,7 @@
     .pb-cover em { font-size: var(--font-size-xs); opacity: 0.8; font-style: normal; margin-top: 2px; }
     .sync-toast {
       position: fixed;
-      top: 60px;                       /* just below the 44px meta-nav + 16px gap */
+      top: calc(var(--pb-top) + 16px); /* just below the bar (and the activity strip) + 16px gap */
       left: 50%;
       transform: translate(-50%, -12px);
       opacity: 0;
@@ -910,7 +917,7 @@
        Replaces the per-tab meta-tag / meta-h1 / meta-sub headers.
        ======================================================================== */
     .pb-page {
-      min-height: calc(100vh - 44px);
+      min-height: calc(100vh - var(--pb-top));
       background: var(--bg-soft);
       display: flex; flex-direction: column;
     }
@@ -941,6 +948,11 @@
     .pb-content { flex: 1 1 auto; padding: 24px 48px 48px; min-width: 0; }
     /* v1.9 — the Prototype tab has no page header; the device preview fills the whole tab. */
     .pb-page--proto .pb-content { padding: 0; }
+    /* ≤719px the 48px sides left 294px of content at 390: use the tool's own gutter (1rem there) and a tighter top. */
+    @media (max-width: 719px) {
+      .pb-page-header { padding: var(--pb-s5) var(--pb-gutter) 0; gap: var(--pb-s3); }
+      .pb-content { padding: var(--pb-s4) var(--pb-gutter) var(--pb-s6); }
+    }
     .pb-content--full { max-width: 960px; margin: 0 auto; width: 100%; }
     .pb-content--split {
       display: grid;
@@ -952,7 +964,7 @@
     /* v1.5 — viewport-locked pages (Prototype, UX Design): the page fills exactly one
        viewport with no body scroll; the split columns stretch to full height and scroll
        internally if needed. */
-    .pb-page--viewport { height: calc(100vh - 44px); overflow: hidden; }
+    .pb-page--viewport { height: calc(100vh - var(--pb-top)); overflow: hidden; }
     .pb-content--fill { flex: 1 1 auto; min-height: 0; overflow: hidden; display: flex; flex-direction: row; }
     .pb-content--fill.pb-content--split { display: grid; align-items: stretch; grid-template-rows: minmax(0, 1fr); }
     .pb-content--fill .pb-aside { position: static; top: auto; max-height: none; height: 100%; align-self: stretch; }
@@ -982,7 +994,7 @@
     .pb-aside {
       position: sticky; top: 24px;
       align-self: start;
-      max-height: calc(100vh - 44px - 72px);
+      max-height: calc(100vh - var(--pb-top) - 72px);
       overflow: auto;
       background: var(--pb-surface);
       border: 1px solid var(--border);
@@ -1015,6 +1027,14 @@
     .proto-struct-close:hover { background: var(--pb-wash); color: var(--pb-ink); }
     .proto-struct-close svg { width:var(--pb-ico); height:var(--pb-ico); stroke-width:var(--pb-stroke); }
     .proto-struct-panel-body { flex:1 1 auto; padding: var(--pb-s4); width: 17.5rem; overflow:auto; min-height:0; }
+    /* ≤1023px a 17.5rem panel that PUSHES the stage left 86px of it at 390. Here it overlays the stage instead,
+       on the edge where it opens today (right of the stage), full stage height; the frame keeps its full fit. */
+    @media (max-width: 1023px) {
+      .pb-page--proto .pb-content--fill { position: relative; }
+      .proto-struct-panel, .proto-struct-panel.is-open { position: absolute; top: 0; right: 0; bottom: 0; z-index: 6; margin: 0; }
+      .proto-struct-panel.is-open { flex: none; width: min(17.5rem, 85%); border-radius: var(--pb-r-lg) 0 0 var(--pb-r-lg); border-right: 0; box-shadow: var(--pb-shadow); }
+      .proto-struct-head, .proto-struct-panel-body { width: auto; }
+    }
     .pb-aside-section { margin-bottom: 22px; }
     .pb-aside-section:last-child { margin-bottom: 0; }
     .pb-entity-chips { display: flex; flex-wrap: wrap; gap: 8px; }
@@ -1289,7 +1309,7 @@
 
     .handoff-shell {
       display: flex; align-items: stretch;
-      height: calc(100vh - 44px);   /* fixed frame below the 44px meta-nav */
+      height: calc(100vh - var(--pb-top));   /* fixed frame below the bar (and the activity strip) */
       overflow: hidden;             /* the shell never scrolls — its two panes do */
     }
     .handoff-main-col {
@@ -1798,7 +1818,7 @@
       color: var(--text-active-secondary);
     }
     .flow-doc-legend-btn:hover .flow-doc-legend-q { background: var(--text-active-secondary); color: var(--pb-on-ink); }
-    .legend-popover-row { display: grid; grid-template-columns: 34px 1fr; gap: 12px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border); }
+    .legend-popover-row { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 12px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border); }
     .legend-popover-row:last-of-type { border-bottom: 0; }
     .legend-popover-shape { display: inline-flex; align-items: center; justify-content: center; width: 1.875rem; height: 1.375rem; font-family: var(--pb-mono); font-size: var(--pb-t-sm); font-weight: var(--pb-w-bold); color: var(--pb-node-external-text); }
     /* the diagram's node palette again (see .flow-doc-swatch-*): each shape is its tokens, fill · stroke · text */
@@ -2335,6 +2355,10 @@
     .proto-fit:not(.is-fitted) .proto-pair,
     .proto-fit:not(.is-fitted) .proto-frame-slot { min-width:0; max-width:100%; }
     .proto-fit:not(.is-fitted) .proto-frame-slot { flex:0 1 auto; }
+    /* Laptop and monitor keep their TRUE size (never scaled, real fonts) and fill the stage, with no margin: its full
+       height, and its full width up to the device's own (1280 / 1920) — beyond that the window is centred at the
+       device width. So below the device width the window follows the viewport and the product reflows (its container
+       queries answer the frame). The user's ruling: a margin round a laptop or monitor window is not wanted. */
     .proto-fit.is-compare, .proto-fit.is-compare .proto-pair-box,
     .proto-fit.is-compare .proto-pair, .proto-fit.is-compare .proto-frame-slot { height:auto; }
     /* color-scheme: light — everything inside the frame (the browser/app mock and the product)
@@ -2526,12 +2550,26 @@
     .erd-entity-head { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-bottom:8px; }
     .erd-entity-head .erd-entity-title { margin:0; }
     .erd-entity-variants { display:flex; align-items:center; flex-wrap:wrap; gap:6px; }
+    /* The Diagram canvas sat at a fixed 620px inside a scrolling page, so at 1280x800 / 1024x768 its zoom
+       controls were below the fold. It takes what is left of the viewport under the bar (--pb-top: the bar
+       + the activity strip), the page header and the toolbar (~9.5rem) and the content's bottom padding
+       (~3rem), between 320px and the old 620px. */
+    #erd-canvas { height: clamp(320px, calc(100vh - var(--pb-top) - 12.5rem), 620px); }
     .erd-fixed { table-layout:fixed; }
     .erd-fixed th:nth-child(1), .erd-fixed td:nth-child(1) { width:24%; }
     .erd-fixed th:nth-child(2), .erd-fixed td:nth-child(2) { width:20%; }
     .erd-fixed th:nth-child(3), .erd-fixed td:nth-child(3) { width:28%; }
     .erd-fixed th:nth-child(4), .erd-fixed td:nth-child(4) { width:28%; }
     .erd-fixed td { word-break:break-word; }
+    .erd-scroll { overflow-x:auto; }
+    /* ≤719px: the toolbar wraps and the filter takes its own row; each entity table keeps whole words (a
+       34rem floor) and scrolls sideways inside .erd-scroll rather than breaking them mid-word. */
+    @media (max-width: 719px) {
+      .erd-toolbar { flex-wrap:wrap; }
+      .erd-search { margin-left:0; width:100%; flex:1 1 100%; }
+      .erd-fixed { min-width:34rem; }
+      .erd-fixed td { word-break:normal; overflow-wrap:break-word; }
+    }
     .erd-legend-mini svg { width:38px; height:12px; display:block; }
     .erd-legend-svgwrap { display:inline-flex; width:56px; flex-shrink:0; }
     .erd-legend-svgwrap svg { width:56px; height:14px; }
@@ -2547,6 +2585,15 @@
        lives in the column, so it drops the centered page-width framing. */
     .ia-jobs .empty-state { max-width: none; width: 100%; box-sizing: border-box; margin: var(--pb-s2) 0; padding: var(--pb-s6) var(--pb-s5); }
     .ux-flow-body { display: grid; grid-template-columns: minmax(0, 1fr) clamp(320px, 26vw, 400px); gap: 24px; align-items: stretch; }
+    /* ≤1100px the pair stacks: the canvas first at a fixed height, the stories card under it, and the
+       stacked pane scrolls. This sits AFTER the base rule — the generic stack rule up in the page-chrome block
+       is declared earlier, so at equal specificity it lost and the canvas was 0px wide at 390. */
+    @media (max-width: 1100px) {
+      .ux-flow-body, .ux-scroll-wrap > .ux-flow-body { grid-template-columns: minmax(0, 1fr); grid-template-rows: none; grid-auto-rows: auto; align-content: start; align-items: start; }
+      .ux-scroll-wrap > .ux-flow-body { overflow-x: hidden; overflow-y: auto; }
+      .ux-flow-body > .flow-main-col { height: clamp(320px, 60vh, 560px); min-height: 0; }
+      .ux-flow-body > .pb-aside { height: auto; align-self: start; }
+    }
     /* L3 — a joined, outlined toggle. The container also holds stats text and a search box, so
        the group is formed by the buttons themselves, not by boxing the container. */
     .lg-views { display: flex; flex-wrap: wrap; align-items: center; gap: var(--pb-s2) 0; margin: var(--pb-s1) 0 var(--pb-s4); }
@@ -3254,7 +3301,7 @@
     .ia-card--flat { border: 0; padding: 0; }
     /* Content — glossary + wording deck */
     .ct-filter { margin-left: auto; width: 200px; font: inherit; font-size: var(--font-size-s); padding: 5px 10px; border: 1px solid var(--border); border-radius: 8px; background: transparent; color: inherit; }
-    .ct-terms { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 14px; }
+    .ct-terms { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(320px, 100%), 1fr)); gap: 14px; }
     /* Flex column so the rule link can sit on the card's BOTTOM edge (margin-top:auto) rather
        than in the header, where a long rule title wrapped and shoved the term name around. */
     .ct-term { border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; display: flex; flex-direction: column; }
@@ -3292,7 +3339,7 @@
        the hooks that drove the menu it replaced; .pb-insp is what styles it. Lengths are tokens
        or rem; the 720px breakpoint is the one in pbSandboxDocked(), and media queries cannot read a token. */
     .copy-popover.pb-insp {
-      position: fixed; top: var(--pb-bar-h); right: 0; bottom: 0; left: auto; width: 20rem; max-width: 100vw;
+      position: fixed; top: var(--pb-top); right: 0; bottom: 0; left: auto; width: 20rem; max-width: 100vw;
       padding: 0; border: 0; border-left: var(--pb-hair-w) solid var(--pb-hair); border-radius: 0;
       background: var(--pb-page); color: var(--pb-ink); box-shadow: var(--pb-shadow);
       z-index: 1050; opacity: 1; transform: none; transition: none;
@@ -3443,6 +3490,7 @@
       --pb-scan-id: 4rem; --cols: var(--pb-scan-id) minmax(0, 1fr) 7.5rem 8rem; }
     .pb-scan--jobs { --pb-scan-id: 3rem; --cols: 3rem minmax(0, 1fr) 4.5rem 7.5rem; }
     .pb-scan--tc { --cols: 4rem minmax(0, 1fr) minmax(0, 14rem) 9.5rem; }
+    @media (max-width: 1023px) { .pb-scan--tc { --cols: 4rem minmax(0, 1fr) minmax(0, 10rem) 9.5rem; } }   /* the story gives way; the title keeps its room */
     .pb-scan--rs { --pb-scan-id: 7.5rem; --cols: minmax(0, 7.5rem) minmax(0, 1fr) 8rem 5.5rem minmax(0, 8.5rem); }
     .pb-scan--rs > .pb-scan-body > .pb-scan-tr > .pb-disc-b { padding-left: var(--pb-scan-lead); max-width: none; }
     .pb-scan--rs .pb-scan-tr > .pb-disc-t .ti { white-space: normal; padding: var(--pb-s1) 0; }
@@ -3474,6 +3522,10 @@
     .pb-dot--hollow { background: none; box-shadow: inset 0 0 0 var(--pb-rule-w) var(--pb-ink-3); }
     .pb-kv { display: grid; grid-template-columns: 8.5rem minmax(0, 1fr); gap: var(--pb-s2) var(--pb-s3); margin: 0; }
     .pb-kv dt { color: var(--pb-ink-3); } .pb-kv dd { margin: 0; }
+    @media (max-width: 599px) {   /* label above value: 8.5rem of label left a sliver for the value in a drawer */
+      .pb-kv { grid-template-columns: minmax(0, 1fr); row-gap: var(--pb-s0); }
+      .pb-kv dd + dt { margin-top: var(--pb-s2); }
+    }
     .pb-tags { display: flex; flex-wrap: wrap; gap: var(--pb-s1); }
     .pb-tag { display: inline-flex; align-items: center; height: 1.375rem; padding: 0 var(--pb-s2); border: var(--pb-hair-w) solid var(--pb-hair-2); border-radius: var(--pb-r-pill);
       font-size: var(--pb-t-sm); color: var(--pb-ink-2); white-space: nowrap; }
@@ -3515,6 +3567,28 @@
     .rs-tbl tr.rs-why td { color: var(--pb-ink-2); border-bottom: var(--pb-hair-w) solid var(--pb-hair); }
     .rs-evl { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--pb-s1); }
     .rs-evl .lgc-b { margin-right: var(--pb-s1); }
+    /* UX studies: plan, participants, sessions, results, issues, themes. Tool chrome — --pb-* only. */
+    .rs-h5 { margin: var(--pb-s3) 0 var(--pb-s1); font-size: var(--pb-t-sm); font-weight: var(--pb-w-bold); color: var(--pb-ink-2); }
+    .rs-ul { margin: 0; padding-left: 1.1em; display: grid; gap: var(--pb-s1); }
+    .rs-plan > .pb-disc-b { padding: var(--pb-s3) var(--pb-s2); }
+    .rs-plan > .pb-disc-b[hidden] { display: none; }
+    .rs-pipe, .rs-note, .rs-links { margin: 0; overflow-wrap: anywhere; }
+    .rs-tbl td.rs-w, .rs-tbl th.rs-rowh { white-space: normal; min-width: 9rem; overflow-wrap: anywhere; }
+    .rs-tbl th.rs-rowh { text-align: left; font-weight: var(--pb-w-reg); color: var(--pb-ink-2); border-bottom: var(--pb-hair-w) solid var(--pb-hair); }
+    .rs-oc { white-space: nowrap; }
+    .rs-oc--ok { color: var(--pb-pass); }
+    .rs-oc--bad { color: var(--pb-fail); }
+    .rs-oc--n { color: var(--pb-ink-3); }
+    .rs-ci { position: relative; display: inline-block; width: 4.5rem; height: .625rem; vertical-align: middle; border-radius: var(--pb-r-pill); background: var(--pb-wash); overflow: hidden; }
+    .rs-ci-bar { position: absolute; left: 0; top: 0; bottom: 0; background: var(--pb-hair-2); }
+    .rs-ci-whisk { position: absolute; top: calc(50% - 1px); height: 2px; min-width: 2px; background: var(--pb-ink); }
+    .rs-heat td.rs-hm { text-align: center; font-variant-numeric: tabular-nums; background: color-mix(in srgb, var(--pb-info) var(--rs-v, 0%), transparent); }
+    .rs-heat td.rs-hm--self { color: var(--pb-ink-3); background: var(--pb-wash); }
+    .rs-plots { display: flex; flex-wrap: wrap; gap: var(--pb-s3); }
+    .rs-fc { margin: 0; flex: 1 1 14rem; max-width: 22rem; display: grid; gap: var(--pb-s1); }
+    .rs-plot { position: relative; aspect-ratio: 16 / 10; border: var(--pb-hair-w) solid var(--pb-hair-2); border-radius: var(--pb-r-md); background: var(--pb-wash); }
+    .rs-dot { position: absolute; width: .5rem; height: .5rem; margin: -.25rem 0 0 -.25rem; border-radius: 50%; background: var(--pb-fail); opacity: .8; }
+    .rs-dot.is-hit { background: var(--pb-pass); }
     @media (max-width: 899px) { .pb-scan.pb-scan--rs { --cols: minmax(0, 7.5rem) minmax(0, 1fr) 5.5rem minmax(0, 8.5rem); } .pb-scan--rs .kd, .pb-scan--rs .kd-h { display: none; } }
     @media (max-width: 719px) {
       .pb-scan.pb-scan--rs { --pb-scan-id: 4.5rem; --cols: minmax(0, 4.5rem) minmax(0, 1fr); }
@@ -3525,6 +3599,8 @@
       .pb-scan, .pb-scan--tc { --cols: 2.75rem minmax(0, 1fr) 6.5rem; }
       /* a verdict's words ("Untested by design") wrap to two lines rather than clip */
       .pb-scan--tc .pb-scan-tr > .pb-disc-t .st { white-space: normal; line-height: 1.2; }
+      /* the scenario title wraps (three lines at most) instead of clipping to a few characters */
+      .pb-scan--tc .pb-scan-tr > .pb-disc-t .ti { white-space: normal; overflow-wrap: anywhere; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; line-clamp: 3; padding: var(--pb-s1) 0; }
       .pb-scan--logic { --cols: minmax(0, 4.5rem) minmax(0, 1fr) var(--pb-ico-sm); }
       .pb-scan--logic.pb-scan--noid { --cols: minmax(0, 1fr) var(--pb-ico-sm); }
       .pb-scan--logic .st .w, .pb-scan--logic .pb-scan-h span:nth-child(3) { display: none; }
@@ -3545,6 +3621,8 @@
     .pb-draft-side { flex: 0 0 220px; display: flex; flex-direction: column; gap: 8px; padding: 16px 0; border-right: 1px solid var(--neutral-200, #e5e7eb); background: var(--neutral-50, #f9fafb); }
     .pb-draft-brand { padding: 0 16px 8px; font-weight: 600; }
     .pb-draft-nav { display: block; width: 100%; padding: 6px 16px; border: 0; border-radius: 0; background: none; font: inherit; color: inherit; text-align: left; cursor: pointer; }
+    /* the sidebar's one left edge is 16px: the name, a depth-0 page and the empty line all start on it */
+    .pb-draft-side .pb-draft-none { margin: 0; padding: 6px 16px; }
     .pb-draft-nav:hover, .pb-draft-nav.is-on { background: var(--neutral-100, #f3f4f6); }
     .pb-draft-nav.is-on { font-weight: 600; }
     .pb-draft-main { flex: 1 1 auto; min-width: 0; max-width: 760px; padding: 24px 32px; }
@@ -3556,6 +3634,15 @@
     .pb-draft-list { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
     .pb-draft-list li { padding: 8px 10px; border: 1px solid var(--neutral-200, #e5e7eb); border-radius: 8px; }
     .pb-draft-dim, .pb-draft-none { color: var(--text-tertiary, #6b7280); }
+    /* Product-side, so it answers the frame it is drawn in (@container pb-screen), never the window: a
+       220px sidebar left ~100px for the main column in a 390px phone frame. Compact: the page list sits
+       above the content, its rows wrap, and the main column's padding drops to 16px. */
+    @container pb-screen (max-width: 599px) {
+      .pb-draft { flex-direction: column; }
+      .pb-draft-side { flex: 0 0 auto; border-right: 0; border-bottom: 1px solid var(--neutral-200, #e5e7eb); }
+      .pb-draft-side nav { max-height: 9rem; overflow-y: auto; }   /* a long page list scrolls in place; depth indents stay */
+      .pb-draft-main { flex: 1 1 auto; max-width: none; padding: 16px; }
+    }
     .pb-draft-tbl { width: 100%; border-collapse: collapse; font-size: 13px; }
     .pb-draft-tbl th, .pb-draft-tbl td { padding: 6px 8px; border-bottom: 1px solid var(--neutral-200, #e5e7eb); text-align: left; }
     .pb-draft .pb-draft-chip { background: var(--neutral-100, #f3f4f6); color: var(--text-tertiary, #6b7280); border-color: var(--neutral-300, #d1d5db); }
@@ -3574,6 +3661,7 @@
 
 <body>
   <div id="meta-nav"></div>
+  <div id="pb-agent" class="pb-agent" hidden></div>
   <div id="app"></div>
 
   <script>
@@ -3739,7 +3827,6 @@
                    data-meta-view="${escapeHtmlAttr(id)}" onclick="setMetaView(this.dataset.metaView)">${label}<i class="pb-tab-dot" aria-hidden="true"></i></button>`
         ).join('') + `</nav>`
         + `<div class="pb-bar-end">`
-        + pbProgHTML()
         + `<button class="meta-search pb-bar-item" type="button" onclick="pbOpenSearch()" aria-keyshortcuts="${isMac ? 'Meta+K' : 'Control+K'}"
                    aria-label="Search everything (${kbd})" title="Search rules, jobs, screens, components, test cases, terms and commands (${kbd})">`
         + `${pbUiIcon('search')}<span class="pb-bar-lb">Search</span><span class="pb-kbd" aria-hidden="true">${kbd}</span></button>`
@@ -3758,7 +3845,38 @@
         meta: (PB_REGISTRY && PB_REGISTRY.meta) || {}, version: PB_SHELL_VERSION,
         onSettings: function (btn) { pbOpenProjectSettings(btn); },
       });
+      pbBarFit(el);
       pbTabsFit(el.querySelector('.pb-tabs'));
+    }
+
+    /* Does the bar fit with every item's words? Measured, not guessed from a width: which items show depends on the
+       tab (Pick, Spacing and Sandbox are the Prototype's) and on the project (the progress item, until a screen
+       exists), so no single breakpoint is right. Too full: the tool items keep only their glyphs (.is-compact),
+       then the progress item drops its step name (.is-tight), then the project button keeps only its initials and
+       the tabs become a sideways strip (.is-narrow, as under 48em); chrome.css does each.
+       Each item keeps its aria-label and title, so nothing loses its name. */
+    function pbBarFit(bar) {
+      bar = bar || document.getElementById('meta-nav');
+      if (!bar) return;
+      const tabs = bar.querySelector('.pb-tabs');
+      const over = () => bar.scrollWidth > bar.clientWidth + 1 || !!(tabs && tabs.scrollWidth > tabs.clientWidth + 1);
+      /* The Prototype tab carries three more tools than the others, so it needs a tighter fit at the same
+         width — and the project name collapsing on one tab only moved every tab by ~150px. The highest
+         level any tab needed at this window width is remembered and applied to every tab; a new width
+         forgets it. */
+      const LV = ['is-compact', 'is-tight', 'is-narrow'];   // cumulative: the last is initials only + sideways tabs
+      const W = window.innerWidth;
+      if (pbBarFit._w !== W) { pbBarFit._w = W; pbBarFit._lvl = 0; }
+      const apply = n => LV.forEach((c, i) => bar.classList.toggle(c, i < n));
+      let n = pbBarFit._lvl || 0;
+      apply(n);
+      while (n < LV.length && over()) apply(++n);
+      pbBarFit._lvl = n;
+      if (!n) return;
+      if (!pbBarFit._fonts && document.fonts && document.fonts.ready) {
+        pbBarFit._fonts = true;   // a web font that arrives late changes every label's width
+        document.fonts.ready.then(() => pbBarFit());
+      }
     }
 
     /* A narrow bar scrolls its tabs sideways (chrome.css). A scroller with no sign of more looked
@@ -3779,9 +3897,36 @@
       mark();
       if (!pbTabsFit._rs) {
         pbTabsFit._rs = true;
-        window.addEventListener('resize', function () { pbTabsFit(document.querySelector('#meta-nav .pb-tabs')); });
+        window.addEventListener('resize', function () { pbBarFit(); pbTabsFit(document.querySelector('#meta-nav .pb-tabs')); });
       }
     }
+
+    /* The segment strip (.meta-subtabs, L2) is one row that scrolls sideways under 720px (it wrapped to three
+       rows at 390). A fresh strip starts at the left, so the segment you are on is scrolled into view the
+       first time a strip is drawn — once per strip, so a reader who scrolls it is not pulled back. The
+       renders are many (summary, UX Design, the live fill), so one observer catches every drawing. */
+    function pbSubtabsReveal() {
+      document.querySelectorAll('.meta-subtabs:not(.meta-subtabs--view)').forEach(function (strip) {
+        if (pbSubtabsReveal._seen.has(strip)) return;
+        pbSubtabsReveal._seen.add(strip);
+        if (strip.scrollWidth <= strip.clientWidth + 1) return;
+        const act = strip.querySelector('.meta-subtab.active');
+        if (!act) return;
+        const a = act.getBoundingClientRect(), s = strip.getBoundingClientRect();
+        if (a.left < s.left || a.right > s.right) {
+          strip.scrollLeft = Math.max(0, strip.scrollLeft + (a.left - s.left) - (strip.clientWidth - a.width) / 2);
+        }
+      });
+    }
+    pbSubtabsReveal._seen = new WeakSet();
+    (function () {
+      let queued = false;
+      new MutationObserver(function () {
+        if (queued) return;
+        queued = true;
+        requestAnimationFrame(function () { queued = false; pbSubtabsReveal(); });
+      }).observe(document.documentElement, { childList: true, subtree: true });
+    })();
 
     /* One registry, two sites — and until now only one of them was reachable. Links to the
        design-system site served beside this one by /pb:preview.
@@ -5681,8 +5826,8 @@
     // correctly through the CSS transform. Collapses the wrapper height to the scaled height.
     function fitProtoFrame() {
       // Laptop and monitor render at TRUE size (no scale): fonts are real, the width is responsive
-      // (width:<device>px; max-width:100%) and the frame fills the stage's height, its content
-      // scrolling inside. A phone or a tablet is a DEVICE — an object — so it is fitted WHOLE:
+      // (width:<device>px; max-width:100%) and the frame fills the stage's height with no margin,
+      // its content scrolling inside. A phone or a tablet is a DEVICE — an object — so it is fitted WHOLE:
       // one transform, never past 1:1, leaving a 32px inset on every side (24px when the stage is
       // under 900px tall) so the frame never touches the bar. Compare mode fits the PAIR the same
       // way, with one shared transform: per-frame fitting would draw a 429px phone and a 1280px
@@ -6293,19 +6438,27 @@
     }
     function pbSpacingMeasure(el) {
       var cs = getComputedStyle(el), r = el.getBoundingClientRect();
+      // A scaled frame (phone and tablet are fitted whole) lays out in CSS px but is MEASURED in screen px.
+      // k = screen px per CSS px: rect differences (gap, free) are divided by it so every chip reads CSS px
+      // like margin and padding, which come from the computed style; band geometry is in screen px.
+      var fe = el.closest && el.closest('.proto-screen'), k = 1;
+      if (fe && fe.offsetWidth > 0) k = fe.getBoundingClientRect().width / fe.offsetWidth;
+      else if (el.offsetWidth > 0) k = r.width / el.offsetWidth;
+      if (!(k > 0)) k = 1;
       var px = function (p) { return Math.max(0, parseFloat(cs.getPropertyValue(p)) || 0); };
       var four = function (pre, post) { return ['top', 'right', 'bottom', 'left'].map(function (s) { return px(pre + s + (post || '')); }); };
       var m = four('margin-'), b = four('border-', '-width'), p = four('padding-');
       // four bands round a box: top, bottom, left, right (left/right don't overlap top/bottom)
+      // (t, rt, bt, l are CSS px: they are the chip values; the bands are drawn k times as big)
       var sides = function (o, t, rt, bt, l) {
-        var mid = o.height - t - bt;
-        return [[{ left: o.left, top: o.top, width: o.width, height: t }, t, 'top'],
-                [{ left: o.left, top: o.top + o.height - bt, width: o.width, height: bt }, bt, 'bottom'],
-                [{ left: o.left, top: o.top + t, width: l, height: mid }, l, 'left'],
-                [{ left: o.left + o.width - rt, top: o.top + t, width: rt, height: mid }, rt, 'right']];
+        var T = t * k, RT = rt * k, BT = bt * k, L = l * k, mid = o.height - T - BT;
+        return [[{ left: o.left, top: o.top, width: o.width, height: T }, t, 'top'],
+                [{ left: o.left, top: o.top + o.height - BT, width: o.width, height: BT }, bt, 'bottom'],
+                [{ left: o.left, top: o.top + T, width: L, height: mid }, l, 'left'],
+                [{ left: o.left + o.width - RT, top: o.top + T, width: RT, height: mid }, rt, 'right']];
       };
-      var mBox = { left: r.left - m[3], top: r.top - m[0], width: r.width + m[3] + m[1], height: r.height + m[0] + m[2] };
-      var pBox = { left: r.left + b[3], top: r.top + b[0], width: r.width - b[3] - b[1], height: r.height - b[0] - b[2] };
+      var mBox = { left: r.left - m[3] * k, top: r.top - m[0] * k, width: r.width + (m[3] + m[1]) * k, height: r.height + (m[0] + m[2]) * k };
+      var pBox = { left: r.left + b[3] * k, top: r.top + b[0] * k, width: r.width - (b[3] + b[1]) * k, height: r.height - (b[0] + b[2]) * k };
       var out = sides(mBox, m[0], m[1], m[2], m[3]).map(function (s) { return ['margin'].concat(s); })
         .concat(sides(pBox, p[0], p[1], p[2], p[3]).map(function (s) { return ['padding'].concat(s); }));
       // gap: split children into lines along the main axis; the space between neighbours in a line,
@@ -6324,21 +6477,21 @@
           if (line && it.c0 < c1 - 0.5) line.push(it); else lines.push([it]);
         });
         var box = seg(r), s0 = col ? 'top' : 'left', s1 = col ? 'bottom' : 'right';
-        var inner = { m0: box.m0 + px('border-' + s0 + '-width') + px('padding-' + s0), m1: box.m1 - px('border-' + s1 + '-width') - px('padding-' + s1) };
+        var inner = { m0: box.m0 + (px('border-' + s0 + '-width') + px('padding-' + s0)) * k, m1: box.m1 - (px('border-' + s1 + '-width') + px('padding-' + s1)) * k };
         var gaps = [];
         lines.forEach(function (line, i) {
           var c0 = Math.min.apply(null, line.map(function (s) { return s.c0; })), c1 = Math.max.apply(null, line.map(function (s) { return s.c1; }));
           if (mainGap) {
             var sorted = line.slice().sort(function (a, z) { return a.m0 - z.m0; });
-            for (var k = 1; k < sorted.length; k++) {
-              var d = sorted[k].m0 - sorted[k - 1].m1;
-              if (d > 0.5) gaps.push(['gap', rect({ m0: sorted[k - 1].m1, m1: sorted[k].m0, c0: c0, c1: c1 }), d]);
+            for (var kk = 1; kk < sorted.length; kk++) {
+              var d = sorted[kk].m0 - sorted[kk - 1].m1;
+              if (d > 0.5) gaps.push(['gap', rect({ m0: sorted[kk - 1].m1, m1: sorted[kk].m0, c0: c0, c1: c1 }), d / k]);
             }
           }
           var next = lines[i + 1];
           if (crossGap && next) {
             var n0 = Math.min.apply(null, next.map(function (s) { return s.c0; }));
-            if (n0 - c1 > 0.5) gaps.push(['gap', rect({ m0: inner.m0, m1: inner.m1, c0: c1, c1: n0 }), n0 - c1]);
+            if (n0 - c1 > 0.5) gaps.push(['gap', rect({ m0: inner.m0, m1: inner.m1, c0: c1, c1: n0 }), (n0 - c1) / k]);
           }
         });
         // free: room the container leaves round its children because it is taller/wider than they are
@@ -6347,19 +6500,19 @@
         // min-height 40 and a 28px title row centred in it: 6 above and 6 below).
         var kids = Array.prototype.filter.call(el.children, function (c) { var s = getComputedStyle(c); return s.display !== 'none' && s.position !== 'absolute' && s.position !== 'fixed'; })
           .map(function (c) {
-            var s = getComputedStyle(c), q = c.getBoundingClientRect(), mv = function (p) { return parseFloat(s.getPropertyValue(p)) || 0; };
+            var s = getComputedStyle(c), q = c.getBoundingClientRect(), mv = function (p) { return (parseFloat(s.getPropertyValue(p)) || 0) * k; };
             return { l: q.left - mv('margin-left'), t: q.top - mv('margin-top'), r: q.right + mv('margin-right'), b: q.bottom + mv('margin-bottom'), w: q.width, h: q.height };
           }).filter(function (q) { return q.w > 0 || q.h > 0; });
         if (kids.length) {
-          var cB = { l: pBox.left + p[3], t: pBox.top + p[0], r: pBox.left + pBox.width - p[1], b: pBox.top + pBox.height - p[2] };
+          var cB = { l: pBox.left + p[3] * k, t: pBox.top + p[0] * k, r: pBox.left + pBox.width - p[1] * k, b: pBox.top + pBox.height - p[2] * k };
           var u = { l: Math.min.apply(null, kids.map(function (q) { return q.l; })), t: Math.min.apply(null, kids.map(function (q) { return q.t; })),
                     r: Math.max.apply(null, kids.map(function (q) { return q.r; })), b: Math.max.apply(null, kids.map(function (q) { return q.b; })) };
           var fT = u.t - cB.t, fB = cB.b - u.b, fL = u.l - cB.l, fR = cB.r - u.r, midT = cB.t + Math.max(0, fT), midH = (cB.b - Math.max(0, fB)) - midT;
           var free = [];
-          if (fT > 0.5) free.push(['free', { left: cB.l, top: cB.t, width: cB.r - cB.l, height: fT }, fT, 'top']);
-          if (fB > 0.5) free.push(['free', { left: cB.l, top: u.b, width: cB.r - cB.l, height: fB }, fB, 'bottom']);
-          if (fL > 0.5) free.push(['free', { left: cB.l, top: midT, width: fL, height: midH }, fL, 'left']);
-          if (fR > 0.5) free.push(['free', { left: u.r, top: midT, width: fR, height: midH }, fR, 'right']);
+          if (fT > 0.5) free.push(['free', { left: cB.l, top: cB.t, width: cB.r - cB.l, height: fT }, fT / k, 'top']);
+          if (fB > 0.5) free.push(['free', { left: cB.l, top: u.b, width: cB.r - cB.l, height: fB }, fB / k, 'bottom']);
+          if (fL > 0.5) free.push(['free', { left: cB.l, top: midT, width: fL, height: midH }, fL / k, 'left']);
+          if (fR > 0.5) free.push(['free', { left: u.r, top: midT, width: fR, height: midH }, fR / k, 'right']);
           out = free.concat(out);
         }
         out = gaps.concat(out);   // gaps first, so margin/padding chips sit on top
@@ -6765,7 +6918,7 @@
       render();
       requestAnimationFrame(() => {
         const row = document.querySelector('.pb-scan-tr[data-fb-list="rs"][data-key="' + CSS.escape(String(id)) + '"]');
-        const f = fid && row ? row.querySelector('[data-rs-finding="' + CSS.escape(String(fid)) + '"]') : null;
+        const f = fid && row ? row.querySelector('[data-rs-finding="' + CSS.escape(String(fid)) + '"],[data-rs-issue="' + CSS.escape(String(fid)) + '"]') : null;
         if (f) pbFlash(f); else pbScanReveal('rs', id);
       });
     }
@@ -6800,6 +6953,10 @@
     /* n: the answers counted (survey), or the people heard (interview). */
     function pbRsCount(s) {
       const ev = (s.evidence || []).filter(e => e && !e.dropped);
+      if (PB_RS_SESSION_METHODS.indexOf(s.method) >= 0) {   // a session method: the people who took part, one per kept session
+        const ss = ev.filter(e => e.kind === 'session');
+        return new Set(ss.map((e, i) => e.participant || ('#' + i))).size;
+      }
       if (s.tally && s.tally.n != null) return +s.tally.n;
       if (s.method === 'interview') return new Set(ev.map(e => e.participant).filter(Boolean)).size;
       return ev.reduce((a, e) => a + (+e.responses || 0), 0);
@@ -6853,6 +7010,9 @@
         summary: `<span class="rs-insth">Instrument</span> <span class="lg-dim">${secs.reduce((n, x) => n + (x.questions || []).length, 0)} questions</span>`,
         body: `${ins.intro ? `<p class="meta-p">${pbEscape(ins.intro)}</p>` : ''}${ins.consent ? `<p class="meta-p lg-dim">Consent: ${pbEscape(ins.consent)}</p>` : ''}${qs}` });
     }
+    /* A recording the hand-off left out on purpose: the row and its hash stay, the file is absent. Not struck through: nobody withdrew, the copy just omits the file. */
+    const pbRsWithheld = e => !!(e && e.withheld && typeof e.withheld === 'object' && Object.keys(e.withheld).length);
+    const pbRsWithheldBadge = w => lgcBadge('n', 'Left out of the hand-off', [w && w.reason, w && w.at ? 'Left out ' + pbRsDay(w.at) : ''].filter(Boolean).join(' · '));
     /* The evidence kept for a study: what is on disk, never its content. A withdrawn file stays listed, struck out, with why. */
     function pbRsEvidenceTable(s) {
       const ev = s.evidence || [];
@@ -6861,10 +7021,227 @@
         const d = e.dropped;
         return `<tr class="${d ? 'is-dropped' : ''}" data-rs-ev="${escapeHtmlAttr(e.id || '')}"><td><code>${pbEscape(e.id)}</code></td><td>${pbEscape(e.kind)}</td><td>${pbEscape(pbRsDay(e.date || e.importedAt))}</td>`
           + `<td>${pbEscape(e.participant || '—')}</td><td class="rs-n">${pbEscape(e.responses != null ? e.responses : '—')}</td><td>${pbEscape(e.consent || '—')}</td>`
-          + `<td class="rs-path">${pbEscape(e.file)}</td><td class="rs-hash">${pbEscape(String(e.sha256 || '').slice(0, 8))}</td></tr>`
+          + `<td class="rs-path">${pbEscape(e.file)}${pbRsWithheld(e) ? ' ' + pbRsWithheldBadge(e.withheld) : ''}</td><td class="rs-hash">${pbEscape(String(e.sha256 || '').slice(0, 8))}</td></tr>`
           + (d ? `<tr class="rs-why"><td></td><td colspan="7">Dropped ${pbEscape(pbRsDay(d.at))}${d.reason ? ' — ' + pbEscape(d.reason) : ''}</td></tr>` : '');
       }).join('');
       return `<h4 class="rs-h">Evidence</h4><div class="rs-scroll"><table class="rs-tbl"><thead><tr><th>ID</th><th>Kind</th><th>Date</th><th>Participant</th><th class="rs-n">n</th><th>Consent</th><th>File</th><th>Hash</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+    }
+    /* ── Research, UX studies (usability · tree test · card sort · first click) ───────────────────
+       Plan, participants, sessions, results, issues, themes and the report. Each block is drawn only
+       when the study holds its data; every value is escaped; the shell still never reads an evidence
+       file. The Start / Observer / Replay / Report links exist only on a page /pb:preview serves
+       (window.PB_PREVIEW, not view-only, not an explore frame): over file:// the block names the
+       command instead. */
+    const PB_RS_METHOD = { survey: 'Survey', interview: 'Interview', usability: 'Usability test', 'tree-test': 'Tree test', 'card-sort': 'Card sort', 'first-click': 'First-click test' };
+    const PB_RS_SESSION_METHODS = ['usability', 'tree-test', 'card-sort', 'first-click'];
+    const PB_RS_SEVERITY = { 0: ['n', 'Not a problem'], 1: ['n', 'Cosmetic'], 2: ['warn', 'Minor'], 3: ['bad', 'Major'], 4: ['bad', 'Catastrophe'] };
+    const pbRsMethodName = m => PB_RS_METHOD[m] || pbCap(m || '');
+    const pbRsIsSession = s => PB_RS_SESSION_METHODS.indexOf(s.method) >= 0;
+    const pbRsServed = () => !VIEW_ONLY && !!window.PB_PREVIEW && !document.body.classList.contains('view-only')
+      && !(typeof pbLiveEmbedded === 'function' && pbLiveEmbedded());
+    const pbRsArr = v => Array.isArray(v) ? v.filter(x => x != null && x !== '') : (v == null || v === '' ? [] : [v]);
+    const pbRsObjs = v => (Array.isArray(v) ? v : []).filter(x => x && typeof x === 'object');
+    const pbRsF = (v, d) => (v == null || v === '' || !isFinite(+v)) ? '—' : (+v).toFixed(d == null ? 1 : d);
+    const pbRsPct = r => (r == null || r === '' || !isFinite(+r)) ? '—' : Math.round(+r * 100) + '%';
+    const pbRsClamp = v => Math.max(0, Math.min(1, +v || 0));
+    const pbRsMs = ms => { ms = +ms; if (!isFinite(ms) || ms < 0) return '—'; const t = Math.round(ms / 1000); return Math.floor(t / 60) + ':' + String(t % 60).padStart(2, '0'); };
+    const pbRsUrl = (id, tail) => '/research/' + encodeURIComponent(id) + '/' + tail;
+    const pbRsLink = (href, text) => `<a class="lg-link" href="${escapeHtmlAttr(href)}" target="_blank" rel="noopener">${pbEscape(text)}</a>`;
+    const pbRsList = v => { const a = pbRsArr(v); return a.length ? `<ul class="rs-ul">${a.map(x => `<li>${pbEscape(x)}</li>`).join('')}</ul>` : ''; };
+    const pbRsKv = (k, html) => html ? `<dt>${pbEscape(k)}</dt><dd>${html}</dd>` : '';
+    const pbRsTable = (heads, rows, cls) => `<div class="rs-scroll"><table class="rs-tbl${cls ? ' ' + cls : ''}"><thead><tr>${heads.map(h => `<th>${pbEscape(h)}</th>`).join('')}</tr></thead><tbody>${rows}</tbody></table></div>`;
+    function pbRsPlanHTML(s) {
+      const p = s.plan;
+      if (!p || typeof p !== 'object') return '';
+      const pp = p.participants || {}, rc = p.recruitment || {}, sc = p.schedule || {}, tm = p.team || {};
+      const risks = pbRsObjs(p.risks), tl = pbRsObjs(p.timeline);
+      const kv = [
+        pbRsKv('Background', p.background ? pbEscape(p.background) : ''),
+        pbRsKv('Objectives', pbRsList(p.objectives)),
+        pbRsKv('Research questions', pbRsList(p.researchQuestions)),
+        pbRsKv('Decision', p.decision ? pbEscape(p.decision) : ''),
+        pbRsKv('Why this method', p.methodRationale ? pbEscape(p.methodRationale) : ''),
+        pbRsKv('Participants', [(s.audience || {}).targetN != null || pp.n != null ? `<div>${pbEscape((s.audience || {}).targetN != null ? s.audience.targetN : pp.n)} planned</div>` : '', pbRsList(pp.criteria), pp.exclude && pbRsArr(pp.exclude).length ? `<div class="lg-dim">Exclude</div>${pbRsList(pp.exclude)}` : ''].join('')),
+        pbRsKv('Segments', pbRsList(pp.segments)),
+        pbRsKv('Recruitment', [rc.channel, rc.incentive && 'incentive ' + rc.incentive, rc.note].filter(Boolean).map(pbEscape).join(' · ')),
+        pbRsKv('Schedule', [sc.start && sc.end ? sc.start + ' to ' + sc.end : (sc.start || sc.end), sc.sessionMinutes != null && sc.sessionMinutes + ' min a session'].filter(Boolean).map(pbEscape).join(' · ')),
+        pbRsKv('Team', [tm.moderator && 'Moderator ' + tm.moderator, tm.notetaker && 'Note-taker ' + tm.notetaker, pbRsArr(tm.observers).length && 'Observers ' + pbRsArr(tm.observers).join(', ')].filter(Boolean).map(pbEscape).join(' · ')),
+        pbRsKv('Materials', pbRsList(p.materials)),
+        pbRsKv('Risks', risks.length ? `<ul class="rs-ul">${risks.map(r => `<li>${pbEscape(r.risk)}${r.mitigation ? ` <span class="lg-dim">— ${pbEscape(r.mitigation)}</span>` : ''}</li>`).join('')}</ul>` : ''),
+        pbRsKv('Timeline', tl.length ? `<ul class="rs-ul">${tl.map(t => `<li>${pbEscape(t.milestone)}${t.date ? ` <span class="lg-dim">${pbEscape(t.date)}</span>` : ''}</li>`).join('')}</ul>` : ''),
+        pbRsKv('Budget', p.budget ? pbEscape(p.budget) : ''),
+      ].join('');
+      if (!kv) return '';
+      const nObj = pbRsArr(p.objectives).length, nQ = pbRsArr(p.researchQuestions).length;
+      return pbDiscHTML({ id: 'rs-plan-' + s.id, level: 'row', open: false, cls: 'rs-plan',
+        summary: `<span class="rs-insth">Plan</span> <span class="lg-dim">${nObj} objective${nObj === 1 ? '' : 's'} · ${nQ} research question${nQ === 1 ? '' : 's'}</span>`,
+        body: `<dl class="pb-kv rs-kv">${kv}</dl>` });
+    }
+    const PB_RS_PIPE = ['invited', 'screened', 'scheduled', 'done', 'no-show', 'withdrawn', 'excluded'];
+    function pbRsParticipantsHTML(s) {
+      const ps = pbRsObjs(s.participants);
+      if (!ps.length) return '';
+      const cnt = {}; ps.forEach(p => { const k = String(p.status || 'invited'); cnt[k] = (cnt[k] || 0) + 1; });
+      const order = PB_RS_PIPE.filter(k => cnt[k]).concat(Object.keys(cnt).filter(k => PB_RS_PIPE.indexOf(k) < 0));
+      const pipe = order.map(k => `${pbEscape(cnt[k])} ${pbEscape(k)}`).join(' · ');
+      const rows = ps.map(p => `<tr data-rs-part="${escapeHtmlAttr(p.id || '')}"><td><code>${pbEscape(p.id)}</code></td><td class="rs-w">${pbEscape(p.segment || '—')}</td><td>${pbEscape(p.role || '—')}</td>`
+        + `<td>${pbEscape(p.status || 'invited')}</td><td>${pbEscape(pbRsDay(p.sessionAt) || '—')}</td><td>${pbEscape(p.incentive || '—')}</td><td>${p.pilot ? lgcBadge('n', 'Pilot') : ''}</td></tr>`).join('');
+      return `<h4 class="rs-h">Participants</h4><p class="rs-pipe lg-dim">${pipe}</p>${pbRsTable(['Participant', 'Segment', 'Role', 'Status', 'Session', 'Incentive', 'Pilot'], rows)}`;
+    }
+    function pbRsOutcomes(o) {
+      o = o && typeof o === 'object' ? o : {};
+      const n = k => +o[k] || 0, back = n('abandoned') + n('timeout') + n('skipped');
+      const g = [[n('success'), '✓', 'ok', 'Succeeded'], [n('fail'), '✗', 'bad', 'Failed'], [back, '↩', 'n', 'Abandoned, timed out or skipped'], [n('answered'), '•', 'n', 'Answered']].filter(x => x[0] > 0);
+      return g.length ? g.map(x => `<span class="rs-oc rs-oc--${x[2]}" title="${escapeHtmlAttr(x[3])}">${x[1]} ${x[0]}</span>`).join(' ') : '—';
+    }
+    function pbRsSessionsHTML(s) {
+      const ev = (s.evidence || []).filter(e => e && e.kind === 'session'), pl = pbRsObjs(s.pilots);
+      if (!pbRsIsSession(s) && !ev.length && !pl.length) return '';
+      const served = pbRsServed();
+      const bar = pbRsIsSession(s) ? (served
+        ? `<p class="rs-links">${pbRsLink(pbRsUrl(s.id, 'session'), 'Start a moderated session')} · ${pbRsLink(pbRsUrl(s.id, 'observer'), 'Open observer')}</p>`
+        : `<p class="rs-links lg-dim">Open the live preview to run sessions, or get the links with <code>research.py link ${pbEscape(s.id)}</code></p>`) : '';
+      const recs = (s.evidence || []).filter(e => e && e.kind === 'recording' && !e.dropped);
+      let rows = ev.map(e => {
+        const x = e.session || {}, d = e.dropped;
+        const mine = recs.filter(r => r.session === x.id), out = mine.length && mine.every(pbRsWithheld);   // only recording withheld: no playable video
+        return `<tr class="${d ? 'is-dropped' : ''}" data-rs-session="${escapeHtmlAttr(e.id || '')}"><td><code>${pbEscape(e.id)}</code></td><td>${pbEscape(e.participant || '—')}</td>`
+          + `<td>${pbEscape(pbRsDay(e.date || e.importedAt))}</td><td class="rs-n">${pbEscape(pbRsMs(x.durationMs))}</td>`
+          + `<td>${x.tasks != null ? `<span class="lg-dim">${pbEscape(x.tasks)}</span> ` : ''}${pbRsOutcomes(x.outcomes)}</td><td>${out ? pbRsWithheldBadge(mine[0].withheld) : (x.recording ? 'Yes' : 'No')}</td>`
+          + (served ? `<td>${d || !e.id ? '' : pbRsLink(pbRsUrl(s.id, 'replay/' + e.id), 'Replay')}</td>` : '') + `</tr>`
+          + (d ? `<tr class="rs-why"><td></td><td colspan="${served ? 6 : 5}">Dropped ${pbEscape(pbRsDay(d.at))}${d.reason ? ' — ' + pbEscape(d.reason) : ''}</td></tr>` : '');
+      }).join('');
+      rows += pl.map(p => `<tr data-rs-pilot="${escapeHtmlAttr(p.sessionId || '')}"><td>${lgcBadge('n', 'Pilot')}</td><td>${pbEscape(p.participant || '—')}</td><td>${pbEscape(pbRsDay(p.at))}</td>`
+        + `<td class="rs-n">—</td><td>—</td><td>${pbRsWithheld(p) ? pbRsWithheldBadge(p.withheld) : (pbRsArr(p.media).length ? 'Yes' : 'No')}</td>`
+        + (served ? `<td>${p.sessionId ? pbRsLink(pbRsUrl(s.id, 'replay/pilot-' + p.sessionId), 'Replay') : ''}</td>` : '') + `</tr>`).join('');
+      const heads = ['Session', 'Participant', 'Date', 'Time', 'Tasks', 'Recorded'].concat(served ? ['Replay'] : []);
+      return `<h4 class="rs-h">Sessions</h4>${bar}${rows ? pbRsTable(heads, rows) : '<p class="sum-empty">No sessions yet.</p>'}`;
+    }
+    /* A rate with its interval: the bar is 0–100%, the whisker the 95% interval. Inputs are clamped numbers. */
+    function pbRsCiBar(r) {
+      if (!r || r.rate == null || !isFinite(+r.rate)) return '';
+      const p = pbRsClamp(r.rate), lo = r.low != null ? pbRsClamp(r.low) : p, hi = r.high != null ? pbRsClamp(r.high) : p, f = v => (v * 100).toFixed(1);
+      const t = `${pbRsPct(p)}, 95% interval ${pbRsPct(lo)} to ${pbRsPct(hi)}`;
+      return `<span class="rs-ci" role="img" aria-label="${escapeHtmlAttr(t)}" title="${escapeHtmlAttr(t)}"><i class="rs-ci-bar" style="width:${f(p)}%"></i><i class="rs-ci-whisk" style="left:${f(lo)}%;width:${f(Math.max(hi - lo, 0))}%"></i></span>`;
+    }
+    function pbRsRateTD(r) {
+      if (!r || r.n == null) return '<td>—</td>';
+      return `<td>${pbEscape(r.x)} of ${pbEscape(r.n)} <span class="lg-dim">${pbEscape(pbRsPct(r.rate))}</span> ${pbRsCiBar(r)}</td>`;
+    }
+    const pbRsTaskTD = (s, tid) => { const t = pbRsQuestionText(s, tid); return `<td class="rs-w"><code>${pbEscape(tid)}</code>${t ? ' ' + pbEscape(t) : ''}</td>`; };
+    function pbRsUsabilityHTML(s, an) {
+      const u = an.usability;
+      if (!u || typeof u !== 'object') return '';
+      const ts = u.tasks || {}, ids = Object.keys(ts);
+      const rows = ids.map(tid => {
+        const t = ts[tid] || {}, tm = t.time || t.timeAll || {}, sq = t.seq || {}, ls = t.lostness || {}, dc = t.deadClicks || {}, er = t.errors || {};
+        return `<tr data-rs-task="${escapeHtmlAttr(tid)}">${pbRsTaskTD(s, tid)}${pbRsRateTD(t.success)}`
+          + `<td>${tm.geoMean != null ? pbEscape(pbRsF(tm.geoMean)) + ' s' + (tm.low != null && tm.high != null ? ` <span class="lg-dim">${pbEscape(pbRsF(tm.low, 0))}–${pbEscape(pbRsF(tm.high, 0))}</span>` : '') : '—'}</td>`
+          + `<td class="rs-n">${pbEscape(pbRsF(sq.mean))}</td><td class="rs-n">${pbEscape(pbRsF(ls.mean, 2))}</td><td class="rs-n">${pbEscape(dc.total != null ? dc.total : '—')}</td><td class="rs-n">${pbEscape(er.total != null ? er.total : '—')}</td></tr>`;
+      }).join('');
+      const sus = u.sus && u.sus.mean != null ? `<p class="rs-stat">SUS <b class="pb-num">${pbEscape(pbRsF(u.sus.mean))}</b> `
+        + `<span class="lg-dim">${u.sus.low != null && u.sus.high != null ? '95% interval ' + pbEscape(pbRsF(u.sus.low, 0)) + '–' + pbEscape(pbRsF(u.sus.high, 0)) + ' · ' : ''}n ${pbEscape(u.sus.n)} ·</span> ${u.sus.grade ? lgcBadge('n', 'Grade ' + pbEscape(u.sus.grade)) : ''}</p>` : '';
+      const ov = u.overall && u.overall.success && u.overall.success.n ? `<p class="rs-stat">All tasks <b class="pb-num">${pbEscape(u.overall.success.x)}</b> of ${pbEscape(u.overall.success.n)} succeeded <span class="lg-dim">${pbEscape(pbRsPct(u.overall.success.rate))}</span> ${pbRsCiBar(u.overall.success)}</p>` : '';
+      if (!rows && !sus && !ov) return '';
+      return `<h5 class="rs-h5">Usability tasks</h5>${ov}${rows ? pbRsTable(['Task', 'Success', 'Time', 'SEQ', 'Lostness', 'Dead clicks', 'Errors'], rows, 'rs-tbl--res') : ''}${sus}`;
+    }
+    function pbRsTreeHTML(s, an) {
+      const ts = (an.treeTest || {}).tasks;
+      if (!ts || typeof ts !== 'object') return '';
+      const nodes = {}; pbRsObjs((s.instrument || {}).tree).forEach(n => { nodes[n.id] = n.label; });
+      const rows = Object.keys(ts).map(tid => {
+        const t = ts[tid] || {}, top = pbRsObjs(t.destinations)[0];
+        return `<tr data-rs-task="${escapeHtmlAttr(tid)}">${pbRsTaskTD(s, tid)}${pbRsRateTD(t.success)}${pbRsRateTD(t.direct)}${pbRsRateTD(t.firstClick)}`
+          + `<td>${top ? `${pbEscape(nodes[top.node] || top.node)} <span class="lg-dim">${pbEscape(top.count)}</span>` : '—'}</td></tr>`;
+      }).join('');
+      return rows ? `<h5 class="rs-h5">Tree test</h5>${pbRsTable(['Task', 'Success', 'Direct', 'First click', 'Top destination'], rows, 'rs-tbl--res')}` : '';
+    }
+    function pbRsSortHTML(s, an) {
+      const c = an.cardSort;
+      if (!c || typeof c !== 'object') return '';
+      const ids = pbRsArr(c.cards), sim = c.similarity && typeof c.similarity === 'object' ? c.similarity : {};
+      const lab = {}; pbRsObjs((s.instrument || {}).cards).forEach(x => { lab[x.id] = x.label; });
+      const nm = id => String(lab[id] || id);
+      const at = (a, b) => { const v = sim[a + '|' + b] != null ? sim[a + '|' + b] : sim[b + '|' + a]; return v == null || !isFinite(+v) ? null : pbRsClamp(v); };
+      const head = ids.map(id => `<th title="${escapeHtmlAttr(nm(id))}">${pbEscape(nm(id).slice(0, 10))}</th>`).join('');
+      const body = ids.map(a => `<tr><th class="rs-rowh" title="${escapeHtmlAttr(nm(a))}">${pbEscape(nm(a))}</th>${ids.map(b => {
+        if (a === b) return '<td class="rs-hm rs-hm--self">—</td>';
+        const v = at(a, b);
+        return v == null ? '<td class="rs-hm">—</td>' : `<td class="rs-hm" style="--rs-v:${Math.round(v * 70)}%">${pbEscape(v.toFixed(2))}</td>`;
+      }).join('')}</tr>`).join('');
+      const cl = pbRsArr(c.clusters).filter(Array.isArray);
+      const cats = c.categories && typeof c.categories === 'object' ? Object.keys(c.categories) : [];
+      return `<h5 class="rs-h5">Card sort <span class="lg-dim">${pbEscape(c.kind || '')}${c.n != null ? ' · ' + pbEscape(c.n) + ' sorted' : ''}</span></h5>`
+        + (ids.length ? `<div class="rs-scroll"><table class="rs-tbl rs-heat"><thead><tr><th></th>${head}</tr></thead><tbody>${body}</tbody></table></div>` : '')
+        + (cl.length ? `<h5 class="rs-h5">Clusters${c.threshold != null ? ` <span class="lg-dim">at similarity ${pbEscape(pbRsF(c.threshold, 2))} or more</span>` : ''}</h5><ul class="rs-list rs-clusters">${cl.map(g => `<li class="pb-tags">${pbRsArr(g).map(id => `<span class="pb-tag">${pbEscape(nm(id))}</span>`).join('')}</li>`).join('')}</ul>` : '')
+        + (cats.length ? `<h5 class="rs-h5">Categories</h5><ul class="rs-ul">${cats.map(k => `<li>${pbEscape(k)} <span class="lg-dim">${pbEscape((c.categories[k] || {}).count)} used it</span></li>`).join('')}</ul>` : '');
+    }
+    function pbRsClickHTML(s, an) {
+      const ts = (an.firstClick || {}).tasks;
+      if (!ts || typeof ts !== 'object') return '';
+      const ids = Object.keys(ts);
+      const rows = ids.map(tid => {
+        const t = ts[tid] || {}, tm = t.time || {};
+        return `<tr data-rs-task="${escapeHtmlAttr(tid)}">${pbRsTaskTD(s, tid)}${pbRsRateTD(t.success)}<td class="rs-n">${tm.median != null ? pbEscape(pbRsF(tm.median)) + ' s' : '—'}</td></tr>`;
+      }).join('');
+      const plots = ids.map(tid => {
+        const cs = pbRsArr((ts[tid] || {}).clicks).filter(Array.isArray).slice(0, 500);
+        if (!cs.length) return '';
+        const hits = cs.filter(c => c[2]).length;
+        const t = `${cs.length} clicks, ${hits} on target`;
+        return `<figure class="rs-fc"><div class="rs-plot" role="img" aria-label="${escapeHtmlAttr(tid + ': ' + t)}">${cs.map(c => `<i class="rs-dot${c[2] ? ' is-hit' : ''}" style="left:${(pbRsClamp(c[0]) * 100).toFixed(1)}%;top:${(pbRsClamp(c[1]) * 100).toFixed(1)}%"></i>`).join('')}</div>`
+          + `<figcaption class="lg-dim"><code>${pbEscape(tid)}</code> · ${pbEscape(t)}</figcaption></figure>`;
+      }).join('');
+      return rows ? `<h5 class="rs-h5">First click</h5>${pbRsTable(['Task', 'Success', 'Median time'], rows, 'rs-tbl--res')}${plots ? `<div class="rs-plots">${plots}</div>` : ''}` : '';
+    }
+    function pbRsResultsHTML(s) {
+      const an = s.analysis;
+      if (!an || typeof an !== 'object') return '';
+      const parts = [pbRsUsabilityHTML(s, an), pbRsTreeHTML(s, an), pbRsSortHTML(s, an), pbRsClickHTML(s, an)].join('');
+      if (!parts) return '';
+      const tn = (s.audience || {}).targetN, dir = an.n != null && tn && +an.n < +tn;
+      const note = `<p class="rs-note lg-dim">${an.n != null ? 'n ' + pbEscape(an.n) + (tn ? ' of ' + pbEscape(tn) + ' planned' : '') : ''}${dir ? ' ' + lgcBadge('warn', 'Directional', 'Fewer people than planned, so read these as a direction, not a measure') : ''}</p>`;
+      return `<h4 class="rs-h">Results</h4>${note}${parts}`;
+    }
+    function pbRsObsHTML(o) {
+      const who = [o.participant, o.evidence, o.event != null ? 'event ' + o.event : '', o.t != null ? pbRsMs(o.t) : ''].filter(x => x !== '' && x != null).map(String).join(' · ');
+      return `<li>${o.quote != null ? `“${pbEscape(o.quote)}”` : pbEscape(o.note || '')}${o.quote != null && o.note ? ` <span class="lg-dim">${pbEscape(o.note)}</span>` : ''}${who ? ` <span class="lg-dim">· ${pbEscape(who)}</span>` : ''}</li>`;
+    }
+    function pbRsIssuesHTML(s) {
+      const is = pbRsObjs(s.issues);
+      if (!is.length) return '';
+      const m = ((s.analysis || {}).issues) || {}, n = (s.analysis || {}).n, obs = {};
+      pbRsObjs(s.observations).forEach(o => { obs[o.id] = o; });
+      const sev = u => Math.max(0, Math.min(4, Math.round(+u.severity) || 0));
+      const pr = u => { const v = (m[u.id] || {}).priority; return isFinite(+v) && v != null ? +v : -1; };
+      const sorted = is.map((u, i) => [u, i]).sort((a, b) => (pr(b[0]) - pr(a[0])) || (sev(b[0]) - sev(a[0])) || (a[1] - b[1])).map(x => x[0]);
+      return `<h4 class="rs-h">Issues</h4><ol class="rs-list rs-issues">${sorted.map(u => {
+        const k = PB_RS_SEVERITY[sev(u)], mt = m[u.id] || {}, task = u.task ? pbRsQuestionText(s, u.task) : '';
+        const os = pbRsArr(u.observations).map(id => obs[id]).filter(Boolean);
+        return `<li data-rs-issue="${escapeHtmlAttr(u.id || '')}">
+          <div class="rs-hd"><code>${pbEscape(u.id)}</code><span class="rs-ht">${pbEscape(u.title)}</span>${lgcBadge(k[0], sev(u) + ' ' + pbEscape(k[1]))}</div>
+          <dl class="pb-kv rs-kv">
+            ${mt.participants != null ? `<dt>Affected</dt><dd>${pbEscape(mt.participants)}${n != null ? ' of ' + pbEscape(n) : ''} participants${mt.priority != null ? ` <span class="lg-dim">· priority ${pbEscape(pbRsF(mt.priority, 2))}</span>` : ''}</dd>` : ''}
+            ${u.task ? `<dt>Task</dt><dd><code>${pbEscape(u.task)}</code>${task ? ' ' + pbEscape(task) : ''}</dd>` : ''}
+            ${u.screen ? `<dt>Screen</dt><dd>${pbRsTargetHTML({ kind: 'screen', id: u.screen })}</dd>` : ''}
+            ${pbRsObjs(u.targets).length ? `<dt>About</dt><dd class="pb-tags">${pbRsObjs(u.targets).map(pbRsTargetHTML).join('')}</dd>` : ''}
+            ${u.recommendation ? `<dt>Recommendation</dt><dd>${pbEscape(u.recommendation)}</dd>` : ''}
+            ${os.length ? `<dt>Observed</dt><dd><ul class="rs-ul rs-obs">${os.map(pbRsObsHTML).join('')}</ul></dd>` : ''}
+          </dl></li>`;
+      }).join('')}</ol>`;
+    }
+    function pbRsThemesHTML(s) {
+      const ts = pbRsObjs(s.themes);
+      if (!ts.length) return '';
+      return `<h4 class="rs-h">Themes</h4><ul class="rs-list rs-themes">${ts.map(t => `<li data-rs-theme="${escapeHtmlAttr(t.id || '')}">
+        <div class="rs-hd"><code>${pbEscape(t.id)}</code><span class="rs-ht">${pbEscape(t.title)}</span></div>
+        ${pbRsArr(t.tags).length ? `<div class="pb-tags">${pbRsArr(t.tags).map(g => `<span class="pb-tag">${pbEscape(g)}</span>`).join('')}</div>` : ''}
+        ${t.insight ? `<p class="meta-p">${pbEscape(t.insight)}</p>` : ''}</li>`).join('')}</ul>`;
+    }
+    function pbRsReportHTML(s) {
+      if (!pbRsIsSession(s) && !s.report) return '';
+      const link = pbRsServed() ? `${pbRsLink(pbRsUrl(s.id, 'report'), 'Open report')} · ` : '';
+      return `<h4 class="rs-h">Report</h4><p class="rs-links">${link}<span class="rs-path">${pbEscape('memory/research/' + s.id + '/report/report.html')}</span></p>`;
     }
     function pbRsStudyDetail(s) {
       const a = s.audience || {}, roles = (a.roles || []).map(r => `${pbRoleDot(r)}${pbEscape(pbRoleName(r))}`).join(' · ');
@@ -6873,7 +7250,7 @@
       return `<div class="rs rs-body">
         ${s.question ? `<p class="meta-p rs-q">${pbEscape(s.question)}</p>` : ''}
         <dl class="pb-kv">
-          <dt>Method</dt><dd>${pbEscape(pbCap(s.method || ''))} · ${pbEscape(pbCap(s.status || 'draft'))}</dd>
+          <dt>Method</dt><dd>${pbEscape(pbRsMethodName(s.method))} · ${pbEscape(pbCap(s.status || 'draft'))}</dd>
           <dt>Who</dt><dd>${[roles, a.segment ? pbEscape(a.segment) : ''].filter(Boolean).join(' · ') || '—'}</dd>
           <dt>Scope</dt><dd>${pbRsAskOnly(s) ? 'Questions only' : 'Questions and results'}</dd>
           ${s.setup ? `<dt>Setup</dt><dd>${pbEscape(s.setup)}</dd>` : ''}
@@ -6882,7 +7259,8 @@
           ${gates ? `<dt>Approved</dt><dd>${gates}</dd>` : ''}
           ${s.refilled && s.refilled.at ? `<dt>In Insights</dt><dd>${pbEscape(pbRsDay(s.refilled.at))}</dd>` : ''}
         </dl>
-        ${pbRsHypothesesHTML(s)}${pbRsScoresHTML(s)}${pbRsFindingsHTML(s)}${pbRsInstrumentHTML(s)}${pbRsBiasHTML(s)}${pbRsEvidenceTable(s)}
+        ${pbRsPlanHTML(s)}${pbRsParticipantsHTML(s)}${pbRsSessionsHTML(s)}${pbRsResultsHTML(s)}${pbRsIssuesHTML(s)}${pbRsThemesHTML(s)}
+        ${pbRsHypothesesHTML(s)}${pbRsScoresHTML(s)}${pbRsFindingsHTML(s)}${pbRsReportHTML(s)}${pbRsInstrumentHTML(s)}${pbRsBiasHTML(s)}${pbRsEvidenceTable(s)}
       </div>`;
     }
     function pbRenderResearch() {
@@ -6898,7 +7276,7 @@
         const tally = {}; hs.forEach(h => { const k = h.verdict || ''; tally[k] = (tally[k] || 0) + 1; });
         const vd = pbRsDone(s) ? '' : Object.keys(PB_RS_VERDICT).concat(['']).filter(k => tally[k]).map(k => k ? pbRsVerdictBadge(k, tally[k]) : lgcBadge('n', tally[k] + ' open')).join('');
         const st = String(s.status || 'draft'), who = (a.roles || []).map(pbRoleName).join(', ') || a.segment || '';
-        const kd = pbRsDone(s) ? pbCap(s.method || '') : [pbCap(s.method || ''), 'n ' + n + (a.targetN ? ' of ' + a.targetN : '')].join(' · ');
+        const kd = pbRsDone(s) ? pbRsMethodName(s.method) : [pbRsMethodName(s.method), 'n ' + n + (a.targetN ? ' of ' + a.targetN : '')].join(' · ');
         return pbScanRowHTML('rs', s.id, [
           `<span class="id">${pbEscape(s.id)}</span>`,
           `<span class="ti" title="${escapeHtmlAttr([s.title || s.id, who].filter(Boolean).join(' — '))}">${(a.roles || []).map(pbRoleDot).join('')}${pbEscape(s.title || s.id)}</span>`,
@@ -10028,12 +10406,12 @@
               stage.style.height = H + 'px';
               stage.style.marginLeft = -(W/2) + 'px';
               stage.style.marginTop  = -(H/2) + 'px';
-              initCanvas('flow', W, H);
+              initCanvas('flow', W, H, 0, { modWheel: 'auto' });
             });
           });
         }).catch(function(){ pbDiagramsUnavailable('flow-viewport'); });
       } else if (populated && document.getElementById('flow-canvas')) {
-        initCanvas('flow', 1200, 380);
+        initCanvas('flow', 1200, 380, 0, { modWheel: 'auto' });
       }
     }
 
@@ -11989,7 +12367,7 @@
               stage.style.height = H + 'px';
               stage.style.marginLeft = -(W/2) + 'px';
               stage.style.marginTop  = -(H/2) + 'px';
-              initCanvas('erd', W, H);
+              initCanvas('erd', W, H, 0, { modWheel: 'auto' });
             });
           });
         }).catch(function(){ pbDiagramsUnavailable('erd-viewport'); });
@@ -12089,7 +12467,7 @@
             `<th onclick="pbSortTable(this)" title="Sort by ${pbEscape(label)}">${pbEscape(label)}</th>`;
           return `<div class="erd-entity" data-entity="${pbEscape(ent)}">
               <div class="erd-entity-head"><h3 class="erd-entity-title">${pbEscape(ent)}</h3>${switcher}</div>
-              <table class="erd-entity-table erd-fixed">
+              <div class="erd-scroll"><table class="erd-entity-table erd-fixed">
                 <thead><tr>${th('Field')}${th('Type')}${th(exHead)}${th('Notes')}</tr></thead>
                 <tbody>${byEntity[ent].map(r => {
                   const ex = v === 'schema' ? (r.example || '') : pbErdExampleFor(e, ent, r.field, v);
@@ -12106,7 +12484,7 @@
                     + `<td>${pbEscape(ex || '—')}</td>`
                     + `<td>${pbErdNote(notes)}</td></tr>`;
                 }).join('')}</tbody>
-              </table>
+              </table></div>
             </div>`;
         }).join('') + `</div>`;
         return toolbar + pbErdOriginLegend(byEntity) + tables;
@@ -12227,6 +12605,18 @@
        trap it, and the list under it could never be reached — so it zooms only on ⌘/Ctrl + wheel,
        which is also what a trackpad pinch sends. The flow and the ERD fill their view; they keep the
        plain wheel. */
+    /* `opts.modWheel: 'auto'`: the plain wheel passes through to the page when something above the canvas can
+       scroll vertically right now (an ancestor with overflow auto/scroll that overflows, or the document), and
+       zooms when nothing can — so the desktop User Flow, whose page does not scroll, still zooms on the wheel,
+       and the same canvas stacked on a phone (a scrolling pane) no longer traps it. ⌘/Ctrl + wheel always zooms. */
+    function pageCanScroll(el) {
+      for (var n = el.parentElement; n && n !== document.body && n !== document.documentElement; n = n.parentElement) {
+        var oy = getComputedStyle(n).overflowY;
+        if ((oy === 'auto' || oy === 'scroll') && n.scrollHeight > n.clientHeight + 1) return true;
+      }
+      var d = document.scrollingElement || document.documentElement;
+      return d.scrollHeight > d.clientHeight + 1;
+    }
     function initCanvas(prefix, contentW, contentH, minFit, opts) {
       opts = opts || {};
       var viewport = document.getElementById(prefix + '-viewport');
@@ -12275,7 +12665,10 @@
       }
 
       viewport.addEventListener('wheel', function (e) {
-        if (opts.modWheel && !e.ctrlKey && !e.metaKey) return;   // the page scrolls
+        if (!e.ctrlKey && !e.metaKey) {
+          if (opts.modWheel === true) return;                            // the page scrolls (the IA map)
+          if (opts.modWheel === 'auto' && pageCanScroll(viewport)) return;   // it scrolls NOW (a stacked flow, a long page); else this zooms
+        }
         e.preventDefault();
         zoomBy(-e.deltaY * 0.0015, e.clientX, e.clientY);
       }, { passive: false });
@@ -12374,6 +12767,8 @@
         add('Research', s.title || s.id, s.id, [s.question, s.method, s.status, (a.roles || []).join(' '), a.segment].join(' '), () => pbGoStudy(s.id), true);
         (s.findings || []).forEach(f => add('Research', f.text || f.id, 'Finding · ' + s.id,
           [(f.evidence || []).map(x => x && x.quote).filter(Boolean).join(' '), (f.hypotheses || []).join(' ')].join(' '), () => pbGoStudy(s.id, f.id)));
+        pbRsObjs(s.issues).forEach(u => add('Research', u.title || u.id, 'Issue · ' + s.id,
+          [u.recommendation, u.task, u.screen].filter(Boolean).join(' '), () => pbGoStudy(s.id, u.id)));
       });
       (PB_REGISTRY.screens || []).forEach(sc => add('Screens', sc.name || sc.id, sc.id, 'prototype screen',
         () => { state.metaView = 'prototype'; state.protoScreenId = sc.id; render(); }, true));
@@ -12546,9 +12941,15 @@
     function pbLiveApply(d, announce) {
       const reg = d && d.registry;
       if (!reg || typeof reg !== 'object') throw new Error('no registry in the data');
-      const a = d.activity;
+      const a = d.activity, prevState = PB_LIVE.activity && PB_LIVE.activity.state;
+      // `turn`: seconds since the turn began (the hook's `since`), measured at `rx` like `age`; null from an older hook
       PB_LIVE.activity = (a && (a.state === 'working' || a.state === 'idle') && typeof a.at === 'number')
-        ? { state: a.state, age: Math.max(0, (+d.now || a.at) - a.at), rx: performance.now() } : null;
+        ? { state: a.state, age: Math.max(0, (+d.now || a.at) - a.at), rx: performance.now(),
+            since: typeof a.since === 'number' ? a.since : null,
+            turn: typeof a.since === 'number' ? Math.max(0, (+d.now || a.at) - a.since) : null,
+            // the human gate a command stopped at (hooks/activity.py --gate): only a well-formed one is believed
+            gate: (a.gate && typeof a.gate.id === 'string' && /^G-[A-Z][A-Z0-9-]*$/.test(a.gate.id) && typeof a.gate.ask === 'string' && a.gate.ask.trim())
+              ? { id: a.gate.id, ask: a.gate.ask.trim() } : null } : null;
       PB_LIVE.drafts = (d.drafts && +d.drafts.count) || 0;
 
       const keys = Object.keys(Object.assign({}, PB_REGISTRY, reg));
@@ -12588,6 +12989,7 @@
       const counts = pbProgCounts(PB_REGISTRY);
       if (announce && PB_LIVE.counts) PB_STEPS.forEach(([id]) => { if ((counts[id] || 0) > (PB_LIVE.counts[id] || 0)) PB_LIVE.cur = id; });
       PB_LIVE.counts = counts;
+      pbAgentNote(counts, prevState, announce);
 
       // a tab other than the one you are on has something new: a dot, until you open it
       if (announce) {
@@ -12600,6 +13002,7 @@
       const flip = pbLiveLoadingFlip();
       if (!protoLive && (changed.length || logicChanged || flip)) pbLiveRepaint(before, keyBefore);
       pbBarSync(metaChanged);
+      pbAgentPaint();
     }
     /* The site map draws a loading node while the structure step is working. That is a state of the hook, not of the data,
        so when it flips (Stop fired, or 90 s passed) and the draft map is on screen, the map is painted again. */
@@ -12696,20 +13099,15 @@
       return PB_STEPS.slice(0, -1).every(([k]) => c[k] > 0) ? 'done' : 'turn';
     }
     function pbProgAge() { const a = PB_LIVE.activity; return a ? a.age + (performance.now() - a.rx) / 1000 : 0; }
-    const PB_STATUS_LABEL = { working: 'Working', turn: 'Your turn', waiting: 'Waiting', done: 'Done' };
-    /* Hidden once a screen exists (a project with screens sees no change), on a view-only page, and off the preview server. */
+    /* The steps menu is there before the first screen exists (a project with screens never had it), never on a
+       view-only page, and only on the preview server. Since v2.7 it is the activity strip's: the step name in the
+       strip is its button, and the bar no longer carries a progress item (the strip says the status). */
     function pbProgShow() {
       return pbLiveOk() && !pbLiveEmbedded() && !document.body.classList.contains('view-only') && !((PB_REGISTRY && PB_REGISTRY.screens) || []).length;
     }
-    const PB_PROG_ICON = '<svg class="pb-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 6h10M10 12h10M10 18h10"/><path d="M4 6l1 1 2-2M4 12l1 1 2-2M4 18l1 1 2-2"/></svg>';
-    function pbProgButtonHTML() {
-      const cur = pbProgCurrent(), st = pbProgStatus();
-      return `${PB_PROG_ICON}<span class="pb-bar-lb">${pbEscape(cur.name)}</span><span class="pb-prog-n">${cur.count}</span>`
-        + (st ? `<span class="pb-prog-st" data-status="${st}">${PB_STATUS_LABEL[st]}</span>` : '');
-    }
     function pbProgLabel() {
-      const cur = pbProgCurrent(), st = pbProgStatus();
-      return `Progress: ${cur.name}, ${cur.count} so far${st ? ', ' + PB_STATUS_LABEL[st].toLowerCase() : ''}`;
+      const cur = pbProgCurrent();
+      return `Steps: ${cur.name}, ${cur.count} so far. Open the list of steps`;
     }
     function pbProgMenuHTML() {
       const cur = pbProgCurrent();
@@ -12720,12 +13118,13 @@
           + `<span class="pb-menu-n">${n}</span></button>`;
       }).join('');
     }
+    /* The step name in the activity strip, as the button that opens the steps menu (pbAgentPaint keeps its words). */
     function pbProgHTML() {
-      if (!pbProgShow()) return '';
-      return `<div class="pb-prog-wrap" id="pb-prog-wrap">`
-        + `<button class="pb-bar-item" id="pb-prog" type="button" aria-haspopup="menu" aria-expanded="false" aria-controls="pb-prog-menu"
-                   aria-label="${escapeHtmlAttr(pbProgLabel())}" title="Progress — the step being worked on, and what each step holds so far" onclick="pbProgToggle()">${pbProgButtonHTML()}</button>`
-        + `<div class="pb-menu pb-menu--end" id="pb-prog-menu" role="menu" aria-label="Progress" hidden>${pbProgMenuHTML()}</div></div>`;
+      return `<span class="pb-prog-wrap" id="pb-prog-wrap" hidden>`
+        + `<button class="pb-agent-steps" id="pb-prog" type="button" aria-haspopup="menu" aria-expanded="false" aria-controls="pb-prog-menu"
+                   aria-label="${escapeHtmlAttr(pbProgLabel())}" title="Steps — what each step holds so far, each one a jump" onclick="pbProgToggle()">`
+        + `<span class="pb-agent-step"></span>${pbUiIcon('chevron')}</button>`
+        + `<div class="pb-menu" id="pb-prog-menu" role="menu" aria-label="Steps" hidden>${pbProgMenuHTML()}</div></span>`;
     }
     function pbProgItems() { return Array.from(document.querySelectorAll('#pb-prog-menu [data-pb-menu-item]')); }
     function pbProgClose(refocus) {
@@ -12749,6 +13148,7 @@
       const m = document.getElementById('pb-prog-menu'), b = document.getElementById('pb-prog');
       if (!m || !b) return;
       if (!m.hidden) { pbProgClose(true); return; }
+      m.innerHTML = pbProgMenuHTML();   // the counts as they are now (the strip leaves an open menu alone)
       m.hidden = false; b.setAttribute('aria-expanded', 'true');
       document.addEventListener('mousedown', pbProgOutside, true);
       document.addEventListener('keydown', pbProgKey, true);
@@ -12767,16 +13167,10 @@
       else if (step === 'data') setMetaView('erd');
       else if (step === 'screen') setMetaView('prototype');
     }
-    /* Update the bar without rebuilding it (an open menu stays open): dots on the tabs, the progress item's words. */
+    /* Update the bar without rebuilding it: the dots on the tabs. (The status and the steps menu are the strip's.) */
     function pbBarSync(rebuild) {
-      const wrap = document.getElementById('pb-prog-wrap');
-      if (rebuild || pbProgShow() !== !!wrap) { renderMetaNav(); pbProgTimer(); return; }
+      if (rebuild) { renderMetaNav(); pbProgTimer(); return; }
       document.querySelectorAll('#meta-nav .meta-tab').forEach(b => b.classList.toggle('has-new', !!PB_LIVE.fresh[b.dataset.metaView]));
-      if (wrap) {
-        const b = document.getElementById('pb-prog'), m = document.getElementById('pb-prog-menu');
-        b.innerHTML = pbProgButtonHTML(); b.setAttribute('aria-label', pbProgLabel());
-        m.innerHTML = pbProgMenuHTML();
-      }
       pbProgTimer();
     }
     /* Stop does not fire when the turn is cancelled, so "working" is believed for 90 s after the hook last wrote. */
@@ -12786,6 +13180,105 @@
         PB_LIVE.timer = setTimeout(() => { pbBarSync(false); if (pbLiveLoadingFlip()) pbLiveRepaint(null, null); }, Math.max(250, (90 - pbProgAge()) * 1000 + 150));
       }
     }
+
+    /* ---- 7. the activity strip (v2.7) ------------------------------------------------------------ */
+    /* One row under the bar that says in words what Claude is doing (the pick of /pb:explore ai-working, "Agent
+       presence"). Thinking: the hook says working and no line has landed in the last few seconds. Writing · <step> ·
+       N saved: a line landed (N counts this turn's lines). Waiting: working, but the hook has been quiet for 90 s (a
+       turn cancelled with Esc). Your turn: Stop fired; "N drafts to approve" while drafts wait, else how long the turn
+       took. It shows on every project and tab while a session is live — from the first activity until it is 30
+       minutes old — so a page does not jump a row at every turn; never on a view-only, embedded or file:// page.
+       At a human gate the command says which (`hooks/activity.py --gate <id> "<ask>"` puts `gate` in the file, the data
+       route passes it when well formed): "Your turn · G-JTBD — approve 4 jobs and 3 terms — reply in Claude Code",
+       instead of the drafts count. With no gate the text stays generic: the page knows only that Claude stopped. */
+    const PB_AGENT_WRITING_S = 8, PB_AGENT_STALE_S = 30 * 60;
+    const PB_AGENT = { since: null, base: null, total: null, last: 0, tick: null, said: '' };
+    const pbAgentTotal = c => Object.keys(c || {}).reduce((n, k) => n + (+c[k] || 0), 0);
+    /* A new turn (a new `since`; or idle → working, from a hook that writes none) restarts the count of lines saved,
+       from what was there before this update. A line that lands while working is "Writing" for a few seconds. */
+    function pbAgentNote(counts, prevState, announce) {
+      const a = PB_LIVE.activity, total = pbAgentTotal(counts), before = PB_AGENT.total === null ? total : PB_AGENT.total;
+      if (PB_AGENT.base === null) PB_AGENT.base = total;
+      if (a && a.state === 'working') {
+        const fresh = a.since !== null ? a.since !== PB_AGENT.since : prevState !== 'working';
+        if (fresh) { PB_AGENT.since = a.since; PB_AGENT.base = Math.min(before, total); }
+        if (announce && total > before) PB_AGENT.last = performance.now();
+      }
+      PB_AGENT.total = total;
+    }
+    function pbAgentClock(s) {
+      s = Math.max(0, Math.floor(s));
+      const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), x = String(s % 60).padStart(2, '0');
+      return h ? `${h}:${String(m).padStart(2, '0')}:${x}` : `${m}:${x}`;
+    }
+    function pbAgentView() {
+      if (!pbLiveOk() || pbLiveEmbedded() || document.body.classList.contains('view-only')) return null;
+      const a = PB_LIVE.activity;
+      if (!a) return null;
+      const age = pbProgAge(), now = performance.now();
+      if (age > PB_AGENT_STALE_S) return null;
+      // `step`: the step the newest line landed in (else the first with nothing yet). Before the first screen it is
+      // always shown, as the button of the steps menu (`menu`); after it, only while lines are landing.
+      const c = pbProgCounts(), cur = pbProgCurrent(), menu = pbProgShow();
+      const name = cur.id === 'screen' && (c.screen || 0) > 1 ? 'Screens' : cur.name, step = menu ? name : '';
+      if (a.state === 'working') {
+        if (age >= 90) return { mode: 'waiting', verb: 'Waiting', step, menu, parts: ['no word from Claude'], time: 'for ' + pbAgentClock(age) };
+        const saved = Math.max(0, pbAgentTotal(c) - (PB_AGENT.base || 0));
+        const writing = saved > 0 && now - PB_AGENT.last < PB_AGENT_WRITING_S * 1000;
+        return { mode: 'working', verb: writing ? 'Writing' : 'Thinking', step: saved ? name : step, menu, parts: saved ? [saved + ' saved'] : [],
+                 time: a.turn === null ? '' : pbAgentClock(a.turn + (now - a.rx) / 1000) };
+      }
+      const d = PB_LIVE.drafts;
+      if (a.gate) return { mode: 'turn', verb: 'Your turn', step, menu, parts: [`${a.gate.id} — ${a.gate.ask} — reply in Claude Code`], time: 'Waiting ' + pbAgentClock(age) };
+      if (d) return { mode: 'turn', verb: 'Your turn', step, menu, parts: [`${d} draft${d > 1 ? 's' : ''} to approve — reply in Claude Code`], time: 'Waiting ' + pbAgentClock(age) };
+      const took = a.turn === null ? null : a.turn - a.age;          // at − since: how long the turn ran
+      return { mode: 'done', verb: 'Your turn', step, menu, parts: ['Claude finished this turn'], time: took === null ? '' : 'in ' + pbAgentClock(took) };
+    }
+    function pbAgentPaint() {
+      const el = document.getElementById('pb-agent');
+      if (!el) return;
+      const v = pbAgentView(), was = !el.hidden;
+      document.documentElement.classList.toggle('pb-has-agent', !!v);
+      if (!v) {
+        clearInterval(PB_AGENT.tick); PB_AGENT.tick = null;
+        if (was) { pbProgClose(false); el.hidden = true; el.innerHTML = ''; PB_AGENT.said = ''; pbAgentRefit(); }
+        return;
+      }
+      if (!el.firstChild) {
+        // the step is a button (the steps menu) before the first screen, plain words after; the rest is rebuilt each tick
+        el.innerHTML = '<span class="pb-agent-glyph" aria-hidden="true"><i></i><i></i><i></i></span>'
+          + '<strong class="pb-agent-verb" aria-hidden="true"></strong><span class="pb-agent-sep pb-agent-sep--step" aria-hidden="true">·</span>'
+          + '<span class="pb-agent-step pb-agent-steptxt" aria-hidden="true"></span>' + pbProgHTML()
+          + '<span class="pb-agent-line" aria-hidden="true"></span>'
+          + '<span class="pb-agent-time" aria-hidden="true"></span><span class="pb-agent-beam" aria-hidden="true"></span><span class="pb-agent-sr" role="status"></span>';
+      }
+      el.dataset.mode = v.mode;
+      el.querySelector('.pb-agent-verb').textContent = v.verb;
+      el.querySelector('.pb-agent-sep--step').hidden = !v.step;
+      const btn = v.step && v.menu, wrap = el.querySelector('#pb-prog-wrap'), txt = el.querySelector('.pb-agent-steptxt');
+      txt.hidden = !(v.step && !v.menu); txt.textContent = v.step && !v.menu ? v.step : '';
+      if (!btn) pbProgClose(false);
+      wrap.hidden = !btn;
+      if (btn) {
+        const b = wrap.querySelector('#pb-prog');
+        b.querySelector('.pb-agent-step').textContent = v.step;
+        b.setAttribute('aria-label', pbProgLabel());
+      }
+      el.querySelector('.pb-agent-line').innerHTML = v.parts.map(p =>
+        `<span class="pb-agent-sep">·</span><span class="${/ saved$/.test(p) ? 'pb-agent-n' : 'pb-agent-detail'}">${pbEscape(p)}</span>`).join('');
+      el.querySelector('.pb-agent-time').textContent = v.time;
+      // the live region speaks when the state changes, never on a clock tick or a count
+      const said = v.mode === 'working' ? `Claude is ${v.verb.toLowerCase()}${v.step ? ': ' + v.step : ''}` : `${v.verb}${v.step ? ', ' + v.step : ''}: ${v.parts.join(' ')}`;
+      if (said !== PB_AGENT.said) { el.querySelector('.pb-agent-sr').textContent = said; PB_AGENT.said = said; }
+      if (!was) {
+        el.hidden = false;
+        el.classList.remove('is-enter'); void el.offsetWidth; el.classList.add('is-enter');
+        pbAgentRefit();
+      }
+      if (!PB_AGENT.tick) PB_AGENT.tick = setInterval(pbAgentPaint, 1000);
+    }
+    /* The strip takes a row from every full-height page (--pb-top): let whatever fits itself to the stage refit. */
+    function pbAgentRefit() { requestAnimationFrame(() => window.dispatchEvent(new Event('resize'))); }
 
     /* ---- 5. sitemap nodes, one at a time ------------------------------------------------------- */
     const pbDraftChip = () => '<span class="lg-chip pb-draft-chip" title="Not approved yet — shown while the work is still being written">Draft</span>';
@@ -12880,7 +13373,7 @@
       const name = meta.name || 'Untitled product', objective = (meta.overview || {}).objectives || '';
       const mine = sel ? jobs.filter(j => (j.screens || []).includes(sel.id)) : jobs;
       const side = screens.length
-        ? screens.map(s => `<button type="button" class="pb-draft-nav pb-draft-row${sel && s.id === sel.id ? ' is-on' : ''}" style="padding-left:${12 + s.depth * 14}px"
+        ? screens.map(s => `<button type="button" class="pb-draft-nav pb-draft-row${sel && s.id === sel.id ? ' is-on' : ''}" style="padding-left:${16 + s.depth * 14}px"
               data-draft-screen="${escapeHtmlAttr(s.id)}" onclick="pbDraftGo(this.dataset.draftScreen)">${pbEscape(s.name)}${s.draft ? ' ' + pbDraftChip() : ''}</button>`).join('')
         : `<p class="pb-draft-none">No screens planned yet.</p>`;
       const jobsHTML = mine.length

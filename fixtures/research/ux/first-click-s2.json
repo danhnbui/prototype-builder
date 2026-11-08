@@ -1,0 +1,20 @@
+{
+  "format": "pb-session", "version": 1, "study": "rs-first-click", "method": "first-click",
+  "sessionId": "s-fc02b2", "participant": "P02", "mode": "unmoderated", "pilot": false,
+  "startedAt": "2026-03-04T13:00:00Z", "endedAt": "2026-03-04T13:00:25Z", "durationMs": 25000,
+  "env": {"viewport": [429, 926], "device": "mobile", "sink": "download", "shell": "test"},
+  "consent": {"session": true, "recording": false, "at": "2026-03-04T13:00:00Z", "textSha256": "4c02c997a8356d65384130210b65a57ed7c5c10849e174db506981cd891bebdb"},
+  "config": {"tasks": [{"id": "fc1", "text": "TEST DATA. Where do you tap?", "click": {"screen": "pay"}}]},
+  "tasks": [
+    {"id": "fc1", "startT": 1000, "endT": 6100, "outcome": "fail", "outcomeSource": "criteria", "criteriaT": null, "selfReport": null, "assisted": false, "answers": {}}],
+  "answers": {},
+  "result": {"first-click": {"fc1": {"x": 0.2, "y": 0.15, "target": "pay > header", "hit": false, "ms": 4100}}},
+  "events": [
+    {"t": 0, "type": "session-start", "task": null, "screen": "pay"},
+    {"t": 100, "type": "consent", "task": null, "screen": "pay", "recording": false},
+    {"t": 1000, "type": "task-start", "task": "fc1", "screen": "pay"},
+    {"t": 5100, "type": "fc-click", "task": "fc1", "screen": "pay", "x": 0.2, "y": 0.15, "hit": false, "target": "pay > header"},
+    {"t": 6100, "type": "task-end", "task": "fc1", "screen": "pay", "outcome": "fail", "source": "criteria"},
+    {"t": 25000, "type": "session-end", "task": null, "screen": "pay"}],
+  "media": []
+}

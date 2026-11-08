@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 explore_tool.py — /pb:explore's executable half: one manifest, one compare page on the preview
-server, a scoring gate that blocks, and a promote that refuses a stale or mixed pick.
+server, optional scores that never block a promote, and a promote that refuses a stale or mixed pick.
 
 The failure this pins: an exploration that ended as three loose preview.html files on a second
 port, with no compare page and no scores, and a pick that overwrote a body another session had
@@ -11,7 +11,7 @@ edited in the meantime. Each assertion below is one of those, made impossible:
   * check fails an option that changes nothing, and passes once it renders
   * /explore/<target> and /explore/<target>/<slot> are served by serve.py — same port
   * the shell gets window.PB_EXPLORE, so Sandbox → Explore lists the options
-  * POST scores validates and writes the manifest; gate passes only when every cell is scored — and is
+  * POST scores validates and writes the manifest; gate only reports the unscored cells (never blocks) — and is
     held to the same doors as POST /api/meta: a foreign or missing Origin, another port or scheme, a
     non-loopback Host → 403 with nothing written; a bad Content-Length, a body over the limit, JSON nested
     until the parser gives up, a stalled body, a non-object → 400 with a message
@@ -582,8 +582,8 @@ def main():
             partial = {"hierarchy:opt-1": 4, "hierarchy:opt-2": 3}
             code, res = post(base + "/__pb_explore/card/scores", {"scores": partial})
             check(code == 200 and res["ok"] and len(res["missing"]) == 18, "a valid partial save lands; 18 cells remain")
-            check(explore.main(["--registry", reg_path, "gate", "card"]) == explore.EXIT_FAIL,
-                  "the gate fails while cells are unscored")
+            check(explore.main(["--registry", reg_path, "gate", "card"]) == explore.EXIT_OK,
+                  "gate reports unscored cells but does not block (scores are optional)")
             full = {"%s:%s" % (c["id"], s): (4 if s == "opt-2" else 3)
                     for c in explore.DEFAULT_RUBRIC for s in ("opt-1", "opt-2")}
             code, res = post(base + "/__pb_explore/card/scores",
@@ -593,7 +593,7 @@ def main():
         finally:
             httpd.shutdown()
             httpd.server_close()
-        check(explore.main(["--registry", reg_path, "gate", "card"]) == explore.EXIT_OK, "the gate passes once every cell is scored")
+        check(explore.main(["--registry", reg_path, "gate", "card"]) == explore.EXIT_OK, "gate is still fine once every cell is scored")
 
         print("promote")
         try:
@@ -657,7 +657,7 @@ def main():
     if FAIL:
         print("\n✗ %d failure(s)" % len(FAIL))
         sys.exit(1)
-    print("\n✓ /pb:explore: one manifest, one compare page on the preview server, a real gate, a safe promote")
+    print("\n✓ /pb:explore: one manifest, one compare page on the preview server, scores that stay optional, a safe promote")
 
 
 if __name__ == "__main__":

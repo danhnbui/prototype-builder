@@ -44,11 +44,11 @@ flags would do:
 - **open explore rounds** — each with its age; `STALE` past 3 days. Never touched by this command.
   A round is closed with `explore.py promote <id> <slot>` or `explore.py reject <id>`
 - **closed explore rounds**, **`memory/backups/`**, **`.pb-backups/`**, **`memory/.pb-backups/`**, **`.pb-patches/` task folders** — kept unless a keep flag says otherwise
-- **`memory/decisions.md`** — its size against the 500 KB rotation threshold. Rotated only by
-  `--apply --rotate-decisions`, and only does anything past the threshold
+- **`memory/decisions.md`** — its size against the 500 KB rotation threshold. Rotated automatically
+  and losslessly past the threshold by `housekeep.py` (session start, and after an edit of the file); `--apply --rotate-decisions` still does it on request, and only does anything past the threshold
 - **`.claude/worktrees/`** — how many and how big. **Report only**: never deleted here, by any flag.
   If the user wants one gone, that is a `git worktree remove` they run themselves
-- **`.preview/server.log`**, **`.preview/shots/`**, **`render/_candidates/` with no round** — the always-safe set
+- **`.preview/server.log`** (also trimmed to its last 256 KB whenever the preview server starts), **`.preview/shots/`**, **`render/_candidates/` with no round** — the always-safe set
 - **preview server** — running or not. Never stopped here; `serve.py --stop` stops it
 
 Then say in a sentence what a bare `--apply` would free, and what each keep flag would free if the

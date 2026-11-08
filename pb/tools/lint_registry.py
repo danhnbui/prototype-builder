@@ -34,7 +34,19 @@ Rules (severity · default → under --strict):
   R-COMPOSE-TEXT R-COMPOSE-MATCH(composed, not declared) R-LEVEL-ORDER(composes nothing)
   R-NEST-HINT R-PROPTYPE R-RENDERSRC(both set) R-DTCG-TYPE(legacy shape)
   R-TOKENREF R-DANGER R-FLOW R-ERD                                          WARN · always
-  R-RETIRED                          meta.others / meta.tradeoffs holds data (retired, D-33,
+  R-LOGICSRC                         a component / screen whose logicSrc names a file that does
+                                     not exist (relative to the registry dir)   ERROR · always
+  R-INLINE-DATA                      a `data:` URI or base64 run over 8 KB inside a renderSrc
+                                     body, a styleSrc sheet or a runtime[] src file — it is read
+                                     by every command and compiled into prototype.html. Move it
+                                     to an asset file                           WARN → ERROR
+  R-RETIRED-DATA                     meta.others holds data (retired, D-33, but it still
+                                     works): /pb:update-version --apply (migration 0012) moves
+                                     it to memory/others.md                     WARN → ERROR
+  R-RETIRED-LIVE                     meta.others is still read by the project's own render or
+                                     runtime files: move it to a runtime/ module. ADVISORY: a
+                                     WARN in every mode, never raises the exit code
+  R-RETIRED                          meta.tradeoffs holds data (retired, D-33,
                                      but it still works). ADVISORY: a WARN in every mode,
                                      never promoted by --strict, never raises the exit code
   R-ENTRY                            meta.demo only: an entry names an unknown screen / role /
@@ -47,7 +59,7 @@ Rules (severity · default → under --strict):
                                      the matrix does not declare                      WARN → ERROR
   R-RESEARCH                         research only: a study with a bad id or status, a target
                                      the registry no longer holds, or an evidence file that is
-                                     gone. ADVISORY: research.py verify is the gate    WARN · always
+                                     gone (not a recording the hand-off withheld). ADVISORY: research.py verify is the gate    WARN · always
   R-COVERAGE                         a populated flow where an ia.jobs[] job has no story linking it
                                      through jobs[], or a story has no scenarios[]. ADVISORY:
                                      a WARN in every mode, never promoted by --strict, never
@@ -97,6 +109,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import tokens as _tok  # noqa: E402  (sibling module; the W3C DTCG token resolver)
 pbslice = importlib.import_module("slice")  # the registry write path: lock + atomic write (`import slice` shadows the builtin)
 from logic_extract import strip_comments  # noqa: E402  (quote-aware; the props scans read code, not prose)
+import others_refs as _others_refs  # noqa: E402  (which project files still read meta.others)
 import spec_parts as _parts  # noqa: E402  (anatomy parts from either sidecar shape: parts[] or schema-13 instanceOf)
 
 # Tokens the shell's runtime references by name; absence is a latent Principle-1 gap.
@@ -248,9 +261,27 @@ RETIRED_META = {
 }
 
 
-def _check_retired(add, meta):
+def _check_retired(add, meta, strict=False, base_dir=None, reg=None):
     for field, where_to in RETIRED_META.items():
         if not meta.get(field):          # absent, null, "", [], {}, 0, false: nothing to move
+            continue
+        if field == "others":
+            # Not advisory: migration 0012 moves meta.others to memory/others.md, so a project that
+            # still carries it has one command to run. It stays a WARN until --strict (the CI gate).
+            size = len(json.dumps(meta[field], ensure_ascii=False))
+            readers = _others_refs.others_readers(base_dir, reg or {})
+            if readers:
+                # Live data in a retired field: moving it would empty the prototype, so this is an
+                # advisory WARN in every mode (R-RETIRED-LIVE, ADVISORY_CODES): no --strict ERROR, exit 0. The fix is to relocate the data first.
+                add(WARN, "R-RETIRED-LIVE", "meta.others",
+                    f"meta.others ({size / 1024:.1f} KB) is read by {_others_refs.summarize(readers)} — "
+                    f"live data in a retired field; move it to a runtime/ module (registry.runtime[]) "
+                    f"and read it from there")
+                continue
+            add(ERROR if strict else WARN, "R-RETIRED-DATA", "meta.others",
+                f"meta.others holds data ({size / 1024:.1f} KB) — the field is retired (D-33) and "
+                f"registry.json is read by every command; run /pb:update-version --apply "
+                f"(migration 0012) to move it to memory/others.md")
             continue
         add(WARN, "R-RETIRED", f"meta.{field}",
             f"meta.{field} holds data — the field is retired (D-33) but still works, and nothing here "
@@ -504,6 +535,8 @@ def _check_research(add, reg, components, screens, base_dir):
         for ev in study.get("evidence") or []:
             if not isinstance(ev, dict) or ev.get("dropped"):
                 continue
+            if isinstance(ev.get("withheld"), dict) and ev["withheld"]:
+                continue        # left out of this hand-off on purpose: the row and its sha256 stay, the file is absent
             src = ev.get("file")
             if not (isinstance(src, str) and base_dir and os.path.isfile(os.path.join(base_dir, src))):
                 add(WARN, "R-RESEARCH", where, f"evidence {ev.get('id')!r} is missing on disk: {src!r}")
@@ -1174,9 +1207,14 @@ def check(reg, strict=False, base_dir=None):
                 add(compose_sev, "R-COMPOSE-MATCH", where,
                     f"declared component(s) {sorted(missing)} are not composed (pbUse) in the render body")
             if extra:
+                # A measured anatomy is not typed, so its fix is to re-measure; a child passed into
+                # another component's slot is only measured when that slot's container is marked.
+                hint = ("" if kind == "screen" or _parts.label(item) == "anatomy.parts[]" else
+                        " — re-measure (spec_measure.py); a child passed into another component's slot is"
+                        " measured once that component marks the slot's container data-part-type=\"slot\"")
                 add(WARN, "R-COMPOSE-MATCH", where,
                     f"body composes {sorted(extra)} not declared in "
-                    f"{'elements[]' if kind == 'screen' else _parts.label(item)}")
+                    f"{'elements[]' if kind == 'screen' else _parts.label(item)}{hint}")
             if rank is not None:
                 for oid in sorted(composed):
                     child = comp_by_id.get(oid)
@@ -1190,7 +1228,9 @@ def check(reg, strict=False, base_dir=None):
 
     _check_styles(add, reg.get("meta") if isinstance(reg.get("meta"), dict) else {},
                   components, screens, comp_by_id, base_dir, hex_px_sev, strict)
-    _check_retired(add, reg.get("meta") if isinstance(reg.get("meta"), dict) else {})
+    _check_retired(add, reg.get("meta") if isinstance(reg.get("meta"), dict) else {}, strict, base_dir, reg)
+    _check_logicsrc(add, components, screens, base_dir)
+    _check_inline_data(add, reg, components, screens, base_dir, ERROR if strict else WARN)
     _check_demo_model(add, reg, reg.get("meta") if isinstance(reg.get("meta"), dict) else {},
                       components, screens, base_dir, strict)
     _check_research(add, reg, components, screens, base_dir)
@@ -1521,6 +1561,69 @@ def _resolve_specs(add, reg, base_dir):
                 add(ERROR, "R-SPECSRC", where, f"specSrc is invalid JSON: {src} ({e.msg})")
 
 
+def _check_logicsrc(add, components, screens, base_dir):
+    """R-LOGICSRC: a logicSrc that names a file that is not there. Existence only — the sidecar's
+    content is logic_extract.py's; a dangling pointer is what leaves the Logic tab empty."""
+    if base_dir is None:
+        return
+    for kind, items in (("components", components), ("screens", screens)):
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            src = item.get("logicSrc")
+            if not src or not isinstance(src, str):
+                continue
+            if not os.path.isfile(os.path.normpath(os.path.join(base_dir, src))):
+                add(ERROR, "R-LOGICSRC", f"{kind}[id={item.get('id')!r}]", f"logicSrc file not found: {src}")
+
+
+# R-INLINE-DATA. A `data:` URI (base64 or percent-encoded) or a bare base64-looking run over 8 KB. The
+# URI branch ends at a quote, a closing paren, a backslash or whitespace; the bare-run branch only starts
+# at the beginning of a run (the lookbehind), which keeps the scan linear on a large file.
+INLINE_DATA_BYTES = 8 * 1024
+_INLINE_DATA = re.compile(
+    r"data:[A-Za-z0-9.+/-]+(?:;[A-Za-z0-9=.+_-]+)*,[^\s'\"`)\\]*"
+    r"|(?<![A-Za-z0-9+/])[A-Za-z0-9+/]{%d,}={0,2}" % (INLINE_DATA_BYTES + 1))
+
+
+def _check_inline_data(add, reg, components, screens, base_dir, sev):
+    """Scan every renderSrc body, styleSrc sheet and runtime[] src file once (three screens may share
+    one body). One finding per hit: file, line, size, and where the data should live instead."""
+    if base_dir is None:
+        return
+    files = {}                                  # normalised path -> (the src as written, who names it)
+    for kind, items in (("component", components), ("screen", screens)):
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            for field in ("renderSrc", "styleSrc"):
+                src = item.get(field)
+                if src and isinstance(src, str):
+                    files.setdefault(os.path.normpath(os.path.join(base_dir, src)),
+                                     (src, f"{kind} {item.get('id')!r}"))
+    runtime = reg.get("runtime")
+    for i, entry in enumerate(runtime if isinstance(runtime, list) else []):
+        src = entry.get("src") if isinstance(entry, dict) else None
+        if src and isinstance(src, str):
+            files.setdefault(os.path.normpath(os.path.join(base_dir, src)), (src, f"runtime[{i}]"))
+    for path, (src, owner) in files.items():
+        try:
+            with open(path, encoding="utf-8") as f:
+                text = f.read()
+        except (OSError, UnicodeDecodeError):
+            continue                            # a missing file is R-RENDERSRC / R-STYLESRC's finding
+        for m in _INLINE_DATA.finditer(text):
+            n = len(m.group(0))
+            if n <= INLINE_DATA_BYTES:
+                continue
+            line = text.count("\n", 0, m.start()) + 1
+            what = "data: URI" if m.group(0).startswith("data:") else "base64-looking run"
+            add(sev, "R-INLINE-DATA", f"{src}:{line}",
+                f"{n / 1024:.0f} KB {what} inline ({owner}) — over the {INLINE_DATA_BYTES // 1024} KB limit; "
+                f"move it to an asset file next to the registry and reference it by path, so registry.json, "
+                f"the body and prototype.html stay readable and small")
+
+
 def _resolve_body(add, item, where, base_dir):
     """Return the render body to scan, resolving renderSrc (v1.4 schema 4).
 
@@ -1599,7 +1702,7 @@ def _load_json(path):
 
 # Advisory codes are printed like any other finding but never move the exit code (and --strict does
 # not promote them): a project that keeps live data in a retired field must stay green in CI.
-ADVISORY_CODES = frozenset({"R-RETIRED", "R-COVERAGE", "R-CONTENT", "R-IA-NEST"})
+ADVISORY_CODES = frozenset({"R-RETIRED", "R-RETIRED-LIVE", "R-COVERAGE", "R-CONTENT", "R-IA-NEST"})
 
 
 def _report(findings, label, ok_msg):
@@ -1767,6 +1870,82 @@ def _resources(reg, path, base_dir, th, flag):
     return rank
 
 
+GENERATED_HTML = ("prototype.html", "design-system.html")
+
+
+def _git_tracked(base_dir, name):
+    """True / False when git can say whether `name` (next to the registry) is tracked, None when it
+    cannot (no git, not a work tree, a timeout). Quiet by design: this is a report row, not a gate."""
+    import subprocess
+    env = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
+    try:
+        inside = subprocess.run(["git", "rev-parse", "--is-inside-work-tree"], cwd=base_dir, env=env,
+                                capture_output=True, text=True, timeout=5)
+        if inside.returncode != 0 or inside.stdout.strip() != "true":
+            return None
+        tracked = subprocess.run(["git", "ls-files", "--error-unmatch", "--", name], cwd=base_dir, env=env,
+                                 capture_output=True, text=True, timeout=5)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    return tracked.returncode == 0
+
+
+def _size_block(reg, path, base_dir, th, flag):
+    """--report's "Where the size goes": the bytes an agent pays to open this project, by owner.
+    Prints its rows and returns the "fix first" lines it earned. ≈ tokens is bytes / 4 — an estimate."""
+    base = base_dir or "."
+    rank = []
+    reg_bytes = os.path.getsize(path) if os.path.isfile(path) else len(json.dumps(reg, ensure_ascii=False).encode("utf-8"))
+    print(f"  registry.json       {reg_bytes:9,d} bytes  ≈ {reg_bytes // 4:,d} tokens")
+    sizes = sorted(((len(json.dumps(v, ensure_ascii=False).encode("utf-8")), k) for k, v in reg.items()), reverse=True)
+    slice_total = max(1, sum(n for n, _ in sizes))
+    print("  top slices by bytes (share of the slices, compact JSON)")
+    for n, k in sizes[:5]:
+        print(f"    {k:<16s} {n:9,d} bytes  {'≈ %s tokens' % format(n // 4, ','):<20s}{n / slice_total:5.0%}")
+    if not sizes:
+        print("    (none)")
+
+    mem = os.path.join(base, "memory")
+    limit = _th(th, "memory_file_kb", 64)
+    md = []
+    if os.path.isdir(mem):
+        for name in sorted(os.listdir(mem)):
+            fp = os.path.join(mem, name)
+            if name.endswith(".md") and os.path.isfile(fp):
+                md.append((name, os.path.getsize(fp)))
+    total = sum(n for _, n in md)
+    big = sorted(((n, name) for name, n in md if n / 1024 > limit), reverse=True)
+    print(f"  memory/*.md         {len(md):5d} file(s)  {total / 1024:.0f} KB  ≈ {total // 4:,d} tokens")
+    for n, name in big:
+        print(f"    {name:<28s} {n / 1024:8.0f} KB  ≈ {n // 4:,d} tokens  ⚠ over {limit:g} KB")
+    if not big:
+        print(f"    (no file over {limit:g} KB)")
+    if big:
+        rank.append(f"{len(big)} memory file(s) over {limit:g} KB ({', '.join(name for _, name in big[:4])}; "
+                    f"≈ {sum(n for n, _ in big) // 4:,d} tokens) — an agent that reads memory/ pays for them every "
+                    f"session; split them by topic or move the history out of memory/")
+    for name, n in md:
+        if name.startswith("decisions"):
+            print(f"    {name:<28s} {n / 1024:8.0f} KB  ≈ {n // 4:,d} tokens  (decisions log)")
+
+    states = {name: _git_tracked(os.path.abspath(base), name) for name in GENERATED_HTML}
+    if all(v is None for v in states.values()):
+        print("  generated HTML tracked by git   n/a (not in a git work tree, or no git on this machine)")
+    else:
+        tracked = [name for name, v in states.items() if v]
+        for name in GENERATED_HTML:
+            if states[name] is None:
+                continue
+            size = os.path.getsize(os.path.join(base, name)) if os.path.isfile(os.path.join(base, name)) else 0
+            print(f"  {name:<19s} {'tracked' if states[name] else 'not tracked'}"
+                  + (f"  {size / 1024 / 1024:.1f} MB" if size else "") + flag(states[name]))
+        if tracked:
+            rank.append(f"{' and '.join(tracked)} {'is' if len(tracked) == 1 else 'are'} tracked by git — a derived file "
+                        f"(render.py rebuilds it) that adds its full size to every commit; add "
+                        f"{' and '.join(tracked)} to .gitignore and run: git rm --cached {' '.join(tracked)}")
+    return rank
+
+
 def report(reg, path, base_dir, findings):
     """--report (D-22): rank, never gate. Always exits 0.
 
@@ -1781,7 +1960,9 @@ def report(reg, path, base_dir, findings):
           # the resources block (clean.py's pile): how much a project may accumulate before it is ranked
           "backups_mb": 50, "backups_count": 20, "explore_open_days": 3, "explore_closed_mb": 50,
           "patches_mb": 50, "patches_count": 30,
-          "server_log_kb": 1024, "registry_key_share": 0.35, "preview_idle_min": 60}
+          "server_log_kb": 1024, "registry_key_share": 0.35, "preview_idle_min": 60,
+          # the size block: a memory/*.md file above this many KB is ranked (≈ 16k tokens)
+          "memory_file_kb": 64}
     cfg = os.path.join(base_dir or ".", "memory", "doctor.json")
     if os.path.isfile(cfg):
         try:
@@ -1849,6 +2030,13 @@ def report(reg, path, base_dir, findings):
         rotated = f"  (+{sibs} rotated sibling{'s' if sibs != 1 else ''})" if sibs else ""
         print(f"  decisions log       {d_kb:8.0f} KB{flag(d_kb > th['decisions_kb'])}{rotated}")
 
+    print("\n── where the size goes " + "─" * 37)
+    try:
+        size_rank = _size_block(reg, path, base_dir, th, flag)
+    except Exception as e:      # rank, never gate
+        size_rank = []
+        print(f"  (size unavailable: {type(e).__name__}: {e})")
+
     print("\n── resources " + "─" * 47)
     try:
         res_rank = _resources(reg, path, base_dir, th, flag)
@@ -1900,6 +2088,15 @@ def report(reg, path, base_dir, findings):
         rank.append(f"decisions log at {d_kb:.0f} KB — rotate it: "
                     f"clean.py --apply --rotate-decisions (or decisions_rotate.py memory/decisions.md --apply; "
                     f"whole entries, by date, verified lossless)")
+    if by_code.get("R-LOGICSRC"):
+        rank.append(f"{by_code['R-LOGICSRC']} R-LOGICSRC — a logicSrc points at a file that is not there; "
+                    f"point it at the real sidecar, or drop the field")
+    if by_code.get("R-INLINE-DATA"):
+        rank.append(f"{by_code['R-INLINE-DATA']} R-INLINE-DATA — over {INLINE_DATA_BYTES // 1024} KB of image data inline in a body, "
+                    f"sheet or runtime file; move each to an asset file and reference it by path")
+    if by_code.get("R-RETIRED-DATA"):
+        rank.append("R-RETIRED-DATA — meta.others still holds data: /pb:update-version --apply (migration 0012)")
+    rank.extend(size_rank)
     rank.extend(res_rank)
     for i, r in enumerate(rank, 1):
         print(f"  {i}. {r}")

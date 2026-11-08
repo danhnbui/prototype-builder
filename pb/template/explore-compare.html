@@ -193,7 +193,8 @@
     const rubric = X.rubric || [];
     const scores = Object.assign({}, X.scores || {});
     const notes = Object.assign({}, X.notes || {});
-    const verdict = Object.assign({ pick: null, why: '', taught: {} }, X.verdict || {});
+    const verdict = Object.assign({ pick: null, why: '', taught: {} },
+      typeof X.verdict === 'string' ? { why: X.verdict } : (X.verdict && typeof X.verdict === 'object' ? X.verdict : {}));
     verdict.taught = Object.assign({}, verdict.taught || {});
 
     document.title = 'Explore · ' + X.target;
@@ -352,7 +353,7 @@
       const head = `<tr><th>Criterion</th>${opts.map(o => `<th>${esc(o.slot)}</th>`).join('')}</tr>`;
       const rows = rubric.map(c => {
         const empty = opts.some(o => !Number.isInteger(scores[c.id + ':' + o.slot]));
-        return `<tr class="crit-row"><td class="crit">${esc(c.label)}${empty ? '<span class="todo" title="Not every option is scored yet"></span>' : ''}<small>${esc(c.prompt || '')}</small></td>
+        return `<tr class="crit-row"><td class="crit">${esc(c.label)}${empty ? '<span class="todo" title="Not every option is scored yet (optional)"></span>' : ''}<small>${esc(c.prompt || '')}</small></td>
           ${opts.map(o => `<td><div class="score">${[1, 2, 3, 4, 5].map(n =>
             `<button data-k="${esc(c.id + ':' + o.slot)}" data-v="${n}" aria-pressed="${scores[c.id + ':' + o.slot] === n}" aria-label="${esc(c.label)} ${esc(o.slot)} ${n}">${n}</button>`).join('')}</div></td>`).join('')}
         </tr>
@@ -362,14 +363,14 @@
       const others = opts.filter(o => o.slot !== verdict.pick);
       el.innerHTML = `
         <h2>Score each option, 1–5</h2>
-        <p class="hint">Rate every cell — the gate (explore.py gate) passes only when none is empty, and nothing is promoted before it does. Read the pattern, not the total: a row low across every option means the standard is wrong, not the options.</p>
+        <p class="hint">Scores are optional — rate what helps you decide, and promote whenever you have a pick. Read the pattern, not the total: a row low across every option means the standard is wrong, not the options.</p>
         <table>${head}${rows}${avgRow}</table>
         <div class="verdict">
           <label>Verdict
             <select id="pick"><option value="">— not decided —</option>${opts.map(o =>
               `<option value="${esc(o.slot)}" ${verdict.pick === o.slot ? 'selected' : ''}>${esc(o.slot)} · ${esc(o.label || '')}</option>`).join('')}
               <option value="none" ${verdict.pick === 'none' ? 'selected' : ''}>None of these</option></select></label>
-          <label>Why, from the scores and notes<textarea id="why">${esc(verdict.why || '')}</textarea></label>
+          <label>Why (optional, one line)<textarea id="why">${esc(verdict.why || '')}</textarea></label>
           ${others.map(o => `<label>What ${esc(o.slot)} taught (one sentence)<input data-taught="${esc(o.slot)}" value="${esc(verdict.taught[o.slot] || '')}"></label>`).join('')}
           <div><button class="btn primary" id="b-save">Save ratings</button></div>
           <p class="hint">A mixed pick ("1, but with 2's header") is not a verdict: say so in Why, and it becomes its own option, built and rated beside the plain pick before anything goes live.</p>
@@ -379,8 +380,8 @@
     function updateStatus(missing, msg, cls) {
       const left = missing != null ? missing : rubric.length * opts.length - Object.keys(scores).filter(k => Number.isInteger(scores[k])).length;
       const s = $('#status');
-      s.className = 'status ' + (cls || (left ? 'warn' : 'ok'));
-      s.textContent = msg || (left ? `${left} cell${left > 1 ? 's' : ''} unscored` : 'Every cell scored');
+      s.className = 'status ' + (cls == null ? (left ? '' : 'ok') : cls);
+      s.textContent = msg || (left ? `${left} cell${left > 1 ? 's' : ''} unscored (optional)` : 'Every cell scored');
     }
 
     let timer = null;
@@ -395,7 +396,7 @@
           });
           const j = await r.json();
           if (!j.ok) return updateStatus(null, 'Not saved — ' + j.error, 'warn');
-          updateStatus(j.missing.length, j.missing.length ? `Saved · ${j.missing.length} cell${j.missing.length > 1 ? 's' : ''} unscored` : 'Saved · every cell scored', j.missing.length ? 'warn' : 'ok');
+          updateStatus(j.missing.length, j.missing.length ? `Saved · ${j.missing.length} cell${j.missing.length > 1 ? 's' : ''} unscored (optional)` : 'Saved · every cell scored', j.missing.length ? '' : 'ok');
         } catch (e) { updateStatus(null, 'Not saved — is /pb:preview still running?', 'warn'); }
       }, now ? 0 : 500);
     }

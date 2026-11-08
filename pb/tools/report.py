@@ -57,6 +57,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 
 import decisions_rotate as _rot  # noqa: E402  (sibling; the heading + date regexes and the threshold)
+from explore import HEADER_NAMES as _HEADER_NAMES  # noqa: E402  (sibling; the one pattern for a candidate's header)
 
 PLUGIN = os.path.dirname(HERE)
 COMMANDS_DIR = os.path.join(PLUGIN, "commands")
@@ -182,7 +183,6 @@ _EMPTY = {"", "—", "-", "–", "none", "n/a", "na", "(none)", "nil", "tbd"}
 _SUB_BULLET = re.compile(r"^\s+[-*+]\s+\S")
 _DATE_ANY = re.compile(r"20\d\d-\d\d-\d\d")
 _JS_TOKEN = re.compile(r"//[^\n]*|/\*.*?(?:\*/|\Z)|\"(?:\\.|[^\"\\\n])*\"|'(?:\\.|[^'\\\n])*'|`(?:\\.|[^`\\])*`", re.S)
-_HEADER_NAMES = re.compile(r"\bCANDIDATE\b|\bopt-\d+\b|registry\.opt-\d+")
 _EXPLORE_WORD = re.compile(r"\bexplor(?:e|ation|ed|ing)\b|/pb:explore", re.I)
 _EXPLORE_NONE = re.compile(r"\breject(?:ed|s)?\b|none of the options|nothing (?:was )?(?:chosen|picked|promoted)|no option", re.I)
 _STOP = set("""a an the of to in on for and or is are be by with from at as it its into via vs no not
@@ -669,7 +669,9 @@ def facts_mentions(project):
 def _manifest_row(path, man):
     opts = [o for o in man.get("options") or [] if isinstance(o, dict)]
     rubric = [c for c in man.get("rubric") or [] if isinstance(c, dict)]
-    scores = man.get("scores") or {}
+    scores = man.get("scores") if isinstance(man.get("scores"), dict) else {}
+    verdict = man.get("verdict")
+    verdict = verdict if isinstance(verdict, dict) else {}      # a hand-edit can leave a bare string here
     cells = len(opts) * len(rubric)
     scored = 0
     avg = {}
@@ -684,7 +686,7 @@ def _manifest_row(path, man):
             avg[o.get("slot")] = round(sum(vals) / float(len(vals)), 2)
     return {"file": path, "target": man.get("target"), "mode": man.get("mode", "target"),
             "status": man.get("status", "open"), "options": len(opts), "cells": cells,
-            "scored": scored, "averages": avg, "pick": (man.get("verdict") or {}).get("pick"),
+            "scored": scored, "averages": avg, "pick": verdict.get("pick"),
             "createdAt": man.get("createdAt"), "closedAt": man.get("closedAt")}
 
 
@@ -706,7 +708,11 @@ def facts_explore(project, since, entries):
                 rounds.append({"file": _rel(project, p), "status": "unreadable"})
                 continue
             if isinstance(man, dict):
-                rounds.append(_manifest_row(_rel(project, p), man))
+                try:
+                    rounds.append(_manifest_row(_rel(project, p), man))
+                except Exception as e:  # noqa: BLE001 — one bad manifest is a row, never the end of the report
+                    rounds.append({"id": man.get("target") or os.path.splitext(f)[0], "file": _rel(project, p),
+                                   "status": "unreadable", "error": "%s: %s" % (type(e).__name__, e)})
     if since:
         rounds = [r for r in rounds if not r.get("createdAt") or str(r["createdAt"])[:10] >= since]
     open_targets = {r.get("target") for r in rounds if r.get("status") == "open"}
@@ -755,6 +761,15 @@ def facts_backups(project, since):
     if since:
         snaps = [s for s in snaps if not s["date"] or s["date"] >= since]
     pre = [s for s in snaps if re.search(r"(?:^|-)pre-", s["name"])]
+    # A rollback saves what is on disk to .pb-backups/pre-rollback.<ts>/ — a pre-* write as well.
+    # They are counted here, not as memory/backups snapshots (the totals above stay as they were).
+    pbd = os.path.join(project, ".pb-backups")
+    if os.path.isdir(pbd):
+        for name in sorted(os.listdir(pbd)):
+            if name.startswith("pre-rollback.") and os.path.isdir(os.path.join(pbd, name)):
+                date = _name_date(name)
+                if not since or not date or date >= since:
+                    pre.append({"name": ".pb-backups/" + name, "date": date})
     dates = sorted(s["date"] for s in pre if s["date"])
     span = None
     if dates:

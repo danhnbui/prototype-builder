@@ -98,8 +98,9 @@ are high or the alternatives score close — pick the rows relevant to this brie
 Collect the result **on the compare page** (`/explore/<id>`), never as a table typed into chat: it
 holds the criteria × alternatives grid, a note per criterion and the **Average** row, and saves into
 `memory/explore/<id>.json`. "Copy as markdown" gives the table for a write-up; unscored cells are `–`.
-**Scoring is a gate** — `explore.py gate <id>` exits 0 only when every cell is scored, and no verdict
-is stated (and nothing promoted) before it does.
+**Scoring is optional** — `explore.py gate <id>` only reports the unscored cells and always exits 0. A
+verdict can be stated and a pick promoted with every cell empty; `promote` records the pick and an
+optional one-line why (`--why`), plus whatever scores exist. Where scores are given, read the pattern (§5).
 
 ## 5 · Turning grades into changes
 

@@ -25,7 +25,7 @@ env:
   BROWSER_ONLY: >-
     e2e_smoke test_inspect test_sandbox verbs_browser sandbox_shell
     chrome_states handler_escape ia_view responsive spec_measure ui_primitives sandbox_demo_model
-    live_fill research_view
+    live_fill research_view research_session_browser
   # A stdlib half that passes in unit with the browser half skipped; e2e runs them again, whole.
   BROWSER_HALF: >-
     chrome_foundation logic_blocks r5_ds_site tc_shapes tradeoff_rules test_run_reuse shot_tool
@@ -109,6 +109,8 @@ jobs:
     timeout-minutes: 12
     env:
       PLAYWRIGHT_VERSION: "1.55.0"
+      # The research recording test must use a real screen capture here, never its canvas stub.
+      PB_REQUIRE_REAL_CAPTURE: "1"
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0

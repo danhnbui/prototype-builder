@@ -1,5 +1,5 @@
 ---
-description: Explore alternatives. With a component/screen id, write a one-screen direction (job, constraints, locked/free axes, N one-line bets) and get it approved at G-DIRECTION, then write one execution plan per bet and dispatch N pb-explorer agents in parallel; show the results side by side on one compare page at /explore/<id> on the /pb:preview server, and let the user score them against a rubric before anything is promoted (registry untouched). Every stop that shows options ends with that page's browser URL, printed and checked by `explore.py link` — never a file path. With a goal sentence, run the gated discovery pipeline — clarify jobs + IA → discover → diverge (the same direction → plans → executors) → design → build+test → update the documents — stopping at every human gate (G-JTBD and G-IA inside /pb:clarify, G-DIRECTION, G-DESIGN) before anything is written.
+description: Explore alternatives. With a component/screen id, write a one-screen direction (job, constraints, locked/free axes, N one-line bets) and get it approved at G-DIRECTION, then write one execution plan per bet and dispatch N pb-explorer agents in parallel; show the results side by side on one compare page at /explore/<id> on the /pb:preview server, to compare (scores optional) before one is promoted (registry untouched). Every stop that shows options ends with that page's browser URL, printed and checked by `explore.py link` — never a file path. With a goal sentence, run the gated discovery pipeline — clarify jobs + IA → discover → diverge (the same direction → plans → executors) → design → build+test → update the documents — stopping at every human gate (G-JTBD and G-IA inside /pb:clarify, G-DIRECTION, G-DESIGN) before anything is written.
 ---
 
 # /pb:explore <id | "goal"> [--options N] [--goal] [--target]
@@ -52,7 +52,7 @@ pick is promoted; everything else is thrown away. Writes no registry slice and n
 
 **The tool does the parts that must not be skipped.** `explore.py` (below, `$T` =
 `"${CLAUDE_PLUGIN_ROOT}/tools/explore.py" --registry registry.json`) owns the manifest, the candidate
-tree, the render check, the scoring gate, the promote, and the link. The `/pb:preview` server shows the
+tree, the render check, the score report, the promote, and the link. The `/pb:preview` server shows the
 result at `/explore/<target>` — **the same server and port as the prototype**. There is no other way to
 present an exploration: no hand-written preview or compare HTML, no second server, no score table in chat.
 A subject the tool cannot render as a registry body is a **page round** (`--pages`, below), not an
@@ -112,7 +112,9 @@ something genuinely different (`think-direction` §3 says what to do with fewer 
 **STOP.** Present the brief itself, not a summary of it: the jobs, the constraints, the locked and free
 axes, and the N bets. Ask for approval, edits, or rejection. Silence is not approval. An edit changes
 the brief and **re-opens A1a** — the gate is asked again on the new text; a rejection returns to A1a.
-No plan exists yet, and none is ever shown here: **the user approves a direction**.
+No plan exists yet, and none is ever shown here: **the user approves a direction**. Make this the last tool call
+before the message, so the preview's strip names the gate (it prints nothing; put the real count in):
+`python3 "${CLAUDE_PLUGIN_ROOT}/hooks/activity.py" --gate G-DIRECTION "approve the direction and <N> bets"`
 
 ### A1c · Plans (coordinator, after approval)
 Write one `memory/explore/<id>/plans/<slot>.md` per approved bet (`think-direction` §5b) — the whole
@@ -178,32 +180,35 @@ Swap in or add **1–2 criteria** for what this target's intent said mattered (t
 edit `rubric[]` in the manifest before sharing the link). Never ask "which do you like?" — a preference cannot be acted on, a
 pattern of scores can.
 
-## A4 · The scoring gate, then the verdict
+## A4 · The scores (optional), then the verdict
 ```
 python3 $T gate <id>
 ```
-Exit 0 only when every criterion × option has a score. **No verdict before the gate passes.** While
-it fails, you are waiting on the user: the message that says so repeats the URL from `$T link <id>`.
-The user scores the options, not you or a grader you dispatched. A grader's sheet may go in a note,
-but it never fills the cells. Once the gate passes,
+Reports which criterion × option cells have no score, and the averages; it always exits 0. **Scores are
+optional** — the user may rate some cells, all of them, or none, and a pick is never held back for
+missing ones. You are waiting on the user for the *pick*, not for scores: the message that says so
+repeats the URL from `$T link <id>`. The user scores the options, not you or a grader you dispatched. A
+grader's sheet may go in a note, but it never fills the cells. When scores exist,
 read the **pattern**, not the total (`ref-design-compare` §5) and state the verdict from the scores
 and notes — naming the winner, noting that two options may legitimately lock for different contexts,
 and giving **one sentence per rejected option on what it taught** (the page has a field for each).
-End that message with the link again, since the scores behind the verdict are on that page. Do not
+End that message with the link again, since any scores behind the verdict are on that page. Do not
 decide for them.
 
 **A mixed pick** ("option 1, but improve it like option 2") is **not** a pick. Add it as its own slot —
 `python3 $T slot <id> opt-merge --label "…"` — build it, `check` it, and have it rated **beside the plain
-pick**. Only a single, rated slot is promoted.
+pick**. Only a single slot is promoted.
 
 ## A5 · Promote the pick, or reject
 ```
-python3 $T promote <id> <slot>        # the pick goes live
+python3 $T promote <id> <slot> [--why "<one line>"]   # the pick goes live
 python3 $T reject <id>                # nothing chosen
 ```
-`promote` refuses unless the gate passes, and refuses if any live body changed since `init` (another
-session edited it — rebase onto the current file; `--force` only on the user's say-so). It backs the
-live bodies up to `memory/backups/explore-<id>-<stamp>/`, copies the overlay over them, deletes the
+`promote` needs no scores: it records the pick, and the optional one-line `--why` (stored as `verdict.why`),
+in the archived manifest, along with any scores that were given. It refuses a mixed pick, and refuses if any live body
+changed since `init` (another session edited it — rebase onto the current file; `--force` only on the
+user's say-so). It backs the live bodies up to `memory/backups/explore-<id>-<stamp>/`, copies the overlay over
+them **minus the candidate-header comment lines** (`CANDIDATE`, `opt-N`) at the top of each body, deletes the
 scratch tree and archives the manifest under `memory/explore/_closed/` — the brief and the round's
 folder (`plans/`, `shots/`) move beside it. `renderFn` / `renderSrc` are unchanged, so `registry.json`
 needs **no** edit; a running `/pb:preview` reloads on its own.
@@ -258,7 +263,7 @@ genuinely new:
 - **B4a · Direction** — **`think-direction`** writes the brief: the approved jobs and their IA, B3's
   findings as constraints, the behaviour each approach must keep, and N one-line bets whose free axes
   differ on ≥ 4 of 7 (the **`ref-design-compare`** contract applies here too).
-- **B4b · ▛ G-DIRECTION — human gate ▟** — exactly as A1b: the brief, never a plan; silence is not
+- **B4b · ▛ G-DIRECTION — human gate ▟** — exactly as A1b, its activity-strip line included: the brief, never a plan; silence is not
   approval; an edit re-opens B4a.
 - **B4c · Plans** — one `plans/<slot>.md` per approved bet (`think-direction` §5b), anti-brief
   included, naming the one file its executor writes: `memory/explore/<goal-id>/<slot>.approach.md`.
@@ -268,7 +273,7 @@ genuinely new:
   its slot folder instead and builds its page there. The coordinator fills `label`, `bet` and `axes`.
 
 The approaches are **rated by the user on the same compare page**: run `python3 $T link <goal-id> --open`
-and put the URL it prints in the message. They pass the same `gate` before one is recommended. Where
+and put the URL it prints in the message. Scores are optional here too; recommend one once the user has said what they think. Where
 a target already exists and the question is form rather than approach, use **Mode A** on it instead
 of re-deriving it here.
 
@@ -285,7 +290,9 @@ Turn the chosen approach into `memory/tasks.md`: per task **acceptance · skill 
 run usually ends for now, so the message **ends with the compare page's URL** (`python3 $T link
 <goal-id>`). That is where the user checks the pick against its scores and the options it beat. Keep
 the round open until G-DESIGN is approved, so the link still works. After approval, a page round is
-closed with `promote <goal-id> <slot>`.
+closed with `promote <goal-id> <slot>`. Make the gate's strip line the last tool call before the message (it
+prints nothing; put the real count in):
+`python3 "${CLAUDE_PLUGIN_ROOT}/hooks/activity.py" --gate G-DESIGN "keep one of <N> options"`
 
 ## B7 · Build + test — `/pb:orchestrate` → `/pb:test` · `pb-tester` → `pb-reviewer`
 Dispatch the plan in dependency waves. `/pb:orchestrate` already gates each wave on `pb-tester` +
@@ -307,7 +314,7 @@ entry in `memory/decisions.md` recording both gate approvals · the project's de
 - NEVER end a message that shows options, asks for scores, states a verdict or stops at G-DESIGN
   without the URL `explore.py link <id>` printed, on its own line. NEVER offer a file path, a `file://`
   URL, an editor link or a hand-built page in its place. If `link` fails, the link is blocked: say so.
-- NEVER present a verdict before `explore.py gate` passes, and NEVER promote without it.
+- NEVER wait on scores before presenting a verdict or promoting — they are optional. NEVER promote before the user has picked.
 - NEVER promote a mixed pick — it becomes its own slot and is rated first.
 - NEVER `--force` a promote over a concurrent edit without the user saying so.
 - NEVER edit `registry.json` in Mode A — it diverges bodies only; the registry stays clean.

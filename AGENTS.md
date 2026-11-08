@@ -38,6 +38,7 @@ This file is the *how you must work*, release-independent.
   5. Say what a user must do by hand in a `### Upgrading` subsection of the release's
      changelog section. The release's migration guide carries it (§4).
 - Never remove or repurpose an existing field in place. Add, then deprecate later.
+- **A hook may print `updatedInput` or `ask`, never `allow` or `deny`.** `allow` would skip the user's permission prompt and `deny` would block a call; `pb/hooks/route.py` does neither, and `tests/hook_route.py` pins it. Any new hook keeps to the same two outputs.
 
 ## 4. One release per branch, one PR, human merges
 
@@ -87,7 +88,7 @@ This file is the *how you must work*, release-independent.
 
   ```
   python3 -m venv .venv && .venv/bin/pip install playwright && .venv/bin/playwright install chromium
-  for f in tests/*.py; do .venv/bin/python "$f"; done     # 32 pass / 0 skip / 0 fail
+  for f in tests/*.py; do .venv/bin/python "$f"; done     # every file passes: 71 files today, 0 skip / 0 fail
   ```
 
 ## 8. The user's stated goal is the contract

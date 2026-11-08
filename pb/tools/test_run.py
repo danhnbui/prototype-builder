@@ -968,19 +968,58 @@ def _scenario_inputs(test, body_hash):
     return {sid: body_hash[sid] for sid in _scenario_screens(test) if sid in body_hash}
 
 
-def run_functional(reg_path, story_filter, json_out, attach=None, isolated=False):
-    code, payload = _functional(reg_path, story_filter, _Session(reg_path, attach, isolated))
+def _scenario_is_stale(sc, test, body_hash):
+    """True when the scenario has no result, its last result failed or was blocked (unchanged inputs
+    do not make that verdict current: it is the thing to re-run), or its recorded input digests
+    differ from the current ones for any screen it touches (the same test report.py and the shell
+    apply). With no digests available nothing can be compared, so only a missing, failed or blocked
+    result counts."""
+    lr = sc.get("lastResult")
+    if not isinstance(lr, dict):
+        return True
+    if str(lr.get("status") or lr.get("result") or "").strip().lower() in ("fail", "blocked"):
+        return True
+    if not body_hash:
+        return False
+    now = _scenario_inputs(test, body_hash)
+    recorded = lr.get("inputs")
+    if not isinstance(recorded, dict) or not recorded:
+        return bool(now)                        # verdict predates input digests: re-run records them
+    return any(now.get(k) not in (None, v) for k, v in recorded.items()) or any(k not in recorded for k in now)
+
+
+def select_scenarios(reg, body_hash, story_filter=None, stale=False, screen=None):
+    """Pure selection for --functional: [(story, scenario, test)] after --story, --screen <id>
+    (scenarios touching that screen) and --stale (no result, last result fail or blocked, or an
+    input digest changed)."""
+    out = []
+    for (story, sc, test) in _iter_test_scenarios(reg, story_filter):
+        if screen and screen not in _scenario_screens(test):
+            continue
+        if stale and not _scenario_is_stale(sc, test, body_hash):
+            continue
+        out.append((story, sc, test))
+    return out
+
+
+def run_functional(reg_path, story_filter, json_out, attach=None, isolated=False, stale=False, screen=None):
+    code, payload = _functional(reg_path, story_filter, _Session(reg_path, attach, isolated),
+                                stale=stale, screen=screen)
     if json_out:
         _write_json(json_out, payload)
     sys.exit(code)
 
 
-def _functional(reg_path, story_filter, sess):
+def _functional(reg_path, story_filter, sess, stale=False, screen=None):
     """--functional as a function: (exit code, the JSON this mode writes). `sess` is the _Session
     that supplies the page — its own, or the one `--all` shares."""
     reg = _load_json(reg_path)
     body_hash = _body_hashes(reg_path)
-    tests = list(_iter_test_scenarios(reg, story_filter))
+    tests = select_scenarios(reg, body_hash, story_filter, stale, screen)
+    if not tests and (stale or screen) and list(_iter_test_scenarios(reg, story_filter)):
+        note = "0 scenarios selected (nothing stale)"       # no browser is launched
+        print(note)
+        return 0, {"mode": "functional", "scenarios": [], "summary": note}
     if not tests:
         note = ("no scenarios match --story %r" % story_filter) if story_filter else "no functional test blocks"
         return (_verdict([], "test_run.py --functional", f"{note} — {reg_path}"),
@@ -1689,13 +1728,13 @@ def run_explore(reg_path, json_out, attach=None):
 # ─────────────────────────────────────────────────────────────────────────────
 # Entry
 # ─────────────────────────────────────────────────────────────────────────────
-def run_all(reg_path, story_filter, json_out, attach=None, isolated=False):
+def run_all(reg_path, story_filter, json_out, attach=None, isolated=False, stale=False, screen=None):
     """--all: functional, then roles, then server — in ONE process, over one transport and ONE
     browser launch (a fresh browser context per mode, so no state leaks from one into the next).
     Each mode prints its findings under its own header and keeps its own exit code; the run exits
     with the worst of them, and with 3 the moment one cannot run at all."""
     sess = _SharedSession(reg_path, attach, isolated)
-    modes = (("functional", lambda: _functional(reg_path, story_filter, sess)),
+    modes = (("functional", lambda: _functional(reg_path, story_filter, sess, stale, screen)),
              ("roles", lambda: _roles(reg_path, sess)),
              ("server", lambda: _server(reg_path, sess)))
     codes, payloads = {}, {}
@@ -1729,6 +1768,13 @@ def run(argv=None):
                     help="functional + roles + server in one process: one transport, one browser "
                          "launch, a fresh browser context per mode; exits with the worst code")
     ap.add_argument("--story", default=None, help="limit --functional to one story (id or title)")
+    ap.add_argument("--stale", action="store_true",
+                    help="limit --functional to scenarios with no result, whose last result failed or was "
+                         "blocked, or whose recorded input digests differ from the current ones; "
+                         "none selected -> exit 0, no browser")
+    ap.add_argument("--screen", default=None, metavar="ID",
+                    help="limit --functional to scenarios that touch this screen id "
+                         "(an id that is no screen in the registry -> exit 2)")
     ap.add_argument("--json", dest="json_out", default=None, help="write a machine-readable result JSON")
     # TRANSPORT, not a mode (D-27). `--server` is and stays a MODE (server health + per-screen
     # render + reachability); repurposing it into a transport flag would be a repurpose-in-place,
@@ -1744,16 +1790,27 @@ def run(argv=None):
     args = ap.parse_args(argv)
     if args.all_modes and (args.functional or args.roles or args.server or args.explore):
         ap.error("--all runs functional, roles and server together — do not combine it with a mode flag")
+    if (args.stale or args.screen) and (args.roles or args.server or args.explore):
+        ap.error("--stale and --screen narrow --functional (or --all's functional part) only")
     if args.isolated and args.attach is not None:
         ap.error("--isolated and --attach are opposites: one boots a private preview, the other reuses a running one")
 
     reg_path = os.path.abspath(args.registry)
+    if args.screen:                     # a typo is a usage error, not "nothing stale" — checked before any browser
+        try:
+            known = _screen_ids(_load_json(reg_path))
+        except Exception:               # noqa: BLE001 — an unreadable registry is reported by the mode itself
+            known = None
+        if known is not None and args.screen not in known:
+            print("unknown screen: %s" % args.screen)
+            sys.exit(2)
     # Mode and transport are independent: any mode may be combined with --attach.
     attach = _resolve_attach(args.attach, reg_path) if args.attach is not None else None
 
     # Mode precedence: all > explore > server > roles > functional (the default).
     if args.all_modes:
-        run_all(reg_path, args.story, args.json_out, attach=attach, isolated=args.isolated)
+        run_all(reg_path, args.story, args.json_out, attach=attach, isolated=args.isolated,
+                stale=args.stale, screen=args.screen)
     elif args.explore:
         run_explore(reg_path, args.json_out, attach=attach)
     elif args.server:
@@ -1761,7 +1818,8 @@ def run(argv=None):
     elif args.roles:
         run_roles(reg_path, args.json_out, attach=attach, isolated=args.isolated)
     else:
-        run_functional(reg_path, args.story, args.json_out, attach=attach, isolated=args.isolated)
+        run_functional(reg_path, args.story, args.json_out, attach=attach, isolated=args.isolated,
+                       stale=args.stale, screen=args.screen)
 
 
 if __name__ == "__main__":

@@ -1,0 +1,30 @@
+{
+  "format": "pb-session", "version": 1, "study": "rs-pay-test", "method": "usability",
+  "sessionId": "s-ux01a1", "participant": "P01", "mode": "moderated", "pilot": false,
+  "startedAt": "2026-03-03T10:00:00Z", "endedAt": "2026-03-03T10:01:05Z", "durationMs": 65000,
+  "env": {"viewport": [429, 926], "device": "mobile", "sink": "server", "shell": "test"},
+  "consent": {"session": true, "recording": false, "at": "2026-03-03T10:00:00Z", "textSha256": "f3e4903b7749176758e4f05139b3f3c4aaef30612cbc1680126a19b9b9bbbb9b"},
+  "config": {"tasks": [
+    {"id": "t1", "text": "TEST DATA. Take the payment and finish the delivery.", "task": {"screen": "route"}},
+    {"id": "t2", "text": "TEST DATA. Find the amount to collect.", "task": {"screen": "route"}}]},
+  "tasks": [
+    {"id": "t1", "startT": 1000, "endT": 40000, "outcome": "success", "outcomeSource": "criteria", "criteriaT": 38100, "selfReport": "done", "assisted": false, "answers": {"t1-seq": 6}},
+    {"id": "t2", "startT": 43000, "endT": 60000, "outcome": "success", "outcomeSource": "self", "criteriaT": null, "selfReport": "done", "assisted": false, "answers": {"t2-seq": 6}}],
+  "answers": {"w1": "1 to 3 years", "sus-1": 4, "sus-2": 2, "sus-3": 4, "sus-4": 2, "sus-5": 4, "sus-6": 2, "sus-7": 4, "sus-8": 2, "sus-9": 4, "sus-10": 2},
+  "result": {},
+  "events": [
+    {"t": 0, "type": "session-start", "task": null, "screen": "route"},
+    {"t": 100, "type": "consent", "task": null, "screen": "route", "recording": false},
+    {"t": 1000, "type": "task-start", "task": "t1", "screen": "route"},
+    {"t": 9000, "type": "click", "task": "t1", "screen": "route", "x": 0.5, "y": 0.6, "target": "route > button", "cmp": "Button", "interactive": true, "dead": false},
+    {"t": 15000, "type": "nav", "task": "t1", "screen": "pay", "from": "route", "to": "pay", "back": false},
+    {"t": 30000, "type": "click", "task": "t1", "screen": "pay", "x": 0.5, "y": 0.9, "target": "pay > button", "cmp": "Pay button", "interactive": true, "dead": false},
+    {"t": 38000, "type": "nav", "task": "t1", "screen": "handover", "from": "pay", "to": "handover", "back": false},
+    {"t": 38100, "type": "criteria", "task": "t1", "screen": "handover", "met": true},
+    {"t": 40000, "type": "task-end", "task": "t1", "screen": "handover", "outcome": "success", "source": "criteria"},
+    {"t": 43000, "type": "task-start", "task": "t2", "screen": "route"},
+    {"t": 50000, "type": "nav", "task": "t2", "screen": "pay", "from": "route", "to": "pay", "back": false},
+    {"t": 60000, "type": "task-end", "task": "t2", "screen": "pay", "outcome": "success", "source": "self"},
+    {"t": 65000, "type": "session-end", "task": null, "screen": "pay"}],
+  "media": []
+}

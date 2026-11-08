@@ -6,20 +6,24 @@ pb/hooks/ puts the key operating rules in front of the model in any pb project, 
 written only in a command file never reached a free-form session. Checked here, with no browser:
 
   H1  hooks.json parses, declares SessionStart (startup|resume|clear|compact) and PreToolUse (Bash),
-      and every script it names exists under ${CLAUDE_PLUGIN_ROOT}/hooks/.
+      and every script it names exists under ${CLAUDE_PLUGIN_ROOT}/hooks/. (route.py and housekeep.py,
+      the fourth and fifth scripts, are checked in tests/hook_route.py and tests/hook_housekeep.py; here
+      they only have to be named and exist.)
   H2  session_rules.py in a pb-shaped folder (and in `.prototype/`) prints valid JSON whose
       additionalContext is at most 25 lines and 1,600 characters, names the canon, the three
-      tools and `--ensure`; in a non-pb folder it prints nothing. Exit 0 always.
+      tools, `--ensure`, `slice.py find|get --fields` and the subagent model rule; in a non-pb
+      folder it prints nothing. A session one folder above the registry gets it too. Exit 0 always.
   H3  bash_advice.py: table-driven positives (each names the right tool) and negatives
-      (normal commands, `json.load`, `json.dumps`, `slice.py` writes, `shot.py`); silent in a
-      non-pb folder; output is valid JSON, never carries `permissionDecision`, exit 0.
+      (normal commands, `json.load`, `json.dumps`, `slice.py` writes, `shot.py`, and the registry
+      writes route.py owns now); silent in a non-pb folder; output is valid JSON, never carries
+      `permissionDecision`, exit 0. A session one folder above the registry counts as a pb project.
   H5  browser_advice.py: names shot.py --no-png --eval and --selector inside a pb project, silent
       outside; speaks on the first call of a session and every 25th, not between; a broken counter
       folder is silent with exit 0; no permissionDecision; hooks.json matches the MCP tool names.
   H4  bad stdin, empty stdin, a missing command and a non-object payload print nothing and exit 0.
   H6  activity.py (UserPromptSubmit / PostToolUse / Stop): writes .preview/activity.json {state, at} atomically, only inside a
       pb project whose .preview/ already exists, prints nothing, ignores any other event, exits 0 on anything;
-      hooks.json declares both events (the live-fill progress item reads that file).
+      hooks.json declares both events (the preview's activity strip reads that file).
 
 Usage:  python3 tests/hook_advice.py
 Exit:   0 = pass · 1 = a failure
@@ -108,7 +112,11 @@ if cfg:
             for a in h.get("args", []):
                 if a.startswith("${CLAUDE_PLUGIN_ROOT}/"):
                     named.append(a.replace("${CLAUDE_PLUGIN_ROOT}/", ""))
-    check(len(named) == 3, "hooks.json names exactly three scripts (%s)" % ", ".join(named))
+    check(sorted(named) == ["hooks/bash_advice.py", "hooks/browser_advice.py", "hooks/housekeep.py",
+                            "hooks/route.py", "hooks/session_rules.py"],
+          "SessionStart + PreToolUse name exactly five scripts (%s)" % ", ".join(named))
+    check(any(h.get("args", [])[-1:] == ["${CLAUDE_PLUGIN_ROOT}/hooks/housekeep.py"] for h in ss[0].get("hooks", [])),
+          "SessionStart (same matcher as session_rules) also runs housekeep.py")
     check(any(g.get("matcher") == "mcp__.*(chrome-devtools|claude-in-chrome).*" for g in pt),
           "PreToolUse has the browser MCP matcher")
     for rel in named:
@@ -145,15 +153,39 @@ with tempfile.TemporaryDirectory() as tmp:
             check(os.path.join(ROOT, "pb", "tools", tool) in ctx, "  names %s by absolute path" % tool)
         check("--ensure" in ctx and "/pb:explore" in ctx and "/pb:build" in ctx,
               "  names --ensure, /pb:explore and /pb:build")
+        check("slice.py find" in ctx and "--fields" in ctx and "subagent call sets model" in ctx,
+              "  names slice.py find|get --fields and that subagent calls set a model")
         check("permissionDecision" not in out, "  no permissionDecision")
     code, out, err = run(SESSION, "", cwd=pb_dir, env_extra={"CLAUDE_PLUGIN_ROOT": "/x/plugin"})
     ctx, _ = hook_json(out)
     check(ctx is not None and "/x/plugin/tools/serve.py" in ctx, "CLAUDE_PLUGIN_ROOT, when set, is the expanded root")
+    # A long install path is printed four times; the digest must give up whole low-rank lines, never the tail rule.
+    long_root = "/x/" + "/".join(["a-long-plugin-cache-folder"] * 4) + "/pb/3.1.0"
+    code, out, err = run(SESSION, "", cwd=pb_dir, env_extra={"CLAUDE_PLUGIN_ROOT": long_root})
+    ctx, _ = hook_json(out)
+    check(ctx is not None and len(ctx) <= 1600, "long plugin root (%d chars): still at most 1,600 characters" % len(long_root))
+    check(ctx is not None and ctx.endswith('Point changes: /pb:build.') and "--ensure" in ctx and "/pb:explore" in ctx,
+          "  the last rule (/pb:explore, /pb:build) survives whole")
+    check(ctx is not None and "kill a preview (serve.py --stop)" in ctx and os.path.join(long_root, "tools", "slice.py") in ctx,
+          "  the NEVER lines and every tool's absolute path survive")
+    check(ctx is not None and "meta.permissions" not in ctx, "  the lowest-rank line (roles, permissions) is the one dropped")
     for label, folder in (("no registry.json", plain), ("registry.json without render/ or constitution", half)):
         code, out, err = run(SESSION, "", cwd=folder)
         check(code == 0 and out == "", "non-pb folder (%s): silent, exit 0" % label)
     code, out, err = run(SESSION, "not json at all", cwd=pb_dir)
     check(code == 0 and hook_json(out)[0] is not None, "session_rules ignores stdin entirely")
+    above = os.path.join(tmp, "above")         # a session started one folder above the registry
+    make_pb(os.path.join(above, "app"), "render")
+    code, out, err = run(SESSION, "", cwd=above)
+    ctx, event = hook_json(out)
+    check(code == 0 and ctx is not None and event == "SessionStart" and os.path.join(above, "app") in ctx,
+          "a session one folder above the registry gets the digest, naming that project")
+    make_pb(os.path.join(above, "app2", ".prototype"), "render")
+    code, out, err = run(SESSION, "", cwd=os.path.join(above, "app2"))
+    check(code == 0 and hook_json(out)[0] is not None, "  and a child's .prototype/ is found through bash_advice too")
+    os.makedirs(os.path.join(tmp, "above-empty", "x"))
+    code, out, err = run(SESSION, "", cwd=os.path.join(tmp, "above-empty"))
+    check(code == 0 and out == "", "a folder above no registry stays silent")
 
     # ------------------------------------------------------------ H3
     print("H3 · bash_advice.py")
@@ -171,13 +203,6 @@ with tempfile.TemporaryDirectory() as tmp:
         ("kill $(lsof -ti :8000)", "--stop"),
         ("lsof -ti:8000 | xargs kill -9", "--stop"),
         ("kill 4242 && echo port 8000 freed", "--stop"),
-        ("python3 -c \"import json; d=json.load(open('registry.json')); json.dump(d, open('registry.json','w'))\"",
-         "slice.py set"),
-        ("python3 -c \"open('registry.json','w').write('{}')\"", "slice.py set"),
-        ("python3 -c \"from pathlib import Path; Path('registry.json').write_text('{}')\"", "slice.py set"),
-        ("echo '{}' > registry.json", "slice.py set"),
-        ("cat patch.json > .prototype/registry.json", "slice.py set"),
-        ("jq . x | tee registry.json", "slice.py set"),
     ]
     negatives = [
         "ls -la",
@@ -201,6 +226,13 @@ with tempfile.TemporaryDirectory() as tmp:
         "python3 build.py > build.log 2>&1 &&  echo done",
         "kill 4242",
         "npm run dev &",
+        # hand writes of registry.json moved to route.py (tests/hook_route.py); bash_advice no longer speaks to them
+        "python3 -c \"import json; d=json.load(open('registry.json')); json.dump(d, open('registry.json','w'))\"",
+        "python3 -c \"open('registry.json','w').write('{}')\"",
+        "python3 -c \"from pathlib import Path; Path('registry.json').write_text('{}')\"",
+        "echo '{}' > registry.json",
+        "cat patch.json > .prototype/registry.json",
+        "jq . x | tee registry.json",
     ]
     for cmd, tool in positives:
         stdin = json.dumps({"cwd": pb_dir, "tool_name": "Bash", "tool_input": {"command": cmd}})
@@ -224,6 +256,15 @@ with tempfile.TemporaryDirectory() as tmp:
     check(code == 0 and hook_json(out)[0] is not None, "no cwd in the payload: falls back to the process folder")
     code, out, err = run(BASH, json.dumps({"cwd": inner, "tool_input": {"command": "pkill -f serve.py"}}), cwd=plain)
     check(code == 0 and hook_json(out)[0] is not None, ".prototype/ inside the payload cwd counts as a pb project")
+    above = os.path.join(tmp, "above")                  # a session one folder above the registry
+    make_pb(os.path.join(above, "child"), "render")
+    os.makedirs(os.path.join(tmp, "above-hidden", ".dot"))
+    make_pb(os.path.join(tmp, "above-hidden", ".dot", "p"), "render")
+    make_pb(os.path.join(tmp, "above-hidden", "node_modules", "p"), "render")
+    code, out, err = run(BASH, json.dumps({"cwd": above, "tool_input": {"command": "pkill -f serve.py"}}), cwd=plain)
+    check(code == 0 and hook_json(out)[0] is not None, "an immediate child folder that is a pb project counts (session one folder above)")
+    code, out, err = run(BASH, json.dumps({"cwd": os.path.join(tmp, "above-hidden"), "tool_input": {"command": "pkill -f serve.py"}}), cwd=plain)
+    check(code == 0 and out == "", "dot-folders and node_modules are not scanned for a project")
 
     # ------------------------------------------------------------ H5
     print("H5 · browser_advice.py")
@@ -294,6 +335,43 @@ with tempfile.TemporaryDirectory() as tmp:
     code, out, err = run(ACTIVITY, ev("Stop", live), cwd=plain)
     code, out, err = run(ACTIVITY, ev("SessionStart", live), cwd=plain)
     check(code == 0 and json.load(open(act, encoding="utf-8")).get("state") == "idle", "any other event is ignored")
+    # `since`: when the turn began — set by UserPromptSubmit, kept by PostToolUse (while working) and by Stop
+    _time = __import__("time")
+
+    def read_act():
+        return json.load(open(act, encoding="utf-8"))
+    t1 = _time.time()
+    run(ACTIVITY, ev("UserPromptSubmit", live), cwd=plain)
+    s1 = read_act()
+    check(isinstance(s1.get("since"), (int, float)) and abs(s1["since"] - t1) < 15 and s1["since"] <= s1["at"],
+          "since: UserPromptSubmit writes since ≈ now, never after `at` (%s)" % s1)
+    _time.sleep(0.05)
+    run(ACTIVITY, ev("PostToolUse", live), cwd=plain)
+    s2 = read_act()
+    check(s2.get("state") == "working" and s2.get("since") == s1["since"] and s2["at"] > s1["at"],
+          "…a following PostToolUse keeps the same since (and moves `at`)")
+    run(ACTIVITY, ev("Stop", live), cwd=plain)
+    s3 = read_act()
+    check(s3.get("state") == "idle" and s3.get("since") == s1["since"], "…Stop keeps the same since")
+    _time.sleep(0.05)
+    run(ACTIVITY, ev("PostToolUse", live), cwd=plain)
+    s4 = read_act()
+    check(s4.get("state") == "working" and isinstance(s4.get("since"), (int, float)) and s4["since"] >= s1["since"]
+          and s4["since"] != s1["since"] and s4["since"] <= s4["at"],
+          "…a PostToolUse after Stop (idle on file) starts a fresh turn: a newer since (%s)" % s4)
+    with open(act, "w", encoding="utf-8") as f:
+        json.dump({"state": "working", "at": 1, "event": "PostToolUse", "since": "yesterday"}, f)
+    code, out, err = run(ACTIVITY, ev("PostToolUse", live), cwd=plain)
+    s5 = read_act()
+    check(code == 0 and isinstance(s5.get("since"), (int, float)) and not isinstance(s5.get("since"), bool),
+          "…a non-number since on file does not crash PostToolUse and is replaced by a number (%s)" % s5)
+    with open(act, "w", encoding="utf-8") as f:
+        json.dump({"state": "working", "at": 1, "event": "UserPromptSubmit", "since": "yesterday"}, f)
+    code, out, err = run(ACTIVITY, ev("UserPromptSubmit", live), cwd=plain)
+    s6 = read_act()
+    check(code == 0 and isinstance(s6.get("since"), (int, float)) and abs(s6["since"] - _time.time()) < 15,
+          "…a non-number since does not crash UserPromptSubmit: the next one writes a numeric since (%s)" % s6)
+    code, out, err = run(ACTIVITY, ev("Stop", live), cwd=plain)
     code, out, err = run(ACTIVITY, ev("UserPromptSubmit", cold), cwd=plain)
     check(code == 0 and out == "" and not os.path.exists(os.path.join(cold, ".preview")),
           "a project with no .preview/ gets no new folder (nobody has previewed it)")
@@ -311,7 +389,11 @@ with tempfile.TemporaryDirectory() as tmp:
     if cfg:
         hooks = cfg.get("hooks", {})
         for event in ("UserPromptSubmit", "PostToolUse", "Stop"):
-            groups = hooks.get(event, [])
+            # PostToolUse also carries route.py and housekeep.py behind their own matchers (tests/hook_route.py,
+            # tests/hook_housekeep.py): activity.py is the matcher-less group
+            groups = [g for g in hooks.get(event, [])
+                      if not any(a.endswith(("/hooks/route.py", "/hooks/housekeep.py"))
+                                 for h in g.get("hooks", []) for a in h.get("args", []))]
             cmds = [h for g in groups for h in g.get("hooks", [])]
             check(len(cmds) == 1 and cmds[0].get("type") == "command" and "args" in cmds[0]
                   and any(a == "${CLAUDE_PLUGIN_ROOT}/hooks/activity.py" for a in cmds[0]["args"]),

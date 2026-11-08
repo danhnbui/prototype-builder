@@ -151,6 +151,92 @@ STUDY_C = {
 }
 
 
+SCRIPT_TITLE = "Total hidden <script>window.__xss=3</script> under Pay"
+STUDY_D = {
+    "id": "rs-ux-usability", "title": "Can couriers find the total?", "question": "Do couriers find the total on the pay screen?",
+    "method": "usability", "status": "analysed", "createdAt": "2026-11-05T10:00:00Z",
+    "audience": {"roles": ["member"], "segment": "rural", "targetN": 5},
+    "targets": [], "hypotheses": [], "findings": [], "refill": {}, "refilled": None, "gates": [], "tally": None,
+    "plan": {"background": "Couriers called support about totals.", "objectives": ["Measure task success on pay", "Find where couriers stall"],
+             "researchQuestions": ["Do couriers find the total?", "Where do they look first?"], "decision": "Whether to move the total above the fold",
+             "methodRationale": "We need behaviour, not opinion",
+             "participants": {"criteria": ["Delivers weekly"], "exclude": ["Works at the company"], "n": 5, "segments": ["rural", "urban"]},
+             "recruitment": {"channel": "Courier forum", "incentive": "voucher", "note": ""},
+             "schedule": {"start": "2026-11-10", "end": "2026-11-14", "sessionMinutes": 45},
+             "team": {"moderator": "Lead", "notetaker": "Assistant", "observers": ["Designer"]},
+             "risks": [{"risk": "Few rural courier signups", "mitigation": "Open a second channel"}], "timeline": [], "budget": ""},
+    "participants": [
+        {"id": "P01", "segment": "rural", "role": "member", "status": "done", "sessionAt": "2026-11-10", "incentive": "paid", "pilot": False},
+        {"id": "P02", "segment": "urban", "role": "member", "status": "done", "sessionAt": "2026-11-11", "incentive": "due", "pilot": False},
+        {"id": "P03", "segment": "rural", "role": "member", "status": "withdrawn", "sessionAt": "2026-11-12", "incentive": "none", "pilot": False},
+        {"id": "P04", "segment": "rural", "role": "member", "status": "scheduled", "sessionAt": "", "incentive": "none", "pilot": True},
+    ],
+    "pilots": [{"sessionId": "s-pilot1", "participant": "P04", "at": "2026-11-09T09:00:00Z", "file": "memory/research/rs-ux-usability/pilot/s-pilot1.json", "media": [],
+                "withheld": {"at": "2026-11-14T08:00:00Z", "reason": "hand-off without recordings"}}],
+    "instrument": {"lang": "en", "intro": "", "consent": "", "durationMin": 45, "closing": "", "sections": [
+        {"title": "Tasks", "purpose": "task", "questions": [
+            {"id": "t1", "text": "Pay for the parcel", "tests": [], "task": {"screen": "SCREEN", "success": "paid"}},
+            {"id": "t2", "text": "Find the delivery fee", "tests": [], "task": {"screen": "SCREEN", "success": "fee seen"}}]}]},
+    "evidence": [
+        {"id": "e1", "file": "memory/research/rs-ux-usability/evidence/e1-s-aaa1.json", "kind": "session", "sha256": "1111111111111111", "date": "2026-11-10",
+         "participant": "P01", "consent": "yes", "dropped": None,
+         "session": {"id": "s-aaa1", "method": "usability", "mode": "moderated", "durationMs": 125000, "tasks": 2, "outcomes": {"success": 1, "fail": 1}, "recording": True, "media": []}},
+        {"id": "e2", "file": "memory/research/rs-ux-usability/evidence/e2-s-bbb2.json", "kind": "session", "sha256": "2222222222222222", "date": "2026-11-11",
+         "participant": "P02", "consent": "yes", "dropped": None,
+         "session": {"id": "s-bbb2", "method": "usability", "mode": "moderated", "durationMs": 61000, "tasks": 2, "outcomes": {"success": 1, "abandoned": 1}, "recording": False, "media": []}},
+        {"id": "e3", "file": "memory/research/rs-ux-usability/evidence/e3-s-ccc3.json", "kind": "session", "sha256": "3333333333333333", "date": "2026-11-12",
+         "participant": "P03", "consent": "yes", "dropped": {"at": "2026-11-13T10:00:00Z", "reason": "Withdrew"},
+         "session": {"id": "s-ccc3", "method": "usability", "mode": "moderated", "durationMs": 30000, "tasks": 2, "outcomes": {"success": 2}, "recording": False, "media": []}},
+        {"id": "e4", "file": "memory/research/rs-ux-usability/evidence/e4-s-ddd4.webm", "kind": "recording", "sha256": "4444444444444444", "date": "2026-11-10",
+         "participant": "P01", "consent": "yes", "dropped": None, "session": "s-ddd4",
+         "withheld": {"at": "2026-11-14T08:00:00Z", "reason": "hand-off without recordings"}},
+    ],
+    "analysis": {"method": "usability", "n": 2, "inputs": ["e1", "e2"], "usability": {
+        "tasks": {"t1": {"n": 2, "success": {"x": 1, "n": 2, "rate": 0.5, "low": 0.09, "high": 0.91}, "time": {"n": 1, "geoMean": 41.2, "low": 30.1, "high": 56.4},
+                         "seq": {"n": 2, "mean": 5.5}, "lostness": {"n": 2, "mean": 0.21}, "deadClicks": {"mean": 1, "total": 7}, "errors": {"mean": 1, "total": 3}},
+                  "t2": {"n": 2, "success": {"x": 2, "n": 2, "rate": 1.0, "low": 0.34, "high": 1.0}, "deadClicks": {"mean": 0, "total": 0}, "errors": {"mean": 0, "total": 0}}},
+        "sus": {"n": 2, "mean": 72.5, "sd": 9.1, "low": 61.2, "high": 83.8, "grade": "C+"},
+        "overall": {"success": {"x": 3, "n": 4, "rate": 0.75, "low": 0.3, "high": 0.95}}},
+        "issues": {"u1": {"participants": 2, "frequency": 1.0, "priority": 3.0}, "u2": {"participants": 1, "frequency": 0.5, "priority": 4.5}}},
+    "observations": [{"id": "o1", "evidence": "e1", "participant": "P01", "task": "t1", "event": 41, "note": "Looked under Pay, not Handover", "tags": ["total-hidden"]},
+                     {"id": "o2", "evidence": "e2", "participant": "P02", "task": "t1", "t": 61000, "note": "Gave up after the second screen", "tags": ["total-hidden"]}],
+    "themes": [{"id": "th1", "title": "The total hides", "tags": ["total-hidden"], "insight": "People expect the total where they pay."}],
+    "issues": [{"id": "u1", "title": SCRIPT_TITLE, "task": "t1", "screen": "SCREEN", "severity": 3, "observations": ["o1", "o2"],
+                "recommendation": "Show the total beside the Pay button", "targets": []},
+               {"id": "u2", "title": "Fee label is unclear", "task": "t2", "screen": "SCREEN", "severity": 2, "observations": ["o2"], "recommendation": "Rename it", "targets": []}],
+}
+STUDY_E = {
+    "id": "rs-ux-sort", "title": "How do couriers group the actions?", "question": "How do couriers group actions?",
+    "method": "card-sort", "status": "analysed", "createdAt": "2026-11-05T10:00:00Z",
+    "audience": {"roles": [], "segment": "", "targetN": 15}, "targets": [], "hypotheses": [], "findings": [], "refill": {}, "refilled": None, "gates": [], "tally": None,
+    "instrument": {"lang": "en", "intro": "", "consent": "", "durationMin": 15, "closing": "", "sections": [],
+                   "cards": [{"id": "c-a", "label": "Refund an order"}, {"id": "c-b", "label": "Cancel a parcel"}, {"id": "c-c", "label": "Print a label"}, {"id": "c-d", "label": "Reprint receipt"}],
+                   "sort": {"kind": "open", "categories": []}},
+    "evidence": [],
+    "analysis": {"method": "card-sort", "n": 12, "cardSort": {"n": 12, "kind": "open", "cards": ["c-a", "c-b", "c-c", "c-d"],
+        "similarity": {"c-a|c-b": 0.75, "c-a|c-c": 0.1, "c-a|c-d": 0.2, "c-b|c-c": 0.15, "c-b|c-d": 0.05, "c-c|c-d": 0.9},
+        "clusters": [["c-a", "c-b"], ["c-c", "c-d"]], "threshold": 0.5, "categories": {}}},
+}
+STUDY_F = {
+    "id": "rs-ux-click", "title": "Where do couriers click first?", "question": "First click on pay", "method": "first-click", "status": "analysed",
+    "createdAt": "2026-11-05T10:00:00Z", "audience": {"roles": [], "segment": "", "targetN": 3}, "targets": [], "hypotheses": [], "findings": [], "refill": {}, "refilled": None, "gates": [], "tally": None,
+    "instrument": {"lang": "en", "intro": "", "consent": "", "durationMin": 5, "closing": "", "sections": [{"title": "Clicks", "purpose": "task", "questions": [{"id": "fc1", "text": "Where would you pay?", "tests": []}]}]},
+    "evidence": [],
+    "analysis": {"method": "first-click", "n": 3, "firstClick": {"tasks": {"fc1": {"n": 3, "success": {"x": 2, "n": 3, "rate": 0.667, "low": 0.2, "high": 0.94},
+        "time": {"median": 3.1, "geoMean": 3.4}, "clicks": [[0.42, 0.86, True], [0.45, 0.8, True], [0.1, 0.1, False]]}}}},
+}
+STUDY_G = {
+    "id": "rs-ux-tree", "title": "Where would couriers look for refunds?", "question": "Findability of refunds", "method": "tree-test", "status": "analysed",
+    "createdAt": "2026-11-05T10:00:00Z", "audience": {"roles": [], "segment": "", "targetN": 50}, "targets": [], "hypotheses": [], "findings": [], "refill": {}, "refilled": None, "gates": [], "tally": None,
+    "instrument": {"lang": "en", "intro": "", "consent": "", "durationMin": 5, "closing": "", "sections": [{"title": "Find", "purpose": "task", "questions": [{"id": "tt1", "text": "Where would you refund?", "tests": []}]}],
+                   "tree": [{"id": "n-orders", "label": "Orders", "parent": None}, {"id": "n-refunds", "label": "Refunds", "parent": "n-orders"}]},
+    "evidence": [],
+    "analysis": {"method": "tree-test", "n": 50, "treeTest": {"tasks": {"tt1": {"n": 50, "success": {"x": 31, "n": 50, "rate": 0.62, "low": 0.48, "high": 0.74},
+        "direct": {"x": 20, "n": 50, "rate": 0.4, "low": 0.28, "high": 0.54}, "firstClick": {"x": 35, "n": 50, "rate": 0.7, "low": 0.56, "high": 0.81},
+        "destinations": [{"node": "n-refunds", "count": 31}]}}}},
+}
+
+
 def build_project(tmp, name, research="full", overview=True):
     """A copy of the golden project with this test's jobs, one rule, Insights prose and research."""
     proj = os.path.join(tmp, name)
@@ -176,6 +262,17 @@ def build_project(tmp, name, research="full", overview=True):
         b["targets"][0]["id"] = screens[0]
         b["instrument"]["sections"][1]["questions"][0]["task"]["screen"] = screens[0]
         reg["research"] = {"populated": True, "studies": [copy.deepcopy(STUDY_A), b, copy.deepcopy(STUDY_C)]}
+    elif research == "ux":
+        reg["research"] = {"populated": True, "studies": []}
+        for src in (STUDY_D, STUDY_E, STUDY_F, STUDY_G):
+            st = copy.deepcopy(src)
+            for sec in st["instrument"].get("sections", []):
+                for q in sec.get("questions", []):
+                    if q.get("task"):
+                        q["task"]["screen"] = screens[0]
+            for u in st.get("issues", []):
+                u["screen"] = screens[0]
+            reg["research"]["studies"].append(st)
     elif research == "empty":
         reg["research"] = {"populated": False, "studies": []}
     else:
@@ -411,6 +508,164 @@ def command_k(pg):
     check(pg.evaluate("state.summarySubTab") == "research" and pg.evaluate("state.metaView") == "summary", "…and Enter lands on its study")
 
 
+UX = lambda sid: f'.pb-scan-tr[data-fb-list="rs"][data-key="{sid}"]'  # noqa: E731
+
+
+def ux_blocks(pg, shots_dir=None):
+    print("8 · UX studies: plan, participants, sessions, results, issues, themes, report (file://)")
+    pg.evaluate(GO_RS)
+    pg.wait_for_timeout(200)
+    kd = pg.locator(f"{UX('rs-ux-usability')} > .pb-disc-t").inner_text()
+    check("Usability test" in kd and "n 2 of 5" in kd, f"the row says Usability test and counts distinct participants of kept sessions ({kd.splitlines()[:6]})")
+    for sid, lab in (("rs-ux-sort", "Card sort"), ("rs-ux-click", "First-click test"), ("rs-ux-tree", "Tree test")):
+        check(lab in pg.locator(f"{UX(sid)} > .pb-disc-t").inner_text(), f"{sid} row says {lab}")
+    pg.evaluate("pbDiscSet(pbScanId('rs','rs-ux-usability'), true)")
+    pg.wait_for_timeout(150)
+    d = UX("rs-ux-usability")
+    check(pg.locator(f"{d} .rs-plan").count() == 1 and pg.locator(f"{d} .rs-plan > .pb-disc-b").is_hidden(), "the Plan is a closed disclosure")
+    pg.locator(f"{d} .rs-plan > .pb-disc-t").click()
+    pg.wait_for_timeout(100)
+    pl = pg.locator(f"{d} .rs-plan > .pb-disc-b").inner_text()
+    check(all(x in pl for x in ("Measure task success on pay", "Do couriers find the total?", "Whether to move the total above the fold", "Delivers weekly",
+                                  "5 planned", "rural", "2026-11-10 to 2026-11-14", "45 min", "Moderator Lead", "Few rural courier signups", "Open a second channel")),
+          "…and opens to objectives, questions, decision, participants, schedule, team and risks")
+
+    pt = pg.evaluate(f"[...document.querySelectorAll('{d} tr[data-rs-part]')].map(r => r.innerText.replace(/\\s+/g,' ').trim())")
+    pipe = pg.locator(f"{d} .rs-pipe").inner_text()
+    check(len(pt) == 4 and "1 scheduled · 2 done · 1 withdrawn" in pipe, f"Participants: a row each and a pipeline line ({pipe!r}, {len(pt)} rows)")
+    check("P04" in pt[3] and "Pilot" in pt[3] and "P01" in pt[0] and "rural" in pt[0] and "paid" in pt[0], f"…pseudonym, segment, status, incentive, pilot ({pt[3]!r})")
+
+    sess = pg.evaluate(f"[...document.querySelectorAll('{d} tr[data-rs-session]')].map(r => ({{cls: r.className, text: r.innerText.replace(/\\s+/g,' ').trim()}}))")
+    check(len(sess) == 3 and "2:05" in sess[0]["text"] and "✓ 1" in sess[0]["text"] and "✗ 1" in sess[0]["text"] and "Yes" in sess[0]["text"], f"Sessions: duration m:ss, outcome glyphs, recording ({sess[0]['text'] if sess else ''!r})")
+    check("↩ 1" in sess[1]["text"] and sess[1]["text"].rstrip().endswith("No"), f"…abandoned shows the return glyph; no recording says No ({sess[1]['text']!r})")
+    check(sess[2]["cls"] == "is-dropped", "…a dropped session is struck")
+    ev4 = pg.evaluate(f"(() => {{ const r = document.querySelector('{d} tr[data-rs-ev=\"e4\"]'); return r ? {{cls: r.className, text: r.innerText.replace(/\\s+/g,' ').trim(), struck: getComputedStyle(r.cells[0]).textDecorationLine}} : null; }})()")
+    check(ev4 and "Left out of the hand-off" in ev4["text"] and ev4["cls"] != "is-dropped" and "line-through" not in ev4["struck"],
+          f"Evidence: a withheld recording carries the label and is not struck like a dropped row ({ev4!r})")
+    check("Left out of the hand-off" not in pg.locator(f"{d} tr[data-rs-ev='e1']").inner_text(), "…and an ordinary row does not")
+    check("Left out of the hand-off" in pg.locator(f"{d} tr[data-rs-pilot='s-pilot1']").inner_text(), "Sessions: a pilot whose recordings were left out says so instead of Yes or No")
+    only = pg.evaluate("""(() => { const st = pbRsStudies().find(s => s.id === 'rs-ux-usability');
+        const mk = ev => { const w = document.createElement('div'); w.innerHTML = pbRsSessionsHTML(Object.assign({}, st, {evidence: ev})); return [...w.querySelectorAll('tr[data-rs-session]')].map(r => r.cells[5].textContent.replace(/\\s+/g,' ').trim()); };
+        const e1 = st.evidence.find(e => e.id === 'e1'), w = {at: '2026-11-14T08:00:00Z'};
+        return {only: mk([e1, {id: 'e9', kind: 'recording', session: 's-aaa1', withheld: w}]), put: mk([e1, {id: 'e9', kind: 'recording', session: 's-aaa1'}]), none: mk([e1])}; })()""")
+    check(only["only"] == ["Left out of the hand-off"] and only["put"] == ["Yes"] and only["none"] == ["Yes"],
+          f"…a session whose only recording is withheld does not claim a video; one put back, or none stored, reads as before ({only!r})")
+    check(pg.locator(f"{d} tr[data-rs-pilot='s-pilot1']").count() == 1 and "Pilot" in pg.locator(f"{d} tr[data-rs-pilot='s-pilot1']").inner_text(), "…a pilot is listed and marked Pilot")
+    check(pg.locator(f"{d} a[href^='/research/']").count() == 0, "over file:// there are no session, observer, replay or report links")
+    check("research.py link rs-ux-usability" in pg.locator(f"{d} .rs-links").first.inner_text(), "…the CLI hint stands in")
+
+    res = pg.locator(f"{d} .rs-tbl--res tbody tr")
+    rt = pg.evaluate(f"[...document.querySelectorAll('{d} .rs-tbl--res tbody tr')].map(r => r.innerText.replace(/\\s+/g,' ').trim())")
+    check(res.count() == 2 and "Pay for the parcel" in rt[0] and "1 of 2" in rt[0] and "50%" in rt[0] and "41.2 s" in rt[0] and "5.5" in rt[0] and "0.21" in rt[0] and "7" in rt[0],
+          f"Results: a task table with the task's text, success x of n, rate, time, SEQ, lostness, clicks ({rt[0] if rt else ''!r})")
+    check(pg.locator(f"{d} .rs-tbl--res .rs-ci[role=img]").count() == 2 and pg.locator(f"{d} .rs-tbl--res .rs-ci-whisk").count() == 2, "…each rate has a small bar with a whisker")
+    st = pg.locator(f"{d} .rs-stat").all_inner_texts()
+    check(any("SUS" in x and "72.5" in x and "C+" in x for x in st), f"…SUS with its grade ({st})")
+    check("Directional" in pg.locator(f"{d} .rs-note").inner_text(), "…n 2 of 5 planned is labelled Directional")
+
+    iss = pg.evaluate(f"[...document.querySelectorAll('{d} .rs-issues > li')].map(r => ({{id: r.dataset.rsIssue, text: r.innerText.replace(/\\s+/g,' ').trim()}}))")
+    check([i["id"] for i in iss] == ["u2", "u1"], f"Issues are ranked by priority, not severity ({[i['id'] for i in iss]})")
+    check("1 of 2 participants" in iss[1]["text"] or "2 of 2 participants" in iss[1]["text"], f"…each says how many participants ({iss[1]['text'][:160]!r})")
+    check("3 Major" in iss[1]["text"] and "2 Minor" in iss[0]["text"], "…with a severity chip")
+    check("Show the total beside the Pay button" in iss[1]["text"] and "Looked under Pay" in iss[1]["text"] and "P01" in iss[1]["text"] and "e1" in iss[1]["text"] and "event 41" in iss[1]["text"] and "1:01" in iss[1]["text"],
+          "…recommendation and observations with participant, evidence id and event or time")
+    check(pg.locator(f"{d} .rs-issues a.lg-link").count() >= 2, "…the screen is a jump")
+    check(pg.evaluate("window.__xss") is None and pg.locator(f"{d} script, {d} img").count() == 0, "a <script> in an issue title ran nothing")
+    check("<script>window.__xss=3</script>" in pg.locator(f"{d} .rs-issues").inner_text(), "…and shows as text")
+    th = pg.locator(f"{d} .rs-themes").inner_text()
+    check("The total hides" in th and "total-hidden" in th and "People expect the total" in th, "Themes: title, tags, insight")
+    check("memory/research/rs-ux-usability/report/report.html" in pg.locator(f"{d} .rs-links").last.inner_text(), "Report: its path is text")
+
+    e = UX("rs-ux-sort")
+    pg.evaluate("pbDiscSet(pbScanId('rs','rs-ux-sort'), true)")
+    pg.wait_for_timeout(120)
+    cells = pg.evaluate(f"[...document.querySelectorAll('{e} .rs-heat tbody tr')].map(r => [...r.querySelectorAll('td')].map(c => c.textContent.trim()))")
+    check(len(cells) == 4 and cells[0][1] == "0.75" and cells[1][0] == "0.75" and cells[2][3] == "0.90" and cells[0][0] == "—", f"card sort: a 4 x 4 similarity table with the value printed ({cells})")
+    shade = pg.evaluate(f"[...document.querySelectorAll('{e} .rs-heat td.rs-hm')].map(c => getComputedStyle(c).backgroundColor)")
+    check(len(set(shade)) > 2, "…the shade follows the value")
+    cl = pg.locator(f"{e} .rs-clusters li").all_inner_texts()
+    check(len(cl) == 2 and "Refund an order" in cl[0] and "Print a label" in cl[1], f"…and the clusters ({cl})")
+    check("Directional" in pg.locator(f"{e} .rs-note").inner_text(), "…12 of 15 is Directional")
+
+    f = UX("rs-ux-click")
+    pg.evaluate("pbDiscSet(pbScanId('rs','rs-ux-click'), true)")
+    pg.wait_for_timeout(120)
+    box = pg.evaluate(f"(() => {{ const r = document.querySelector('{f} .rs-plot').getBoundingClientRect(); return [r.width, r.height, document.querySelectorAll('{f} .rs-dot').length, document.querySelectorAll('{f} .rs-dot.is-hit').length]; }})()")
+    check(abs(box[0] / box[1] - 1.6) < 0.05 and box[2] == 3 and box[3] == 2, f"first click: a 16:10 plot with 3 dots, 2 hits ({box})")
+    check("Directional" not in pg.locator(f"{f} .rs-note").inner_text(), "…n 3 of 3 is not Directional")
+    g = UX("rs-ux-tree")
+    pg.evaluate("pbDiscSet(pbScanId('rs','rs-ux-tree'), true)")
+    pg.wait_for_timeout(120)
+    tt = pg.locator(f"{g} .rs-tbl--res tbody tr").first.inner_text().replace("\n", " ")
+    check("31 of 50" in tt and "20 of 50" in tt and "35 of 50" in tt and "Refunds" in tt, f"tree test: success, direct, first click and top destination ({tt!r})")
+
+    if shots_dir:
+        os.makedirs(shots_dir, exist_ok=True)
+        pg.evaluate("pbDiscSet('rs-plan-rs-ux-usability', true)")
+        for w, h in ((1280, 900), (429, 932)):
+            pg.set_viewport_size({"width": w, "height": h})
+            pg.evaluate(GO_RS)
+            pg.wait_for_timeout(250)
+            pg.evaluate("document.querySelector('#summary-scroll').scrollTop = 0")
+            pg.evaluate(f"document.querySelector('{d}').scrollIntoView()")
+            pg.wait_for_timeout(200)
+            pg.screenshot(path=os.path.join(shots_dir, f"usability-detail-{w}.png"), full_page=False)
+            pg.evaluate("document.querySelector('.rs-tbl--res').scrollIntoView({block: 'start'})")
+            pg.wait_for_timeout(150)
+            pg.screenshot(path=os.path.join(shots_dir, f"usability-results-{w}.png"), full_page=False)
+            pg.evaluate(f"document.querySelector('{e} .rs-heat').scrollIntoView({{block: 'center'}})")
+            pg.wait_for_timeout(150)
+            pg.screenshot(path=os.path.join(shots_dir, f"cardsort-{w}.png"), full_page=False)
+        pg.set_viewport_size({"width": 1440, "height": 900})
+
+    print("9 · UX studies: phone width, ⌘K")
+    pg.set_viewport_size({"width": 429, "height": 932})
+    pg.evaluate(GO_RS)
+    pg.wait_for_timeout(250)
+    w = pg.evaluate("(() => { const s = document.querySelector('#summary-scroll'); return [s.scrollWidth, s.clientWidth, document.documentElement.scrollWidth, innerWidth]; })()")
+    check(w[0] <= w[1] + 1 and w[2] <= w[3] + 1, f"no sideways scroll in the Research view at 429px with UX studies open ({w})")
+    pg.set_viewport_size({"width": 1440, "height": 900})
+    items = pg.evaluate("pbSearchItems().filter(i => i.g === 'Research' && String(i.s).indexOf('Issue') === 0).map(i => [i.t, i.s])")
+    check(any(s == "Issue · rs-ux-usability" and t == "Fee label is unclear" for t, s in items), f"⌘K indexes each issue as Issue · <study> ({items})")
+    pg.evaluate("setMetaView('prototype')")
+    pg.evaluate("pbOpenSearch()")
+    pg.wait_for_selector(".pb-cmdk input")
+    pg.fill(".pb-cmdk input", "fee label")
+    pg.wait_for_timeout(150)
+    pg.keyboard.press("Enter")
+    pg.wait_for_timeout(350)
+    check(pg.evaluate("state.summarySubTab") == "research" and pg.evaluate("state.metaView") == "summary", "…Enter lands on the study")
+    check(pg.evaluate("(() => { const e = document.querySelector('[data-rs-issue=\"u2\"]'); return !!e && e.classList.contains('pb-flash'); })()"), "…and outlines the issue")
+
+
+def ux_served(pw, out):
+    print("10 · UX studies served by the preview (window.PB_PREVIEW)")
+    html = open(out, encoding="utf-8").read()
+    inj = '<script>window.PB_PREVIEW={"meta":"/api/meta","data":"/__pb_data"};</script>'
+    i = html.find("<script")
+    served = os.path.join(os.path.dirname(out), "p-served.html")
+    open(served, "w", encoding="utf-8").write(html[:i] + inj + html[i:])
+    br, pg, errs = open_page(pw, served)
+    pg.evaluate(GO_RS)
+    pg.wait_for_timeout(200)
+    pg.evaluate("pbDiscSet(pbScanId('rs','rs-ux-usability'), true)")
+    pg.wait_for_timeout(150)
+    d = UX("rs-ux-usability")
+    hrefs = pg.evaluate(f"[...document.querySelectorAll('{d} a[href^=\"/research/\"]')].map(a => [a.getAttribute('href'), a.target, a.textContent.trim()])")
+    got = {h: (t, x) for h, t, x in hrefs}
+    check(got.get("/research/rs-ux-usability/session") == ("_blank", "Start a moderated session"), f"Start a moderated session opens in a new tab ({hrefs})")
+    check("/research/rs-ux-usability/observer" in got and got["/research/rs-ux-usability/observer"][1] == "Open observer", "…Open observer")
+    check("/research/rs-ux-usability/replay/e1" in got and "/research/rs-ux-usability/replay/e2" in got and "/research/rs-ux-usability/replay/e3" not in got,
+          "…a Replay link per kept session, none for the dropped one")
+    check("/research/rs-ux-usability/replay/pilot-s-pilot1" in got, "…and for the pilot (pilot-<sessionId>)")
+    check("/research/rs-ux-usability/report" in got and got["/research/rs-ux-usability/report"][1] == "Open report", "…Open report")
+    check("research.py link" not in pg.locator(f"{d} .rs-links").first.inner_text(), "…and no CLI hint")
+    check("memory/research/rs-ux-usability/report/report.html" in pg.locator(f"{d} .rs-links").last.inner_text(), "…the report path is still text")
+    check(pg.locator(f"{d} a[target=_blank]").evaluate_all("els => els.every(e => e.rel.includes('noopener'))"), "…every new-tab link is noopener")
+    check(errs == [], f"…no JS errors ({errs[:2]})")
+    br.close()
+
+
 def responsive(pg):
     print("6 · phone width")
     pg.set_viewport_size({"width": 430, "height": 932})
@@ -502,6 +757,12 @@ def main():
             responsive(pg)
             check(errs == [], f"no JS errors on the main page ({errs[:3]})")
             br.close()
+            uxout, _ = build_project(tmp, "ux", research="ux")
+            br, pg, errs = open_page(pw, uxout)
+            ux_blocks(pg, os.environ.get("RESEARCH_SHOTS"))
+            check(errs == [], f"no JS errors on the UX page ({errs[:3]})")
+            br.close()
+            ux_served(pw, uxout)
             empty_states(tmp, pw)
     finally:
         shutil.rmtree(tmp, ignore_errors=True)

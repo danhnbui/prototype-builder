@@ -1,0 +1,26 @@
+{
+  "background": "TEST DATA. The parcel-desk prototype may need to show the cash amount on its first screen; nobody has watched a courier use the flow yet.",
+  "objectives": [
+    "Find out whether a courier can take a cash payment without help",
+    "Find out where couriers look for the total to collect"
+  ],
+  "researchQuestions": [
+    "Can a courier reach the payment step from their route?",
+    "Where do couriers expect to see the amount they must collect?"
+  ],
+  "decision": "Whether the amount moves to the first screen in the next build.",
+  "methodRationale": "A task-based test on the clickable prototype shows what people do; a survey can only show what they say.",
+  "participants": {
+    "criteria": ["Delivers parcels as a courier", "Has used a delivery app"],
+    "exclude": ["Works on the product team"],
+    "n": 5,
+    "segments": ["rural courier", "city courier"]
+  },
+  "recruitment": {"channel": "The courier team lead", "incentive": "A voucher, paid after the session", "note": "TEST DATA"},
+  "schedule": {"start": "2026-03-02", "end": "2026-03-13", "sessionMinutes": 40},
+  "team": {"moderator": "Moderator A", "notetaker": "Notetaker B", "observers": ["Designer C"]},
+  "materials": ["Moderator guide", "Consent form", "Note-taking sheet"],
+  "risks": [{"risk": "Participants do not turn up", "mitigation": "Book two spare slots"}],
+  "timeline": [{"milestone": "Pilot", "date": "2026-03-02"}, {"milestone": "Report", "date": "2026-03-18"}],
+  "budget": "TEST DATA: five vouchers"
+}

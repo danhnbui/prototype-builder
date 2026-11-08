@@ -1,0 +1,45 @@
+{
+  "audience": {"targetN": 50},
+  "plan": {
+    "objectives": ["TEST DATA. Find out whether people look under Orders for a refund."],
+    "researchQuestions": ["TEST DATA. Where would people go to get their money back?"],
+    "schedule": {"start": "2026-03-02", "end": "2026-03-13"},
+    "recruitment": {"channel": "A panel of the existing users", "incentive": "None"},
+    "participants": {"criteria": ["Has used the courier app"], "n": 50}
+  },
+  "hypotheses": [
+    {"id": "h1", "statement": "People look under Orders to get their money back.",
+     "targets": [{"kind": "job", "id": "pay-cod"}],
+     "supportedIf": "Most participants choose the refunds node in tt1.",
+     "refutedIf": "Fewer than half of the participants choose the refunds node in tt1."},
+    {"id": "h2", "statement": "People find where to change their delivery address.",
+     "targets": [{"kind": "job", "id": "pay-cod"}],
+     "supportedIf": "Most participants choose the addresses node in tt2.",
+     "refutedIf": "Fewer than half choose the addresses node in tt2."}
+  ],
+  "instrument": {
+    "lang": "en",
+    "mode": "unmoderated",
+    "recording": {"screen": false, "voice": false},
+    "intro": "TEST DATA. You will see a list of menus. For each question, pick the place where you would look first.",
+    "consent": "TEST DATA. Your choices are kept without your name.",
+    "durationMin": 10,
+    "closing": "Thank you.",
+    "tree": [
+      {"id": "n-orders", "label": "Orders", "parent": null},
+      {"id": "n-refunds", "label": "Refunds", "parent": "n-orders"},
+      {"id": "n-track", "label": "Tracking", "parent": "n-orders"},
+      {"id": "n-account", "label": "Account", "parent": null},
+      {"id": "n-address", "label": "Addresses", "parent": "n-account"},
+      {"id": "n-help", "label": "Help", "parent": null}
+    ],
+    "sections": [
+      {"title": "Find it", "purpose": "task", "questions": [
+        {"id": "tt1", "text": "TEST DATA. You were charged twice for one parcel and want your money back. Where would you go?",
+         "tests": ["h1"], "tree": {"correct": ["n-refunds"]}},
+        {"id": "tt2", "text": "TEST DATA. You moved house and want parcels to arrive at the new place. Where would you go?",
+         "tests": ["h2"], "tree": {"correct": ["n-address"]}}
+      ]}
+    ]
+  }
+}

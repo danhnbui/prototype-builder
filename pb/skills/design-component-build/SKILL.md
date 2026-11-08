@@ -71,7 +71,9 @@ layers — history lives in `memory/decisions.md`, cited by number.
   `glyph`, `header`). Names are kebab and unique within the body. A child composed with `pbUse('<id>')` needs
   no marker — it is measured as an `instance` part named after its id (`nav-item-1…3` when repeated). The
   part type is inferred (text · glyph · vector · container · slot · instance); `data-part-type="slot"`
-  overrides it. A part rendered only under a condition (`props.sub ? … : ''`) becomes **optional**
+  overrides it. **Mark every slot container** `data-part-type="slot"` (the element you render
+  `pbSlot(props.content)` into): what a parent passes into it is measured as the PARENT's parts, so the
+  parent's anatomy matches its `pbUse` calls (lint R-COMPOSE-MATCH). An unmarked one hides them. A part rendered only under a condition (`props.sub ? … : ''`) becomes **optional**
   automatically — never type "required" or "optional" anywhere.
 - Interactive markup uses the data-* runtime (see `think-logic`).
 - **Responsive** (`meta.responsive: true`, and the component's shape changes with width — a nav bar,

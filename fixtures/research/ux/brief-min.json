@@ -1,0 +1,7 @@
+{
+  "objectives": ["TEST DATA. Learn how people expect the help and account areas to be organised."],
+  "researchQuestions": ["TEST DATA. Where do people look first for a refund?"],
+  "schedule": {"start": "2026-03-02", "end": "2026-03-13"},
+  "recruitment": {"channel": "A panel of the existing users", "incentive": "None"},
+  "participants": {"criteria": ["Has used the courier app"], "n": 15}
+}

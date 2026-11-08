@@ -31,8 +31,10 @@ a big registry never loads whole into context (every `slice.py` below is that pa
 | a screen / element | `python3 "${CLAUDE_PLUGIN_ROOT}/tools/slice.py" get screens <id>` |
 | Project Summary copy | `python3 "${CLAUDE_PLUGIN_ROOT}/tools/slice.py" get meta <key>` |
 
-`python3 "${CLAUDE_PLUGIN_ROOT}/tools/slice.py" list <components\|screens\|tokens\|meta>` enumerates ids/keys when you need to locate a
-target first. Do not load the whole registry, and never read `prototype.html` to make an edit.
+To **locate** a target, run `python3 "${CLAUDE_PLUGIN_ROOT}/tools/slice.py" find <text>` first (one line per hit; `--kind K`, `--limit N`, `--json`), then `get` the slice it names.
+`python3 "${CLAUDE_PLUGIN_ROOT}/tools/slice.py" list <components\|screens\|tokens\|meta>` enumerates ids/keys (`list <kind> --fields a,b` adds those fields to each line).
+`get` prints at most 8,000 characters and cuts the rest with a `… truncated` line, which is not valid JSON: pass `--fields a,b`
+to narrow it, or `--full` when a script has to parse the output. Do not load the whole registry, and never read `prototype.html` to make an edit.
 
 ## 1b · Responsive — ask once, before the first trio write that needs it
 Read `meta.responsive` and `meta.devices`. Group the devices by size class — **compact** (mobile) ·
@@ -154,7 +156,9 @@ is an OTP input.
   rather than inlining a value. (`lint_registry.py` flags raw hex/px and non-DTCG `$type`; `--strict`
   makes them errors.)
 - **parts** — every meaningful element in an atom's body carries `data-part="<name>"` (kebab; the root is
-  `data-part="root"`); a `pbUse` child needs none — it is measured as an `instance` part of its id. This is
+  `data-part="root"`); a `pbUse` child needs none — it is measured as an `instance` part of its id. A slot
+  container (where the body renders `pbSlot(…)`) is marked `data-part-type="slot"`, so what a parent passes
+  into it is measured as the parent's part (otherwise R-COMPOSE-MATCH warns on the parent). This is
   what `spec_measure.py` reads (below) and what the design-system site's Anatomy and Spec draw on.
 
 **Measure the spec — when a component is built or changed** (not on reuse, not on a token or copy tweak,
@@ -269,7 +273,7 @@ Non-trio tweaks (step 2) **skip this**, exactly as they skip the gate.
 
 | The patch did | `flow` | `erd` |
 |---|---|---|
-| added a screen | one node in its shape + an edge per `data-nav`/`data-go`/`data-redirect` target; append a story stub (`id` `s-<screen id>` · `title`/`priority`/`jtbd`/`path`/`nodes` · **`jobs[]` naming every `ia.jobs[]` job whose `screens[]` lists this screen** (`slice.py get ia jobs`; none → `[]`) · one `function` scenario for the happy path) | — |
+| added a screen | one node in its shape + an edge per `data-nav`/`data-go`/`data-redirect` target; append a story stub (`id` `s-<screen id>` · `title`/`priority`/`jtbd`/`path`/`nodes` · **`jobs[]` naming every `ia.jobs[]` job whose `screens[]` lists this screen** (`slice.py get ia jobs --full`, since `get` caps at 8,000 characters without `--full`; none → `[]`) · one `function` scenario for the happy path) | — |
 | removed a screen | drop its node, repair the edges that pointed at it, drop or re-path any story whose `nodes[]` names it | — |
 | renamed a screen | rename the node label; update the affected `path` strings | — |
 | changed navigation | add / remove / re-point that one edge | — |
@@ -313,6 +317,18 @@ issues, a `</script>` page-killer, raw hex/px, a missing `danger` token). This i
 **advisory** in the loop — it never blocks a build tweak — but the same check runs
 `--strict` and **fail-closed** at `/pb:handoff` before any render,
 so fixing findings now avoids a blocked exit later.
+
+## 4.7 · Re-run the stale scenarios (once per build turn, advisory)
+After a trio write that changed a screen or component — **once per build turn, not per patch** — keep
+the verdicts from going stale. If the preview is running (`python3 "${CLAUDE_PLUGIN_ROOT}/tools/serve.py" --status`)
+and Playwright is available, for each touched screen run:
+```
+python3 "${CLAUDE_PLUGIN_ROOT}/tools/test_run.py" registry.json --functional --stale --screen <id>
+```
+Only scenarios that touch that screen and have no result, or whose recorded inputs changed, run; none
+selected prints `0 scenarios selected (nothing stale)` and launches no browser. **Skip silently** when
+the preview is not running or Playwright is absent. It **never blocks** the build; report a failure in
+one line (`✗ checkout: 1 scenario failed — /pb:test --functional`).
 
 ## 5 · Render — batched, deterministic, on demand only
 Rendering is the deterministic generator — **never** hand-write HTML (the G0.5 spike proved that is

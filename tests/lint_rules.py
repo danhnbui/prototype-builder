@@ -338,12 +338,15 @@ def _findings(reg, strict=False):
 for strict in (False, True):
     tag = "--strict" if strict else "default"
     got = _findings(_retired_reg(others={"live": [1, 2]}, tradeoffs=[{"title": "x"}]), strict)
-    check(sorted(f.where for f in got) == ["meta.others", "meta.tradeoffs"] and all(f.severity == "WARN" for f in got),
-          "%s: both fields fire, as WARN (never promoted to ERROR)" % tag)
+    check([f.where for f in got] == ["meta.tradeoffs"] and all(f.severity == "WARN" for f in got),
+          "%s: meta.tradeoffs fires as R-RETIRED, as WARN (never promoted to ERROR)" % tag)
     check(all("still works" in f.msg and f.where in f.msg for f in got) and
-          any("runtime module" in f.msg for f in got if f.where == "meta.others") and
           any("ia.rules[]" in f.msg for f in got if f.where == "meta.tradeoffs"),
           "%s: the message names the field, says it still works, and where to move the data" % tag)
+    # meta.others is no longer advisory: R-RETIRED-DATA, WARN by default, ERROR under --strict (tests/lint_budgets.py)
+    oth = [f for f in L.check(_retired_reg(others={"live": [1, 2]}), strict=strict) if f.code == "R-RETIRED-DATA"]
+    check(len(oth) == 1 and oth[0].severity == ("ERROR" if strict else "WARN") and "/pb:update-version --apply" in oth[0].msg,
+          "%s: non-empty meta.others is R-RETIRED-DATA (%s) and names the migration" % (tag, "ERROR" if strict else "WARN"))
     check(_findings(_retired_reg(others=None, tradeoffs=[]), strict) == [] and
           _findings(_retired_reg(others={}, tradeoffs=""), strict) == [] and
           _findings(_retired_reg(), strict) == [],
@@ -356,7 +359,7 @@ with tempfile.TemporaryDirectory() as d:
         check(r.returncode == 0 and "R-RETIRED" not in r.stdout, "a clean registry %s: exit 0, no finding" % (" ".join(flags) or "(default)"))
     for flags in ((), ("--strict",)):
         with tempfile.TemporaryDirectory() as d2:
-            p2 = write(d2, _retired_reg(others={"live": "data"}, tradeoffs=[{"title": "t"}]))
+            p2 = write(d2, _retired_reg(tradeoffs=[{"title": "t"}]))
             r = run(*flags, p2)
             label = " ".join(flags) or "(default)"
             check("WARN [R-RETIRED]" in r.stdout and "ERROR [R-RETIRED]" not in r.stdout,
@@ -367,7 +370,7 @@ with tempfile.TemporaryDirectory() as d:
                   "%s: the summary says the findings are advisory" % label)
     # …but a real warning beside it still exits 1, and still counts only itself
     with tempfile.TemporaryDirectory() as d3:
-        reg3 = {"meta": {"name": "t", "others": {"live": 1}}, "tokens": dict(_DANGER), "screens": [],
+        reg3 = {"meta": {"name": "t", "tradeoffs": [{"title": "t"}]}, "tokens": dict(_DANGER), "screens": [],
                 "components": [cmp_("hexy", level="atom")]}
         p3 = write(d3, reg3, {"hexy": "function renderCmpHexy(props) {\n  return '<i style=\"color:#ff0000\"></i>';\n}\n"})
         r = run(p3)

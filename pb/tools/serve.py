@@ -33,6 +33,23 @@ POST /api/meta  the Project settings dialog's save (localhost + same-origin only
 under slice.py's registry lock and replace-atomically; every bad request is a 400 with a message, a
 busy registry a 503, a response may carry `warnings`.
 
+/pb:research's session routes (tools/research_session.py does the work; this file is the door), every one
+for a loopback PEER with a loopback Host only — a 403 for any other, whatever --host or --allow-host say
+(a tunnel's proxy is a loopback peer, but it arrives with its own name) — and with no live-reload client and no window.PB_PREVIEW in the pages (a participant's page must never reload):
+  GET  /research/<id>/session[?p=P01&pilot=1&mode=moderated]   the participant page, sink = this server
+  GET  /research/<id>/observer[?p=P01&pilot=1]                 the facilitator's notes window
+  GET  /research/<id>/replay/<e3 | pilot-<sessionId>>          a stored session, replayed on the prototype
+  GET  /research/<id>/report                                   memory/research/<id>/report/report.html
+  GET  /__pb_research/<id>/evidence/<e3 | pilot-<sessionId>[-screen]>
+                                the bytes of a session or recording file, sha256 checked first, streamed,
+                                one `Range: bytes=a-b | a- | -n` answered 206 (416 when unsatisfiable)
+  POST /__pb_research/<id>/session                             a pb-session JSON → 201 {ok, evidence, sessionId, pilot, warnings}
+  POST /__pb_research/<id>/media?session=<sessionId>&kind=screen   the screen recording, streamed to
+                                memory/research/<id>/.incoming/ in 1 MiB pieces then stored → 201 {ok, evidence, bytes, sha256}
+Both POSTs take the same three doors as /api/meta (loopback peer, loopback Host, this page's own Origin),
+need a plain Content-Length (a chunked body is a 411), and answer {ok:false, error} — 400 a refusal, 409 a
+duplicate, 503 a busy registry, 500 an unusable lock file or anything unforeseen, never a traceback.
+
 Live fill. A change to registry.json or to .preview/drafts.json (the unapproved lines `slice.py set --draft`
 keeps) is sent to the open pages as the SSE message `update`, not `reload`: GET /__pb_data returns the registry
 exactly as the render inlines it, the drafts folded in (each marked `_draft: true`; nothing is written), the
@@ -46,8 +63,8 @@ Who may ask. Every request, GET and POST, is checked first: its Host header must
 loopback name, the concrete --host it is bound to, or a name given with --allow-host — or it is a 403
 that names the flag. That is what stops a page on another site (DNS rebinding: its name resolves to
 127.0.0.1) from reading the project through your browser. A request with no Host is accepted from this
-machine only. POST /api/meta and POST /__pb_explore/<id>/scores stay loopback-only on top of that,
-whatever --allow-host says. Static files beside the registry are assets only: a dot-file or dot-folder
+machine only. POST /api/meta, POST /__pb_explore/<id>/scores and every /research/ and /__pb_research/
+route stay loopback-only on top of that, whatever --allow-host says. Static files beside the registry are assets only: a dot-file or dot-folder
 (.git, .env), memory/ and the registry itself are a 403. Every response carries nosniff,
 no-referrer, X-Frame-Options SAMEORIGIN and Cross-Origin-Resource-Policy same-origin.
 
@@ -79,6 +96,7 @@ import argparse, datetime, glob, hashlib, importlib, json, mimetypes, os, re, se
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from html import escape as _esc
+import stat as _stat
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))  # import sibling render.py
 import render
@@ -381,6 +399,171 @@ def error_page(detail, reg_path):
     )
 
 
+# ── /pb:research — the parts of the session routes that are not a Handler method ──────────────────
+RESEARCH_QUERY_MAX = 256           # a research page's query string is a pseudonym and two flags
+RESEARCH_CHUNK = 1 << 20           # an upload is read, and an evidence file streamed, in pieces this size
+RESEARCH_CHUNK_TIMEOUT = 30.0      # seconds one 1 MiB piece of an upload has to arrive in (about 35 KB/s)
+RESEARCH_SEND_TIMEOUT = 60.0       # seconds one write of an evidence stream may wait on a reader that stopped reading
+RESEARCH_REPORT_MAX = 32 * 1024 * 1024
+RESEARCH_HASHED_MAX = 32
+_RANGE_SPAN = re.compile(r"bytes=([0-9]{1,15})-([0-9]{0,15})")
+_RANGE_TAIL = re.compile(r"bytes=-([0-9]{1,15})")
+_HEX64 = re.compile(r"[0-9a-f]{64}")
+_EVIDENCE_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,119}")   # a plain file name: no separator, no leading dot
+# Files already hashed in full: (device, inode, size, mtime_ns, sha256). Evidence is read-only, so a
+# <video> seeking through a 1 GB recording (one Range request per seek) hashes it once, not once per seek.
+_hashed = {}
+_hashed_lock = threading.Lock()
+
+
+class ResearchRequestError(MetaError):
+    """A research request refused before it reaches the store: .status and the message the page shows."""
+
+
+def research_mods():
+    """(research_session, research), imported on first use so a preview that never serves a study loads
+    neither. `research` is the module research_session raises its ResearchError from — one import by name,
+    one class — so `except research.ResearchError` here catches what the store raised."""
+    return importlib.import_module("research_session"), importlib.import_module("research")
+
+
+def research_note_page(title, detail, hint=""):
+    """A small page for a research route that cannot show what was asked for. Unlike error_page it carries no
+    live-reload client (a participant's page never reloads, and an open stream would hold the idle exit off)
+    and does not tell the reader to fix registry.json."""
+    return ("<!DOCTYPE html><html lang=\"en\"><head><meta charset=\"utf-8\">"
+            "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">"
+            "<title>" + _esc(title) + "</title><style>"
+            ":root{color-scheme:light dark}body{margin:0;font:15px/1.6 ui-sans-serif,system-ui,sans-serif}"
+            ".wrap{max-width:560px;margin:12vh auto;padding:0 24px}h1{font-size:18px;margin:0 0 8px}"
+            "p{margin:0 0 12px;opacity:.8}code{font:13px ui-monospace,Menlo,monospace}"
+            "</style></head><body><div class=\"wrap\"><h1>" + _esc(title) + "</h1><p>" + _esc(detail) + "</p>"
+            + ("<p><code>" + _esc(hint) + "</code></p>" if hint else "") + "</div></body></html>")
+
+
+def research_query(rs, qs):
+    """The query string of a session or observer link → {"participant", "pilot"}, or ValueError with the
+    sentence the page shows. `p` is a pseudonym like P01, `pilot` is 0 or 1, `mode` is moderated or
+    unmoderated; each at most once. `mode` is checked but not applied: research_session.build_page has no
+    mode argument yet (the page takes it from the instrument). Unknown keys are ignored."""
+    if len(qs) > RESEARCH_QUERY_MAX:
+        raise ValueError("this link is too long")
+    try:
+        q = urllib.parse.parse_qs(qs, keep_blank_values=True, max_num_fields=8)
+    except ValueError:
+        raise ValueError("this link's query string cannot be read")
+    for k in ("p", "pilot", "mode"):
+        if k in q and len(q[k]) != 1:
+            raise ValueError("%s is given more than once" % k)
+    out = {"participant": None, "pilot": False}
+    if "p" in q:
+        if not rs.PARTICIPANT_ID.match(q["p"][0]):
+            raise ValueError("p must be a pseudonym like P01")
+        out["participant"] = q["p"][0]
+    if "pilot" in q:
+        if q["pilot"][0] not in ("0", "1"):
+            raise ValueError("pilot must be 0 or 1")
+        out["pilot"] = q["pilot"][0] == "1"
+    if "mode" in q and q["mode"][0] not in rs.MODES:
+        raise ValueError("mode must be one of %s" % ", ".join(rs.MODES))
+    return out
+
+
+def parse_range(value, size):
+    """A `Range` header against a file of `size` bytes → (first, last) inclusive; "unsatisfiable" (answer 416);
+    or None — no usable range, send the whole file. Only one range of the `bytes` unit is answered:
+    `a-b`, `a-` and `-n`. Several ranges, another unit and a range that ends before it starts (RFC 9110: not
+    a range at all) are ignored, which is the answer the RFC gives them. Matched with fullmatch against a
+    bounded pattern, so a long or odd header costs nothing."""
+    v = (value or "").strip()
+    if not v or len(v) > 64:
+        return None
+    m = _RANGE_SPAN.fullmatch(v)
+    if m:
+        first = int(m.group(1))
+        last = int(m.group(2)) if m.group(2) else None
+        if last is not None and last < first:
+            return None
+        if first >= size:
+            return "unsatisfiable"
+        return (first, size - 1 if last is None else min(last, size - 1))
+    m = _RANGE_TAIL.fullmatch(v)
+    if m:
+        n = int(m.group(1))
+        if n == 0 or size == 0:
+            return "unsatisfiable"
+        return (max(0, size - n), size - 1)
+    return None
+
+
+def _sha256_of_fd(fd):
+    h = hashlib.sha256()
+    os.lseek(fd, 0, os.SEEK_SET)
+    while True:
+        b = os.read(fd, RESEARCH_CHUNK)
+        if not b:
+            return h.hexdigest()
+        h.update(b)
+
+
+def open_research_file(base, rel_dir, name, sha256=None):
+    """(status, fd, size) for the plain file `name` in the folder base/rel_dir (rel_dir like
+    memory/research/<id>/evidence). status: ok | missing | unsafe | mismatch. The one path guard: the real path
+    of the file must lie inside where that folder is MEANT to be — the real path of `base` plus rel_dir, not
+    the real path of the folder itself, which would follow a symlinked evidence/ folder to wherever it points
+    and approve what is there. Checked right before the open; the open itself refuses a symlink and anything
+    but a regular file. With `sha256` the file is hashed in 1 MiB reads first (never loaded whole: a recording
+    can be a gigabyte) and served only if it still matches what the registry recorded. On "ok" the caller
+    owns the descriptor."""
+    root = os.path.join(os.path.realpath(base), *rel_dir.split("/"))
+    path = os.path.join(root, name)
+    real = os.path.realpath(path)
+    if not real.startswith(root + os.sep) or os.path.islink(path):    # a symlink in the file's own place is refused too
+        return "unsafe", None, 0
+    try:
+        fd = os.open(real, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
+    except FileNotFoundError:
+        return "missing", None, 0
+    except OSError:
+        return "unsafe", None, 0
+    ok = False
+    try:
+        info = os.fstat(fd)
+        if not _stat.S_ISREG(info.st_mode):
+            return "unsafe", None, 0
+        if sha256 is not None:
+            key = (info.st_dev, info.st_ino, info.st_size, info.st_mtime_ns, sha256)
+            with _hashed_lock:
+                known = key in _hashed
+            if not known:
+                if _sha256_of_fd(fd) != sha256:
+                    return "mismatch", None, 0
+                with _hashed_lock:
+                    if len(_hashed) >= RESEARCH_HASHED_MAX:
+                        _hashed.clear()
+                    _hashed[key] = True
+        ok = True
+        return "ok", fd, info.st_size
+    except OSError:
+        return "unsafe", None, 0
+    finally:
+        if not ok:
+            os.close(fd)
+
+
+def research_failure(R, e):
+    """(status, message) for what the store raised. A held registry lock reaches us as a ResearchError
+    (research.locked re-raises RegistryLocked as one, with the original as __context__), so look there too:
+    a busy registry is a 503, a lock file that is not a regular file a 500, a duplicate a 409, a study that
+    does not exist a 404, any other refusal a 400."""
+    lock = e if isinstance(e, pbslice.RegistryLocked) else e.__context__
+    if isinstance(lock, pbslice.RegistryLocked):
+        return (500 if isinstance(lock, pbslice.LockFileUnsafe) else 503), str(lock)
+    if (getattr(e, "data", None) or {}).get("duplicate"):
+        return 409, str(e)
+    return (404 if getattr(e, "code", None) == R.EXIT_USAGE else 400), str(e)
+
+
 class State:
     """Shared between the watcher thread and the request handler threads."""
 
@@ -473,11 +656,21 @@ class State:
         return sorted(glob.glob(os.path.join(glob.escape(root), "**", "*.js"), recursive=True))
 
     @property
+    def sidecar_files(self):
+        """The handoff sidecars render.py inlines: spec/**/*.json (specSrc, load_specs) and logic/**/*.json
+        (logicSrc, load_contracts). Compiled into the page, so a change to one is a reload."""
+        out = []
+        for sub in ("spec", "logic"):
+            root = os.path.join(self.base_dir, sub)
+            out += glob.glob(os.path.join(glob.escape(root), "**", "*.json"), recursive=True)
+        return sorted(out)
+
+    @property
     def watched(self):
-        # body_files is recomputed each poll so newly added/removed .js files are noticed.
-        extra = [p for p in (self.ds_shell_path, self.runtime_path) if p]
+        # body_files / runtime_files / sidecar_files are recomputed each poll so newly added/removed files are noticed.
+        extra = [p for p in (self.ds_shell_path, self.runtime_path, self.explore_shell_path) if p]
         return ([self.reg_path, self.shell_path, self.render_path, self.drafts_path, self.hook_path] + extra
-                + self.body_files + self.runtime_files)
+                + self.body_files + self.runtime_files + self.sidecar_files)
 
     def bump(self, kind="reload"):
         """A watched file changed. `kind` is what the browsers are told: "update" when only data the page can
@@ -512,6 +705,21 @@ class State:
         with self._cache_lock:
             for key in [k for k in self._slot_cache if k[0] not in open_targets]:
                 del self._slot_cache[key]
+
+
+def trim_server_log(base_dir):
+    """On start, keep only the last LOG_KEEP bytes of .preview/server.log when it is over LOG_MAX → bytes dropped.
+    Uses clean.py's in-place trim (the same limits): this process, or the one that spawned it, holds the
+    file open for append, and an atomic replace would leave it writing to an unlinked file."""
+    try:
+        import clean
+        path = os.path.join(base_dir, explore.SERVER_LOG)
+        if not os.path.isfile(path):
+            return 0
+        dropped, _err = clean._trim_log(path, os.path.realpath(base_dir))
+        return dropped
+    except Exception:
+        return 0
 
 
 def render_current(state):
@@ -598,8 +806,10 @@ def render_ds_current(state):
 
 
 def read_hook(state):
-    """What the plugin hook last wrote to .preview/activity.json — {state: "working"|"idle", at: <epoch s>} —
-    or None when there is none, it is unreadable or it is not that shape. A bad file is no activity, never an error."""
+    """What the plugin hook last wrote to .preview/activity.json — {state: "working"|"idle", at: <epoch s>, since?, gate?} —
+    or None when there is none, it is unreadable or it is not that shape. A bad file is no activity, never an error.
+    `since` (when the turn began) is passed on only when it is a number no later than `at`; otherwise it is left out.
+    `gate` (the human gate a command stopped at) is passed on only when `hook_gate` finds it well formed."""
     try:
         with open(state.hook_path, encoding="utf-8") as f:
             d = json.load(f)
@@ -610,7 +820,32 @@ def read_hook(state):
     at = d.get("at")
     if isinstance(at, bool) or not isinstance(at, (int, float)):
         return None
-    return {"state": d["state"], "at": at}
+    out = {"state": d["state"], "at": at}
+    since = d.get("since")
+    if isinstance(since, (int, float)) and not isinstance(since, bool) and since <= at:
+        out["since"] = since
+    gate = hook_gate(d.get("gate"))
+    if gate:
+        out["gate"] = gate
+    return out
+
+
+HOOK_GATE_ID = re.compile(r"^G-[A-Z][A-Z0-9-]*$")
+
+
+def hook_gate(g):
+    """The gate a command stopped at — {id: "G-JTBD", ask: "approve 4 jobs and 3 terms", at: <epoch s>} — only when
+    it is well formed (an id shaped G-…, a non-empty one-line ask of at most 160 characters, a number); else None."""
+    if not isinstance(g, dict):
+        return None
+    gid, ask, at = g.get("id"), g.get("ask"), g.get("at")
+    if not isinstance(gid, str) or not HOOK_GATE_ID.match(gid):
+        return None
+    if not isinstance(ask, str) or not ask.strip() or len(ask) > 160 or "\n" in ask or "\r" in ask:
+        return None
+    if isinstance(at, bool) or not isinstance(at, (int, float)):
+        return None
+    return {"id": gid, "ask": ask.strip(), "at": at}
 
 
 def data_current(state):
@@ -892,9 +1127,11 @@ class Handler(BaseHTTPRequestHandler):
                                "clients": st.sse_clients, "idleSeconds": int(st.idle_seconds()),
                                "startedAt": st.started_at})
         is_page = (path in ("/", "/index.html", "/design-system", "/design-system/", "/design-system.html", "/__pb_data")
-                   or path == "/explore" or path.startswith("/explore/"))
+                   or path == "/explore" or path.startswith("/explore/") or path.startswith("/research/"))
         if is_page:
             refresh(self.state)   # the watcher may be on its slow poll: look at the disk now, never render stale
+        if path.startswith("/research/") or path.startswith("/__pb_research/"):
+            return self.serve_research(path)   # /pb:research — loopback peers only, no live-reload client in what it sends
         if path == "/__pb_data":
             return self.serve_data()
         if path in ("/", "/index.html"):
@@ -986,6 +1223,8 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/meta":
             return self.post_meta()
         parts = [p for p in path.split("/") if p]
+        if parts[:1] == ["__pb_research"]:
+            return self.post_research(parts, self.path.partition("?")[2])
         if len(parts) != 3 or parts[0] != "__pb_explore" or parts[2] != "scores":
             return self._send(b"404 not found", ctype="text/plain", status=404, close=True)
         return self.post_scores(parts[1])
@@ -1102,6 +1341,343 @@ class Handler(BaseHTTPRequestHandler):
         if warnings:
             out["warnings"] = warnings
         self._json(out)   # the watcher sees the new mtime and reloads pages
+
+    # ── /pb:research — the session routes (module docstring; tools/research_session.py does the work) ──
+    def _research_gate(self):
+        """The door of every GET under /research/ and /__pb_research/, after the Host guard: True once it has
+        answered 403 because the peer is not this machine or the Host names something other than a loopback
+        host. A study's sessions and recordings are a person's data, so --host and --allow-host never widen
+        this — a tunnel's proxy is a loopback peer but arrives with its own name. (The POSTs take the same two
+        doors, and the Origin one, in _local_same_origin.)"""
+        if self.client_address[0] in LOOPBACK_ADDRS and host_name(self.headers.get("Host")) in LOOPBACK_HOSTS:
+            return False
+        self._send(b"403 forbidden: a research page opens only on this machine, at 127.0.0.1 or localhost",
+                   ctype="text/plain; charset=utf-8", status=403, close=True)
+        return True
+
+    def _research_missing(self):
+        self._send(b"404 not found", ctype="text/plain; charset=utf-8", status=404)
+
+    def serve_research(self, path):
+        """GET /research/<id>/{session,observer,report} · /research/<id>/replay/<eid> · /__pb_research/<id>/evidence/<eid>.
+        Every id is checked against its anchored pattern before anything is built from it; a path is never
+        percent-decoded, so an escape is simply not an id."""
+        if self._research_gate():
+            return
+        try:
+            rs, R = research_mods()
+        except Exception:
+            log("the research tools could not be loaded:\n" + traceback.format_exc())
+            return self._send(research_note_page("Research tools unavailable",
+                                                 "research_session.py could not be loaded — see the preview server's output.").encode("utf-8"),
+                              status=500)
+        parts = [p for p in path.split("/") if p]
+        if len(parts) < 3 or not R.STUDY_ID.match(parts[1]):
+            return self._research_missing()
+        sid, rest = parts[1], parts[2:]
+        if parts[0] == "__pb_research":
+            if len(rest) == 2 and rest[0] == "evidence":
+                return self.research_evidence(rs, R, sid, rest[1])
+            return self._research_missing()
+        if len(rest) == 1 and rest[0] in ("session", "observer"):
+            return self.research_page(rs, R, sid, rest[0])
+        if len(rest) == 2 and rest[0] == "replay" and (rs.EVIDENCE_ID.match(rest[1]) or rs.PILOT_EID.match(rest[1])):
+            return self.research_page(rs, R, sid, "replay", eid=rest[1])
+        if len(rest) == 1 and rest[0] == "report":
+            return self.research_report(R, sid)
+        self._research_missing()
+
+    def research_page(self, rs, R, sid, page, eid=None):
+        """The participant page, the observer or a replay — research_session.build_page, sent as it is: no
+        live-reload client and no window.PB_PREVIEW (a participant's page must never reload or live-fill)."""
+        kw = {}
+        if page != "replay":
+            try:
+                kw = research_query(rs, self.path.partition("?")[2])
+            except ValueError as e:
+                return self._send(research_note_page("Research · this link does not work", str(e)).encode("utf-8"), status=400)
+        st = self.state
+        try:
+            html = rs.build_page(st.reg_path, sid, page, eid=eid, shell_path=st.shell_path, runtime_path=st.runtime_path, **kw)
+        except R.ResearchError as e:    # not found → 404; a study not ready for this page (a draft, scope instrument…) → 409
+            return self._send(research_note_page("Research · cannot open this page", str(e)).encode("utf-8"),
+                              status=404 if (e.code == R.EXIT_USAGE or page == "replay") else 409)
+        except Exception:
+            log("research page %s/%s failed:\n%s" % (sid, page, traceback.format_exc()))
+            return self._send(research_note_page("Research · the page could not be built",
+                                                 "See the preview server's output.").encode("utf-8"), status=500)
+        self._send(html.encode("utf-8"))
+
+    def research_report(self, R, sid):
+        """GET /research/<id>/report — memory/research/<id>/report/report.html, as the tool wrote it."""
+        status, fd, size = open_research_file(R.base_of(self.state.reg_path), R.study_rel(sid) + "/report", "report.html")
+        if status != "ok":
+            return self._send(research_note_page("No report yet", "%s has no report to show. Write it with:" % sid,
+                                                 "research.py report %s" % sid).encode("utf-8"), status=404)
+        try:
+            body = b"".join(iter(lambda: os.read(fd, RESEARCH_CHUNK), b"")) if size <= RESEARCH_REPORT_MAX else None
+        finally:
+            os.close(fd)
+        if body is None:
+            return self._send(research_note_page("The report is too large to show",
+                                                 "%s's report.html is over %d MB." % (sid, RESEARCH_REPORT_MAX // (1024 * 1024))).encode("utf-8"),
+                              status=413)
+        self._send(body, ctype="text/html; charset=utf-8")
+
+    def research_evidence(self, rs, R, sid, eid):
+        """GET /__pb_research/<id>/evidence/<eid> — the bytes of one session or recording file (an evidence
+        id like e3, or pilot-<sessionId> / pilot-<sessionId>-screen for a pilot), checked against the sha256
+        the registry holds before a byte is sent, and streamed from one descriptor so a gigabyte recording is
+        never read into memory. A single `Range` is answered 206 (416 when it starts past the end)."""
+        st = self.state
+        try:
+            study = R.find_study(R.load_registry(st.reg_path), sid)
+        except R.ResearchError:
+            return self._research_missing()
+        sha = None
+        if rs.EVIDENCE_ID.match(eid):
+            row = next((e for e in R.as_list(study.get("evidence")) if isinstance(e, dict) and e.get("id") == eid), None)
+            if row is None or row.get("dropped") or row.get("kind") not in ("session", "recording"):
+                return self._research_missing()
+            prefix = R.evidence_dir_rel(sid) + "/"
+            rel, sha = R.sstr(row.get("file")), R.sstr(row.get("sha256"))
+            name = rel[len(prefix):] if rel.startswith(prefix) else ""
+            if not _EVIDENCE_NAME.fullmatch(name) or not _HEX64.fullmatch(sha):
+                return self._json({"ok": False, "error": "%s is not recorded as a plain file inside the evidence folder" % eid}, status=409)
+            rel_dir = R.evidence_dir_rel(sid)
+            ctype = "application/json; charset=utf-8" if row["kind"] == "session" else "video/webm"
+        else:
+            m = rs.PILOT_EID.match(eid)
+            if not m:
+                return self._research_missing()
+            wanted, pilots = m.group(1), [p for p in R.as_list(study.get("pilots")) if isinstance(p, dict)]
+            screen = wanted[:-len("-screen")] if wanted.endswith("-screen") else None
+            if any(p.get("sessionId") == wanted for p in pilots):
+                name, ctype = wanted + ".json", "application/json; charset=utf-8"
+            elif screen and rs.SESSION_ID.match(screen) and any(
+                    p.get("sessionId") == screen and "%s/pilot/%s-screen.webm" % (R.study_rel(sid), screen) in R.as_list(p.get("media"))
+                    for p in pilots):
+                name, ctype = screen + "-screen.webm", "video/webm"
+            else:
+                return self._research_missing()
+            rel_dir = R.study_rel(sid) + "/pilot"
+        status, fd, size = open_research_file(R.base_of(st.reg_path), rel_dir, name, sha)
+        if status == "missing":
+            return self._research_missing()
+        if status != "ok":
+            why = ("no longer matches its recorded sha256 — it was changed after import" if status == "mismatch"
+                   else "is not a plain file inside its folder")
+            return self._json({"ok": False, "error": "%s %s" % (eid, why)}, status=409)
+        self.research_stream(fd, size, ctype)
+
+    def _research_head(self, status, ctype, length, extra=()):
+        self.send_response(status)
+        self.send_header("Content-Type", ctype)
+        self.send_header("Content-Length", str(length))
+        self.send_header("Accept-Ranges", "bytes")
+        self.send_header("Cache-Control", "no-store")
+        for k, v in extra:
+            self.send_header(k, v)
+        self._security_headers()
+        self.end_headers()
+
+    def research_stream(self, fd, size, ctype):
+        """Send the descriptor's bytes (all of them, or the one range asked for) in 1 MiB reads, then close it.
+        A reader that stops reading is dropped after RESEARCH_SEND_TIMEOUT; a file that shrinks under us ends
+        the connection, because the Content-Length it promised can no longer be kept."""
+        try:
+            ranges = self.headers.get_all("Range") or []
+            span = parse_range(ranges[0], size) if len(ranges) == 1 else None
+            if span == "unsatisfiable":
+                return self._research_head(416, ctype, 0, [("Content-Range", "bytes */%d" % size)])
+            first, last = span if span else (0, size - 1)
+            length = last - first + 1
+            self._research_head(206 if span else 200, ctype, length,
+                                [("Content-Range", "bytes %d-%d/%d" % (first, last, size))] if span else [])
+            try:
+                self.connection.settimeout(RESEARCH_SEND_TIMEOUT)
+                os.lseek(fd, first, os.SEEK_SET)
+                left = length
+                while left > 0:
+                    b = os.read(fd, min(RESEARCH_CHUNK, left))
+                    if not b or not self._write(b):
+                        self.close_connection = True
+                        break
+                    left -= len(b)
+            finally:
+                try:
+                    self.connection.settimeout(None)
+                except OSError:
+                    pass
+        finally:
+            os.close(fd)
+
+    def _research_length(self, limit):
+        """The Content-Length of a research upload, as a number: a plain number of bytes, once, over 0 and
+        within `limit`. A body with no length (a chunked one included) is a 411 — the limit cannot be held
+        to a size nobody declared. ResearchRequestError otherwise, with the sentence the page shows."""
+        lengths = self.headers.get_all("Content-Length") or []
+        if self.headers.get("Transfer-Encoding") is not None:
+            raise ResearchRequestError("Transfer-Encoding and Content-Length together are not accepted" if lengths
+                                       else "a chunked body is not accepted: send a Content-Length", 400 if lengths else 411)
+        if len(lengths) > 1:
+            raise ResearchRequestError("more than one Content-Length header", 400)
+        raw = (lengths[0] if lengths else "").strip()
+        if not raw:
+            raise ResearchRequestError("Content-Length is required", 411)
+        if not re.fullmatch(r"[0-9]{1,12}", raw):
+            raise ResearchRequestError("Content-Length must be a plain number of bytes", 400)
+        n = int(raw)
+        if n <= 0:
+            raise ResearchRequestError("payload missing", 400)
+        if n > limit:
+            raise ResearchRequestError("payload too large (limit %d MB)" % (limit // (1024 * 1024)), 400)
+        return n
+
+    def _research_read(self, n, sink):
+        """Read exactly `n` body bytes, handing each piece to sink(bytes). Each 1 MiB of it has
+        RESEARCH_CHUNK_TIMEOUT seconds in all to arrive, so neither a stalled client nor one trickling a byte
+        at a time holds this thread; a client that stops short is a ResearchRequestError (400)."""
+        got, window, deadline = 0, 0, time.monotonic() + RESEARCH_CHUNK_TIMEOUT
+        try:
+            while got < n:
+                left = deadline - time.monotonic()
+                b = b""
+                if left > 0:
+                    try:
+                        self.connection.settimeout(left)
+                        b = self.rfile.read1(min(65536, n - got))
+                    except OSError:                   # socket.timeout is one
+                        b = b""
+                if not b:
+                    raise ResearchRequestError("payload incomplete: Content-Length said %d bytes, %d arrived" % (n, got), 400)
+                sink(b)
+                got += len(b)
+                window += len(b)
+                if window >= RESEARCH_CHUNK:
+                    window, deadline = 0, time.monotonic() + RESEARCH_CHUNK_TIMEOUT
+        finally:
+            try:
+                self.connection.settimeout(None)
+            except OSError:
+                pass
+
+    def _research_fail(self, e, R):
+        """The JSON answer for whatever went wrong in a research POST — a message and a status, never a
+        traceback. The connection is closed when the body was not read (its bytes would be parsed as the next request)."""
+        close = not self._body_read
+        if isinstance(e, ResearchRequestError):
+            return self._json({"ok": False, "error": str(e)}, status=e.status, close=close)
+        if R is not None and isinstance(e, (R.ResearchError, pbslice.RegistryLocked)):
+            status, msg = research_failure(R, e)
+            return self._json({"ok": False, "error": msg}, status=status, close=close)
+        if isinstance(e, OSError):
+            return self._json({"ok": False, "error": "could not store the upload (%s)" % (e.strerror or type(e).__name__)},
+                              status=500, close=close)
+        log("a research upload failed:\n" + traceback.format_exc())
+        self._json({"ok": False, "error": "could not store the upload"}, status=500, close=close)
+
+    def post_research(self, parts, query):
+        """POST /__pb_research/<id>/session · /__pb_research/<id>/media?session=<sessionId>&kind=screen."""
+        if len(parts) == 3 and parts[2] == "session":
+            return self.post_research_session(parts[1])
+        if len(parts) == 3 and parts[2] == "media":
+            return self.post_research_media(parts[1], query)
+        self._send(b"404 not found", ctype="text/plain", status=404, close=True)
+
+    def post_research_session(self, sid):
+        """The participant page's save: one pb-session JSON → research_session.store_session. The same three
+        doors as /api/meta, then a body of at most SESSION_MAX_BYTES read in pieces. It is NOT parsed here —
+        store_session parses it with its own depth and size guards — so what is checked here is only who
+        is asking and how much they send."""
+        self._body_read = False
+        R = None
+        try:
+            why = self._local_same_origin()
+            if why:
+                return self._json({"ok": False, "error": why}, status=403, close=True)
+            rs, R = research_mods()
+            if not R.STUDY_ID.match(sid):
+                raise ResearchRequestError("no such study", 404)
+            n = self._research_length(rs.SESSION_MAX_BYTES)
+            pieces = []
+            self._research_read(n, pieces.append)
+            self._body_read = True
+            res = rs.store_session(self.state.reg_path, sid, b"".join(pieces), source="server")
+        except Exception as e:
+            return self._research_fail(e, R)
+        self._json({"ok": True, "evidence": res["evidence"], "sessionId": res["sessionId"], "pilot": res["pilot"],
+                    "warnings": res["warnings"]}, status=201)
+
+    def _research_media_target(self, rs, R, sid, query):
+        """The session id a recording upload is for, from `?session=<sessionId>&kind=screen`, after a cheap look
+        at the registry: the study exists and that session is stored (an evidence row or a pilot). Refusing
+        here — before a byte of a gigabyte is read and before any folder is made for a study that is not
+        there — keeps a mistaken upload cheap; store_media still decides consent, size and format."""
+        if len(query) > RESEARCH_QUERY_MAX:
+            raise ResearchRequestError("this link is too long", 400)
+        try:
+            q = urllib.parse.parse_qs(query, keep_blank_values=True, max_num_fields=8)
+        except ValueError:
+            raise ResearchRequestError("the query string cannot be read", 400)
+        session_id = (q.get("session") or [""])[0]
+        if len(q.get("session") or []) != 1 or not rs.SESSION_ID.match(session_id):
+            raise ResearchRequestError("session must be a session id like s-lq3k9-ab12", 400)
+        if q.get("kind") != ["screen"]:
+            raise ResearchRequestError("kind must be screen", 400)
+        study = R.find_study(R.load_registry(self.state.reg_path), sid)
+        if study.get("method") not in rs.SESSION_METHODS:
+            raise R.ResearchError("%s is a %s study; it has no session recordings" % (sid, study.get("method")))
+        stored = any(isinstance(e, dict) and e.get("kind") == "session" and R.as_dict(e.get("session")).get("id") == session_id
+                     for e in R.as_list(study.get("evidence"))) \
+            or any(isinstance(p, dict) and p.get("sessionId") == session_id for p in R.as_list(study.get("pilots")))
+        if not stored:
+            raise R.ResearchError("session %s is not stored in %s — store the session file first" % (session_id, sid))
+        return session_id
+
+    def post_research_media(self, sid, query):
+        """The participant page's screen recording: the raw WebM body, written in 1 MiB pieces to a file made
+        exclusively (O_EXCL, no symlink) in memory/research/<id>/.incoming/ — never held in memory — and then
+        handed to store_media(move=True), which checks consent, hashes it and renames it into the evidence
+        folder. The temp file is removed on every path that does not end in that rename."""
+        self._body_read = False
+        R, tmp = None, None
+        try:
+            why = self._local_same_origin()
+            if why:
+                return self._json({"ok": False, "error": why}, status=403, close=True)
+            rs, R = research_mods()
+            if not R.STUDY_ID.match(sid):
+                raise ResearchRequestError("no such study", 404)
+            session_id = self._research_media_target(rs, R, sid, query)
+            n = self._research_length(rs.MEDIA_MAX_BYTES)
+            incoming_rel = R.study_rel(sid) + "/.incoming"
+            R.ensure_dir(R.base_of(self.state.reg_path), incoming_rel)      # made one segment at a time, refusing a symlink
+            incoming = os.path.join(os.path.realpath(R.base_of(self.state.reg_path)), *incoming_rel.split("/"))
+            tmp = os.path.realpath(os.path.join(incoming, "u-%s.webm" % os.urandom(8).hex()))
+            if not tmp.startswith(incoming + os.sep):
+                raise ResearchRequestError("the upload folder is not where it should be", 500)
+            fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0), 0o600)
+            magic, head = rs.WEBM_MAGIC, bytearray()
+            with os.fdopen(fd, "wb") as out:
+                def sink(b):
+                    if len(head) < len(magic):      # refuse what is not a WebM on its first bytes, not after a gigabyte
+                        head.extend(b[:len(magic) - len(head)])
+                        if bytes(head) != magic[:len(head)]:
+                            raise ResearchRequestError("the upload is not a WebM recording (no EBML header)", 400)
+                    out.write(b)
+                self._research_read(n, sink)
+            self._body_read = True
+            res = rs.store_media(self.state.reg_path, sid, session_id, tmp, mime="video/webm", move=True)
+        except Exception as e:
+            return self._research_fail(e, R)
+        finally:
+            if tmp:
+                try:
+                    os.unlink(tmp)       # gone already once store_media has renamed it
+                except OSError:
+                    pass
+        self._json({"ok": True, "evidence": res["evidence"], "bytes": res["bytes"], "sha256": res["sha256"]}, status=201)
 
     def serve_ds(self):
         """The design-system site (component workbench) — the second projection of the registry."""
@@ -1684,6 +2260,7 @@ def main():
             return os.path.relpath(p)
         except OSError:
             return p
+    trim_server_log(os.path.dirname(reg_path))
     log("Product Builder preview")
     summary = startup_summary(reg_path)
     if summary:
@@ -1695,7 +2272,7 @@ def main():
     if ds_shell_path and runtime_path:
         log("  design    %sdesign-system  ·  the component workbench" % url)
     log("  explore   %sexplore  ·  /pb:explore options side by side, rated in the page" % url)
-    log("  watching  registry.json, shells, render.py, render/**/*.{js,css}, runtime/**/*.js — saving any reloads the browser")
+    log("  watching  registry.json, shells, render.py, render/**/*.{js,css}, runtime/**/*.js, spec/**/*.json, logic/**/*.json — saving any reloads the browser")
     log("  to disk   %s" % ("ON → %s" % rel(out_path) if args.write
                             else "off (in-memory preview; --write to update prototype.html)"))
     log("  idle exit %s" % ("after %g min with no tab open and no request (--idle-exit 0 keeps it running)" % args.idle_exit

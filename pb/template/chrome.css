@@ -154,8 +154,11 @@
   /* motion — one duration for every state change; reduced motion zeroes it */
   --pb-t:      120ms;
 
-  /* layout — the bar is 44px because six layout offsets in prototype.html subtract it */
+  /* layout — the bar is 44px. Everything laid out below it subtracts --pb-top: the bar, plus the activity strip
+     (.pb-agent, one --pb-hit row and its hairline) while the prototype shows one — :root.pb-has-agent */
   --pb-bar-h:  44px;
+  --pb-agent-h: 0px;
+  --pb-top:    calc(var(--pb-bar-h) + var(--pb-agent-h));
   --pb-gutter: 1.5rem;
 
   /* round-3 additions (F1): the half step under --pb-s1, and the hues a role is drawn in — the IA
@@ -257,8 +260,10 @@
 .pb-tab.has-new .pb-tab-dot { display: block; }
 /* A line that has just arrived settles in: it comes up from a quarter-rem below on a wash, then rests on its own
    surface (no end state is set, so the row keeps whatever background it had). Reduced motion: it simply appears. */
-.pb-arrive { animation: pb-arrive .6s ease-out backwards; }
+.pb-arrive { animation: pb-arrive .6s ease-out backwards, pb-type .55s steps(22, end) backwards; }
 @keyframes pb-arrive { from { background-color: var(--pb-wash); opacity: 0; transform: translateY(var(--pb-s1)); } 55% { opacity: 1; } }
+/* …and its words come in left to right, a few characters a frame: the line reads as written, not pasted (v2.7) */
+@keyframes pb-type { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0 0 0 0); } }
 @media (prefers-reduced-motion: reduce) { .pb-arrive { animation: none; } }
 /* a line nobody has approved yet */
 .pb-draft-chip { background: var(--pb-wash); color: var(--pb-ink-3); border: var(--pb-hair-w) dashed var(--pb-hair-2); font-weight: var(--pb-w-bold); }
@@ -273,27 +278,76 @@
 @keyframes pb-pulse { 0%, 100% { opacity: .45; } 50% { opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { .ia-node--loading::before, .ia-node--loading::after { animation: none; } }
 
-/* the progress item, before Search: the step being worked on, how many lines it holds, and whose turn it is */
-.pb-prog-wrap { position: relative; display: flex; align-items: center; }
-.pb-prog-wrap + .pb-bar-item { position: relative; }
-.pb-prog-wrap + .pb-bar-item::before {
-  content: ""; position: absolute; left: 0; top: 30%; bottom: 30%;
-  border-left: var(--pb-hair-w) solid var(--pb-hair);
-}
-.pb-prog-n { font-variant-numeric: tabular-nums; color: var(--pb-ink-3); }
-.pb-prog-st { display: inline-flex; align-items: center; gap: var(--pb-s1); color: var(--pb-ink-3); }
-.pb-prog-st::before {
-  content: ""; width: calc(var(--pb-dot) * .8); height: calc(var(--pb-dot) * .8); border-radius: 50%;
-  background: currentColor; flex: none;
-}
-.pb-prog-st[data-status="working"] { color: var(--pb-ink); }
-.pb-prog-st[data-status="working"]::before { animation: pb-pulse 1.2s ease-in-out infinite; }
-.pb-prog-st[data-status="turn"] { color: var(--pb-ink); }
-.pb-prog-st[data-status="done"] { color: var(--pb-pass); }
-@media (prefers-reduced-motion: reduce) { .pb-prog-st[data-status="working"]::before { animation: none; } }
+/* the steps menu: since v2.7 its button is the step name in the activity strip (.pb-agent-steps, below) — the bar
+   no longer carries a progress item, the strip says the status */
+.pb-prog-wrap { position: relative; display: flex; align-items: center; flex: none; }
 .pb-menu--end { left: auto; right: 0; min-width: 18rem; }
 .pb-menu-head { display: block; padding: var(--pb-s2) var(--pb-s2) var(--pb-s1); color: var(--pb-ink-3); font-size: var(--pb-t-sm); }
 .pb-menu-n { margin-left: auto; font-variant-numeric: tabular-nums; color: var(--pb-ink-3); }
+
+/* ---------- The activity strip (v2.7): what Claude is doing, in words, under the bar ----------
+   One --pb-hit row (pbAgentPaint in prototype.html). --pb-info is its one accent: the glyph and the beam. Modes:
+   working (Thinking / Writing — three dots in a calm wave, a beam along the bottom edge) · waiting (the hook went
+   quiet: one still ink-3 dot) · turn (Stop fired, drafts to approve: one still info dot) · done (one still ink-3
+   dot). Reduced motion: the dots stand at three opacities and the beam is a still hairline. */
+:root.pb-has-agent { --pb-agent-h: calc(var(--pb-hit) + var(--pb-hair-w)); }
+.pb-agent {
+  position: sticky; top: var(--pb-bar-h); z-index: 1099;
+  display: flex; align-items: center; gap: var(--pb-s3); height: calc(var(--pb-hit) + var(--pb-hair-w)); padding: 0 var(--pb-gutter);
+  background: var(--pb-page); color: var(--pb-ink-2); border-bottom: var(--pb-hair-w) solid var(--pb-hair);
+  font: var(--pb-w-reg) var(--pb-t-md)/1 var(--pb-font); white-space: nowrap;   /* not clipped: the steps menu drops from it */
+}
+.pb-agent[hidden], .pb-agent [hidden] { display: none; }
+/* the step name, as the steps menu's button (before the first screen): plain until hovered, a chevron after it */
+.pb-agent-steps {
+  display: inline-flex; align-items: center; gap: var(--pb-s1); height: var(--pb-hit-sm); margin: 0;
+  padding: 0 var(--pb-s1); border: 0; border-radius: var(--pb-r-md); background: none; color: var(--pb-ink-2);
+  font: inherit; white-space: nowrap; cursor: pointer;
+}
+.pb-agent-steps:hover, .pb-agent-steps[aria-expanded="true"] { background: var(--pb-wash); color: var(--pb-ink); }
+.pb-agent-steps svg { flex: none; width: var(--pb-ico-sm); height: var(--pb-ico-sm); color: var(--pb-ink-3); }
+/* On a narrow strip the step gives way first (an ellipsis), never what Claude is asking: the message keeps room */
+.pb-agent .pb-prog-wrap { flex: 0 1 auto; min-width: 0; margin: 0 calc(var(--pb-s1) * -1); }   /* the button's wash bleeds; its words align */
+.pb-agent-steps { min-width: 0; }   /* no max-width: a % of a shrink-to-fit parent squeezed the name with room to spare */
+.pb-agent-steps .pb-agent-step { min-width: 0; }
+.pb-agent.is-enter { animation: pb-agent-in calc(var(--pb-t) * 3) ease-out; }
+@keyframes pb-agent-in { from { opacity: 0; transform: translateY(-30%); } }
+.pb-agent-glyph { display: flex; flex: none; align-items: center; gap: var(--pb-s0); width: calc(var(--pb-dot) * 2.4); }
+.pb-agent-glyph i { display: block; width: calc(var(--pb-dot) * .6); height: calc(var(--pb-dot) * .6); border-radius: 50%; background: var(--pb-info); }
+.pb-agent[data-mode="working"] .pb-agent-glyph i { animation: pb-agent-dot 1.4s ease-in-out infinite backwards; }
+.pb-agent[data-mode="working"] .pb-agent-glyph i:nth-child(2) { animation-delay: .2s; }
+.pb-agent[data-mode="working"] .pb-agent-glyph i:nth-child(3) { animation-delay: .4s; }
+.pb-agent:not([data-mode="working"]) .pb-agent-glyph i:nth-child(n+2) { opacity: 0; }
+.pb-agent:is([data-mode="waiting"], [data-mode="done"]) .pb-agent-glyph i { background: var(--pb-ink-3); }
+@keyframes pb-agent-dot { 0%, 100% { opacity: .25; } 40% { opacity: 1; } }
+.pb-agent-line { display: flex; flex: 1 1 0; align-items: baseline; gap: var(--pb-s2); min-width: min(10rem, 40vw); overflow: hidden; }
+.pb-agent-line:empty { min-width: 0; }
+.pb-agent-verb { flex: none; color: var(--pb-ink); font-weight: var(--pb-w-bold); }
+.pb-agent-sep { flex: none; color: var(--pb-ink-3); }
+.pb-agent-step, .pb-agent-detail { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.pb-agent-n { flex: none; color: var(--pb-ink-3); font-variant-numeric: tabular-nums; }
+.pb-agent-time { flex: none; margin-left: auto; color: var(--pb-ink-3); font-variant-numeric: tabular-nums; }
+.pb-agent-beam { position: absolute; left: 0; right: 0; bottom: 0; height: var(--pb-rule-w); overflow: hidden; opacity: 0; pointer-events: none; }
+.pb-agent[data-mode="working"] .pb-agent-beam { opacity: 1; }
+.pb-agent-beam::before { content: ""; position: absolute; top: 0; bottom: 0; left: 0; width: 28%;
+  background: linear-gradient(90deg, transparent, var(--pb-info), transparent); animation: pb-agent-beam 2.2s ease-in-out infinite; }
+@keyframes pb-agent-beam { from { transform: translateX(-100%); } to { transform: translateX(360%); } }
+.pb-agent-sr { position: absolute; width: var(--pb-hair-w); height: var(--pb-hair-w); margin: calc(var(--pb-hair-w) * -1); padding: 0;
+  overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
+@media (prefers-reduced-motion: reduce) {
+  .pb-agent.is-enter { animation: none; }
+  .pb-agent[data-mode="working"] .pb-agent-glyph i { animation: none; }
+  .pb-agent[data-mode="working"] .pb-agent-glyph i:nth-child(2) { opacity: .6; }
+  .pb-agent[data-mode="working"] .pb-agent-glyph i:nth-child(3) { opacity: .3; }
+  .pb-agent-beam { height: var(--pb-hair-w); }
+  .pb-agent-beam::before { animation: none; width: 100%; background: var(--pb-info); }
+}
+/* A phone-width strip: the clock goes (the words matter more), and the steps menu spans the window under the strip
+   instead of hanging off its anchor past the right edge */
+@media (max-width: 599px) {
+  .pb-agent-time { display: none; }
+  .pb-agent .pb-menu { position: fixed; top: calc(var(--pb-top) + var(--pb-s1)); left: var(--pb-gutter); right: var(--pb-gutter); min-width: 0; max-width: none; }
+}
 .pb-prog-mk {
   flex: none; width: calc(var(--pb-dot) * .9); height: calc(var(--pb-dot) * .9); border-radius: 50%;
   border: var(--pb-hair-w) solid var(--pb-hair-2); box-sizing: border-box;
@@ -554,6 +608,11 @@ dialog.pb-dlg::backdrop { background: var(--pb-scrim); }
    only the glyph (its aria-label and title still name it). */
 @media (max-width: 1439px) { .pb-bar-item .pb-kbd { display: none; } }
 @media (max-width: 899px) { .pb-bar-item .pb-bar-lb, .pb-bar-item .pb-kbd { display: none; } }
+/* A bar too full for its words at any width (the prototype's pbBarFit measures it, so it holds for whichever
+   items are showing): the bar items keep only their glyphs (.is-tight is the same step now that the bar has no
+   progress item), then .is-narrow. Without this the tabs, which may shrink, were painted over by the items on the right. */
+.pb-bar.is-compact .pb-bar-end > .pb-bar-item .pb-bar-lb, .pb-bar.is-compact .pb-bar-item .pb-kbd,
+.pb-bar.is-tight .pb-bar-item .pb-bar-lb { display: none; }
 @media (max-width: 599px) { .pb-pj-nm { display: none; } .pb-cmdk-f-r { display: none; } }
 
 /* ---------- Shared primitives (round 3 · wave A) ----------
@@ -680,12 +739,21 @@ dialog.pb-dlg::backdrop { background: var(--pb-scrim); }
   .pb-id { max-width: 8rem; }
   .pb-tabs { gap: var(--pb-s3); overflow-x: auto; scrollbar-width: none; }
   .pb-tabs::-webkit-scrollbar { display: none; }
-  /* the clipped edge fades so a sideways-scrolling strip reads as "more this way" (pbTabsFit) */
-  .pb-tabs.is-clip-r { -webkit-mask-image: linear-gradient(to right, var(--pb-mask) calc(100% - 2rem), transparent); mask-image: linear-gradient(to right, var(--pb-mask) calc(100% - 2rem), transparent); }
-  .pb-tabs.is-clip-l { -webkit-mask-image: linear-gradient(to left, var(--pb-mask) calc(100% - 2rem), transparent); mask-image: linear-gradient(to left, var(--pb-mask) calc(100% - 2rem), transparent); }
-  .pb-tabs.is-clip-l.is-clip-r { -webkit-mask-image: linear-gradient(to right, transparent, var(--pb-mask) 2rem, var(--pb-mask) calc(100% - 2rem), transparent); mask-image: linear-gradient(to right, transparent, var(--pb-mask) 2rem, var(--pb-mask) calc(100% - 2rem), transparent); }
   .pb-tab { flex: none; }
 }
+/* The same sideways strip when the bar is measured too full even with every label gone (pbBarFit's last step,
+   .is-narrow): the project button keeps only its square, and the tabs scroll instead of being painted over. */
+.pb-bar.is-narrow .pb-pj-nm { display: none; }
+/* flex: 0 1 auto undoes the 900px-up `flex: none` above: that keeps the tabs whole while the end gives way,
+   and .is-narrow is the step after the end has nothing left to give, so here the strip must shrink to scroll. */
+.pb-bar.is-narrow .pb-tabs { flex: 0 1 auto; overflow-x: auto; scrollbar-width: none; }
+.pb-bar.is-narrow .pb-tabs::-webkit-scrollbar { display: none; }
+.pb-bar.is-narrow .pb-tab { flex: none; }
+/* the clipped edge fades so a sideways-scrolling strip reads as "more this way"; pbTabsFit sets the classes
+   only when the strip is wider than its box, which is only ever a scrolling strip (under 48em, or .is-narrow) */
+.pb-tabs.is-clip-r { -webkit-mask-image: linear-gradient(to right, var(--pb-mask) calc(100% - 2rem), transparent); mask-image: linear-gradient(to right, var(--pb-mask) calc(100% - 2rem), transparent); }
+.pb-tabs.is-clip-l { -webkit-mask-image: linear-gradient(to left, var(--pb-mask) calc(100% - 2rem), transparent); mask-image: linear-gradient(to left, var(--pb-mask) calc(100% - 2rem), transparent); }
+.pb-tabs.is-clip-l.is-clip-r { -webkit-mask-image: linear-gradient(to right, transparent, var(--pb-mask) 2rem, var(--pb-mask) calc(100% - 2rem), transparent); mask-image: linear-gradient(to right, transparent, var(--pb-mask) 2rem, var(--pb-mask) calc(100% - 2rem), transparent); }
 
 /* ---------- Spec layers (round 3 · wave B5) ----------
    The Layers control, and the overlay the spec engine (pbSpecMount, runtime.js) draws over a live

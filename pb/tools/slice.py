@@ -11,7 +11,8 @@ This tool closes that gap. It loads the whole file internally (unavoidable in Py
 **emits / accepts only the one slice**, so the model's context stays a slice-sized. That is
 where the token cost lives, not in the Python process.
 
-  get   — print one slice as JSON (no whole-file read into context)
+  get   — print one slice as JSON (no whole-file read into context; capped at 8,000 chars, --full lifts it)
+  find  — locate a word across the registry (one line per hit) before you `get` anything
   set   — merge a patch into one slice, write the file back, everything else untouched
   list  — enumerate ids so the loop can find a target without loading bodies
 
@@ -55,6 +56,22 @@ Projection (D-17, `get` only — never `set`/`list`; shapes what's PRINTED, neve
                        partial or empty object).
   Both together: --fields selects first, then --no-prose drops any prose key that
   survived the selection.
+  Output cap: `get` prints at most 8,000 chars. Past that it prints the first 8,000 and a last line
+  `… truncated (<N> chars). Use --fields a,b or --full.` The cut text is deliberately NOT valid JSON, so a
+  parser fails loudly; anything that parses `get` output must pass `--full` (no cap).
+
+Read cheaply (so nothing needs an inline script over registry.json):
+  find <text>       — case-insensitive search over ids, names/titles and every string value, in every kind
+                       (or one: --kind K). One line per hit: `<kind> <id> <field>: <≤80-char snippet>`, where
+                       <id> is the owning element's path (`button`, `rules.r1`; for a dict kind it is what
+                       `get <kind> <id>` takes) and <field> is the dotted field inside it. Kind order, then
+                       document order; --limit N (default 20; 0 = all) with a final
+                       `… <N> more hits (raise --limit)` line; no hit prints `0 hits` (exit 0). --json prints a
+                       list of {kind,id,path,snippet} (`path` = the string's full dotted path below the kind;
+                       the truncation notice goes to stderr). A token also matches on its key path (`$name`).
+  list <kind> [path] --fields a,b
+                     — id plus those fields, one compact line each: `id  a=…  b=…` (`-` when absent). Needs a
+                       list: components, screens, or a list path (`list ia rules --fields title,status`).
 
 Writes use the canonical registry format — `json.dumps(indent=2, ensure_ascii=False)` + a
 trailing newline — so an empty-patch `set` is byte-identical (idempotent). Pure stdlib (NS4).
@@ -92,11 +109,12 @@ fills in place as the work goes (about 2.5 s a line, a tool call each):
   drafts             — `--clear` empties the drafts, `--list` prints what they hold.
 
 Usage:
-  python3 slice.py get  <kind> <id> [--registry PATH] [--no-prose] [--fields a,b,c]
+  python3 slice.py get  <kind> <id> [--registry PATH] [--no-prose] [--fields a,b,c] [--full]
+  python3 slice.py find <text> [--registry PATH] [--kind K] [--limit 20] [--json]   # --registry is an option, after the subcommand
   python3 slice.py set  <kind> <id> [--registry PATH] [--patch FILE] [--create-list] [--draft]   # patch from FILE or stdin
   python3 slice.py append <kind> <path> [--registry PATH] [--patch FILE] [--key a,b] [--draft]  # one element, from FILE or stdin
   python3 slice.py drafts [--registry PATH] [--clear | --list]
-  python3 slice.py list <kind> [path] [--registry PATH]   # no path: top-level keys; a list path: its ids
+  python3 slice.py list <kind> [path] [--registry PATH] [--fields a,b]   # no path: top-level keys; a list path: its ids
 
 Exit: 0 on success; non-zero with a message on error (unknown kind, missing id/key,
 unknown --fields name, bad JSON).
@@ -107,6 +125,7 @@ import copy
 import errno
 import json
 import os
+import re
 import stat
 import sys
 import tempfile
@@ -451,6 +470,9 @@ def _read_patch(patch_file):
         sys.exit(f"slice: patch is not valid JSON: {e}")
 
 
+GET_CAP = 8000   # chars `get` prints before it cuts; --full lifts it
+
+
 def cmd_get(args):
     reg = _load(args.registry)
     if args.kind in LIST_KINDS:
@@ -458,7 +480,108 @@ def cmd_get(args):
     else:
         entry = _dotted_get(reg, args.kind, _strip_kind(reg, args.kind, args.id))
     entry = _project(entry, _parse_fields(args.fields), args.no_prose)
-    print(json.dumps(entry, indent=2, ensure_ascii=False))
+    text = json.dumps(entry, indent=2, ensure_ascii=False)
+    if not args.full and len(text) > GET_CAP:
+        # Bash output is the biggest context cost: a whole screen slice can be 100k+ chars. The cut text is
+        # NOT valid JSON on purpose (a parser fails loudly instead of reading a partial object); a caller
+        # that parses the output passes --full.
+        print(text[:GET_CAP])
+        print(f"… truncated ({len(text)} chars). Use --fields a,b or --full.")
+        return
+    print(text)
+
+
+def _collapse(s):
+    return " ".join(str(s).split())
+
+
+def _snippet(s, m, width=80):
+    """≤`width` chars of the (whitespace-collapsed) string `s` around the regex match `m`, an ellipsis on each cut side."""
+    if len(s) <= width:
+        return s
+    avail = width - 2
+    left = max(0, m.start() - max(0, avail - (m.end() - m.start())) // 2)
+    end = min(len(s), left + avail)
+    left = max(0, end - avail)
+    return ("…" if left > 0 else "") + s[left:end] + ("…" if end < len(s) else "")
+
+
+def _walk_strings(node, segs, owner, nest=True):
+    """Yield (segs, owner_depth, string) for every string under `node`, in document order. `owner_depth` is how
+    many leading segments name the nearest enclosing list element that has an `id` (0 = none). With `nest`
+    False only the top-level list's elements own a hit (a component's inner parts stay fields of the component)."""
+    if isinstance(node, dict):
+        for k, v in node.items():
+            yield from _walk_strings(v, segs + [str(k)], owner, nest)
+    elif isinstance(node, list):
+        for i, el in enumerate(node):
+            if isinstance(el, dict) and isinstance(el.get("id"), (str, int)) and not isinstance(el.get("id"), bool):
+                yield from _walk_strings(el, segs + [str(el["id"])], len(segs) + 1 if (nest or not segs) else owner, nest)
+            else:
+                yield from _walk_strings(el, segs + [str(i)], owner, nest)
+    elif isinstance(node, str):
+        yield segs, owner, node
+
+
+def _find_hits(reg, text, kinds):
+    """Every hit for `text` (case-insensitive substring) as dicts {kind,id,path,field,snippet}: kind order, then
+    document order. `id` is the dotted path (below the kind) of the owning id'd element — the entry id for a
+    component/screen, `rules.r1` for a rule — or, with none, the leaf's parent; `path` is the leaf's full dotted
+    path below the kind (what `get <kind> <path>` takes for a dict kind); `field` is `path` relative to `id`."""
+    rx = re.compile(re.escape(text), re.IGNORECASE)
+    hits = []
+    for kind in kinds:
+        root = reg.get(kind)
+        if root is None:
+            continue
+        for segs, owner, s in _walk_strings(root, [], 0, kind not in LIST_KINDS):
+            flat = _collapse(s)
+            m = rx.search(flat)
+            if not m:
+                continue
+            if owner:
+                oid, field = segs[:owner], segs[owner:]
+            else:
+                oid, field = (segs[:-1] or segs), segs[-1:]
+            hits.append({"kind": kind, "id": ".".join(oid), "path": ".".join(segs),
+                         "field": ".".join(field), "snippet": _snippet(flat, m)})
+        if kind == "tokens":
+            # a token is named by its key path, not by a string value: `find brand` should reach `brand`.
+            def walk(node, trail):
+                if isinstance(node, dict) and "$value" in node:
+                    name = ".".join(trail)
+                    m = rx.search(name)
+                    if m:
+                        hits.append({"kind": kind, "id": name, "path": name, "field": "$name", "snippet": _snippet(name, m)})
+                elif isinstance(node, dict):
+                    for k, v in node.items():
+                        walk(v, trail + [str(k)])
+            walk(root, [])
+    return hits
+
+
+def cmd_find(args):
+    if not args.text:
+        sys.exit("slice: find needs the text to look for")
+    if args.limit < 0:
+        sys.exit("slice: --limit must be 0 (no limit) or more")
+    reg = _load(args.registry)
+    hits = _find_hits(reg, args.text, [args.kind] if args.kind else list(KINDS))
+    shown = hits if args.limit == 0 else hits[:args.limit]
+    more = len(hits) - len(shown)
+    if args.json:
+        print(json.dumps([{k: h[k] for k in ("kind", "id", "path", "snippet")} for h in shown],
+                         indent=2, ensure_ascii=False))
+        if more:
+            print(f"… {more} more hits (raise --limit)", file=sys.stderr)
+        return
+    if not hits:
+        print("0 hits")
+        return
+    for h in shown:
+        print(f"{h['kind']} {h['id']} {h['field']}: {h['snippet']}")
+    if more:
+        print(f"… {more} more hits (raise --limit)")
 
 
 def _apply_set(args, patch, draft=False):
@@ -673,8 +796,37 @@ def cmd_drafts(args):
     print(json.dumps(doc, indent=2, ensure_ascii=False) if doc else "· no drafts")
 
 
+def _compact(v, width=60):
+    """One value on one line for `list --fields`: compact JSON (a bare string stays bare), cut at `width`."""
+    s = v if isinstance(v, str) else json.dumps(v, ensure_ascii=False, separators=(",", ":"))
+    s = _collapse(s)
+    return s if len(s) <= width else s[:width - 1] + "…"
+
+
+def _list_fields_line(el, fields):
+    bits = [str(el.get("id", "?")) if isinstance(el, dict) else "?"]
+    for f in fields:
+        bits.append(f"{f}={_compact(el[f]) if isinstance(el, dict) and f in el else '-'}")
+    return "  ".join(bits)
+
+
 def cmd_list(args):
     reg = _load(args.registry)
+    fields = _parse_fields(args.fields)
+    if fields is not None:
+        # id plus the named fields, one compact line per element. Only for a list: components, screens,
+        # or a list path (`list ia rules --fields title,status`); a missing field prints `-`.
+        if args.kind in LIST_KINDS:
+            node = reg.get(args.kind, [])
+        elif args.path and args.kind != "tokens":
+            node = _dotted_get(reg, args.kind, _strip_kind(reg, args.kind, args.path))
+        else:
+            node = None
+        if not isinstance(node, list):
+            sys.exit("slice: list --fields needs a list: components, screens, or a list path such as `list ia rules`")
+        for el in node:
+            print(_list_fields_line(el, fields))
+        return
     if args.kind in LIST_KINDS:
         for item in reg.get(args.kind, []):
             bits = [item.get("id", "?")]
@@ -729,7 +881,18 @@ def main():
     g.add_argument("--fields",
                     help="comma-separated top-level keys to emit, in that order "
                          "(combine with --no-prose to also drop any prose key that survives)")
+    g.add_argument("--full", action="store_true",
+                   help=f"print the whole slice; without it output is cut at {GET_CAP} chars with a final "
+                        "`… truncated` line (the cut text is not valid JSON — pass --full when parsing it)")
     g.set_defaults(func=cmd_get)
+
+    f = sub.add_parser("find", help="search ids, names and every string value (all kinds, or one with --kind)")
+    f.add_argument("text", help="case-insensitive text to look for")
+    f.add_argument("--kind", choices=KINDS, help="search only this kind (default: all, in kind order)")
+    f.add_argument("--limit", type=int, default=20, help="most hits to print (default 20; 0 = all)")
+    f.add_argument("--json", action="store_true", help="print a JSON list of {kind,id,path,snippet}")
+    f.add_argument("--registry", default="registry.json", help="path to registry.json")
+    f.set_defaults(func=cmd_find)
 
     s = sub.add_parser("set", help="merge a patch into one slice (patch from --patch FILE or stdin)")
     add_common(s)
@@ -762,6 +925,8 @@ def main():
     l = sub.add_parser("list", help="enumerate ids/keys for a kind")
     add_common(l, with_id=False)
     l.add_argument("path", nargs="?", help="optional dotted path: a list shows its ids, an object its keys")
+    l.add_argument("--fields", help="comma-separated fields: one compact line per element, `id  a=…  b=…` "
+                                    "(components, screens, or a list path; a missing field prints `-`)")
     l.set_defaults(func=cmd_list)
 
     args = p.parse_args()

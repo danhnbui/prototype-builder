@@ -1,0 +1,30 @@
+{
+  "audience": {"targetN": 2},
+  "hypotheses": [
+    {"id": "h1", "statement": "People put receipts and payments together.",
+     "targets": [{"kind": "job", "id": "pay-cod"}],
+     "supportedIf": "Most participants place the receipt and payment cards in one group.",
+     "refutedIf": "Fewer than half of the participants place them in one group."}
+  ],
+  "instrument": {
+    "lang": "en",
+    "mode": "unmoderated",
+    "recording": {"screen": false, "voice": false},
+    "intro": "TEST DATA. Sort the cards into groups that make sense to you.",
+    "consent": "TEST DATA. Your choices are kept without your name.",
+    "durationMin": 15,
+    "closing": "Thank you.",
+    "cards": [
+      {"id": "c-refund", "label": "Refund an order", "job": null},
+      {"id": "c-track", "label": "Track a parcel", "job": null},
+      {"id": "c-address", "label": "Change my address", "job": null},
+      {"id": "c-support", "label": "Contact support", "job": null},
+      {"id": "c-pay", "label": "Pay on delivery", "job": "pay-cod"},
+      {"id": "c-receipt", "label": "Download a receipt", "job": null}
+    ],
+    "sort": {"kind": "hybrid",
+             "categories": [{"id": "k-money", "label": "Money"}, {"id": "k-parcels", "label": "Parcels"}],
+             "tests": ["h1"]},
+    "sections": []
+  }
+}

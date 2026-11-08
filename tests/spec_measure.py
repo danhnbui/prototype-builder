@@ -31,6 +31,11 @@ spec_measure.py — tools/spec_measure.py measures a component's anatomy + spec 
  14. The write phase takes the registry lock (refused with 7, naming the holder, nothing written),
      replaces sidecars atomically (no temp file left), and re-reads registry.json under the lock so a
      change made while the browser was measuring is kept.
+ 15. A slotted composition: what a body passes into a child's MARKED slot (data-part-type="slot",
+     [data-slot]) is the body's own part, nested under that instance — instances and plain parts —
+     while the child's own parts, and what the child passes into a deeper instance's slot, are not.
+     An unmarked slot container is not entered. runtime.js's inspector walk names the same parts,
+     and lint R-COMPOSE-MATCH is clean both ways for the slotted parent.
 
 Usage: python3 tests/spec_measure.py  ·  Exit 0 = pass · 1 = fail · 2 = skipped (no Playwright).
 """
@@ -480,6 +485,94 @@ with tempfile.TemporaryDirectory() as tmp:
           "a registry edit made after the measuring started survives the specSrc write")
     check(sm._write_results(ns, tmp, {"vanished": fields}, errs, "x") == 0 and "vanished" in errs,
           "a component removed from the registry while measuring is reported, not crashed on")
+
+print("15 · a slotted composition: what this body passes into a child's slot is this body's part")
+# widget passes heading + a note + an optional button into shell's content slot. shell composes its own
+# grip, and a panel whose slot carries SHELL's hint — neither is widget's. bare renders its slot into
+# an unmarked container, so what is passed to it cannot be told apart from bare's own insides.
+SLOTTED = {
+    "heading": "return '<h3 data-part=\"root\">Title</h3>';",
+    "button": "return '<button type=\"button\" data-part=\"root\">Go</button>';",
+    "grip": "return '<span data-part=\"root\">::</span>';",
+    "panel": ("return '<section data-part=\"root\"><div data-part=\"inner\" data-slot>' + pbSlot((props || {}).content) + '</div></section>';",
+              {"level": "molecule"}),
+    "shell": ("var props = props || {};\n"
+              "return '<div data-part=\"root\" style=\"display:flex;flex-direction:column\">'"
+              " + '<div data-part=\"handle\">' + pbUse('grip') + '</div>'"
+              " + '<div data-part=\"body\" data-part-type=\"slot\">' + pbSlot(props.content) + '</div>'"
+              " + pbUse('panel', { content: '<span data-part=\"hint\">shell hint</span>' })"
+              " + '</div>';", {"level": "organism"}),
+    "bare": ("return '<div data-part=\"root\"><div class=\"inner\">' + pbSlot((props || {}).content) + '</div></div>';",
+             {"level": "molecule"}),
+    "widget": ("var props = props || {};\n"
+               "return '<div data-part=\"root\">' + pbUse('shell', { content: pbUse('heading')"
+               " + '<p data-part=\"note\">n</p>' + (props.showButton ? pbUse('button') : '') }) + '</div>';",
+               {"level": "template", "properties": [{"id": "showButton", "type": "boolean", "default": True}]}),
+    "plain": ("return '<div data-part=\"root\">' + pbUse('bare', { content: pbUse('heading') }) + '</div>';",
+              {"level": "organism"}),
+}
+with tempfile.TemporaryDirectory() as tmp:
+    rp = mini(tmp, SLOTTED)
+    r = run(["--registry", rp])
+    out = json.loads(r.stdout) if r.returncode == 0 else {}
+    check(r.returncode == 0, "measured (exit %d: %s)" % (r.returncode, r.stderr.strip()[:200]))
+    w = out.get("widget", {})
+    anat = w.get("anatomy", {})
+    check({k: v.get("instanceOf") for k, v in anat.items() if v["type"] == "instance"}
+          == {"shell": "shell", "heading": "heading", "button": "button"},
+          "the slotted heading and button are instances of widget; shell's own grip and panel are not (%s)" % sorted(anat))
+    check(anat.get("note") == {"type": "text"}, "a plain part passed into the slot is widget's part too")
+    check("hint" not in anat and "inner" not in anat and "body" not in anat and "handle" not in anat,
+          "neither shell's own parts nor what shell passes into ITS child's slot leak into widget (%s)" % sorted(anat))
+    check(w.get("layout") == [{"root": [{"shell": ["heading", "note", "button"]}]}],
+          "slotted parts nest under the instance part they were passed into (%s)" % w.get("layout"))
+    check(w.get("elements", {}).get("heading", {}).get("parent") == "shell", "…their parent is the instance")
+    check(w.get("elements", {}).get("button", {}).get("visibleWhen") == {"prop": "showButton", "is": "true"},
+          "a slotted part is optional like any other (visibleWhen derived)")
+    check("styles" not in w.get("elements", {}).get("heading", {}), "a slotted instance's own spec is still not copied in")
+    sh = out.get("shell", {}).get("anatomy", {})
+    check(sorted(k for k, v in sh.items() if v["type"] == "instance") == ["grip", "panel"] and "hint" in sh,
+          "shell, measured alone, owns grip, panel and the hint it passes into panel's [data-slot] (%s)" % sorted(sh))
+    pl = out.get("plain", {}).get("anatomy", {})
+    check(sorted(pl) == ["bare", "root"], "an UNMARKED slot container is not entered — the heading stays bare's (%s)" % sorted(pl))
+
+    # The inspector (runtime.js pbSpecLive) names parts with the same walk, so a measured name finds its element.
+    sys.path.insert(0, os.path.join(ROOT, "pb", "tools"))
+    import render as R  # noqa: E402
+    src = open(os.path.join(ROOT, "pb", "template", "runtime.js"), encoding="utf-8").read()
+    start = src.index("function pbSpecLive(")
+    depth, i = 0, src.index("{", start)
+    while True:
+        depth += {"{": 1, "}": -1}.get(src[i], 0)
+        if depth == 0:
+            break
+        i += 1
+    live_fn = src[start:i + 1]
+    loaded = R.load_specs(R.load_bodies(json.load(open(rp, encoding="utf-8")), tmp), tmp)
+    from playwright.sync_api import sync_playwright
+    with sync_playwright() as p:
+        b = p.chromium.launch()
+        pg = b.new_page()
+        pg.set_content(sm.build_page(loaded, tmp, 375), wait_until="load")
+        pg.add_script_tag(content=live_fn + "\nwindow.__pbSpecLive = pbSpecLive;")
+        live = {cid: pg.evaluate("""(fn) => { var s = document.getElementById('pb-measure-stage');
+                  s.innerHTML = window[fn]({showButton: true});
+                  return Object.keys(window.__pbSpecLive(s.firstElementChild, {})).sort(); }""",
+                                 "renderCmp" + cid.capitalize()) for cid in ("widget", "shell", "plain")}
+        b.close()
+    for cid in ("widget", "shell", "plain"):
+        check(live[cid] == sorted(out.get(cid, {}).get("anatomy", {})),
+              "runtime.js pbSpecLive finds the same part names as the measurer for %s (%s)" % (cid, live[cid]))
+
+    # Lint: with the slotted instances measured, the body's pbUse set equals the declared set both ways.
+    run(["--registry", rp, "--write"])
+    lr = subprocess.run([sys.executable, os.path.join(ROOT, "pb", "tools", "lint_registry.py"), rp],
+                        capture_output=True, text=True)
+    cm = [l for l in lr.stdout.splitlines() + lr.stderr.splitlines() if "R-COMPOSE-MATCH" in l]
+    check(not any("'widget'" in l or "'shell'" in l for l in cm),
+          "lint: no R-COMPOSE-MATCH for widget or shell, in either direction (%s)" % cm)
+    check(any("'plain'" in l and "['heading']" in l and "data-part-type" in l for l in cm),
+          "lint: the unmarked slot still warns for plain, and the warning says how to fix it (%s)" % cm)
 
 print()
 if fails:

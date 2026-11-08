@@ -287,7 +287,7 @@ stories name, so two screens never phrase one thing two ways. It follows the flo
 the actions and messages are — and it appends; it rewrites nothing.
 
 **Inputs.** `flow.stories[]` (their scenarios, `path`s and `nodes`), `content.terms[]` (`slice.py get
-content terms`), the screens' names, and `ia.rules[]` state labels where a rule declares them.
+content terms --full`), the screens' names, and `ia.rules[]` state labels where a rule declares them.
 
 **The shape.** `content.strings[]` entries are `{ "key", "text", "kind", "note"? }`:
 - `key` — a stable kebab or dotted name (`action-submit-review`, `status.cycle-overdue`), unique in the deck.
@@ -299,7 +299,7 @@ scenario asserts, the toast a `test{}` expects, the empty state a `ux` scenario 
 `business` scenario triggers. Use each term's `term` as written; **never a word in any term's `avoid[]`**
 (`aka[]` words are what the team says, not what the screen shows).
 
-**Gap-fill, never rewrite.** `slice.py get content strings` first; a `key` already there is left exactly
+**Gap-fill, never rewrite.** `slice.py get content strings --full` first (`get` caps at 8,000 characters without `--full`, and a cut list is not JSON); a `key` already there is left exactly
 as written. Append only what is missing, **one wording per call, as it is written** (*Line by line*, about 2.5 s a
 line): `slice.py append content strings --key key` with `{ key, text, kind, note? }` — a repeat of a `key` merges
 instead of duplicating, and the list is created if it is missing. (Writing the existing list followed by the new
