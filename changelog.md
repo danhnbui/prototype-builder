@@ -4,34 +4,10 @@ All notable changes to Product Builder. Format follows [Keep a Changelog](https:
 
 ## [Unreleased]
 
-*Planned as **v3.0.0**, a major: `/pb:handoff` mode 2 (engineering) and `--tier` are removed (see **Breaking**
-below). Schema 14: `meta.others` moves out of the registry (see **Upgrading**). `/pb:handoff` gains a fourth audience, front-end developers who build from tickets, and
-the hand-off is now three audiences: everything, Figma and tickets. The preview's bar gains a second inspection
-tool beside Pick, after Solum Studio's.*
+*A minor with a schema step: schema 14 moves `meta.others` out of the registry (see **Upgrading**). `/pb:research`
+runs usability tests, tree tests, card sorts and first-click tests from the plan to the report. New hooks hold the
+common rules at call time. The preview says in words what Claude is doing, and every tab fits a narrow screen.*
 
-- **`/pb:handoff` mode 4 — tickets for front-end developers.** Tickets were improvised session by session and came
-  out different each time: no template, written from prose memory files rather than the registry, edits made in
-  Notion never came back, numbering broke when one was deleted, annotations rebuilt from scratch. Now they live in
-  the project under `handoff/tickets/`, one file each, in one template: Context · Scope · Solution · States · Edge
-  cases · Roles · Data & logic · Accessibility · Acceptance · Open · Document · Handoff notes. Solution takes one of
-  four shapes (`--kind journey|component|rules|region`); Document is a prototype deep link plus exactly one evidence
-  form, a `flow` step capture or an `annotation` table. Ids are stable (`T-<slug>`), so a deleted ticket never
-  renumbers the rest. `tools/ticket.py lint` (TK-FRONT · TK-ID · TK-TITLE · TK-SECTION · TK-EMPTY · TK-STATES ·
-  TK-DEP · TK-REF · TK-LOGIC · TK-DOC · TK-INTERNAL, and TK-STALE as a warning) gates the publish, and `stale` lists
-  the tickets whose registry sources changed. Publishing to Notion or Jira is **one-way**: the command fetches the
-  existing page first and stops to ask if it was edited there since the last publish, pull those edits in or
-  overwrite. New flags `--ticket <ID>` and `--publish notion|jira|none`; `--mode=4` (alias `tickets`).
-
-- **Spacing mode.** A **Spacing** button after Pick in the bar (or **M**) draws a hairline dashed outline round every
-  element of the preview and, for the one under the pointer, its margin, padding and flex/grid gap as tinted bands,
-  each with its value. A padding with some sides set shows a "0" on the side that is zero. It never blocks a click,
-  redraws on scroll and resize, and works beside Pick. Esc (after Pick), **M** again, or leaving the Prototype tab
-  ends it.
-- **Free space.** A flex or grid box that is taller or wider than its children (a `min-height`, a fixed size, a
-  stretch) leaves room that is not margin, padding or gap, so the space read as unexplained — a page header lead
-  with `min-height: 40px` centring a 28px title showed nothing for its 6px above and below. That room is now drawn
-  as a fourth band, hatched in its own cyan (`--pb-spec-free`, #0e7490): never grey, which melted into the
-  product's own borders and fills.
 - **The activity strip: what Claude is doing, in words.** While Claude worked, the preview's only sign was a 6 px
   pulsing dot and "Working" in the bar, and a step that had saved nothing yet looked finished or broken. A row under
   the bar now says it: **Thinking** (three dots in a calm wave, a thin beam along its edge, the time since the turn
@@ -153,6 +129,49 @@ tool beside Pick, after Solum Studio's.*
   - **Method.** The `ref-research` skill is rewritten around the full path, with a section for each of the four
     new methods. `security_scan` skips recordings and recorded sha256 digests.
 
+### Upgrading
+
+The schema is now 14. `/pb:update-version --apply` moves a non-empty `meta.others` into `memory/others.md`, only when no
+code reads the field (`--rollback` or `--to 13` restores it); a project with nothing in it just records the new schema.
+Restart Claude Code after the plugin updates so the new hooks load; `memory/doctor.json` `"enforce": "advise"` or
+`"off"` turns `route.py` down.
+
+## [3.0.0] — 2026-11-06
+
+*Planned as **v3.0.0**, a major: `/pb:handoff` mode 2 (engineering) and `--tier` are removed (see **Breaking**
+below). No schema change. `/pb:handoff` gains a fourth audience, front-end developers who build from tickets, and
+the hand-off is now three audiences: everything, Figma and tickets. The preview's bar gains a second inspection
+tool beside Pick, after Solum Studio's.*
+
+- **`/pb:handoff` mode 4 — tickets for front-end developers.** Tickets were improvised session by session and came
+  out different each time: no template, written from prose memory files rather than the registry, edits made in
+  Notion never came back, numbering broke when one was deleted, annotations rebuilt from scratch. Now they live in
+  the project under `handoff/tickets/`, one file each, in one template: Context · Scope · Solution · States · Edge
+  cases · Roles · Data & logic · Accessibility · Acceptance · Open · Document · Handoff notes. Solution takes one of
+  four shapes (`--kind journey|component|rules|region`); Document is a prototype deep link plus exactly one evidence
+  form, a `flow` step capture or an `annotation` table. Ids are stable (`T-<slug>`), so a deleted ticket never
+  renumbers the rest. `tools/ticket.py lint` (TK-FRONT · TK-ID · TK-TITLE · TK-SECTION · TK-EMPTY · TK-STATES ·
+  TK-DEP · TK-REF · TK-LOGIC · TK-DOC · TK-INTERNAL, and TK-STALE as a warning) gates the publish, and `stale` lists
+  the tickets whose registry sources changed. Publishing to Notion or Jira is **one-way**: the command fetches the
+  existing page first and stops to ask if it was edited there since the last publish, pull those edits in or
+  overwrite. New flags `--ticket <ID>` and `--publish notion|jira|none`; `--mode=4` (alias `tickets`).
+
+- **Spacing mode.** A **Spacing** button after Pick in the bar (or **M**) draws a hairline dashed outline round every
+  element of the preview and, for the one under the pointer, its margin, padding and flex/grid gap as tinted bands,
+  each with its value. A padding with some sides set shows a "0" on the side that is zero. It never blocks a click,
+  redraws on scroll and resize, and works beside Pick. Esc (after Pick), **M** again, or leaving the Prototype tab
+  ends it.
+- **Free space.** A flex or grid box that is taller or wider than its children (a `min-height`, a fixed size, a
+  stretch) leaves room that is not margin, padding or gap, so the space read as unexplained — a page header lead
+  with `min-height: 40px` centring a 28px title showed nothing for its 6px above and below. That room is now drawn
+  as a fourth band, hatched in its own cyan (`--pb-spec-free`, #0e7490): never grey, which melted into the
+  product's own borders and fills.
+- **The bar's right-hand end no longer covers the tabs.** With Spacing added, the end group (progress, Search,
+  Pick, Spacing, Sandbox) grew wider than the room left at 1280px on a non-Mac browser, whose search hint reads
+  `Ctrl K` rather than `⌘K`, and slid over the tab strip, so a click on **UX Design** landed on a bar item. The
+  tabs now keep their width, and below 1440px the keyboard hint is dropped first; labels go only below 900px, as
+  before.
+
 ### Breaking — the engineering hand-off (mode 2) is removed
 
 - **`/pb:handoff` mode 2, "For engineering", is gone, completely.** The hand-off is now three audiences:
@@ -173,14 +192,13 @@ tool beside Pick, after Solum Studio's.*
   replacement, and neither does `/pb:validate` (retired in v2.0.0 and pointed at `--tier=host`). Running any of them
   now prints the retirement note and asks the question again; nothing is written.
 - **`meta.outputTier` and `meta.exportTarget` are inert.** New projects' registry template no longer has them. An
-  existing registry keeps them harmlessly: nothing reads or writes them, and there is no migration for
-  them.
+  existing registry keeps them harmlessly: nothing reads or writes them, and there is no migration and no schema
+  change (the schema stays 13).
 
 ### Upgrading
 
-The schema is now 14. `/pb:update-version --apply` moves a non-empty `meta.others` into `memory/others.md`, only when no
-code reads the field (`--rollback` or `--to 13` restores it); a project with nothing in it just records the new schema.
-These change as soon as the plugin updates:
+No schema step and no registry change; `/pb:update-version` has nothing to do for this release. These change as soon
+as the plugin updates:
 
 - **Replace the retired hand-off in your own scripts and notes.** `/pb:handoff --mode=2`, `--mode=dev` and
   `--tier=…` no longer produce anything. Developers who will build the front end: `/pb:handoff --mode=4` (tickets).

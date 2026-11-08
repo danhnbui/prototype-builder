@@ -194,6 +194,12 @@
 }
 .pb-id b { font-family: var(--pb-mono); font-size: var(--pb-t-sm); color: var(--pb-ink-3); font-weight: var(--pb-w-bold); }
 .pb-tabs { display: flex; align-items: stretch; gap: var(--pb-s5); min-width: 0; }
+/* From 900px up the bar shows labels, and there the tabs keep their width: when the bar is too full,
+   the right-hand end gives way (its keyboard hint first — see the narrow-bar rules below), never the
+   tabs. With min-width: 0 the strip shrank under its own nowrap buttons and the end group slid over
+   them, so a click on a tab landed on a bar item (CI's Linux "Ctrl K" hint tipped it at 1280px).
+   Below 900px the end is glyphs only and the strip may shrink and scroll, as before. */
+@media (min-width: 900px) { .pb-tabs { flex: none; } }
 
 /* L1 — an underlined text tab. "Go somewhere else." */
 .pb-tab {
@@ -600,6 +606,7 @@ dialog.pb-dlg::backdrop { background: var(--pb-scrim); }
 
 /* Narrow bars: the project button keeps its square + chevron; a bar item that has a glyph keeps
    only the glyph (its aria-label and title still name it). */
+@media (max-width: 1439px) { .pb-bar-item .pb-kbd { display: none; } }
 @media (max-width: 899px) { .pb-bar-item .pb-bar-lb, .pb-bar-item .pb-kbd { display: none; } }
 /* A bar too full for its words at any width (the prototype's pbBarFit measures it, so it holds for whichever
    items are showing): the bar items keep only their glyphs (.is-tight is the same step now that the bar has no
@@ -737,7 +744,9 @@ dialog.pb-dlg::backdrop { background: var(--pb-scrim); }
 /* The same sideways strip when the bar is measured too full even with every label gone (pbBarFit's last step,
    .is-narrow): the project button keeps only its square, and the tabs scroll instead of being painted over. */
 .pb-bar.is-narrow .pb-pj-nm { display: none; }
-.pb-bar.is-narrow .pb-tabs { overflow-x: auto; scrollbar-width: none; }
+/* flex: 0 1 auto undoes the 900px-up `flex: none` above: that keeps the tabs whole while the end gives way,
+   and .is-narrow is the step after the end has nothing left to give, so here the strip must shrink to scroll. */
+.pb-bar.is-narrow .pb-tabs { flex: 0 1 auto; overflow-x: auto; scrollbar-width: none; }
 .pb-bar.is-narrow .pb-tabs::-webkit-scrollbar { display: none; }
 .pb-bar.is-narrow .pb-tab { flex: none; }
 /* the clipped edge fades so a sideways-scrolling strip reads as "more this way"; pbTabsFit sets the classes
