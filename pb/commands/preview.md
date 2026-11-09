@@ -28,8 +28,9 @@ you. (An in-app preview pane is optional; see the macOS note.)
 
 ## 0 · Flags
 - `--ensure` — **the one way to start or restart a preview.** Idempotent and detached: it prints the URL
-  whether it started a server or found this project's running one, so it is safe to call twice. Use it
-  instead of a background task, `&` or `nohup`.
+  whether it started a server or found this project's running one, so it is safe to call twice. Run it as
+  a plain command, never as a Bash `run_in_background` task (Claude Code stops those, and what they
+  started, when the session ends), `&` or `nohup`.
 - `--port <N>` — bind a specific port. Without it each project gets a **stable default port derived from
   its path**, so the URL survives restarts; `--port` wins.
 - `--host <addr>` — the interface to bind (default `127.0.0.1`, this machine only).
@@ -283,6 +284,6 @@ sandboxed working directory.
 - NEVER use this as the hand-off artifact — it's a local dev server. Use `/pb:handoff` to share.
 - NEVER start a second server (or `python3 -m http.server`) to show explore options — they live at
   `/explore/<id>` on this one.
-- NEVER start `serve.py` with `&` or `nohup` (or with `--idle-exit 0`), NEVER `kill` it, and NEVER hand-write
+- NEVER start `serve.py` with `run_in_background`, `&` or `nohup` (or with `--idle-exit 0`), NEVER `kill` it, and NEVER hand-write
   a Playwright script to look at it — `${CLAUDE_PLUGIN_ROOT}/docs/canon.md` § *pb bounds its own footprint*
   (`serve.py registry.json --ensure` to start or restart, `serve.py --stop`, `shot.py`).

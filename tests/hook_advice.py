@@ -252,6 +252,37 @@ with tempfile.TemporaryDirectory() as tmp:
         stdin = json.dumps({"cwd": pb_dir, "tool_name": "Bash", "tool_input": {"command": cmd}})
         code, out, err = run(BASH, stdin, cwd=plain)
         check(code == 0 and out == "", "silent: %s" % cmd.splitlines()[0][:80])
+    # a server started as a run_in_background task dies with the session: advised; a one-shot call is not
+    bg_positives = [
+        "python3 pb/tools/serve.py registry.json --no-open",
+        "cd .. && python3 tools/serve-all.py",
+        "python3 tools/serve-embeddable.py registry.json --port 8100 --no-open",
+        "python3 -m http.server 8123",
+    ]
+    bg_negatives = [
+        "python3 pb/tools/serve.py registry.json --ensure",
+        "python3 pb/tools/serve.py --status",
+        "python3 pb/tools/test_run.py registry.json --all",
+        "until curl -s localhost:8010; do sleep 1; done",
+        "grep -n serve.py notes.md",
+    ]
+    for cmd in bg_positives:
+        stdin = json.dumps({"cwd": pb_dir, "tool_name": "Bash",
+                            "tool_input": {"command": cmd, "run_in_background": True}})
+        code, out, err = run(BASH, stdin, cwd=plain)
+        ctx, event = hook_json(out)
+        check(code == 0 and ctx is not None and "background task" in ctx and "--ensure" in ctx,
+              "advises (background server): %s" % cmd)
+        check(ctx is None or ("\n" not in ctx and len(ctx) < 400), "  short, one line: %s" % cmd)
+        check("permissionDecision" not in out, "  no permission decision: %s" % cmd)
+        stdin = json.dumps({"cwd": pb_dir, "tool_name": "Bash", "tool_input": {"command": cmd}})
+        code, out, err = run(BASH, stdin, cwd=plain)
+        check(code == 0 and out == "", "  silent as a plain (foreground) call: %s" % cmd)
+    for cmd in bg_negatives:
+        stdin = json.dumps({"cwd": pb_dir, "tool_name": "Bash",
+                            "tool_input": {"command": cmd, "run_in_background": True}})
+        code, out, err = run(BASH, stdin, cwd=plain)
+        check(code == 0 and out == "", "silent in the background: %s" % cmd)
     # cwd taken from the process when the payload carries none
     code, out, err = run(BASH, json.dumps({"tool_input": {"command": "pkill -f serve.py"}}), cwd=pb_dir)
     check(code == 0 and hook_json(out)[0] is not None, "no cwd in the payload: falls back to the process folder")
