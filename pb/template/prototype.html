@@ -13063,6 +13063,14 @@
     const PB_SLICE_TAB = { ia: 'flow', flow: 'flow', content: 'flow', erd: 'erd', research: 'summary', screens: 'prototype' };
     const PB_ARRIVE_Q = '#app .pb-scan-tr, #app .ct-term, #app .ct-table tr, #app .erd-entity-table tbody tr, #app .ia-node[data-screen], #app .sum-pr, #app .sum-lead, #app .pb-draft-row';
 
+    /* `activity.tools` → { agents, verb, running, age, doneAge } with the ages measured at receipt (like `age`), or null.
+       The verb is a word or two of letters (the tool's name as a gerund); anything else means the data is not believed. */
+    function pbAgentTools(t, now) {
+      if (!t || typeof t !== 'object' || typeof t.verb !== 'string' || t.verb.length > 20 || !/^[A-Za-z ]+$/.test(t.verb) || !t.verb.trim()) return null;
+      const age = (x) => (typeof x === 'number' && x > 0 && isFinite(now) ? Math.max(0, now - x) : null);
+      return { agents: Math.max(0, Math.floor(+t.agents) || 0), verb: t.verb.trim(), running: Math.max(0, Math.floor(+t.running) || 0),
+               age: age(t.at), doneAge: age(t.doneAt) };
+    }
     function pbLiveApply(d, announce) {
       const reg = d && d.registry;
       if (!reg || typeof reg !== 'object') throw new Error('no registry in the data');
@@ -13074,7 +13082,9 @@
             turn: typeof a.since === 'number' ? Math.max(0, (+d.now || a.at) - a.since) : null,
             // the human gate a command stopped at (hooks/activity.py --gate): only a well-formed one is believed
             gate: (a.gate && typeof a.gate.id === 'string' && /^G-[A-Z][A-Z0-9-]*$/.test(a.gate.id) && typeof a.gate.ask === 'string' && a.gate.ask.trim())
-              ? { id: a.gate.id, ask: a.gate.ask.trim() } : null } : null;
+              ? { id: a.gate.id, ask: a.gate.ask.trim() } : null,
+            // the tool in hand (the data route's `tools`); only a well-formed one is believed, else absent
+            tools: pbAgentTools(a.tools, +d.now) } : null;
       PB_LIVE.drafts = (d.drafts && +d.drafts.count) || 0;
 
       const keys = Object.keys(Object.assign({}, PB_REGISTRY, reg));
@@ -13315,9 +13325,13 @@
        minutes old — so a page does not jump a row at every turn; never on a view-only, embedded or file:// page.
        At a human gate the command says which (`hooks/activity.py --gate <id> "<ask>"` puts `gate` in the file, the data
        route passes it when well formed): "Your turn · G-JTBD — approve 4 jobs and 3 terms — reply in Claude Code",
-       instead of the drafts count. With no gate the text stays generic: the page knows only that Claude stopped. */
-    const PB_AGENT_WRITING_S = 8, PB_AGENT_STALE_S = 30 * 60;
-    const PB_AGENT = { since: null, base: null, total: null, last: 0, tick: null, said: '' };
+       instead of the drafts count. With no gate the text stays generic: the page knows only that Claude stopped.
+       While working the verb is the tool in hand when the data says one ("Editing", from `activity.tools`: running now, or
+       finished under 4 s ago; a longer silence is Thinking again), and "2 agents" leads the line when more than one is at
+       work. The turn clock leads the row (CSS). The verb is typed in, one character at a time, whenever its word changes
+       (pbAgentType); a white light sweeps across it (CSS). The beam sits on the strip's top edge. */
+    const PB_AGENT_WRITING_S = 8, PB_AGENT_STALE_S = 30 * 60, PB_AGENT_TOOL_RUN_S = 300, PB_AGENT_TOOL_LINGER_S = 4, PB_AGENT_TYPE_MS = 55;
+    const PB_AGENT = { since: null, base: null, total: null, last: 0, tick: null, said: '', verb: '', verbEl: null, typer: null };
     const pbAgentTotal = c => Object.keys(c || {}).reduce((n, k) => n + (+c[k] || 0), 0);
     /* A new turn (a new `since`; or idle → working, from a hook that writes none) restarts the count of lines saved,
        from what was there before this update. A line that lands while working is "Writing" for a few seconds. */
@@ -13350,7 +13364,12 @@
         if (age >= 90) return { mode: 'waiting', verb: 'Waiting', step, menu, parts: ['no word from Claude'], time: 'for ' + pbAgentClock(age) };
         const saved = Math.max(0, pbAgentTotal(c) - (PB_AGENT.base || 0));
         const writing = saved > 0 && now - PB_AGENT.last < PB_AGENT_WRITING_S * 1000;
-        return { mode: 'working', verb: writing ? 'Writing' : 'Thinking', step: saved ? name : step, menu, parts: saved ? [saved + ' saved'] : [],
+        // the tool in hand: running (and not for over 5 min: a missed PostToolUse must not pin the verb) or just finished
+        const t = a.tools, el = (now - a.rx) / 1000;
+        const tool = !!t && ((t.running > 0 && t.age !== null && t.age + el < PB_AGENT_TOOL_RUN_S)
+                          || (t.running === 0 && t.doneAge !== null && t.doneAge + el < PB_AGENT_TOOL_LINGER_S));
+        const parts = (tool && t.agents > 1 ? [t.agents + ' agents'] : []).concat(saved ? [saved + ' saved'] : []);
+        return { mode: 'working', verb: tool ? t.verb : writing ? 'Writing' : 'Thinking', tool, step: saved ? name : step, menu, parts,
                  time: a.turn === null ? '' : pbAgentClock(a.turn + (now - a.rx) / 1000) };
       }
       const d = PB_LIVE.drafts;
@@ -13365,20 +13384,21 @@
       const v = pbAgentView(), was = !el.hidden;
       document.documentElement.classList.toggle('pb-has-agent', !!v);
       if (!v) {
-        clearInterval(PB_AGENT.tick); PB_AGENT.tick = null;
+        clearInterval(PB_AGENT.tick); PB_AGENT.tick = null; clearInterval(PB_AGENT.typer); PB_AGENT.typer = null;
         if (was) { pbProgClose(false); el.hidden = true; el.innerHTML = ''; PB_AGENT.said = ''; pbAgentRefit(); }
         return;
       }
       if (!el.firstChild) {
         // the step is a button (the steps menu) before the first screen, plain words after; the rest is rebuilt each tick
-        el.innerHTML = '<span class="pb-agent-glyph" aria-hidden="true"><i></i><i></i><i></i></span>'
-          + '<strong class="pb-agent-verb" aria-hidden="true"></strong><span class="pb-agent-sep pb-agent-sep--step" aria-hidden="true">·</span>'
+        el.innerHTML = '<strong class="pb-agent-verb" aria-hidden="true"></strong><span class="pb-agent-sep pb-agent-sep--step" aria-hidden="true">·</span>'
           + '<span class="pb-agent-step pb-agent-steptxt" aria-hidden="true"></span>' + pbProgHTML()
           + '<span class="pb-agent-line" aria-hidden="true"></span>'
           + '<span class="pb-agent-time" aria-hidden="true"></span><span class="pb-agent-beam" aria-hidden="true"></span><span class="pb-agent-sr" role="status"></span>';
       }
       el.dataset.mode = v.mode;
-      el.querySelector('.pb-agent-verb').textContent = v.verb;
+      const verbEl = el.querySelector('.pb-agent-verb');
+      verbEl.textContent = v.verb;
+      pbAgentType(verbEl, v.verb);
       el.querySelector('.pb-agent-sep--step').hidden = !v.step;
       const btn = v.step && v.menu, wrap = el.querySelector('#pb-prog-wrap'), txt = el.querySelector('.pb-agent-steptxt');
       txt.hidden = !(v.step && !v.menu); txt.textContent = v.step && !v.menu ? v.step : '';
@@ -13392,8 +13412,8 @@
       el.querySelector('.pb-agent-line').innerHTML = v.parts.map(p =>
         `<span class="pb-agent-sep">·</span><span class="${/ saved$/.test(p) ? 'pb-agent-n' : 'pb-agent-detail'}">${pbEscape(p)}</span>`).join('');
       el.querySelector('.pb-agent-time').textContent = v.time;
-      // the live region speaks when the state changes, never on a clock tick or a count
-      const said = v.mode === 'working' ? `Claude is ${v.verb.toLowerCase()}${v.step ? ': ' + v.step : ''}` : `${v.verb}${v.step ? ', ' + v.step : ''}: ${v.parts.join(' ')}`;
+      // the live region speaks when the state changes, never on a clock tick or a count; a tool verb is not a state ("working")
+      const said = v.mode === 'working' ? `Claude is ${v.tool ? 'working' : v.verb.toLowerCase()}${v.step ? ': ' + v.step : ''}` : `${v.verb}${v.step ? ', ' + v.step : ''}: ${v.parts.join(' ')}`;
       if (said !== PB_AGENT.said) { el.querySelector('.pb-agent-sr').textContent = said; PB_AGENT.said = said; }
       if (!was) {
         el.hidden = false;
@@ -13401,6 +13421,30 @@
         pbAgentRefit();
       }
       if (!PB_AGENT.tick) PB_AGENT.tick = setInterval(pbAgentPaint, 1000);
+    }
+    /* The verb is typed in: when its word changes (or its element is new, after the strip was hidden and shown) it is revealed one
+       character at a time, cut at each character's measured width (canvas, the verb's own bold font) by an inline clip-path on
+       the element, which is cleared at the end. pbAgentPaint writes the text every second, so only a real change starts it.
+       innerText is always the whole word (clip-path hides, it does not remove). Reduced motion: no typing. */
+    function pbAgentType(el, text) {
+      const same = PB_AGENT.verb === text && el === PB_AGENT.verbEl;
+      PB_AGENT.verb = text; PB_AGENT.verbEl = el;
+      if (same) return;
+      clearInterval(PB_AGENT.typer); PB_AGENT.typer = null;
+      el.style.clipPath = '';
+      if (!text || (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches)) return;
+      const full = el.getBoundingClientRect().width;
+      if (!full) return;
+      const cs = getComputedStyle(el), ctx = document.createElement('canvas').getContext('2d');
+      ctx.font = cs.fontWeight + ' ' + cs.fontSize + ' ' + cs.fontFamily;
+      const clip = px => `inset(-2px ${Math.max(0, full - px)}px -2px 0)`;
+      let i = 0;
+      el.style.clipPath = clip(0);
+      PB_AGENT.typer = setInterval(() => {
+        i++;
+        if (i >= text.length || !el.isConnected) { clearInterval(PB_AGENT.typer); PB_AGENT.typer = null; el.style.clipPath = ''; }
+        else el.style.clipPath = clip(ctx.measureText(text.slice(0, i)).width);
+      }, PB_AGENT_TYPE_MS);
     }
     /* The strip takes a row from every full-height page (--pb-top): let whatever fits itself to the stage refit. */
     function pbAgentRefit() { requestAnimationFrame(() => window.dispatchEvent(new Event('resize'))); }

@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""UserPromptSubmit / PostToolUse / Stop hook: tell the open preview whether Claude is working.
+"""UserPromptSubmit / PreToolUse / PostToolUse / PostToolUseFailure / SubagentStart / SubagentStop / Stop hook: tell the
+open preview whether Claude is working, and with which tool.
 
 Reads the hook JSON on stdin and, inside a pb project whose `.preview/` folder already exists (a preview has
 run there), writes `.preview/activity.json` atomically:
@@ -26,6 +27,18 @@ line. The CLI runs inside a Bash call, so that call's own `PostToolUse` and the 
 after it: both KEEP the gate. `UserPromptSubmit` DROPS it (the person has replied). The id must look like `G-JTBD`
 and the ask must be a non-empty line (whitespace collapsed, at most 160 characters); anything else writes nothing.
 
+The same script also keeps `.preview/agents.json`, one record per Claude Code session (two sessions in one project
+must not zero each other), for the strip's "what is Claude doing now" line:
+
+    {"sessions": {"<session_id>": {"at": <epoch s>, "verb": "Editing", "running": 1, "doneAt": <epoch s>, "agents": 2}}}
+
+`UserPromptSubmit` resets that session's record; `PreToolUse` sets the verb for the tool kind (never a file name, command,
+pattern or prompt) and counts one more call running; `PostToolUse` and `PostToolUseFailure` count one fewer and set `doneAt`;
+`SubagentStart` / `SubagentStop` move `agents`; `Stop` removes the session's record (and the file when it was the last).
+A record untouched for 30 minutes is dropped. Only the three events above write `.preview/activity.json`; the new ones write
+`.preview/agents.json` only. Parallel tool calls run their hooks at once, so the read-modify-write holds an flock on `.preview/`
+itself (skipped where `fcntl` is missing).
+
 It only reports. It never prints (so it adds nothing to the model's context), never blocks, never decides a
 permission, and any error, bad stdin or a folder that is not a pb project with a `.preview/` writes nothing and
 exits 0. It does not create `.preview/`: a project nobody has previewed gets no new folder.
@@ -49,6 +62,9 @@ ASK_MAX = 160
 # calls, so the fallback still catches it.
 STATES = {"UserPromptSubmit": "working", "PostToolUse": "working", "Stop": "idle"}
 FILE = os.path.join(".preview", "activity.json")
+AGENTS_FILE = os.path.join(".preview", "agents.json")
+AGENTS_EVENTS = ("UserPromptSubmit", "PreToolUse", "PostToolUse", "PostToolUseFailure", "SubagentStart", "SubagentStop", "Stop")
+KEEP_S = 1800     # a session record untouched this long is dropped
 
 
 def turn_since(path, event, now):
@@ -139,6 +155,100 @@ def write_activity(base, event):
     return True
 
 
+def describe(tool):
+    """The one-word verb for a tool call. Nothing about the call itself (file, command, pattern) is kept."""
+    if tool == "Read":
+        return "Reading"
+    if tool in ("Edit", "MultiEdit", "NotebookEdit"):
+        return "Editing"
+    if tool == "Write":
+        return "Writing"
+    if tool == "Bash":
+        return "Running"
+    if tool in ("Grep", "WebSearch"):
+        return "Searching"
+    if tool == "Glob":
+        return "Finding"
+    if tool in ("Agent", "Task"):
+        return "Delegating"
+    if tool == "WebFetch":
+        return "Fetching"
+    if tool == "Skill":
+        return "Loading"
+    if tool == "TodoWrite" or tool.startswith("Task"):
+        return "Planning"
+    return "Using"
+
+
+def _count(v):
+    return v if isinstance(v, int) and not isinstance(v, bool) and v >= 0 else 0
+
+
+def _stamp(v):
+    return v if isinstance(v, (int, float)) and not isinstance(v, bool) and v >= 0 else 0
+
+
+def write_agents(base, event, sid, tool):
+    """Update this session's record in <base>/.preview/agents.json for `event`. False when there is nowhere to write."""
+    folder = os.path.join(base, ".preview")
+    if event not in AGENTS_EVENTS or not os.path.isdir(folder):
+        return False
+    path = os.path.join(base, AGENTS_FILE)
+    lock = None
+    try:
+        import fcntl
+        lock = os.open(folder, os.O_RDONLY)
+        fcntl.flock(lock, fcntl.LOCK_EX)
+    except Exception:       # no fcntl, or a folder that cannot be locked: write without it
+        if lock is not None:
+            os.close(lock)
+        lock = None
+    try:
+        now = round(time.time(), 3)
+        doc = read_doc(path) or {}
+        raw = doc.get("sessions") if isinstance(doc.get("sessions"), dict) else {}
+        sessions = {k: v for k, v in raw.items()
+                    if isinstance(v, dict) and isinstance(v.get("at"), (int, float)) and not isinstance(v.get("at"), bool)
+                    and now - v["at"] < KEEP_S}
+        me = sessions.get(sid) if isinstance(sessions.get(sid), dict) else {}
+        running, agents = _count(me.get("running")), _count(me.get("agents"))
+        verb = me.get("verb") if isinstance(me.get("verb"), str) else ""
+        done_at = _stamp(me.get("doneAt"))
+        if event == "Stop":
+            sessions.pop(sid, None)
+        else:
+            if event == "UserPromptSubmit":
+                verb, running, agents, done_at = "", 0, 0, 0
+            elif event == "PreToolUse":
+                verb, running = describe(tool), running + 1
+            elif event in ("PostToolUse", "PostToolUseFailure"):
+                running, done_at = max(0, running - 1), now
+            elif event == "SubagentStart":
+                agents += 1
+            else:       # SubagentStop
+                agents = max(0, agents - 1)
+            sessions[sid] = {"at": now, "verb": verb, "running": running, "doneAt": done_at, "agents": agents}
+        if not sessions:        # the last session stopped: leave no file behind
+            if os.path.exists(path):
+                os.unlink(path)
+            return True
+        fd, tmp = tempfile.mkstemp(prefix=".agents.", suffix=".tmp", dir=folder)
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as f:
+                f.write(json.dumps({"sessions": sessions}) + "\n")
+            os.replace(tmp, path)
+        except BaseException:
+            try:
+                os.unlink(tmp)
+            except OSError:
+                pass
+            raise
+        return True
+    finally:
+        if lock is not None:
+            os.close(lock)      # releases the flock
+
+
 def write_gate(base, gate_id, ask):
     """Add the gate a command stopped at to the activity file, leaving state / at / event / since as they are.
     False when the id or the ask is not valid or there is nowhere to write (no `.preview/`)."""
@@ -189,7 +299,14 @@ def main():
     folder = data.get("cwd") if isinstance(data.get("cwd"), str) and data.get("cwd") else os.getcwd()
     base = pb_project(folder)
     if base and isinstance(event, str):
-        write_activity(base, event)
+        try:
+            if event in STATES:
+                write_activity(base, event)
+        finally:
+            if event in AGENTS_EVENTS:
+                sid = data.get("session_id") if isinstance(data.get("session_id"), str) and data.get("session_id") else "unknown"
+                tool = data.get("tool_name") if isinstance(data.get("tool_name"), str) else ""
+                write_agents(base, event, sid, tool)
 
 
 if __name__ == "__main__":

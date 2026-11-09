@@ -2,6 +2,36 @@
 
 All notable changes to Product Builder. Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [3.2.0] — 2026-11-09
+
+*The activity strip says which tool Claude is using and how many agents are running, and its motion is quieter
+and clearer.*
+
+- **The strip names the tool.** While Claude worked, the verb was always *Thinking* or *Writing* (the latter only when a
+  registry line landed), so a long turn of reading, searching and editing code looked the same as a stall. The verb is
+  now the tool in hand: **Reading**, **Editing**, **Writing**, **Running**, **Searching**, **Finding**, **Delegating**,
+  **Fetching**, **Loading**, **Planning** or **Using**. It stays for 4 seconds after the tool ends, then goes back to
+  *Thinking* (Claude is generating). A tool that runs for more than 5 minutes is not believed. **N agents** appears
+  beside it from 2 subagents up (never "1 agent"), added up across every Claude Code session in the project.
+  Only a verb per tool kind is recorded: no file name, command, search pattern, URL or prompt reaches the preview.
+  A project without the new data behaves exactly as before.
+- **New hook events, no model cost.** `hooks/activity.py` is now also registered for `PreToolUse`, `PostToolUseFailure`,
+  `SubagentStart` and `SubagentStop`. It prints nothing, so nothing enters Claude's context. It keeps one record per
+  session in `.preview/agents.json` (two sessions in one project no longer zero each other; a session's record goes
+  when it stops, and any record untouched for 30 minutes is dropped). `serve.py` reads it, passes it as
+  `activity.tools` in `/__pb_data` and pushes it to the page like `activity.json` (nothing re-renders).
+  `.preview/activity.json` is written by the same three events as before.
+- **The strip's motion.** The three pulsing dots are gone. The beam runs along the strip's **top** edge, between the
+  bar and the row. While working, a white light sweeps across the verb (a solid ink layer sits under it, so a letter
+  never goes missing at either end of the sweep), the verb is **typed in one character at a time** and typed again
+  when the word changes, and the turn clock leads the row, ahead of the verb. Waiting, Your turn and Done keep the
+  clock at the right edge. With reduced motion there is no sweep and no typing.
+
+### Upgrading
+
+No schema change and nothing to do by hand. Restart Claude Code once so it loads the four new hook events from
+`hooks.json`.
+
 ## [3.1.1] — 2026-11-09
 
 - **Pick and Spacing say when they are on.** Pressing `I` or `M` (or clicking the chip) changed `aria-pressed` and a faint

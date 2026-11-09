@@ -291,10 +291,11 @@
 .pb-menu-n { margin-left: auto; font-variant-numeric: tabular-nums; color: var(--pb-ink-3); }
 
 /* ---------- The activity strip (v2.7): what Claude is doing, in words, under the bar ----------
-   One --pb-hit row (pbAgentPaint in prototype.html). --pb-info is its one accent: the glyph and the beam. Modes:
-   working (Thinking / Writing — three dots in a calm wave, a beam along the bottom edge) · waiting (the hook went
-   quiet: one still ink-3 dot) · turn (Stop fired, drafts to approve: one still info dot) · done (one still ink-3
-   dot). Reduced motion: the dots stand at three opacities and the beam is a still hairline. */
+   One --pb-hit row (pbAgentPaint in prototype.html). --pb-info is its one accent: the beam. Modes:
+   working (the verb — Thinking / Writing, or the tool in hand — with a white light sweeping across it, the turn clock
+   leading the row, a beam along the top edge) · waiting (the hook went quiet) · turn (Stop fired, drafts to approve) ·
+   done. The verb is typed in, one character at a time, when its word changes (inline clip-path, pbAgentType).
+   Reduced motion: no sweep, no typing, and the beam is a still hairline. */
 :root.pb-has-agent { --pb-agent-h: calc(var(--pb-hit) + var(--pb-hair-w)); }
 .pb-agent {
   position: sticky; top: var(--pb-bar-h); z-index: 1099;
@@ -317,22 +318,25 @@
 .pb-agent-steps .pb-agent-step { min-width: 0; }
 .pb-agent.is-enter { animation: pb-agent-in calc(var(--pb-t) * 3) ease-out; }
 @keyframes pb-agent-in { from { opacity: 0; transform: translateY(-30%); } }
-.pb-agent-glyph { display: flex; flex: none; align-items: center; gap: var(--pb-s0); width: calc(var(--pb-dot) * 2.4); }
-.pb-agent-glyph i { display: block; width: calc(var(--pb-dot) * .6); height: calc(var(--pb-dot) * .6); border-radius: 50%; background: var(--pb-info); }
-.pb-agent[data-mode="working"] .pb-agent-glyph i { animation: pb-agent-dot 1.4s ease-in-out infinite backwards; }
-.pb-agent[data-mode="working"] .pb-agent-glyph i:nth-child(2) { animation-delay: .2s; }
-.pb-agent[data-mode="working"] .pb-agent-glyph i:nth-child(3) { animation-delay: .4s; }
-.pb-agent:not([data-mode="working"]) .pb-agent-glyph i:nth-child(n+2) { opacity: 0; }
-.pb-agent:is([data-mode="waiting"], [data-mode="done"]) .pb-agent-glyph i { background: var(--pb-ink-3); }
-@keyframes pb-agent-dot { 0%, 100% { opacity: .25; } 40% { opacity: 1; } }
 .pb-agent-line { display: flex; flex: 1 1 0; align-items: baseline; gap: var(--pb-s2); min-width: min(10rem, 40vw); overflow: hidden; }
 .pb-agent-line:empty { min-width: 0; }
 .pb-agent-verb { flex: none; color: var(--pb-ink); font-weight: var(--pb-w-bold); }
+/* working: a white light sweeps across the verb. The text is transparent and painted by two layers clipped to it: the moving
+   light (70% white, so on the light theme the letters dim under it and never vanish) over a solid ink layer; the solid layer is
+   what keeps every letter painted at both ends of the sweep. (`white`, not a hex: chrome_foundation bans raw hex below :root.) */
+.pb-agent[data-mode="working"] .pb-agent-verb {
+  color: transparent; -webkit-text-fill-color: transparent;
+  background: linear-gradient(100deg, transparent 0 42%, color-mix(in srgb, white 70%, var(--pb-ink-2)) 50%, transparent 58% 100%) 120% 0 / 250% 100% no-repeat,
+    linear-gradient(var(--pb-ink-2), var(--pb-ink-2));
+  -webkit-background-clip: text; background-clip: text; animation: pb-agent-shimmer 1.8s linear infinite;
+}
+@keyframes pb-agent-shimmer { from { background-position: 120% 0; } to { background-position: -20% 0; } }
 .pb-agent-sep { flex: none; color: var(--pb-ink-3); }
 .pb-agent-step, .pb-agent-detail { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .pb-agent-n { flex: none; color: var(--pb-ink-3); font-variant-numeric: tabular-nums; }
 .pb-agent-time { flex: none; margin-left: auto; color: var(--pb-ink-3); font-variant-numeric: tabular-nums; }
-.pb-agent-beam { position: absolute; left: 0; right: 0; bottom: 0; height: var(--pb-rule-w); overflow: hidden; opacity: 0; pointer-events: none; }
+.pb-agent[data-mode="working"] .pb-agent-time { order: -1; margin-left: 0; }   /* while working the clock leads the row; the other modes keep it right */
+.pb-agent-beam { position: absolute; left: 0; right: 0; top: 0; bottom: auto; height: var(--pb-rule-w); overflow: hidden; opacity: 0; pointer-events: none; }
 .pb-agent[data-mode="working"] .pb-agent-beam { opacity: 1; }
 .pb-agent-beam::before { content: ""; position: absolute; top: 0; bottom: 0; left: 0; width: 28%;
   background: linear-gradient(90deg, transparent, var(--pb-info), transparent); animation: pb-agent-beam 2.2s ease-in-out infinite; }
@@ -341,9 +345,7 @@
   overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
 @media (prefers-reduced-motion: reduce) {
   .pb-agent.is-enter { animation: none; }
-  .pb-agent[data-mode="working"] .pb-agent-glyph i { animation: none; }
-  .pb-agent[data-mode="working"] .pb-agent-glyph i:nth-child(2) { opacity: .6; }
-  .pb-agent[data-mode="working"] .pb-agent-glyph i:nth-child(3) { opacity: .3; }
+  .pb-agent[data-mode="working"] .pb-agent-verb { animation: none; background: none; color: var(--pb-ink); -webkit-text-fill-color: currentColor; }
   .pb-agent-beam { height: var(--pb-hair-w); }
   .pb-agent-beam::before { animation: none; width: 100%; background: var(--pb-info); }
 }

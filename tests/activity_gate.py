@@ -89,7 +89,8 @@ def main():
         check(got and abs(got["gate"].get("at", 0) - t0) < 15, "…with the time it was written")
         check(got and all(got.get(k) == before.get(k) for k in ("state", "at", "event", "since")),
               "…and state / at / event / since are as they were (%s → %s)" % (before, got))
-        check(sorted(os.listdir(os.path.join(live, ".preview"))) == ["activity.json"], "…atomically: no temp file is left behind")
+        check(sorted(f for f in os.listdir(os.path.join(live, ".preview")) if f != "agents.json") == ["activity.json"],
+              "…atomically: no temp file is left behind (agents.json is the same hook's other file)")
         code, out, err = run(["--gate", "G-IA", "pick", "one", "of", "3", "groupings"], cwd=live)
         check(code == 0 and load(live)["gate"] == dict(load(live)["gate"], id="G-IA", ask="pick one of 3 groupings"),
               "an unquoted ask is joined with spaces, and a second gate replaces the first")
