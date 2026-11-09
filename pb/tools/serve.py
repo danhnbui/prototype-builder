@@ -54,10 +54,11 @@ Live fill. A change to registry.json or to .preview/drafts.json (the unapproved 
 keeps) is sent to the open pages as the SSE message `update`, not `reload`: GET /__pb_data returns the registry
 exactly as the render inlines it, the drafts folded in (each marked `_draft: true`; nothing is written), the
 derived logic graph over that, and the plugin hook's activity (.preview/activity.json — whether Claude is
-working). The prototype shell paints it in place (window.pbApplyData); a page without one — the design system, an
+working, plus `tools` from .preview/agents.json — the verb of the tool running now and the subagents running). The
+prototype shell paints it in place (window.pbApplyData); a page without one — the design system, an
 explore option — reloads as before. A body, the shell, the runtime or a stylesheet is compiled into the page,
-so those stay `reload`; a reload keeps the reader's place (window.pbSavePlace). The hook's file alone sends
-`activity` and re-renders nothing.
+so those stay `reload`; a reload keeps the reader's place (window.pbSavePlace). The hook's files alone (activity.json,
+agents.json) send `activity` and re-render nothing.
 
 Who may ask. Every request, GET and POST, is checked first: its Host header must name this server — a
 loopback name, the concrete --host it is bound to, or a name given with --allow-host — or it is a 403
@@ -92,7 +93,7 @@ Usage:
   python3 serve.py [registry.json] --status [--json]    exit 0 running · 1 not
   python3 serve.py [registry.json] --stop [--json]      exit 0 stopped / was not running · 1 could not
 """
-import argparse, datetime, glob, hashlib, importlib, json, mimetypes, os, re, select, signal, socket, sys, tempfile, threading, time, traceback, unicodedata, urllib.parse, webbrowser
+import argparse, datetime, glob, hashlib, importlib, json, math, mimetypes, os, re, select, signal, socket, sys, tempfile, threading, time, traceback, unicodedata, urllib.parse, webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from html import escape as _esc
@@ -127,6 +128,9 @@ SSE_PING = 15.0
 STOP_WAIT = 5.0            # --stop waits this long for the server to go away
 DRAFTS_FILE = os.path.join(".preview", "drafts.json")    # unapproved lines, written by `slice.py set --draft`
 HOOK_FILE = os.path.join(".preview", "activity.json")    # whether Claude is working, written by pb/hooks/activity.py
+TOOLS_FILE = os.path.join(".preview", "agents.json")     # which tool Claude runs and how many subagents, per session, same hook
+TOOLS_FRESH_S = 600        # a session record older than this is not counted
+TOOLS_VERB_MAX = 20
 KIND_HISTORY = 256         # bumps remembered, so a stream that missed some can still say update or reload
 
 
@@ -574,6 +578,7 @@ class State:
         # — the live-fill files (v2.6): both live in .preview/, beside server.json, and are runtime state —
         self.drafts_path = os.path.join(os.path.dirname(reg_path), DRAFTS_FILE)   # slice.py set --draft writes it
         self.hook_path = os.path.join(os.path.dirname(reg_path), HOOK_FILE)       # the plugin hook writes it
+        self.tools_path = os.path.join(os.path.dirname(reg_path), TOOLS_FILE)     # …and this one, same hook
         self.kinds = []                       # [(version, "update" | "reload")], newest last: what each bump was
         self.hook_version = 0                 # bumps when only the hook's file changed — nothing to re-render
         self._cache_data_version = -1
@@ -669,7 +674,7 @@ class State:
     def watched(self):
         # body_files / runtime_files / sidecar_files are recomputed each poll so newly added/removed files are noticed.
         extra = [p for p in (self.ds_shell_path, self.runtime_path, self.explore_shell_path) if p]
-        return ([self.reg_path, self.shell_path, self.render_path, self.drafts_path, self.hook_path] + extra
+        return ([self.reg_path, self.shell_path, self.render_path, self.drafts_path, self.hook_path, self.tools_path] + extra
                 + self.body_files + self.runtime_files + self.sidecar_files)
 
     def bump(self, kind="reload"):
@@ -683,7 +688,7 @@ class State:
         self.prune_slot_cache()
 
     def bump_hook(self):
-        """The plugin hook wrote .preview/activity.json: tell the pages, render nothing."""
+        """The plugin hook wrote .preview/activity.json or agents.json: tell the pages, render nothing."""
         with self.cond:
             self.hook_version += 1
             self.cond.notify_all()
@@ -848,6 +853,57 @@ def hook_gate(g):
     return {"id": gid, "ask": ask.strip(), "at": at}
 
 
+def _tools_num(v, kind):
+    """A non-negative number from agents.json (`kind` int or float), else None. bool, str, NaN and inf are refused."""
+    if isinstance(v, bool):
+        return None
+    if kind == "int":
+        return v if isinstance(v, int) and v >= 0 else None
+    return v if isinstance(v, (int, float)) and math.isfinite(v) and v >= 0 else None
+
+
+def read_tools(state, now=None):
+    """What the plugin hook last wrote to .preview/agents.json, boiled down for the activity strip →
+    {agents, verb, running, at, doneAt}, or None when the file is missing, unreadable, malformed or has no fresh
+    session. `agents` sums the subagents of every session touched in the last TOOLS_FRESH_S seconds. verb / running /
+    at / doneAt come from one of them: the freshest with a tool running, else the one that finished a tool last, else
+    blanks. A session record with a bad number is skipped; a bad verb (not a string, over 20 characters, a control
+    character) is read as ''. A bad file is no tools, never an error."""
+    now = time.time() if now is None else now
+    try:
+        with open(state.tools_path, encoding="utf-8") as f:
+            d = json.load(f)
+    except (OSError, ValueError):
+        return None
+    sessions = d.get("sessions") if isinstance(d, dict) else None
+    if not isinstance(sessions, dict):
+        return None
+    fresh = []
+    for rec in sessions.values():
+        if not isinstance(rec, dict):
+            continue
+        at, running = _tools_num(rec.get("at"), "num"), _tools_num(rec.get("running"), "int")
+        agents, done = _tools_num(rec.get("agents"), "int"), _tools_num(rec.get("doneAt"), "num")
+        if at is None or running is None or agents is None or done is None or not now - at < TOOLS_FRESH_S:
+            continue
+        verb = rec.get("verb")
+        if not isinstance(verb, str) or len(verb) > TOOLS_VERB_MAX or not verb.isprintable():
+            verb = ""
+        fresh.append({"at": at, "verb": verb, "running": running, "doneAt": done, "agents": agents})
+    if not fresh:
+        return None
+    running = [r for r in fresh if r["running"] > 0]
+    finished = [r for r in fresh if r["doneAt"] > 0]
+    if running:
+        pick = max(running, key=lambda r: r["at"])
+    elif finished:
+        pick = max(finished, key=lambda r: r["doneAt"])
+    else:
+        pick = {"verb": "", "running": 0, "at": 0, "doneAt": 0}
+    return {"agents": sum(r["agents"] for r in fresh), "verb": pick["verb"], "running": pick["running"],
+            "at": pick["at"], "doneAt": pick["doneAt"]}
+
+
 def data_current(state):
     """What a live page needs to repaint without a reload → (payload dict, error_str). The registry exactly as the
     render inlines it (specs loaded, bodies and styles left out), with the drafts folded in — each draft element
@@ -884,7 +940,13 @@ def data_current(state):
                 state._cache_data = data
     if data is None:
         return None, err
-    return dict(data, activity=read_hook(state), now=time.time()), None
+    now = time.time()
+    activity = read_hook(state)
+    if activity is not None:        # the tools ride on a valid activity file only
+        tools = read_tools(state, now)
+        if tools:
+            activity["tools"] = tools
+    return dict(data, activity=activity, now=now), None
 
 
 def render_slot(state, man, slot):
@@ -982,8 +1044,8 @@ def refresh(state):
             return []
         for p in changed:
             state.seen[p] = now[p]
-        rest = [p for p in changed if p != state.hook_path]
-        if len(rest) < len(changed):      # the plugin hook wrote its file: the pages hear of it, nothing re-renders
+        rest = [p for p in changed if p not in (state.hook_path, state.tools_path)]
+        if len(rest) < len(changed):      # the plugin hook wrote one of its files: the pages hear of it, nothing re-renders
             state.bump_hook()
         if not rest:
             return changed

@@ -593,6 +593,78 @@ def run():
                 check(page.locator('#pb-agent [role="status"]').count() == 1, "h · exactly one role=status inside #pb-agent")
                 check(page.locator(".meta-tab").count() == 4, "…the strip adds no fifth .meta-tab")
 
+                # i · the live tool verb, the agent count, the clock, the typing, no dots. The server's `tools` object is
+                #     injected through page.evaluate (pbAgentTools is the page's own reader of the data route's shape), so this
+                #     needs nothing of the hook/server half; `at`/`doneAt` are server epochs, `now` is d.now.
+                def tools(verb="Editing", agents=1, running=1, done_ago=None):
+                    now = time.time()
+                    raw = {"agents": agents, "verb": verb, "running": running, "at": now - 1,
+                           "doneAt": (now - done_ago) if done_ago is not None else 0}
+                    page.evaluate("([raw, now]) => { PB_LIVE.activity.tools = pbAgentTools(raw, now); PB_LIVE.activity.rx = performance.now(); pbAgentPaint(); }", [raw, now])
+
+                verb_js = "document.querySelector('#pb-agent .pb-agent-verb')"
+                check(page.locator('#pb-agent [class*="glyph"], #pb-agent i').count() == 0, "i · no glyph element in the strip (the three dots are gone)")
+                check(page.evaluate("pbAgentTools({verb: 'Edit<b>', agents: 1, running: 1, at: 1, doneAt: 0}, 2) === null "
+                                    "&& pbAgentTools({verb: 'A'.repeat(21)}, 2) === null && pbAgentTools(null, 2) === null "
+                                    "&& pbAgentTools({verb: 'Editing', agents: 1, running: 1, at: 1, doneAt: 0}, 2).verb === 'Editing'"),
+                      "…a tools object with a verb that is not a short word of letters is ignored")
+                top = page.evaluate("(() => { const b = document.querySelector('#pb-agent .pb-agent-beam'), s = document.getElementById('pb-agent'); "
+                                    "return b.getBoundingClientRect().top - s.getBoundingClientRect().top; })()")
+                check(abs(top) < 1, f"…the beam sits on the strip's top edge (offset {top:.1f}px)")
+                sr0 = page.evaluate("document.querySelector('#pb-agent .pb-agent-sr').textContent")
+                tools("Editing", agents=2)
+                # right after the change the whole word is there (typing clips, it never rewrites) and the clip is on
+                snap = page.evaluate(f"({{t: {verb_js}.innerText, clip: {verb_js}.style.clipPath}})")
+                check(snap["t"] == "Editing", f"d · innerText is the full word right after a change ({snap['t']!r})")
+                check(snap["clip"].startswith("inset("), f"…and the typing clip is on ({snap['clip']!r})")
+                page.wait_for_function(f"{verb_js}.style.clipPath === ''", timeout=3000)
+                check(page.evaluate(f"{verb_js}.innerText") == "Editing", "…the clip is gone after the last character, the word still whole")
+                line = page.evaluate(strip_text)
+                check(page.evaluate("document.getElementById('pb-agent').dataset.mode") == "working" and "2 agents" in line,
+                      f"a · a running tool → verb Editing with the `2 agents` part ({line!r})")
+                check(line.index("2 agents") < (line.index("saved") if "saved" in line else 10**6), "…the agents part leads the saved count")
+                sr1 = page.evaluate("document.querySelector('#pb-agent .pb-agent-sr').textContent")
+                tools("Reading", agents=1)
+                line = page.evaluate(strip_text)
+                check(page.evaluate(f"{verb_js}.textContent") == "Reading" and "agent" not in line, f"…agents=1 shows no agents part ({line!r})")
+                tools("Reading", agents=0)
+                check("agent" not in page.evaluate(strip_text), "…and agents=0 neither")
+                sr2 = page.evaluate("document.querySelector('#pb-agent .pb-agent-sr').textContent")
+                check(sr1 == sr2 and sr1.startswith("Claude is working"),
+                      f"…the live region says `working` for every tool, so a new tool is not re-announced ({sr1!r} → {sr2!r}; before {sr0!r})")
+                # the clock leads the row while working, and sits at the right edge in every other mode
+                box = page.evaluate("(() => { const r = s => document.querySelector('#pb-agent ' + s).getBoundingClientRect(); "
+                                    "return {t: r('.pb-agent-time').left, v: r('.pb-agent-verb').left, s: document.getElementById('pb-agent').getBoundingClientRect().right}; })()")
+                check(box["t"] < box["v"], f"c · working → the clock comes before the verb (clock x {box['t']:.0f}, verb x {box['v']:.0f})")
+                # b · a finished tool lingers 4 s, then the strip says Thinking again
+                tools("Editing", agents=1, running=0, done_ago=0)
+                check(page.evaluate(f"{verb_js}.textContent") == "Editing", "b · a tool that just finished still shows its verb")
+                page.wait_for_function(f"/^(Thinking|Writing)$/.test({verb_js}.textContent)", timeout=8000)
+                check(True, "…and ~4 s later it falls back to Thinking/Writing")
+                # a tool that has "run" for over 5 min is a missed PostToolUse: not believed
+                page.evaluate("() => { PB_LIVE.activity.tools = {agents: 3, verb: 'Running', running: 1, age: 301, doneAge: null}; PB_LIVE.activity.rx = performance.now(); pbAgentPaint(); }")
+                check(page.evaluate(f"{verb_js}.textContent") in ("Thinking", "Writing") and "agents" not in page.evaluate(strip_text),
+                      "…a tool running for over 300 s is not believed (no verb, no agents part)")
+                # no tools at all → exactly today's strip
+                page.evaluate("() => { PB_LIVE.activity.tools = null; pbAgentPaint(); }")
+                check(page.evaluate(f"{verb_js}.textContent") in ("Thinking", "Writing"), "…with no `tools` the strip is the one it always was")
+                # reduced motion: no typing, no sweep
+                page.emulate_media(reduced_motion="reduce")
+                tools("Searching", agents=1)
+                snap = page.evaluate(f"({{t: {verb_js}.innerText, clip: {verb_js}.style.clipPath, bg: getComputedStyle({verb_js}).backgroundImage, "
+                                     f"fill: getComputedStyle({verb_js}).webkitTextFillColor, col: getComputedStyle({verb_js}).color}})")
+                check(snap["t"] == "Searching" and snap["clip"] == "", f"…reduced motion: the word is whole at once, no clip ({snap['t']!r}, {snap['clip']!r})")
+                check(snap["bg"] == "none" and snap["fill"] == snap["col"], f"…and no sweep: no background, the text painted in its ink ({snap['bg']!r}, {snap['fill']} = {snap['col']})")
+                page.emulate_media(reduced_motion="no-preference")
+                # the clock goes to the right edge once the turn is over
+                hook("Stop", tmp)
+                page.wait_for_function("['turn', 'done'].includes(document.getElementById('pb-agent').dataset.mode)", timeout=8000)
+                box = page.evaluate("(() => { const r = s => document.querySelector('#pb-agent ' + s).getBoundingClientRect(); "
+                                    "return {t: r('.pb-agent-time').left, v: r('.pb-agent-verb').left}; })()")
+                check(box["t"] > box["v"], f"…not working → the clock is last in the row (clock x {box['t']:.0f}, verb x {box['v']:.0f})")
+                hook("UserPromptSubmit", tmp)
+                page.wait_for_function("document.getElementById('pb-agent').dataset.mode === 'working'", timeout=8000)
+
                 # f · the 90 s fallback, then a session that has gone cold
                 write_act({"state": "working", "at": time.time() - 100, "event": "UserPromptSubmit"})
                 page.wait_for_function("document.getElementById('pb-agent').dataset.mode === 'waiting'", timeout=8000)
