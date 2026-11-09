@@ -10,7 +10,7 @@ pb/template/runtime.js (+ chrome.css), composed by every page of the prototype a
   2. pbFilterBar    search · chips · quick toggles · Clear · "N of M" · slot. Clear sits right after the last
                     chip and exists only while something is filtered. The prototype's own Logic / IA / Test
                     Cases bars are now this component, behaviour unchanged
-  3. toasts         the tool's toast (pbUiToast, bottom-right, tones) and the product's (pbToast, bottom-centre,
+  3. toasts         the tool's toast (pbUiToast, top-centre under the bar, tones) and the product's (pbToast, bottom-centre,
                     the PROJECT's tokens) never overlap
   4. canvas tokens  diagram colours as light-dark() pairs, pbCanvasPalette(), the `pb:themechange` event
   5. pbRichText     escape first; then blocks, marks, numbers — safe, and unbalanced marks stay literal
@@ -441,7 +441,7 @@ def toasts(pg):
         check(apart, f"{w}px: the two toasts do not overlap (product {[round(x) for x in p]}, tool {[round(x) for x in t]})")
         if w >= 1100:
             check(abs((p[0] + p[2]) / 2 - w / 2) < 3, f"{w}px: the product toast is bottom-centre")
-            check(t[2] > w - 40 and t[0] > w / 2, f"{w}px: the tool toast is bottom-right")
+            check(abs((t[0] + t[2]) / 2 - w / 2) < 3 and t[1] < 120, f"{w}px: the tool toast is top-centre, under the bar")
     pg.set_viewport_size({"width": 1280, "height": 800})
     pg.evaluate("document.querySelectorAll('.proto-toast').forEach(e => e.remove())")
     pg.evaluate("pbToast('Product says hello')")
@@ -697,8 +697,8 @@ def static_checks():
         check(re.search(re.escape(sel) + r"[\s,{:.\[]", CHROME) is not None, f"chrome.css styles {sel}")
     css = re.sub(r"/\*.*?\*/", "", CHROME, flags=re.S)
     check(re.search(r"\.pb-disc-ch\s*\{[^}]*width:\s*var\(--pb-ico\)", css) is not None, "the chevron is sized by --pb-ico (20px)")
-    check(re.search(r"\.pb-toast\s*\{[^}]*right:\s*var\(--pb-gutter\)", css) is not None and "left: 50%" not in re.search(r"\.pb-toast\s*\{[^}]*\}", css).group(0),
-          "the tool toast is anchored bottom-right")
+    check(re.search(r"\.pb-toast\s*\{[^}]*left:\s*50%[^}]*top:\s*calc\(var\(--pb-bar-h\)", css) is not None and "right: var(--pb-gutter)" not in re.search(r"\.pb-toast\s*\{[^}]*\}", css).group(0),
+          "the tool toast is anchored top-centre, under the bar")
     proto = open(os.path.join(TPL, "prototype.html"), encoding="utf-8").read()
     check("function pbFbarChip" not in proto and "function pbFbarCheck" not in proto and ".pb-pop-opt {" not in proto,
           "the prototype no longer carries its own filter-bar implementation or CSS")
