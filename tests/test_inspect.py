@@ -226,7 +226,9 @@ def run():
             copied = page.evaluate("() => window.__copied")
             want = page.evaluate("id => { const c = (PB_DATA.handoff.organisms || []).find(c => c.id === id)"
                                  " || pbOrgById()[id]; return (c && c.name) || id; }", cmp_id)
-            check(copied[-1:] == [want], f"a pick-click copies the component name (want {want!r}, got {copied!r})")
+            # Since the any-element inspector a pick-click copies the FULL reference, not the bare component name.
+            check(copied[-1:] == [f"Login › {want} (h1.pb-heading)"],
+                  f"a pick-click copies the full reference 'Screen › Component (tag.class)' (got {copied!r})")
             check(page.evaluate("() => state.protoScreenId") == before, "a pick-click does not navigate")
             # The submit with valid fields WOULD navigate on a normal click; picked, it only copies.
             inp = page.locator('#proto-frame .field__input')
@@ -238,10 +240,47 @@ def run():
                   and page.locator('.proto-toast').count() == 0,
                   f"a pick-click on a valid submit neither submits nor navigates (copied {copied[-1:]!r} then "
                   f"{page.evaluate('() => window.__copied')[-1:]!r})")
+            # Pick names ANY element, not only the nearest component: a leaf text node inside a component
+            # gives the component's name AND its own tag.class, a dashed box frames the component's root
+            # next to the solid box on the element, and a click copies the full reference.
+            page.wait_for_function("() => !window.pbPickNotice", timeout=3000)  # the earlier click's "Copied" has gone
+            leaf = page.locator('#proto-frame [data-cmp="text-input"] label.field__label').first
+            root = page.locator('#proto-frame [data-cmp="text-input"]').first
+            lb, rb = leaf.bounding_box(), root.bounding_box()
+            lx, ly = center(lb)
+            page.mouse.move(lx + 1, ly)
+            page.mouse.move(lx, ly)
+            page.wait_for_timeout(100)
+            ltxt = page.locator("#pb-inspect-label").inner_text()
+            check("TextInput" in ltxt and "label.field__label" in ltxt,
+                  f"hovering a leaf text node names its component AND its tag.class (got {ltxt!r})")
+            check("local" in ltxt or "cobot DS" in ltxt, f"the label says where the component comes from (got {ltxt!r})")
+            sbox = page.locator("#pb-inspect-box").bounding_box()
+            cbox = page.locator("#pb-inspect-cmp").bounding_box() if page.locator("#pb-inspect-cmp").is_visible() else None
+            check(abs(sbox["width"] - lb["width"]) < 2 and abs(sbox["height"] - lb["height"]) < 2,
+                  f"the solid box is on the exact element, not the component ({sbox} vs {lb})")
+            check(cbox is not None and abs(cbox["width"] - rb["width"]) < 2 and abs(cbox["height"] - rb["height"]) < 2,
+                  f"a dashed box frames the component root when the element is not the root ({cbox} vs {rb})")
+            page.mouse.click(lx, ly)
+            page.wait_for_timeout(150)
+            ref = page.evaluate("() => window.__copied.slice(-1)[0]")
+            check(ref == "Login › TextInput (label.field__label)",
+                  f"a click on that text copies the full reference (got {ref!r})")
+            page.wait_for_function("() => !window.pbPickNotice", timeout=3000)
+            # On the component's own root there is no second box; on a spot no component owns, the label says so.
+            hx, hy = center(page.locator("#proto-frame h1[data-cmp]").bounding_box())
+            page.mouse.move(hx + 1, hy)
+            page.mouse.move(hx, hy)
+            page.wait_for_timeout(100)
+            check(not page.locator("#pb-inspect-cmp").is_visible(), "no dashed box when the element IS the component root")
+            page.evaluate("() => { const f = document.querySelector('#proto-frame > div'); pbInspectShow(f); }")
+            ptxt = page.locator("#pb-inspect-label").inner_text()
+            check("no component" in ptxt and "div" in ptxt, f"an element no component owns says 'no component' with its tag (got {ptxt!r})")
             page.keyboard.press("Escape")
             page.wait_for_timeout(60)
             check(pick.get_attribute("aria-pressed") == "false"
                   and not page.locator("#pb-inspect-label").is_visible(), "Esc ends pick mode and hides the label")
+            check(not page.locator("#pb-inspect-cmp").is_visible(), "Esc also hides the dashed component box")
             page.keyboard.press("i")
             page.wait_for_timeout(60)
             check(pick.get_attribute("aria-pressed") == "true", "I toggles pick mode on")
@@ -329,6 +368,27 @@ def run():
                   and not page.evaluate("() => document.body.classList.contains('pb-spacing')"),
                   "leaving the Prototype tab ends Spacing and drops the button")
 
+            # pbUse stamps data-cmp on the FIRST tag. A component whose HTML opens with its own <style> used
+            # to be stamped on the <style> (which Pick skips), so every hover named the outermost component.
+            # The stamp now goes to the first element after the leading <style>s; other output is unchanged.
+            stamp = page.evaluate("""() => {
+                const add = (id, html) => { window['renderCmp_' + id] = () => html;
+                    PB_REGISTRY.components.push({ id, name: id, renderFn: 'renderCmp_' + id }); };
+                add('st1', '<style>.st1{color:red}</style><div class="st1">hi</div>');
+                add('st2', '\\n <style media="all">.a{}</style>\\n<style>.b{}</style>\\n  <section class="st2"><span>x</span></section>');
+                add('st3', '<div class="st3">plain</div>');
+                add('st4', '<style>.only{}</style>just text');
+                PB_ORG_BY_ID_CACHE = null;
+                return { st1: pbUse('st1'), st2: pbUse('st2'), st3: pbUse('st3'), st4: pbUse('st4') }; }""")
+            check(stamp["st1"] == '<style>.st1{color:red}</style><div data-cmp="st1" class="st1">hi</div>',
+                  f"a component starting with a <style> is stamped on its first element, not the <style> (got {stamp['st1']!r})")
+            check('<style media="all">' in stamp["st2"] and "<style>.b{}</style>" in stamp["st2"]
+                  and '<section data-cmp="st2" class="st2">' in stamp["st2"] and stamp["st2"].count("data-cmp") == 1,
+                  f"several leading <style>s (with whitespace and attributes) are all skipped (got {stamp['st2']!r})")
+            check(stamp["st3"] == '<div data-cmp="st3" class="st3">plain</div>',
+                  f"a component not starting with a <style> is stamped exactly as before (got {stamp['st3']!r})")
+            check(stamp["st4"].startswith("<style data-cmp=") and stamp["st4"].count("data-cmp") == 1,
+                  f"a <style> with no element after it is left stamped as before (got {stamp['st4']!r})")
             page.close()
         browser.close()
 

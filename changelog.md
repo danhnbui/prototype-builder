@@ -2,6 +2,42 @@
 
 All notable changes to Product Builder. Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [3.1.1] — 2026-11-09
+
+- **Pick and Spacing say when they are on.** Pressing `I` or `M` (or clicking the chip) changed `aria-pressed` and a faint
+  wash on the bar chip, about 1.2:1 against the dark bar, and nothing else, so the key looked like it did nothing. The chip
+  now turns `--pb-info` blue (the blue of the activity strip's "Thinking" dots) while the mode is on, and the tool toast
+  says "Pick on" or "Spacing on" with how to leave it, and "Pick off" or "Spacing off" when it ends. Leaving the
+  Prototype tab still ends the mode without a toast. (`pb/template/chrome.css`, `pbPickSet` and `pbSpacingSet` in
+  `pb/template/prototype.html`.)
+- **The tool toast sits top-centre in the bar's colours.** It was bottom-right in `--pb-ink`, which in dark mode is light
+  on a dark bar. It is now centred just under the bar, on `--pb-page` with a hairline, the same ground as the bar. This
+  applies to every tool toast ("Copied", "Session reset", and so on), not only Pick and Spacing. pass / fail keep their
+  status colours. (`.pb-toast` in `pb/template/chrome.css`.)
+- **Pick names any element, and a click copies the full reference. This changes what Pick copies.** Pick named only the
+  nearest component, so a text node, a part, or text inside a component all read as the component. Now the solid box is
+  on the exact element under the pointer, a dashed box frames its component's root when the two differ, and the label
+  reads `Component › Component › Part`, then `tag.class`, then `cobot DS · <cite>`, `local` or `no component`. A click used
+  to copy the component's name; it now copies `Screen › Component › Part (tag.class)`, for example
+  `Login › TextInput (label.field__label)`. Anyone who pasted the bare name now gets the longer reference. ⌥-hover and
+  ⌥-click are unchanged (the structured id path). The Pick toast says "copy its reference". (`pbInspectDescribe`,
+  `pbInspectShow`, `pbPickCopy` and `.pb-inspect-cmp` in `pb/template/prototype.html`; `tests/test_inspect.py`.)
+- **A component whose HTML starts with a `<style>` is found by Pick.** `pbUse` stamped `data-cmp` on the first tag of a
+  component's HTML, which for such a component is the `<style>`; the inspector skips it, so every hover resolved to the
+  outermost component. The stamp now goes on the first tag after the leading `<style>` block(s). A component that does
+  not start with a `<style>` is stamped exactly as before, and so is a `<style>` with no element after it.
+  (`pbUse` in `pb/template/runtime.js`; `tests/test_inspect.py`.)
+- **Pick and Spacing work inside an embedded pb preview.** A page that frames a pb preview (`?embed=1`) could not reach
+  into it, so Pick and Spacing did nothing there. The shell now relays both through postMessage, version 1: the parent
+  sends `{ source: 'pb', v: 1, type: 'pb:tool', tool: 'pick' | 'spacing', on }` to every iframe whose `src` carries
+  `embed=1` after each change, and again when a frame sends `pb:ready` (a reloaded frame); the frame answers
+  `{ source: 'pb-embed', v: 1, type: 'pb:tool-state', tool, on, supported?: false }` after each change, so Esc, `I` or
+  `M` inside the frame un-presses the parent's button, and `{ source: 'pb-embed', v: 1, type: 'pb:ready' }` once it has
+  loaded. Each side accepts a message only from the window it expects (`ev.source`), and only a tool name and a boolean
+  cross, so the target origin is `'*'`. A frame without `embed=1` is told nothing. **The embedding page must give its
+  iframe `allow="clipboard-write"`, or Pick's click inside the frame cannot copy.** (`pbRelay*` in
+  `pb/template/prototype.html`; `tests/tool_relay.py`.)
+
 ## [3.1.0] — 2026-11-08
 
 *A minor with a schema step: schema 14 moves `meta.others` out of the registry (see **Upgrading**). `/pb:research`

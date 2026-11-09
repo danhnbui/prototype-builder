@@ -1,4 +1,4 @@
-# Product Builder v3.1.0 — router (read first)
+# Product Builder v3.1.1 — router (read first)
 
 Standalone, CLAUDE.md-native prototype builder. **No SpecKit** — no `extension.yml`,
 `preset.yml`, or `after_*` hooks. State lives in `registry.json`; commands are native
@@ -130,11 +130,22 @@ card that owns the CTA — no dead controls. (Replaces the old `meta-tag`/`meta-
   graph (flat when a project has none), each one a jump; it pushes the preview aside (below 1024px it slides
   over the preview instead, so the frame keeps its fit) and stays until you
   close it. ⌥-click in the preview is the tool for *what is this element*, and it answers from the DOM.
-  **Pick** (the bar's cursor button after Search, or **I** under R's guards) keeps that on without ⌥: hover frames
-  the component, a click **copies its name** (and only copies — no nav, no submit), Esc or leaving the tab ends it.
-  The overlay is in the tool's own colour, `--pb-pick` (fuchsia, never the product's `--brand`), and its one-line
-  label sits **outside** the framed box (above, below, right, left, kept on screen; inside only when the box fills
-  the view); a pick-click answers "Copied" in the label itself.
+  **Pick** (the bar's cursor button after Search, or **I** under R's guards) keeps that on without ⌥: it names **any
+  element**, not only the nearest component. Hover boxes the exact element under the pointer (solid) and, when it
+  sits inside a component, that component's root (dashed, `#pb-inspect-cmp`); the label reads `Component › Component
+  › Part`, then `tag.class`, then where the component comes from (`cobot DS · <cite>`, `local` or `no component`).
+  A click **copies the full reference**, `Screen › Component › Part (tag.class)` (and only copies — no nav, no
+  submit); through 3.1.0 it copied just the component's name. ⌥-hover and ⌥-click keep the structured id path.
+  Esc or leaving the tab ends it. `pbUse` stamps `data-cmp` on the first tag **after** a leading `<style>`, so a
+  component that opens with its own style is found too. The overlay is in the tool's own colour, `--pb-pick`
+  (fuchsia, never the product's `--brand`), and its one-line label sits **outside** the framed box (above, below,
+  right, left, kept on screen; inside only when the box fills the view); a pick-click answers "Copied" in the
+  label itself. **Pick and Spacing reach an embedded shell** (`?embed=1` iframe) through a small postMessage relay
+  (v1): the parent sends `{source:'pb', v:1, type:'pb:tool', tool:'pick'|'spacing', on}` after every change and
+  again on the frame's `pb:ready`; the frame answers `{source:'pb-embed', v:1, type:'pb:tool-state', tool, on,
+  supported?:false}` after every change, so Esc, I or M inside it un-presses the parent's button. Each side accepts
+  a message only from the window it expects (`ev.source`); the page that frames it must give the iframe
+  `allow="clipboard-write"` for the frame's Pick click to copy. Test: `tests/tool_relay.py`.
   **Spacing** (the next button, or **M**) outlines every element and shows the hovered one's margin, padding and
   gap as tinted bands with value chips, plus the free space alignment leaves inside a taller/wider flex or grid box
   (hatched cyan); it never blocks a click, and Esc (after Pick), M again or leaving the tab ends it.
