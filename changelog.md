@@ -2,6 +2,14 @@
 
 All notable changes to Product Builder. Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [Unreleased]
+
+- **Pick and Spacing say when they are on.** Pressing `I` or `M` (or clicking the chip) changed `aria-pressed` and a faint
+  wash on the bar chip, about 1.2:1 against the dark bar, and nothing else, so the key looked like it did nothing. The chip
+  now wears the tool colour (`--pb-pick`, the inspector's) while the mode is on, and the tool toast says "Pick on" or
+  "Spacing on" with how to leave it, and "Pick off" or "Spacing off" when it ends. Leaving the Prototype tab still ends
+  the mode without a toast. (`pb/template/chrome.css`, `pbPickSet` and `pbSpacingSet` in `pb/template/prototype.html`.)
+
 ## [3.1.0] — 2026-11-08
 
 *A minor with a schema step: schema 14 moves `meta.others` out of the registry (see **Upgrading**). `/pb:research`

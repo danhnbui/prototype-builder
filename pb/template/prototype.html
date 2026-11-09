@@ -6392,10 +6392,13 @@
       return null;
     }
     function pbPickSet(on) {
+      var was = pbPickOn;
       pbPickOn = !!on && state.metaView === 'prototype';
       document.body.classList.toggle('pb-picking', pbPickOn);
       var b = document.querySelector('.meta-pick'); if (b) b.setAttribute('aria-pressed', String(pbPickOn));
       if (pbPickOn && pbInspectLast) pbInspectShow(pbInspectLast); else if (!pbPickOn) pbInspectHide();
+      // Say so: the key (I) and the button both land here, and the bar chip alone is easy to miss. Leaving the tab ends the mode silently.
+      if (pbPickOn !== was && state.metaView === 'prototype') pbUiToast(pbPickOn ? 'Pick on' : 'Pick off', pbPickOn ? 'Click an element to copy its name · Esc or I to exit' : undefined);
     }
     function pbPickToggle() { pbPickSet(!pbPickOn); }
     // The label itself answers a pick-click ("Copied") for a moment, then goes back to the name: the
@@ -6424,11 +6427,13 @@
       return l;
     }
     function pbSpacingSet(on) {
+      var was = pbSpacingOn;
       pbSpacingOn = !!on && state.metaView === 'prototype';
       document.body.classList.toggle('pb-spacing', pbSpacingOn);
       var b = document.querySelector('.meta-spacing'); if (b) b.setAttribute('aria-pressed', String(pbSpacingOn));
       if (!pbSpacingOn) pbSpacingEl = null;
       pbSpacingDraw();
+      if (pbSpacingOn !== was && state.metaView === 'prototype') pbUiToast(pbSpacingOn ? 'Spacing on' : 'Spacing off', pbSpacingOn ? 'Hover an element to measure it · Esc or M to exit' : undefined);
     }
     function pbSpacingToggle() { pbSpacingSet(!pbSpacingOn); }
     function pbSpacingShow(el) {
