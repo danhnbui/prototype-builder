@@ -112,9 +112,10 @@ if cfg:
             for a in h.get("args", []):
                 if a.startswith("${CLAUDE_PLUGIN_ROOT}/"):
                     named.append(a.replace("${CLAUDE_PLUGIN_ROOT}/", ""))
-    check(sorted(named) == ["hooks/bash_advice.py", "hooks/browser_advice.py", "hooks/housekeep.py",
+    # activity.py is on PreToolUse since the activity strip names the running tool (it prints nothing and writes .preview/agents.json)
+    check(sorted(named) == ["hooks/activity.py", "hooks/bash_advice.py", "hooks/browser_advice.py", "hooks/housekeep.py",
                             "hooks/route.py", "hooks/session_rules.py"],
-          "SessionStart + PreToolUse name exactly five scripts (%s)" % ", ".join(named))
+          "SessionStart + PreToolUse name exactly six scripts (%s)" % ", ".join(named))
     check(any(h.get("args", [])[-1:] == ["${CLAUDE_PLUGIN_ROOT}/hooks/housekeep.py"] for h in ss[0].get("hooks", [])),
           "SessionStart (same matcher as session_rules) also runs housekeep.py")
     check(any(g.get("matcher") == "mcp__.*(chrome-devtools|claude-in-chrome).*" for g in pt),
