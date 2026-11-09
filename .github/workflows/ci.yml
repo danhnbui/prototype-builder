@@ -25,7 +25,7 @@ env:
   BROWSER_ONLY: >-
     e2e_smoke test_inspect test_sandbox verbs_browser sandbox_shell
     chrome_states handler_escape ia_view responsive spec_measure ui_primitives sandbox_demo_model
-    live_fill research_view research_session_browser
+    live_fill research_view research_session_browser tool_relay
   # A stdlib half that passes in unit with the browser half skipped; e2e runs them again, whole.
   BROWSER_HALF: >-
     chrome_foundation logic_blocks r5_ds_site tc_shapes tradeoff_rules test_run_reuse shot_tool
@@ -71,7 +71,9 @@ jobs:
   # informs but does not block. Promote it once it has been green for a while.
   mac:
     name: mac (python 3.9, stdlib)
-    runs-on: macos-14
+    # macos-14 was retired by GitHub on 2026-11-02 ("configuration 'macos-14-arm64-us-default' is not supported"):
+    # the job never started and showed as cancelled. macos-15 is the arm64 image that is still supported.
+    runs-on: macos-15
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0

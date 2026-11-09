@@ -130,7 +130,17 @@
       // (and spec_measure.py) can find an `instance` part on a live specimen.
       // A FUNCTION replacer, not a replacement string: `$&`, `$1` or `$'` in a component id would
       // otherwise be expanded by String.replace into the markup it is stamped onto.
-      if (fn && typeof window[fn] === 'function') return String(window[fn](props || {})).replace(/^(\s*<[a-zA-Z][\w-]*)/, function (m, open) { return open + ' data-cmp="' + pbEscape(orgId) + '"'; });
+      // A body that opens with its own <style> would get the stamp on the <style>, which no pointer ever
+      // lands on and the inspector skips, so every hover resolved to the outermost component. The stamp
+      // goes on the first tag after the leading <style> block(s); output that does not start with a
+      // <style>, or has no element after it, is stamped exactly as before.
+      if (fn && typeof window[fn] === 'function') {
+        var html = String(window[fn](props || {}));
+        var stamp = function (m, open) { return open + ' data-cmp="' + pbEscape(orgId) + '"'; };
+        var lead = /^\s*(?:<style\b[^>]*>[\s\S]*?<\/style>\s*)+/i.exec(html);
+        if (lead && /^<[a-zA-Z]/.test(html.slice(lead[0].length))) return lead[0] + html.slice(lead[0].length).replace(/^(<[a-zA-Z][\w-]*)/, stamp);
+        return html.replace(/^(\s*<[a-zA-Z][\w-]*)/, stamp);
+      }
       if (typeof console !== 'undefined' && console.warn) console.warn('pbUse: no render for component', orgId);
       return '<span data-pb-missing="' + pbEscape(orgId) + '" style="display:inline-block;padding:2px 6px;outline:1px dashed var(--danger);color:var(--danger);font:11px monospace">?' + pbEscape(orgId) + '</span>';
     }

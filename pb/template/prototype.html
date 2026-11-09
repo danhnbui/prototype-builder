@@ -2295,6 +2295,9 @@
     .pb-inspect-box { position:fixed; z-index:1400; pointer-events:none; display:none;
       border:2px solid var(--pb-pick); border-radius:4px;
       background:color-mix(in srgb, var(--pb-pick) 8%, transparent); }   /* a tint, never a cover: the element stays readable */
+    /* Pick on an element inside a component: the element is the solid box, its component's root the dashed one. */
+    .pb-inspect-cmp { position:fixed; z-index:1399; pointer-events:none; display:none; box-sizing:border-box;
+      border:1px dashed var(--pb-pick); border-radius:4px; }
     /* The label in the tool's own chrome (chrome.css .pb-toast): a chip in pb sans, r-lg, pb shadow. One
        line, cut with … when long; the name reads first, the id / real element after it dims. */
     .pb-inspect-label { position:fixed; z-index:1401; pointer-events:none; display:none; box-sizing:border-box;
@@ -6364,9 +6367,11 @@
       var txt = (el.textContent || '').trim().replace(/\s+/g, ' ').slice(0, 32);
       return { path: 'screen:' + screenId + ' › ' + tag + cls, hint: txt ? '"' + txt + '"' : tag };
     }
-    // Pick mode — the bar's cursor button (or I) keeps inspect on without holding ⌥, and a click
-    // copies the hovered COMPONENT's name (not the path) so it pastes anywhere: a ticket, Figma,
-    // a chat. ⌥-click still copies the full reference. Esc, I again, or leaving the tab ends it.
+    // Pick mode — the bar's cursor button (or I) keeps inspect on without holding ⌥. It names the exact
+    // element under the pointer, not only the component around it, and a click copies that full
+    // reference ("Screen › Component › Part (tag.class)") so it pastes anywhere: a ticket, Figma, a chat.
+    // (Through 3.1.0 a click copied just the component's name.) ⌥-hover and ⌥-click keep the structured
+    // id path of pbInspectName. Esc, I again, or leaving the tab ends Pick.
     var pbPickOn = false;
     // The component under `el`: the innermost pbUse'd root (data-cmp), else a tagged registry
     // element's component, else the part map's best match. null when nothing in the registry owns it.
@@ -6391,20 +6396,60 @@
       } catch (e) { /* no part map — nothing owns it */ }
       return null;
     }
+    // Everything the hovered element is, for Pick: the components around it (outermost first), the nearest
+    // named part below the innermost one, its tag.class, and where the innermost component comes from.
+    //   inner  the innermost component's root element (null when no component owns el)
+    //   path   "Component › Component › Part", or the screen's name when nothing owns el
+    //   desc   "tag.class.class"       hint  "cobot DS · cite" | "local" | "no component"
+    //   copy   "Screen › Component › Part (tag.class)", what a pick-click puts on the clipboard
+    var PB_NOT_A_NODE = /^(STYLE|SCRIPT|TEMPLATE|LINK)$/;
+    function pbInspectDescribe(el, frame) {
+      var comps = (PB_DATA.handoff && PB_DATA.handoff.organisms) || [];
+      var reg = function (id) { return comps.find(function (c) { return c.id === id; }) || (typeof pbOrgById === 'function' ? pbOrgById()[id] : null) || null; };
+      var chain = [];
+      for (var n = el; n && n !== frame && n.nodeType === 1; n = n.parentElement)
+        if (n.hasAttribute('data-cmp') && !PB_NOT_A_NODE.test(n.tagName)) chain.unshift({ id: n.getAttribute('data-cmp'), el: n });
+      if (!chain.length) {   // not pbUse'd: a tagged registry element's component, or the part map's best match
+        var c = pbInspectComponent(el);
+        if (c && c.root && frame.contains(c.root)) chain.push({ id: c.id, el: c.root });
+      }
+      var inner = chain[chain.length - 1] || null, part = '';
+      for (var p = el; p && p.nodeType === 1 && p !== frame && (!inner || p !== inner.el); p = p.parentElement) {
+        var pt = p.getAttribute('data-part');
+        if (pt && pt !== 'root') { part = pt; break; }
+      }
+      var names = chain.map(function (x) { var o = reg(x.id); return (o && o.name) || x.id; });
+      if (part) names.push(part.replace(/[-_]+/g, ' ').replace(/^./, function (ch) { return ch.toUpperCase(); }));
+      var shown = names.length > 3 ? ['…'].concat(names.slice(-3)) : names;
+      var scr = ((PB_DATA.handoff && PB_DATA.handoff.screens) || []).find(function (s) { return s.id === state.protoScreenId; });
+      var lead = scr ? (scr.name || scr.id) : 'screen';
+      var desc = (el.tagName || 'node').toLowerCase() + Array.prototype.slice.call(el.classList || [], 0, 2).map(function (k) { return '.' + k; }).join('');
+      var hint = 'no component';
+      if (inner) {
+        var o = reg(inner.id), dm = o && o.dsMatch;
+        if (o && (o.scope === 'global' || dm)) hint = 'cobot DS' + (dm && dm.cite ? ' · ' + String(dm.cite).replace(/^ds\.component\./, '') : dm && dm.component ? ' · ' + dm.component : '');
+        else hint = 'local';
+      }
+      return { inner: inner && inner.el, path: shown.length ? shown.join(' › ') : lead, desc: desc, hint: hint,
+               copy: [lead].concat(names).join(' › ') + ' (' + desc + ')' };
+    }
     function pbPickSet(on) {
+      var was = pbPickOn;
       pbPickOn = !!on && state.metaView === 'prototype';
       document.body.classList.toggle('pb-picking', pbPickOn);
       var b = document.querySelector('.meta-pick'); if (b) b.setAttribute('aria-pressed', String(pbPickOn));
       if (pbPickOn && pbInspectLast) pbInspectShow(pbInspectLast); else if (!pbPickOn) pbInspectHide();
+      // Say so: the key (I) and the button both land here, and the bar chip alone is easy to miss. Leaving the tab ends the mode silently.
+      if (pbPickOn !== was && state.metaView === 'prototype') pbUiToast(pbPickOn ? 'Pick on' : 'Pick off', pbPickOn ? 'Click an element to copy its reference · Esc or I to exit' : undefined);
+      pbRelayChanged('pick');
     }
     function pbPickToggle() { pbPickSet(!pbPickOn); }
     // The label itself answers a pick-click ("Copied") for a moment, then goes back to the name: the
     // eye is already on it, and a toast in the far corner was easy to miss.
     var pbPickNotice = null, pbPickFlash = 0;
     function pbPickCopy(el) {
-      var c = pbInspectComponent(el), text, msg;
-      if (c) { text = c.name; msg = 'Copied'; }
-      else { text = pbInspectName(el).path; msg = 'No component here — copied the reference'; }
+      var frame = (el && el.closest && el.closest('.proto-screen')) || document.getElementById('proto-frame');
+      var text = frame ? pbInspectDescribe(el, frame).copy : String(el && el.tagName || 'node').toLowerCase(), msg = 'Copied';
       var say = function (m) {
         pbPickNotice = m; if (pbPickOn) pbInspectShow(el);
         clearTimeout(pbPickFlash);
@@ -6424,11 +6469,14 @@
       return l;
     }
     function pbSpacingSet(on) {
+      var was = pbSpacingOn;
       pbSpacingOn = !!on && state.metaView === 'prototype';
       document.body.classList.toggle('pb-spacing', pbSpacingOn);
       var b = document.querySelector('.meta-spacing'); if (b) b.setAttribute('aria-pressed', String(pbSpacingOn));
       if (!pbSpacingOn) pbSpacingEl = null;
       pbSpacingDraw();
+      if (pbSpacingOn !== was && state.metaView === 'prototype') pbUiToast(pbSpacingOn ? 'Spacing on' : 'Spacing off', pbSpacingOn ? 'Hover an element to measure it · Esc or M to exit' : undefined);
+      pbRelayChanged('spacing');
     }
     function pbSpacingToggle() { pbSpacingSet(!pbSpacingOn); }
     function pbSpacingShow(el) {
@@ -6549,16 +6597,25 @@
     function pbInspectShow(el) {
       var frame = (el && el.closest && el.closest('.proto-screen')) || document.getElementById('proto-frame');
       if (!el || !frame || el === frame || !frame.contains(el)) { pbInspectHide(); return; }
-      var info = pbInspectName(el);
-      // Picking frames the whole component it would copy, and names it the way it will paste.
-      var pick = pbPickOn ? pbInspectComponent(el) : null;
-      if (pick) { info = pbPickNotice ? { path: pbPickNotice } : { path: pick.name, el: pick.id }; if (frame.contains(pick.root)) el = pick.root; }
-      else if (pbPickOn && pbPickNotice) info = { path: pbPickNotice };
+      var info = pbInspectName(el), cmpRect = null;
+      // Picking boxes the exact element under the pointer (solid) and, when it sits inside a component,
+      // that component's root (dashed); the label names it the way a click will paste it.
+      if (pbPickOn) {
+        var d = pbInspectDescribe(el, frame);
+        info = pbPickNotice ? { path: pbPickNotice } : { path: d.path, el: d.desc, hint: d.hint };
+        if (d.inner && d.inner !== el && frame.contains(d.inner)) cmpRect = d.inner.getBoundingClientRect();
+      }
       var r = el.getBoundingClientRect();
       var e = pbInspectEls();
       e.box.style.display = 'block';
       e.box.style.top = r.top + 'px'; e.box.style.left = r.left + 'px';
       e.box.style.width = r.width + 'px'; e.box.style.height = r.height + 'px';
+      var cb = document.getElementById('pb-inspect-cmp');
+      if (cmpRect) {
+        if (!cb) { cb = document.createElement('div'); cb.id = 'pb-inspect-cmp'; cb.className = 'pb-inspect-cmp'; document.body.appendChild(cb); }
+        cb.style.display = 'block'; cb.style.top = cmpRect.top + 'px'; cb.style.left = cmpRect.left + 'px';
+        cb.style.width = cmpRect.width + 'px'; cb.style.height = cmpRect.height + 'px';
+      } else if (cb) cb.style.display = 'none';
       e.label.innerHTML = '';
       var p = document.createElement('span'); p.className = 'pb-inspect-path'; p.textContent = info.path; e.label.appendChild(p);
       if (info.el) { var q = document.createElement('span'); q.className = 'pb-inspect-el'; q.textContent = info.el; e.label.appendChild(q); }
@@ -6594,6 +6651,7 @@
     }
     function pbInspectHide() {
       var box = document.getElementById('pb-inspect-box'); if (box) box.style.display = 'none';
+      var cmp = document.getElementById('pb-inspect-cmp'); if (cmp) cmp.style.display = 'none';
       var label = document.getElementById('pb-inspect-label'); if (label) label.style.display = 'none';
     }
     function pbInspectCopy(el) {
@@ -12844,6 +12902,73 @@
       const sh = q.get('shell');
       if (sh && PB_SHELLS[sh]) state.protoShell = PB_SHELLS[sh];
       if (q.get('embed') === '1') document.body.classList.add('pb-embed');
+    })();
+
+    /* Pick and Spacing across an embedded shell. A page that frames a pb preview (`?embed=1`, above) cannot
+       reach into the frame: another document, and another origin on a real host. So the bar's Pick and
+       Spacing (or I and M) are carried through postMessage, version 1, nothing else crosses:
+         parent -> child   { source:'pb', v:1, type:'pb:tool', tool:'pick'|'spacing', on:bool }
+         child  -> parent  { source:'pb-embed', v:1, type:'pb:tool-state', tool, on, supported?:false }
+                           { source:'pb-embed', v:1, type:'pb:ready' }      once, when the child has loaded
+       The parent tells every iframe whose src carries embed=1 after each pbPickSet / pbSpacingSet, tells a
+       reloaded frame again for each tool that is on (pb:ready), and follows the child's pb:tool-state with its
+       own set function, so Esc, I or M inside the frame un-presses the parent's button. The child (body class
+       pb-embed, window.parent !== window) turns its own tool on or off and reports after every change. Each
+       side accepts a message only from the window it expects (ev.source), never from the origin: the payload
+       is a tool name and a boolean, so the target origin is '*' (a frame's origin is not known here and a
+       wrong one would silently drop the message). A page that embeds a frame must give it
+       allow="clipboard-write", or Pick's click inside the frame cannot copy. */
+    var pbRelaySkip = null, pbRelayAsked = [];
+    function pbRelayTools() { return ['pick', 'spacing']; }
+    function pbRelayOn(tool) { return tool === 'pick' ? !!pbPickOn : !!pbSpacingOn; }
+    function pbRelaySet(tool, on) { if (tool === 'pick') pbPickSet(on); else pbSpacingSet(on); }
+    function pbRelayIsChild() { return document.body.classList.contains('pb-embed') && window.parent !== window; }
+    function pbRelayFrames() {
+      // /explore/<target> is the compare page: it frames options only to look at them
+      if (/^\/explore\/[^\/]+\/?$/.test(location.pathname)) return [];
+      return Array.prototype.filter.call(document.querySelectorAll('iframe[src]'), function (f) {
+        try { return !!f.contentWindow && new URL(f.getAttribute('src'), location.href).searchParams.get('embed') === '1'; } catch (e) { return false; }
+      });
+    }
+    function pbRelayTell(win, tool, on) {
+      try { win.postMessage({ source: 'pb', v: 1, type: 'pb:tool', tool: tool, on: !!on }, '*'); } catch (e) { /* a frame that is gone */ }
+    }
+    // Called at the end of pbPickSet / pbSpacingSet: tell the frames below, report to the page above.
+    function pbRelayChanged(tool) {
+      var on = pbRelayOn(tool);
+      if (pbRelayIsChild()) {
+        try { window.parent.postMessage({ source: 'pb-embed', v: 1, type: 'pb:tool-state', tool: tool, on: on }, '*'); } catch (e) { /* no parent to tell */ }
+      }
+      pbRelayFrames().forEach(function (f) { if (f.contentWindow !== pbRelaySkip) pbRelayTell(f.contentWindow, tool, on); });
+    }
+    function pbRelayOnMessage(ev) {
+      var m = ev && ev.data;
+      if (!m || typeof m !== 'object' || m.v !== 1) return;
+      try {
+        if (m.source === 'pb' && m.type === 'pb:tool') {
+          if (!pbRelayIsChild() || ev.source !== window.parent) return;
+          if (pbRelayTools().indexOf(m.tool) < 0) {   // a tool this shell does not have: say so once
+            if (typeof m.tool !== 'string' || m.tool.length > 32 || pbRelayAsked.indexOf(m.tool) >= 0) return;
+            pbRelayAsked.push(m.tool);
+            window.parent.postMessage({ source: 'pb-embed', v: 1, type: 'pb:tool-state', tool: m.tool, on: false, supported: false }, '*');
+            return;
+          }
+          pbRelaySet(m.tool, m.on === true);
+        } else if (m.source === 'pb-embed' && (m.type === 'pb:tool-state' || m.type === 'pb:ready')) {
+          var from = pbRelayFrames().filter(function (f) { return f.contentWindow === ev.source; })[0];
+          if (!from) return;
+          if (m.type === 'pb:ready') { pbRelayTools().forEach(function (t) { if (pbRelayOn(t)) pbRelayTell(from.contentWindow, t, true); }); return; }
+          if (m.supported === false || pbRelayTools().indexOf(m.tool) < 0 || typeof m.on !== 'boolean' || m.on === pbRelayOn(m.tool)) return;
+          pbRelaySkip = ev.source;   // the frame that reported is not told what it just said
+          try { pbRelaySet(m.tool, m.on); } finally { pbRelaySkip = null; }
+        }
+      } catch (e) { /* a malformed message never breaks the shell */ }
+    }
+    (function pbRelayWire() {
+      window.addEventListener('message', pbRelayOnMessage);
+      if (!pbRelayIsChild()) return;
+      var ready = function () { try { window.parent.postMessage({ source: 'pb-embed', v: 1, type: 'pb:ready' }, '*'); } catch (e) { /* no parent */ } };
+      if (document.readyState === 'complete') ready(); else window.addEventListener('load', ready);
     })();
 
     /* =====================================================================================
