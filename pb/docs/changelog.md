@@ -2,7 +2,7 @@
 
 All notable changes to Product Builder. Format follows [Keep a Changelog](https://keepachangelog.com/).
 
-## [Unreleased]
+## [3.2.0] — 2026-11-09
 
 *The activity strip says which tool Claude is using and how many agents are running, and its motion is quieter
 and clearer.*
