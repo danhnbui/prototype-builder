@@ -2,7 +2,7 @@
 
 All notable changes to Product Builder. Format follows [Keep a Changelog](https://keepachangelog.com/).
 
-## [Unreleased]
+## [3.2.1] — 2026-11-09
 
 *A server belongs to no chat session: the rules now say so, and a hook says so at the moment it matters.*
 
