@@ -6,9 +6,14 @@ All notable changes to Product Builder. Format follows [Keep a Changelog](https:
 
 - **Pick and Spacing say when they are on.** Pressing `I` or `M` (or clicking the chip) changed `aria-pressed` and a faint
   wash on the bar chip, about 1.2:1 against the dark bar, and nothing else, so the key looked like it did nothing. The chip
-  now wears the tool colour (`--pb-pick`, the inspector's) while the mode is on, and the tool toast says "Pick on" or
-  "Spacing on" with how to leave it, and "Pick off" or "Spacing off" when it ends. Leaving the Prototype tab still ends
-  the mode without a toast. (`pb/template/chrome.css`, `pbPickSet` and `pbSpacingSet` in `pb/template/prototype.html`.)
+  now turns `--pb-info` blue (the blue of the activity strip's "Thinking" dots) while the mode is on, and the tool toast
+  says "Pick on" or "Spacing on" with how to leave it, and "Pick off" or "Spacing off" when it ends. Leaving the
+  Prototype tab still ends the mode without a toast. (`pb/template/chrome.css`, `pbPickSet` and `pbSpacingSet` in
+  `pb/template/prototype.html`.)
+- **The tool toast sits top-centre in the bar's colours.** It was bottom-right in `--pb-ink`, which in dark mode is light
+  on a dark bar. It is now centred just under the bar, on `--pb-page` with a hairline, the same ground as the bar. This
+  applies to every tool toast ("Copied", "Session reset", and so on), not only Pick and Spacing. pass / fail keep their
+  status colours. (`.pb-toast` in `pb/template/chrome.css`.)
 
 ## [3.1.0] — 2026-11-08
 

@@ -238,9 +238,10 @@
 .pb-bar-item[aria-pressed="true"] { color: var(--pb-ink); background: var(--pb-wash); }
 .pb-bar-item[aria-pressed="true"]:hover { background: var(--pb-press); }
 /* Pick and Spacing are modes that change what the pointer does, and the wash alone is about 1.2:1 against a dark bar,
-   so on they wear the tool colour (--pb-pick, the one the inspector box and label already use). */
-.meta-pick.pb-bar-item[aria-pressed="true"], .meta-spacing.pb-bar-item[aria-pressed="true"] { color: var(--pb-on-pick); background: var(--pb-pick); }
-.meta-pick.pb-bar-item[aria-pressed="true"]:hover, .meta-spacing.pb-bar-item[aria-pressed="true"]:hover { background: color-mix(in srgb, var(--pb-pick) 88%, var(--pb-ink)); }
+   so on they wear --pb-info, the blue of the activity strip's "Thinking" dots: the one colour the bar already uses
+   for "this is live". */
+.meta-pick.pb-bar-item[aria-pressed="true"], .meta-spacing.pb-bar-item[aria-pressed="true"] { color: var(--pb-page); background: var(--pb-info); }
+.meta-pick.pb-bar-item[aria-pressed="true"]:hover, .meta-spacing.pb-bar-item[aria-pressed="true"]:hover { background: color-mix(in srgb, var(--pb-info) 88%, var(--pb-ink)); }
 .pb-bar-item svg { flex: none; width: var(--pb-ico-sm); height: var(--pb-ico-sm); stroke-width: var(--pb-stroke); }
 .pb-bar-item .pb-ico--lg { width: var(--pb-ico); height: var(--pb-ico); }
 .pb-bar-item .pb-kbd { margin-left: var(--pb-s1); }
@@ -562,22 +563,21 @@ dialog.pb-dlg::backdrop { background: var(--pb-scrim); }
 .pb-fld-m.is-warn { color: var(--pb-warn); }
 .pb-fld-err { margin: 0; color: var(--pb-fail); font-size: var(--pb-t-sm); }
 
-/* the tool toast — bottom RIGHT, ink on the page's colour. The product's own toast (.proto-toast, the
-   prototype shell) is bottom-centre of the stage, so the two never share a corner. Below the width
-   where their boxes could meet, and only while a product toast is on screen, the tool's stacks above it.
-   tone: default is ink; pass / fail are the tool's status colours on their own ground. */
+/* the tool toast — TOP CENTRE, just under the bar, in the bar's own colours (--pb-page / --pb-ink, a hairline
+   to lift it off the page), so it reads as the tool speaking and not as part of the product. The product's own
+   toast (.proto-toast, the prototype shell) is bottom-centre of the stage, so the two never meet.
+   tone: default is the bar's look; pass / fail are the tool's status colours on their own ground. */
 .pb-toast {
-  position: fixed; right: var(--pb-gutter); bottom: var(--pb-s5); z-index: 3000; transform: translateY(.75rem);
-  max-width: min(22rem, calc(100vw - var(--pb-gutter) * 2)); padding: var(--pb-s2) var(--pb-s4); border-radius: var(--pb-r-lg);
-  background: var(--pb-ink); color: var(--pb-on-ink); box-shadow: var(--pb-shadow);
-  font: var(--pb-w-reg) var(--pb-t-md)/1.4 var(--pb-font);
+  position: fixed; left: 50%; top: calc(var(--pb-bar-h) + var(--pb-s3)); z-index: 3000; transform: translate(-50%, -.75rem);
+  width: max-content; max-width: min(28rem, calc(100vw - var(--pb-gutter) * 2)); padding: var(--pb-s2) var(--pb-s4); border-radius: var(--pb-r-lg);
+  background: var(--pb-page); color: var(--pb-ink); box-shadow: 0 0 0 var(--pb-hair-w) var(--pb-hair), var(--pb-shadow);
+  font: var(--pb-w-reg) var(--pb-t-md)/1.4 var(--pb-font); text-align: center;
   opacity: 0; pointer-events: none; transition: opacity var(--pb-t), transform var(--pb-t);
 }
-.pb-toast.is-on { opacity: 1; transform: translateY(0); }
+.pb-toast.is-on { opacity: 1; transform: translate(-50%, 0); }
 .pb-toast--pass { background: var(--pb-pass-bg); color: var(--pb-pass); box-shadow: 0 0 0 var(--pb-hair-w) var(--pb-pass), var(--pb-shadow); }
 .pb-toast--fail { background: var(--pb-fail-bg); color: var(--pb-fail); box-shadow: 0 0 0 var(--pb-hair-w) var(--pb-fail), var(--pb-shadow); }
 .pb-toast small { display: block; margin-top: .125rem; font-size: var(--pb-t-sm); opacity: .8; overflow-wrap: anywhere; }
-@media (max-width: 76em) { body:has(.proto-toast-wrap > .proto-toast) .pb-toast { bottom: calc(var(--pb-s5) + 4rem); } }
 
 /* ⌘K */
 .pb-cmdk-scrim { position: fixed; inset: 0; z-index: 2000; background: var(--pb-scrim); }
