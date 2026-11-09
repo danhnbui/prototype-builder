@@ -231,6 +231,16 @@ bounds what it starts and shows what accumulates:
 - **One way to start a preview: `serve.py registry.json --ensure`.** It is idempotent and detached — it
   prints the URL whether it started a server or found this project's running one, so calling it twice is
   harmless and it is also how a stopped preview is restarted. `/pb:preview` and `explore.py link` use it.
+- **A preview belongs to no chat session.** Run `--ensure` as a plain (foreground) command: it returns
+  once the URL answers and the server lives on, reparented away from the caller. Claude Code stops a Bash
+  `run_in_background` task, and every process it started, when the session that started it ends. People
+  open and close many short sessions a day to save tokens, so a server tied to one dies in minutes
+  ("the server dies after 5 minutes"). A server's life is set by idle time alone.
+- **A server a project adds in front of pb** (a router that puts several apps on one origin, a wrapper
+  that changes a header) keeps the same contract: one idempotent, detached start command that reuses a
+  running copy and prints the URL; an idle exit counted from the last request and held off by any open
+  live-reload stream; `--status` and `--stop` that act on the pid the server's own health answer names; a
+  record file it removes on exit. It never runs as a background task either.
 - **A preview stops itself after 8 hours with no browser tab open and no request** and drops
   `.preview/server.json` (`--idle-exit MINUTES`, `PB_PREVIEW_IDLE_MIN` override it). Do not pass
   `--idle-exit 0`: a server that never exits is how three of four became orphans. Inspect with
@@ -252,8 +262,9 @@ bounds what it starts and shows what accumulates:
 The rules agents follow:
 
 - **NEVER hand-write a Playwright script to look at a prototype** — use `shot.py` (and `test_run.py` to test).
-- **NEVER start `serve.py` with `&` or `nohup`, and never with `--idle-exit 0`** — `serve.py registry.json --ensure`
-  starts or finds it. `explore.py link` does the same when it needs one.
+- **NEVER start a server (`serve.py` or one the project adds) with `run_in_background`, `&` or `nohup`, and
+  never with `--idle-exit 0`** — `serve.py registry.json --ensure`, run as a plain command, starts or finds it.
+  `explore.py link` does the same when it needs one.
 - **NEVER `kill` or `pkill` a preview, or hunt for it with `lsof`** — `serve.py --status` finds it and
   `serve.py --stop` stops it; it also exits by itself after 8 idle hours.
 - **NEVER write `registry.json` by hand** (`json.dump`, `open(…, 'w')`, a redirect) — `slice.py set`.

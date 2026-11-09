@@ -3,8 +3,8 @@
 
 Reads the hook JSON on stdin and, inside a pb project, prints
 `{"hookSpecificOutput": {"hookEventName": "PreToolUse", "additionalContext": "..."}}` when the
-command is a hand-written Playwright script, `--idle-exit 0`, a detached `serve.py` or a `kill` of a
-preview, and names the pb tool to use instead. (Hand writes to registry.json, inline parsing of it
+command is a hand-written Playwright script, `--idle-exit 0`, a detached `serve.py`, a server started as a
+`run_in_background` task (it dies with the session) or a `kill` of a preview, and names the pb tool to use instead. (Hand writes to registry.json, inline parsing of it
 and the other call-time rules belong to `route.py`.)
 
 It only advises. It never prints `permissionDecision` (that would skip the user's permission
@@ -24,6 +24,9 @@ DETACHED = re.compile(r"\bnohup\b|(?<![&>\d])&\s*(?:$|;)", re.M)
 KILL = re.compile(r"(?:^|[;&|(`]|\$\(|\bxargs\s+(?:-\S+\s+)*)\s*(?:sudo\s+)?(?:kill|pkill|killall)\b", re.M)
 KILL_TARGET = re.compile(r"serve\.py|\blsof\b|\bport\b|:\d{4,5}\b", re.I)
 LSOF_T = re.compile(r"\blsof\s+-\w*t")
+# a long-lived local server: pb's serve.py, a project's own serve*.py (a router, a wrapper), or http.server
+SERVER = re.compile(r"\bserve[\w-]*\.py\b|\bhttp\.server\b")
+SERVER_ONESHOT = re.compile(r"--(?:ensure|status|stop|help)\b")
 
 MAX_CHILDREN = 300   # a folder with more entries than this is not "the folder above a registry"
 
@@ -69,9 +72,14 @@ def pb_project(folder):
     return found[0] if found else None
 
 
-def advise(cmd):
-    """The advice lines for this command (empty when it is fine)."""
+def advise(cmd, background=False):
+    """The advice lines for this command (empty when it is fine). `background` is the Bash call's
+    `run_in_background`: Claude Code stops such a task, and what it started, when the session ends."""
     out = []
+    if background and SERVER.search(cmd) and not SERVER_ONESHOT.search(cmd) and not READ_ONLY.match(cmd):
+        out.append("do not run a server as a background task: it dies when this session ends. Run "
+                   "`serve.py registry.json --ensure` (or the project's own start command) as a plain command; "
+                   "it detaches, reuses a running one and stops itself when idle.")
     if PLAYWRIGHT.search(cmd) and not RUNS_PB_BROWSER.search(cmd) and not READ_ONLY.match(cmd):
         out.append("a hand-written Playwright script is not how pb looks at a render: use "
                    "`shot.py registry.json --screen <id>`, with `--step click:<CSS>` / `fill:<CSS>=<VALUE>` / "
@@ -98,7 +106,7 @@ def main():
     folder = data.get("cwd") if isinstance(data.get("cwd"), str) and data.get("cwd") else os.getcwd()
     if not pb_project(folder):
         return
-    lines = advise(cmd)
+    lines = advise(cmd, (data.get("tool_input") or {}).get("run_in_background") is True)
     if not lines:
         return
     out = {"hookSpecificOutput": {"hookEventName": "PreToolUse",

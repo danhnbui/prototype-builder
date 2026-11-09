@@ -93,7 +93,7 @@ Usage:
   python3 serve.py [registry.json] --status [--json]    exit 0 running · 1 not
   python3 serve.py [registry.json] --stop [--json]      exit 0 stopped / was not running · 1 could not
 """
-import argparse, datetime, glob, hashlib, importlib, json, math, mimetypes, os, re, select, signal, socket, sys, tempfile, threading, time, traceback, unicodedata, urllib.parse, webbrowser
+import argparse, datetime, glob, hashlib, importlib, json, math, mimetypes, os, re, select, signal, socket, socketserver, sys, tempfile, threading, time, traceback, unicodedata, urllib.parse, webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from html import escape as _esc
@@ -1849,6 +1849,15 @@ class Handler(BaseHTTPRequestHandler):
 
 class PreviewServer(ThreadingHTTPServer):
     daemon_threads = True
+
+    def server_bind(self):
+        # HTTPServer.server_bind sets server_name = socket.getfqdn(host): a reverse-DNS lookup that can stall
+        # for many seconds before the URL is printed (GitHub's macos-15 runners: every test that boots a
+        # preview timed out with no output). A local preview has no use for the FQDN; the bound host is enough.
+        socketserver.TCPServer.server_bind(self)
+        host, port = self.server_address[:2]
+        self.server_name = host
+        self.server_port = port
 
     def handle_error(self, request, client_address):
         # A browser closing a kept-alive or SSE connection raises these mid-request —

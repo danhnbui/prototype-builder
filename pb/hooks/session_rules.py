@@ -39,7 +39,7 @@ def digest(plugin_root, project):
         ("- %s registry.json --ensure   start or reuse the preview, prints the URL" % os.path.join(tools, "serve.py"), 0),
         ("- %s registry.json --screen <id>   look at a render" % os.path.join(tools, "shot.py"), 0),
         ("- %s get|set <kind> <id>   read or patch the registry" % os.path.join(tools, "slice.py"), 0),
-        ("NEVER: a hand-written Playwright script; serve.py with & / nohup / --idle-exit 0;", 0),
+        ("NEVER: a Playwright script; a server in run_in_background/&/nohup/--idle-exit 0;", 0),
         ("kill a preview (serve.py --stop); json.dump or a redirect into registry.json.", 0),
         ("After a change use the lowest check that answers it: none, lint_registry.py --exec, shot.py --no-png --eval,", 2),
         ("shot.py --selector, and every width only for a new screen. DevTools is not how pb looks.", 2),

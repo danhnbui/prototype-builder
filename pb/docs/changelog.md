@@ -2,6 +2,30 @@
 
 All notable changes to Product Builder. Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [3.2.1] — 2026-11-09
+
+*A server belongs to no chat session: the rules now say so, and a hook says so at the moment it matters.*
+
+- **Never start a server as a Bash `run_in_background` task.** Claude Code stops such a task, and every process it
+  started, when the session that started it ends. People open and close many short sessions a day to save tokens,
+  so a preview, or a router a project put in front of it, started that way died within minutes ("the server dies
+  after 5 minutes"). The rule already named `&` and `nohup`; it now names `run_in_background` too, in the canon
+  (§ *pb bounds its own footprint*), the session digest, `/pb:preview` and the sandbox-test skill. Run
+  `serve.py registry.json --ensure` as a plain command: it detaches, reuses a running server, prints the URL and
+  returns, and the server's life is set by its idle exit alone.
+- **The same contract for a server a project adds.** A router that puts several apps on one origin, or a wrapper
+  that changes a header, keeps the rules a preview keeps: one idempotent, detached start command that reuses a
+  running copy; an idle exit counted from the last request and held off by an open live-reload stream;
+  `--status` / `--stop` that act on the pid the server's own health answer names; a record removed on exit.
+- **`bash_advice.py` speaks up.** A Bash call with `run_in_background` that starts `serve.py`, a project's own
+  `serve*.py` or `http.server` gets one line of advice naming `--ensure`. A one-shot call (`--ensure`, `--status`,
+  `--stop`) and the same command run in the foreground stay silent. Advice only, as before: no permission decision.
+- **The preview starts without a reverse-DNS lookup.** `serve.py` inherited `HTTPServer.server_bind`, which calls
+  `socket.getfqdn()` on the bound host before the URL is printed. On GitHub's macos-15 runners that lookup stalled,
+  so every test that boots a preview (`explore_tool`, `serve_host_guard`, `serve_idle`, `serve_meta`,
+  `test_run_reuse`) timed out with no output and the `mac (python 3.9)` job stayed red. The server now keeps the
+  bound host as its name; nothing in pb read the FQDN.
+
 ## [3.2.0] — 2026-11-09
 
 *The activity strip says which tool Claude is using and how many agents are running, and its motion is quieter
