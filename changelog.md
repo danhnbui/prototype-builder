@@ -2,7 +2,7 @@
 
 All notable changes to Product Builder. Format follows [Keep a Changelog](https://keepachangelog.com/).
 
-## [Unreleased]
+## [3.1.1] — 2026-11-09
 
 - **Pick and Spacing say when they are on.** Pressing `I` or `M` (or clicking the chip) changed `aria-pressed` and a faint
   wash on the bar chip, about 1.2:1 against the dark bar, and nothing else, so the key looked like it did nothing. The chip
