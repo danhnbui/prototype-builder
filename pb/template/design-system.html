@@ -367,8 +367,11 @@
   /* What is listed. A component page is for the things a designer composes and checks: every
      molecule, organism and template, plus an atom that is card-shaped (`shape: "card"` in its
      sidecar, measured by spec_measure.py — never re-derived here). Every other atom appears only
-     as an `instance` part inside a parent's Anatomy, with its states shown inline. */
+     as an `instance` part inside a parent's Anatomy, with its states shown inline — unless the project
+     sets `meta.dsSite.listAtoms: true`: then every atom gets its own page too (a project whose atoms
+     are what everything else is built from, and whose designers need to check them directly). */
   var LISTED_LEVELS = { molecule:1, organism:1, template:1 };
+  function listAtoms(){ var m = PB_REGISTRY && PB_REGISTRY.meta, s = m && m.dsSite; return !!(s && typeof s === 'object' && s.listAtoms === true); }
   var TABS = [['overview','Overview'], ['variants','Variants & spec'], ['anatomy','Anatomy']];
   var TAB_ALIAS = { spec:'variants' };   // the Spec tab became part of Variants & spec: an old #/c/<id>/spec link lands there
   var TAB_IDS = TABS.map(function(t){ return t[0]; });
@@ -520,6 +523,13 @@
       p.options.forEach(function(o){ combos.forEach(function(cc){ var n=Object.assign({},cc); n[p.id]=o.value; next.push(n); }); });
       combos = next;
     });
+    /* `variantExclude` (optional, on the component): a list of partial combinations that mean nothing,
+       e.g. [{ "kind": "post", "state": "confidential" }]. A combination that matches every key of one
+       entry is not drawn. Nothing else is filtered; with no list the grid is the full product. */
+    var ex = Array.isArray(c.variantExclude) ? c.variantExclude.filter(function(e){ return e && typeof e === 'object' && Object.keys(e).length; }) : [];
+    if (ex.length) combos = combos.filter(function(cc){
+      return !ex.some(function(e){ return Object.keys(e).every(function(k){ return cc[k] === e[k]; }); });
+    });
     var capped = combos.length > MAX_CELLS;
     combos = combos.slice(0, MAX_CELLS).map(function(cc){ return Object.assign({}, base, cc); });
     return { combos:combos, axes:enums.map(function(p){ return p.id; }), capped:capped };
@@ -553,7 +563,7 @@
   function cap(s){ s = String(s == null ? '' : s); return s.charAt(0).toUpperCase() + s.slice(1); }
   function domId(s){ return String(s).replace(/[^\w-]/g, '_'); }
   function isCardAtom(c){ return c.level === 'atom' && c.shape === 'card'; }
-  function isListed(c){ return !!LISTED_LEVELS[c.level] || isCardAtom(c); }
+  function isListed(c){ return !!LISTED_LEVELS[c.level] || isCardAtom(c) || (c.level === 'atom' && listAtoms()); }
   function isLibrary(c){ return c.scope === 'global' || !!c.dsMatch; }
   function levelLabel(c){ return isCardAtom(c) ? 'Card' : cap(c.level || 'component'); }
   function nameOf(c){ return c.name || c.id; }
