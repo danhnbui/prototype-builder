@@ -2,6 +2,18 @@
 
 All notable changes to Product Builder. Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [Unreleased] — design-system site: atom pages and variant exclusion
+
+*Two optional registry fields the design-system site reads. A project without them renders exactly as before.*
+
+- **`meta.dsSite.listAtoms: true` gives every atom its own page.** By default the site lists molecules, organisms,
+  templates and card-shaped atoms only; an atom otherwise appears just as an instance inside a parent's Anatomy. A
+  project whose atoms are what everything else is built from (links, labels, buttons) needs to check them directly.
+- **`components[].variantExclude` drops meaningless cells from the Variants grid.** The grid is every combination of
+  the enum props; an entry such as `{ "kind": "post", "state": "confidential" }` removes each combination that
+  matches all of its keys. Found on a merged component whose `state` only means something for one `kind`.
+- No schema bump and no version update: both fields are optional and nothing existing changes shape.
+
 ## [3.2.1] — 2026-11-09
 
 *A server belongs to no chat session: the rules now say so, and a hook says so at the moment it matters.*
