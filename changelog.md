@@ -2,7 +2,7 @@
 
 All notable changes to Product Builder. Format follows [Keep a Changelog](https://keepachangelog.com/).
 
-## [Unreleased] — design-system site: atom pages and variant exclusion
+## [3.3.0] — 2026-11-21
 
 *Two optional registry fields the design-system site reads. A project without them renders exactly as before.*
 
